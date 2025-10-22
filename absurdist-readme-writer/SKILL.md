@@ -1,7 +1,8 @@
 ---
 name: absurdist-readme-writer
 description: Toolkit for creating an entertainingly stupid README that manages to give off Tim & Eric, Steve Brule vibes while maintaining a level of technical acumen that is expected of a modern open source project. This skill applies when users request a silly or absurd README.
-license: Complete terms in LICENSE.txt
+aliases:
+modified: 2025-10-22T05:23:57-04:00
 ---
 
 # Absurdist Comedy Writer
