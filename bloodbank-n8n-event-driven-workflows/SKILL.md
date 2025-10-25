@@ -1,7 +1,6 @@
 ---
 name: bloodbank-n8n-event-driven-workflows
 description: Use this skill when working on any event driven n8n workflow that subscribes to or publishes 33GOD Bloodbank events. This skill will ensure a standard convention is adhered to across all event-driven workflows, and modularity is maximized for robust and rapid expansion.
-version: 1.0.0
 ---
 
 // n8n Code Node
