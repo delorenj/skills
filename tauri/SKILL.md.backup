@@ -1,0 +1,120 @@
+---
+name: tauri
+description: Tauri framework for building cross-platform desktop and mobile apps. Use for desktop app development, native integrations, Rust backend, and web-based UIs.
+---
+
+# Tauri Skill
+
+Comprehensive assistance with tauri development, generated from official documentation.
+
+## When to Use This Skill
+
+This skill should be triggered when:
+- Working with tauri
+- Asking about tauri features or APIs
+- Implementing tauri solutions
+- Debugging tauri code
+- Learning tauri best practices
+
+## Quick Reference
+
+### Common Patterns
+
+*Quick reference patterns will be added as you use the skill.*
+
+### Example Code Patterns
+
+**Example 1** (yaml):
+```yaml
+name: 'publish'
+
+on:
+  push:
+    tags:
+      - 'app-v*'
+```
+
+**Example 2** (toml):
+```toml
+[build-dependencies]
+tauri-build = "%version%"
+
+[dependencies]
+tauri = { version = "%version%" }
+```
+
+**Example 3** (shell):
+```shell
+cd src-tauri
+cargo update
+```
+
+**Example 4** (toml):
+```toml
+# Trunk.toml
+   [watch]
+   ignore = ["./src-tauri"]
+
+   [serve]
+   ws_protocol = "ws"
+```
+
+**Example 5** (rust):
+```rust
+let data = app.state::<AppData>();
+```
+
+## Reference Files
+
+This skill includes comprehensive documentation in `references/`:
+
+- **core_concepts.md** - Core Concepts documentation
+- **development.md** - Development documentation
+- **distribution.md** - Distribution documentation
+- **getting_started.md** - Getting Started documentation
+- **other.md** - Other documentation
+- **plugins.md** - Plugins documentation
+- **reference.md** - Reference documentation
+- **security.md** - Security documentation
+- **tutorials.md** - Tutorials documentation
+
+Use `view` to read specific reference files when detailed information is needed.
+
+## Working with This Skill
+
+### For Beginners
+Start with the getting_started or tutorials reference files for foundational concepts.
+
+### For Specific Features
+Use the appropriate category reference file (api, guides, etc.) for detailed information.
+
+### For Code Examples
+The quick reference section above contains common patterns extracted from the official docs.
+
+## Resources
+
+### references/
+Organized documentation extracted from official sources. These files contain:
+- Detailed explanations
+- Code examples with language annotations
+- Links to original documentation
+- Table of contents for quick navigation
+
+### scripts/
+Add helper scripts here for common automation tasks.
+
+### assets/
+Add templates, boilerplate, or example projects here.
+
+## Notes
+
+- This skill was automatically generated from official documentation
+- Reference files preserve the structure and examples from source docs
+- Code examples include language detection for better syntax highlighting
+- Quick reference patterns are extracted from common usage examples in the docs
+
+## Updating
+
+To refresh this skill with updated documentation:
+1. Re-run the scraper with the same configuration
+2. The skill will be rebuilt with the latest information

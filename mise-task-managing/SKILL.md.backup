@@ -1,0 +1,121 @@
+---
+name: mise-task-managing
+description: Use this skill when creating tasks to encapsulate complex devops workflows (packaging releases, managing dev environments, performing database operations), provide a central hub for all dev commands and invocables (wrap scripts, cli commands, db queries, one-liners, etc), and any other devops related services.
+---
+
+# Mise-Task-Managing Skill
+
+Comprehensive assistance with mise-task-managing development, generated from official documentation.
+
+## When to Use This Skill
+
+This skill should be triggered when:
+- Working with mise-task-managing
+- Asking about mise-task-managing features or APIs
+- Implementing mise-task-managing solutions
+- Debugging mise-task-managing code
+- Learning mise-task-managing best practices
+
+## Quick Reference
+
+### Common Patterns
+
+**Pattern 1:** On this pagemise unset ​Usage: mise unset [-f --file <FILE>] [-g --global] [ENV_KEY]…Source code: src/cli/unset.rsRemove environment variable(s) from the config file.By default, this command modifies mise.toml in the current directory.Arguments ​[ENV_KEY]… ​Environment variable(s) to remove e.g.: NODE_ENVFlags ​-f --file <FILE> ​Specify a file to use instead of mise.toml-g --global ​Use the global config fileExamples:# Remove NODE_ENV from the current directory's config $ mise unset NODE_ENV # Remove NODE_ENV from the global config $ mise unset NODE_ENV -g Edit this pageLast updated: PagerPrevious pagemise uninstallNext pagemise unuse
+
+```
+mise unset
+```
+
+**Pattern 2:** On this pagemise plugins ​Usage: mise plugins [FLAGS] <SUBCOMMAND>Aliases: pSource code: src/cli/plugins/mod.rsManage pluginsFlags ​-c --core ​The built-in plugins only Normally these are not shown--user ​List installed pluginsThis is the default behavior but can be used with --core to show core and user plugins-u --urls ​Show the git url for each plugin e.g.: https://github.com/asdf-vm/asdf-nodejs.gitSubcommands ​mise plugins install [FLAGS] [NEW_PLUGIN] [GIT_URL]mise plugins link [-f --force] <NAME> [DIR]mise plugins ls [-u --urls]mise plugins ls-remote [-u --urls] [--only-names]mise plugins uninstall [-p --purge] [-a --all] [PLUGIN]…mise plugins update [-j --jobs <JOBS>] [PLUGIN]… Edit this pageLast updated: PagerPrevious pagemise outdatedNext pagemise plugins install
+
+```
+mise plugins
+```
+
+**Pattern 3:** On this pagemise run ​Usage: mise run [FLAGS]Aliases: rSource code: src/cli/run.rsRun task(s)This command will run a tasks, or multiple tasks in parallel. Tasks may have dependencies on other tasks or on source files. If source is configured on a tasks, it will only run if the source files have changed.Tasks can be defined in mise.toml or as standalone scripts. In mise.toml, tasks take this form:[tasks.build] run = "npm run build" sources = ["src/**/*.ts"] outputs = ["dist/**/*.js"]Alternatively, tasks can be defined as standalone scripts. These must be located in mise-tasks, .mise-tasks, .mise/tasks, mise/tasks or .config/mise/tasks. The name of the script will be the name of the tasks.$ cat .mise/tasks/build&lt;&lt;EOF #!/usr/bin/env bash npm run build EOF $ mise run buildFlags ​--no-cache ​Do not use cache on remote tasks-C --cd <CD> ​Change to this directory before executing the command-c --continue-on-error ​Continue running tasks even if one fails-n --dry-run ​Don't actually run the tasks(s), just print them in order of execution-f --force ​Force the tasks to run even if outputs are up to date-s --shell <SHELL> ​Shell to use to run toml tasksDefaults to sh -c -o errexit -o pipefail on unix, and cmd /c on Windows Can also be set with the setting MISE_UNIX_DEFAULT_INLINE_SHELL_ARGS or MISE_WINDOWS_DEFAULT_INLINE_SHELL_ARGS Or it can be overridden with the shell property on a task.-t --tool… <TOOL@VERSION> ​Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10-j --jobs <JOBS> ​Number of tasks to run in parallel [default: 4] Configure with jobs config or MISE_JOBS env var-r --raw ​Read/write directly to stdin/stdout/stderr instead of by line Redactions are not applied with this option Configure with raw config or MISE_RAW env var-S --silent ​Don't show any output except for errors--timeout <TIMEOUT> ​Timeout for the task to complete e.g.: 30s, 5m--no-timings ​Hides elapsed time after each task completesDefault to always hide with MISE_TASK_TIMINGS=0-q --quiet ​Don't show extra output-o --output <OUTPUT> ​Change how tasks information is output when running tasksprefix - Print stdout/stderr by line, prefixed with the task's labelinterleave - Print directly to stdout/stderr instead of by linereplacing - Stdout is replaced each time, stderr is printed as istimed - Only show stdout lines if they are displayed for more than 1 secondkeep-order - Print stdout/stderr by line, prefixed with the task's label, but keep the order of the outputquiet - Don't show extra outputsilent - Don't show any output including stdout and stderr from the task except for errorsExamples:# Runs the "lint" tasks. This needs to either be defined in mise.toml # or as a standalone script. See the project README for more information. $ mise run lint # Forces the "build" tasks to run even if its sources are up-to-date. $ mise run build --force # Run "test" with stdin/stdout/stderr all connected to the current terminal. # This forces `--jobs=1` to prevent interleaving of output. $ mise run test --raw # Runs the "lint", "test", and "check" tasks in parallel. $ mise run lint ::: test ::: check # Execute multiple tasks each with their own arguments. $ mise tasks cmd1 arg1 arg2 ::: cmd2 arg1 arg2 Edit this pageLast updated: PagerPrevious pagemise reshimNext pagemise search
+
+```
+mise run
+```
+
+**Pattern 4:** On this pagemise settings ​Usage: mise settings [FLAGS] [SETTING] [VALUE] <SUBCOMMAND>Source code: src/cli/settings/mod.rsShow current settingsThis is the contents of ~/.config/mise/config.tomlNote that aliases are also stored in this file but managed separately with mise aliasesArguments ​[SETTING] ​Name of setting[VALUE] ​Setting value to setGlobal Flags ​-l --local ​Use the local config file instead of the global oneFlags ​-a --all ​List all settings-J --json ​Output in JSON format--json-extended ​Output in JSON format with sources-T --toml ​Output in TOML formatSubcommands ​mise settings add [-l --local] <SETTING> <VALUE>mise settings get [-l --local] <SETTING>mise settings ls [FLAGS] [SETTING]mise settings set [-l --local] <SETTING> <VALUE>mise settings unset [-l --local] <KEY>Examples:# list all settings $ mise settings # get the value of the setting "always_keep_download" $ mise settings always_keep_download # set the value of the setting "always_keep_download" to "true" $ mise settings always_keep_download=true # set the value of the setting "node.mirror_url" to "https://npm.taobao.org/mirrors/node" $ mise settings node.mirror_url https://npm.taobao.org/mirrors/node Edit this pageLast updated: PagerPrevious pagemise setNext pagemise settings add
+
+```
+mise settings
+```
+
+**Pattern 5:** On this pagemise ​Usage: mise [FLAGS] [TASK] <SUBCOMMAND>Usage: mise [FLAGS] [TASK] <SUBCOMMAND>Arguments ​[TASK] ​Task to run.Shorthand for mise task run <TASK>.Global Flags ​-C --cd <DIR> ​Change directory before running command-E --env… <ENV> ​Set the environment for loading mise.<ENV>.toml-j --jobs <JOBS> ​How many jobs to run in parallel [default: 8]--raw ​Read/write directly to stdin/stdout/stderr instead of by line-y --yes ​Answer yes to all confirmation prompts-q --quiet ​Suppress non-error messages--silent ​Suppress all task output and mise non-error messages-v --verbose… ​Show extra output (use -vv for even more)Flags ​--output <OUTPUT> ​--no-config ​Do not load any config filesCan also use MISE_NO_CONFIG=1Subcommands ​mise activate [FLAGS] [SHELL_TYPE]mise alias [-p --plugin <PLUGIN>] [--no-header] <SUBCOMMAND>mise alias get <PLUGIN> <ALIAS>mise alias ls [--no-header] [TOOL]mise alias set <ARGS>…mise alias unset <PLUGIN> [ALIAS]mise backends <SUBCOMMAND>mise backends lsmise bin-paths [TOOL@VERSION]…mise cache <SUBCOMMAND>mise cache clear [PLUGIN]…mise cache pathmise cache prune [--dry-run] [-v --verbose…] [PLUGIN]…mise completion [--include-bash-completion-lib] [SHELL]mise config [FLAGS] <SUBCOMMAND>mise config generate [-t --tool-versions <TOOL_VERSIONS>] [-o --output <OUTPUT>]mise config get [-f --file <FILE>] [KEY]mise config ls [FLAGS]mise config set [-f --file <FILE>] [-t --type <TYPE>] <KEY> <VALUE>mise deactivatemise doctor [-J --json] <SUBCOMMAND>mise doctor path [-f --full]mise en [-s --shell <SHELL>] [DIR]mise env [FLAGS] [TOOL@VERSION]…mise exec [FLAGS] [TOOL@VERSION]… [-- COMMAND]…mise fmt [FLAGS]mise generate <SUBCOMMAND>mise generate bootstrap [FLAGS]mise generate config [-t --tool-versions <TOOL_VERSIONS>] [-o --output <OUTPUT>]mise generate devcontainer [FLAGS]mise generate git-pre-commit [FLAGS]mise generate github-action [FLAGS]mise generate task-docs [FLAGS]mise generate task-stubs [-m --mise-bin <MISE_BIN>] [-d --dir <DIR>]mise generate tool-stub [FLAGS] <OUTPUT>mise implode [--config] [-n --dry-run]mise install [FLAGS] [TOOL@VERSION]…mise install-into <TOOL@VERSION> <PATH>mise latest [-i --installed] <TOOL@VERSION>mise link [-f --force] <TOOL@VERSION> <PATH>mise lock [FLAGS] [TOOL]…mise ls [FLAGS] [INSTALLED_TOOL]…mise ls-remote [--all] [TOOL@VERSION] [PREFIX]mise mcpmise outdated [FLAGS] [TOOL@VERSION]…mise plugins [FLAGS] <SUBCOMMAND>mise plugins install [FLAGS] [NEW_PLUGIN] [GIT_URL]mise plugins link [-f --force] <NAME> [DIR]mise plugins ls [-u --urls]mise plugins ls-remote [-u --urls] [--only-names]mise plugins uninstall [-p --purge] [-a --all] [PLUGIN]…mise plugins update [-j --jobs <JOBS>] [PLUGIN]…mise prune [FLAGS] [INSTALLED_TOOL]…mise registry [-b --backend <BACKEND>] [--hide-aliased] [NAME]mise reshim [-f --force]mise run [FLAGS]mise search [FLAGS] [NAME]mise self-update [FLAGS] [VERSION]mise set [FLAGS] [ENV_VAR]…mise settings [FLAGS] [SETTING] [VALUE] <SUBCOMMAND>mise settings add [-l --local] <SETTING> <VALUE>mise settings get [-l --local] <SETTING>mise settings ls [FLAGS] [SETTING]mise settings set [-l --local] <SETTING> <VALUE>mise settings unset [-l --local] <KEY>mise shell [FLAGS] <TOOL@VERSION>…mise sync <SUBCOMMAND>mise sync node [FLAGS]mise sync python [--pyenv] [--uv]mise sync ruby [--brew]mise tasks [FLAGS] [TASK] <SUBCOMMAND>mise tasks add [FLAGS] <TASK> [-- RUN]…mise tasks deps [--hidden] [--dot] [TASKS]…mise tasks edit [-p --path] <TASK>mise tasks info [-J --json] <TASK>mise tasks ls [FLAGS]mise tasks run [FLAGS] [TASK] [ARGS]…mise test-tool [FLAGS] [TOOLS]…mise tool [FLAGS] <TOOL>mise tool-stub <FILE> [ARGS]…mise trust [FLAGS] [CONFIG_FILE]mise uninstall [-a --all] [-n --dry-run] [INSTALLED_TOOL@VERSION]…mise unset [-f --file <FILE>] [-g --global] [ENV_KEY]…mise unuse [FLAGS] <INSTALLED_TOOL@VERSION>…mise upgrade [FLAGS] [TOOL@VERSION]…mise use [FLAGS] [TOOL@VERSION]…mise version [-J --json]mise watch [FLAGS] [TASK] [ARGS]…mise where <TOOL@VERSION>mise which [FLAGS] [BIN_NAME] Edit this pageLast updated: PagerPrevious pageCache BehaviorNext pagemise activate
+
+```
+mise
+```
+
+**Pattern 6:** On this pagemise tasks add ​Usage: mise tasks add [FLAGS] <TASK> [-- RUN]…Source code: src/cli/tasks/add.rsCreate a new taskArguments ​<TASK> ​Tasks name to add[-- RUN]… ​Flags ​--description <DESCRIPTION> ​Description of the task-a --alias… <ALIAS> ​Other names for the task--depends-post… <DEPENDS_POST> ​Dependencies to run after the task runs-w --wait-for… <WAIT_FOR> ​Wait for these tasks to complete if they are to run-D --dir <DIR> ​Run the task in a specific directory-H --hide ​Hide the task from mise task and completions-r --raw ​Directly connect stdin/stdout/stderr-s --sources… <SOURCES> ​Glob patterns of files this task uses as input--outputs… <OUTPUTS> ​Glob patterns of files this task creates, to skip if they are not modified--shell <SHELL> ​Run the task in a specific shell-q --quiet ​Do not print the command before running--silent ​Do not print the command or its output-d --depends… <DEPENDS> ​Add dependencies to the task--run-windows <RUN_WINDOWS> ​Command to run on windows-f --file ​Create a file task instead of a toml taskExamples:mise task add pre-commit --depends "test" --depends "render" -- echo pre-commit Edit this pageLast updated: PagerPrevious pagemise tasksNext pagemise tasks deps
+
+```
+mise tasks add
+```
+
+**Pattern 7:** On this pagemise fmt ​Usage: mise fmt [FLAGS]Source code: src/cli/fmt.rsFormats mise.tomlSorts keys and cleans up whitespace in mise.tomlFlags ​-a --all ​Format all files from the current directory-c --check ​Check if the configs are formatted, no formatting is done-s --stdin ​Read config from stdin and write its formatted version into stdoutExamples:mise fmt Edit this pageLast updated: PagerPrevious pagemise execNext pagemise generate
+
+```
+mise fmt
+```
+
+**Pattern 8:** On this pagemise ls ​Usage: mise ls [FLAGS] [INSTALLED_TOOL]…Aliases: listSource code: src/cli/ls.rsList installed and active tool versionsThis command lists tools that mise "knows about". These may be tools that are currently installed, or those that are in a config file (active) but may or may not be installed.It's a useful command to get the current state of your tools.Arguments ​[INSTALLED_TOOL]… ​Only show tool versions from [TOOL]Flags ​-c --current ​Only show tool versions currently specified in a mise.toml-g --global ​Only show tool versions currently specified in the global mise.toml-l --local ​Only show tool versions currently specified in the local mise.toml-i --installed ​Only show tool versions that are installed (Hides tools defined in mise.toml but not installed)--outdated ​Display whether a version is outdated-J --json ​Output in JSON format-m --missing ​Display missing tool versions--prefix <PREFIX> ​Display versions matching this prefix--prunable ​List only tools that can be pruned with mise prune--no-header ​Don't display headersExamples:$ mise ls node 20.0.0 ~/src/myapp/.tool-versions latest python 3.11.0 ~/.tool-versions 3.10 python 3.10.0 $ mise ls --current node 20.0.0 ~/src/myapp/.tool-versions 20 python 3.11.0 ~/.tool-versions 3.11.0 $ mise ls --json { "node": [ { "version": "20.0.0", "install_path": "/Users/jdx/.mise/installs/node/20.0.0", "source": { "type": "mise.toml", "path": "/Users/jdx/mise.toml" } } ], "python": [...] } Edit this pageLast updated: PagerPrevious pagemise lockNext pagemise ls-remote
+
+```
+mise ls
+```
+
+## Reference Files
+
+This skill includes comprehensive documentation in `references/`:
+
+- **cli_reference.md** - Cli Reference documentation
+- **configuration.md** - Configuration documentation
+- **dev_tools.md** - Dev Tools documentation
+- **environments.md** - Environments documentation
+- **getting_started.md** - Getting Started documentation
+- **tasks.md** - Tasks documentation
+
+Use `view` to read specific reference files when detailed information is needed.
+
+## Working with This Skill
+
+### For Beginners
+Start with the getting_started or tutorials reference files for foundational concepts.
+
+### For Specific Features
+Use the appropriate category reference file (api, guides, etc.) for detailed information.
+
+### For Code Examples
+The quick reference section above contains common patterns extracted from the official docs.
+
+## Resources
+
+### references/
+Organized documentation extracted from official sources. These files contain:
+- Detailed explanations
+- Code examples with language annotations
+- Links to original documentation
+- Table of contents for quick navigation
+
+### scripts/
+Add helper scripts here for common automation tasks.
+
+### assets/
+Add templates, boilerplate, or example projects here.
+
+## Notes
+
+- This skill was automatically generated from official documentation
+- Reference files preserve the structure and examples from source docs
+- Code examples include language detection for better syntax highlighting
+- Quick reference patterns are extracted from common usage examples in the docs
+
+## Updating
+
+To refresh this skill with updated documentation:
+1. Re-run the scraper with the same configuration
+2. The skill will be rebuilt with the latest information
