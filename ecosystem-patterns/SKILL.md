@@ -111,13 +111,32 @@ $VAULT/Projects/project-name/
 **Structure:**
 ```
 ~/.config/zshyzsh/
-├── aliases.zsh            # Custom aliases
+├── aliases.zsh            # Custom aliases (ALL aliases go here!)
 ├── functions.zsh          # Shell functions
 ├── platforms/             # OS-specific configs
 │   ├── macos-init.zsh
 │   └── linux-init.zsh
 ├── zellij/               # Multiplexer configs
 └── terminal_logger.sh    # Logging system
+```
+
+**Environment Variables:**
+- `$ZC` = `$ZSH_CUSTOM` = `~/.config/zshyzsh/` - Shell config directory
+- `$CLAUDE` = `$HOME/.claude` - Claude Code configs
+- `$SK` = `$CLAUDE/skills` - Skills directory
+- `$CM` = `$CLAUDE/commands` - Commands directory
+- `$DC` = `$HOME/DevCloud` - Cloud development
+
+**CRITICAL ALIAS PATTERN:**
+- **NEVER add aliases to `.zshrc` directly**
+- **ALWAYS add aliases to `$ZC/aliases.zsh`** (`~/.config/zshyzsh/aliases.zsh`)
+- For development CLIs: Use `cargo run --quiet --manifest-path=... --` pattern
+- For quick navigation: `alias zsk='cd $SK'`, `alias zcm='cd $CM'`
+
+**Example Development Alias:**
+```bash
+# In $ZC/aliases.zsh
+alias imi='cargo run --quiet --manifest-path=/home/delorenj/code/projects/33GOD/iMi/feat-merge/Cargo.toml --'
 ```
 
 **Detection Signals:**
@@ -127,8 +146,10 @@ $VAULT/Projects/project-name/
 
 **Application:**
 - Reference existing aliases before creating new ones
+- ALWAYS add new aliases to `$ZC/aliases.zsh`, never `.zshrc`
 - Maintain cross-platform compatibility
 - Follow modular organization pattern
+- Use `cargo run --quiet` for development CLIs
 
 ### 4. Tech Stack Preferences
 
@@ -386,6 +407,7 @@ $VAULT/
 - iMi worktrees for all project organization
 - Mise for tool versioning
 - Modular zsh configs in `~/.config/zshyzsh`
+- **ALL aliases in `$ZC/aliases.zsh`, NEVER in `.zshrc`**
 - Docker Compose for services in `~/docker`
 - Vault docs in `$VAULT/Projects/` for every project
 
