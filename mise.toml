@@ -1,7 +1,4 @@
-# Mise configuration
-[tools]
-python = "3.11"
-node = "20"
+[tasks.skilltree]
+description = "Update the skill-tree.md"
+run = "tree > skill-tree.md"
 
-[env]
-NODE_ENV = "development"
