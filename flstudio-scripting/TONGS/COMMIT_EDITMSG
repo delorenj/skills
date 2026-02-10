@@ -1,0 +1,8 @@
+Initial commit: FL Studio scripting skill with progressive disclosure
+
+273-line SKILL.md navigation guide + 14 domain-specific reference files
+covering all 427+ FL Studio Python API functions across transport, mixer,
+channels, arrangement, patterns, playlist, device, UI, plugins, screen,
+launchmap, utils, callbacks, piano roll, Edison, and PyFLP.
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>

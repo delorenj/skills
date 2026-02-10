@@ -1,0 +1,325 @@
+#!/usr/bin/env python3
+"""
+fal.ai Image-to-Image (Remix) Script
+
+Transform existing images using AI models while preserving composition.
+Supports style transfer, variations, and creative remixing.
+
+Usage:
+    uv run python fal-image-remix input.jpg "Transform into oil painting"
+    uv run python fal-image-remix -m flux-2/dev input.jpg "Anime style character"
+    uv run python fal-image-remix input.jpg "Cyberpunk neon style" --strength 0.8
+"""
+
+import os
+import sys
+import json
+import time
+from pathlib import Path
+from datetime import datetime
+from typing import Optional, Dict, Any
+
+import click
+from dotenv import load_dotenv
+import fal_client
+from PIL import Image
+from PIL.PngImagePlugin import PngInfo
+import requests
+
+# Load environment variables
+load_dotenv()
+
+# Model endpoint mapping for image-to-image
+MODEL_ENDPOINTS = {
+    "flux-2/dev": "fal-ai/flux/dev/image-to-image",
+    "flux-pro": "fal-ai/flux-pro",
+    "flux-1.1-pro": "fal-ai/flux-pro/v1.1",
+    "recraft/v3": "fal-ai/recraft/v3/text-to-image",  # Supports image input
+    "stable-diffusion-v35": "fal-ai/stable-diffusion-v35-large",
+    "imagen4": "fal-ai/imagen4/preview",
+    "ideogram/v2": "fal-ai/ideogram/v2",
+}
+
+# Model traits for intelligent selection
+MODEL_TRAITS = {
+    "flux-2/dev": ["general", "balanced", "fast", "free"],
+    "flux-pro": ["high-quality", "professional", "realistic"],
+    "flux-1.1-pro": ["ultra-quality", "premium", "detailed"],
+    "recraft/v3": ["vector", "brand", "illustration"],
+    "stable-diffusion-v35": ["artistic", "style", "complex"],
+    "ideogram/v2": ["realistic", "detailed"],
+}
+
+
+def select_model_from_prompt(prompt: str) -> str:
+    """
+    Select optimal model based on remix prompt.
+    
+    Args:
+        prompt: The transformation prompt
+        
+    Returns:
+        Model key from MODEL_ENDPOINTS
+    """
+    prompt_lower = prompt.lower()
+    
+    # Check for vector/illustration style
+    if any(kw in prompt_lower for kw in ["vector", "illustration", "brand", "logo", "flat"]):
+        return "recraft/v3"
+    
+    # Check for artistic/stylized
+    if any(kw in prompt_lower for kw in ["artistic", "painting", "art", "style"]):
+        return "stable-diffusion-v35"
+    
+    # Check for premium quality keywords
+    if any(kw in prompt_lower for kw in ["professional", "high quality", "detailed", "ultra"]):
+        return "flux-1.1-pro"
+    
+    # Default to fast, free option
+    return "flux-2/dev"
+
+
+def prepare_image_input(image_path: str) -> str:
+    """
+    Prepare image for upload to fal.ai.
+    
+    Args:
+        image_path: Path to local image or URL
+        
+    Returns:
+        Image URL (uploaded or direct)
+    """
+    # Handle URLs directly
+    if image_path.startswith(("http://", "https://")):
+        return image_path
+    
+    # Verify local file exists
+    image_full_path = Path(image_path).resolve()
+    if not image_full_path.exists():
+        raise FileNotFoundError(f"Image not found: {image_path}")
+    
+    # Upload to fal.ai storage
+    click.echo(f"⏳ Uploading image: {image_path}")
+    with open(image_full_path, "rb") as f:
+        image_data = f.read()
+        url = fal_client.upload(image_data, "image/png")
+    click.echo(f"✓ Image uploaded")
+    
+    return url
+
+
+def save_image_with_metadata(
+    image_url: str,
+    output_path: Path,
+    prompt: str,
+    model: str,
+    source_image: str,
+    metadata: Dict[str, Any]
+) -> None:
+    """
+    Download and save remixed image with metadata.
+    """
+    # Download image
+    response = requests.get(image_url, stream=True)
+    response.raise_for_status()
+    image = Image.open(response.raw)
+    
+    # Prepare metadata
+    png_info = PngInfo()
+    png_info.add_text("prompt", prompt)
+    png_info.add_text("model", model)
+    png_info.add_text("source_image", source_image)
+    png_info.add_text("metadata", json.dumps(metadata))
+    png_info.add_text("generated_at", datetime.now().isoformat())
+    png_info.add_text("generator", "fal.ai via fal-image-remix skill")
+    
+    # Save with metadata
+    image.save(output_path, "PNG", pnginfo=png_info)
+    click.echo(f"✓ Image saved: {output_path}")
+
+
+@click.command()
+@click.argument("input_image", required=True, type=str)
+@click.argument("prompt", required=True, type=str)
+@click.option(
+    "-m", "--model",
+    type=click.Choice(list(MODEL_ENDPOINTS.keys()), case_sensitive=False),
+    help="Model to use (auto-selected if not specified)"
+)
+@click.option(
+    "-o", "--output",
+    type=str,
+    help="Output filename (default: remixed_TIMESTAMP.png)"
+)
+@click.option(
+    "-s", "--strength",
+    type=float,
+    default=0.75,
+    help="Transformation strength 0.0-1.0 (default: 0.75, higher=more change)"
+)
+@click.option(
+    "--guidance",
+    type=float,
+    default=7.5,
+    help="Guidance scale (default: 7.5, higher=more prompt adherence)"
+)
+@click.option(
+    "--seed",
+    type=int,
+    help="Random seed for reproducibility"
+)
+@click.option(
+    "--steps",
+    type=int,
+    help="Number of inference steps"
+)
+def remix_image(
+    input_image: str,
+    prompt: str,
+    model: Optional[str],
+    output: Optional[str],
+    strength: float,
+    guidance: float,
+    seed: Optional[int],
+    steps: Optional[int],
+) -> None:
+    """
+    Remix/transform images with AI while preserving composition.
+    
+    INPUT_IMAGE: Path or URL to source image
+    PROMPT: How to transform the image
+    
+    Examples:
+    
+        uv run python fal-image-remix photo.jpg "Transform into watercolor painting"
+        
+        uv run python fal-image-remix input.jpg "Anime style" --strength 0.6
+        
+        uv run python fal-image-remix -m flux-1.1-pro image.jpg "Professional portrait"
+    """
+    # Verify API key
+    api_key = os.getenv("FAL_KEY")
+    if not api_key:
+        click.echo("✗ Error: FAL_KEY environment variable not set", err=True)
+        click.echo("\nSet your API key:", err=True)
+        click.echo("  export FAL_KEY='your-api-key-here'", err=True)
+        click.echo("\nGet your key at: https://fal.ai/dashboard/keys", err=True)
+        sys.exit(1)
+    
+    # Validate strength
+    if not 0.0 <= strength <= 1.0:
+        click.echo("✗ Error: Strength must be between 0.0 and 1.0", err=True)
+        sys.exit(1)
+    
+    # Select model
+    if model is None:
+        model = select_model_from_prompt(prompt)
+        click.echo(f"ℹ Auto-selected model: {model}")
+    
+    model_endpoint = MODEL_ENDPOINTS[model]
+    
+    # Prepare image input
+    try:
+        image_url = prepare_image_input(input_image)
+    except Exception as e:
+        click.echo(f"✗ Error preparing image: {e}", err=True)
+        sys.exit(1)
+    
+    # Prepare request parameters
+    request_params = {
+        "prompt": prompt,
+        "image_url": image_url,
+        "strength": strength,
+        "guidance_scale": guidance,
+    }
+    
+    # Add optional parameters
+    if seed is not None:
+        request_params["seed"] = seed
+    
+    if steps is not None:
+        request_params["num_inference_steps"] = steps
+    
+    # Display generation info
+    click.echo(f"\n{'='*60}")
+    click.echo(f"Remixing image with {model}")
+    click.echo(f"{'='*60}")
+    click.echo(f"Source: {input_image}")
+    click.echo(f"Prompt: {prompt}")
+    click.echo(f"Strength: {strength} (0=preserve original, 1=full transformation)")
+    click.echo(f"Guidance: {guidance}")
+    if seed:
+        click.echo(f"Seed: {seed}")
+    click.echo(f"{'='*60}\n")
+    
+    # Generate remixed image
+    try:
+        start_time = time.time()
+        click.echo("⏳ Remixing image...")
+        
+        def handle_queue_update(update):
+            if hasattr(update, 'position'):
+                click.echo(f"   Queue position: {update.position}")
+            elif isinstance(update, dict):
+                click.echo(f"   Queue position: {update.get('position', 'processing...')}")
+        
+        result = fal_client.subscribe(
+            model_endpoint,
+            arguments=request_params,
+            with_logs=True,
+            on_queue_update=handle_queue_update
+        )
+        
+        generation_time = time.time() - start_time
+        
+        # Extract image URL
+        if isinstance(result, dict) and "images" in result:
+            output_image_url = result["images"][0]["url"]
+        elif isinstance(result, dict) and "image" in result:
+            output_image_url = result["image"]["url"]
+        else:
+            click.echo(f"✗ Unexpected result format: {result}", err=True)
+            sys.exit(1)
+        
+        click.echo(f"✓ Remixed in {generation_time:.2f}s")
+        
+        # Prepare output path
+        if output is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output = f"remixed_{model.replace('/', '_')}_{timestamp}.png"
+            output_path = Path("outputs") / output
+        else:
+            output_path = Path(output)
+        
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Save with metadata
+        metadata = {
+            "model": model,
+            "endpoint": model_endpoint,
+            "strength": strength,
+            "guidance": guidance,
+            "seed": seed,
+            "steps": steps,
+            "generation_time": generation_time,
+        }
+        
+        save_image_with_metadata(
+            image_url=output_image_url,
+            output_path=output_path,
+            prompt=prompt,
+            model=model,
+            source_image=input_image,
+            metadata=metadata
+        )
+        
+        click.echo(f"\nOutput URL: {output_image_url}")
+        click.echo(f"{'='*60}\n")
+        
+    except Exception as e:
+        click.echo(f"\n✗ Remix failed: {e}", err=True)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    remix_image()

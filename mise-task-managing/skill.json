@@ -1,0 +1,50 @@
+{
+  "name": "mise-task-managing",
+  "version": "1.0.0",
+  "description": "Use this skill when working with mise task runners, managing project tasks, creating Python CLI task scripts, setting up mise configuration, or implementing semantic versioning. Handles Typer/Click-based task scripts, TOML configuration, and module-based task organization.",
+  "triggers": [
+    "mise",
+    "mise tasks",
+    "mise.toml",
+    ".mise/tasks",
+    "task runner",
+    "task management",
+    "python cli script",
+    "typer cli",
+    "click cli",
+    "semantic versioning",
+    "version bump",
+    "task orchestration",
+    "/mise:initialize",
+    "/mise:taskify",
+    "/mise:versioning"
+  ],
+  "commands": [
+    {
+      "name": "mise:initialize",
+      "description": "Initialize mise in a project that doesn't include mise, or refactor existing mise setup. Creates .mise/tasks/ directory structure, main.toml orchestration file, and optional root mise.toml for tool versions."
+    },
+    {
+      "name": "mise:taskify",
+      "description": "Codify a workflow or set of steps into a Python task script (Typer or Click) and expose it as a mise task. Handles domain identification, script creation, TOML configuration, and testing."
+    },
+    {
+      "name": "mise:versioning",
+      "description": "Implement semantic versioning logic in .mise/tasks/versioning.py with three mise tasks: version:bump (patch), version:minor, and version:major. Syncs versions across multiple files (package.json, pyproject.toml, etc.)."
+    }
+  ],
+  "author": "Jarad DeLorenzo",
+  "tags": [
+    "mise",
+    "task-runner",
+    "python",
+    "cli",
+    "typer",
+    "click",
+    "toml",
+    "versioning",
+    "automation",
+    "workflow",
+    "devops"
+  ]
+}

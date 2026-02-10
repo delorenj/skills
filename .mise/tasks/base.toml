@@ -1,0 +1,12 @@
+# Base tasks configuration
+[tasks.setup]
+run = "python scripts/base.py"
+description = "Setup base environment"
+
+[tasks.clean]
+run = "rm -rf node_modules dist build"
+description = "Clean build artifacts"
+
+[tasks.dev]
+run = "mise run setup"
+description = "Initialize development environment"

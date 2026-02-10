@@ -1,0 +1,367 @@
+#!/usr/bin/env python3
+"""
+fal.ai Image Edit (Inpainting) Script
+
+Edit specific regions of images using AI inpainting and editing.
+Supports masked editing, object removal, and targeted modifications.
+
+Usage:
+    uv run python fal-image-edit input.jpg mask.png "Replace with flowers"
+    uv run python fal-image-edit -m flux-2/redux input.jpg --mask-prompt "sky" "Make it sunset"
+    uv run python fal-image-edit input.jpg mask.png "Remove object" --strength 1.0
+"""
+
+import os
+import sys
+import json
+import time
+from pathlib import Path
+from datetime import datetime
+from typing import Optional, Dict, Any
+
+import click
+from dotenv import load_dotenv
+import fal_client
+from PIL import Image
+from PIL.PngImagePlugin import PngInfo
+import requests
+
+# Load environment variables
+load_dotenv()
+
+# Model endpoint mapping for image editing
+MODEL_ENDPOINTS = {
+    "flux-2/redux": "fal-ai/flux-2/redux",
+    "flux-2/fill": "fal-ai/flux-2/fill",
+    "flux-pro-v11/fill": "fal-ai/flux-pro-v11/fill",
+    "stable-diffusion-v35/inpainting": "fal-ai/stable-diffusion-v35-large/inpainting",
+    "ideogram/v2/edit": "fal-ai/ideogram/v2/edit",
+    "recraft/v3/svg": "fal-ai/recraft/v3/svg",
+}
+
+# Model traits
+MODEL_TRAITS = {
+    "flux-2/redux": ["general", "fast", "balanced"],
+    "flux-2/fill": ["inpainting", "fill", "seamless"],
+    "flux-pro-v11/fill": ["premium", "high-quality", "professional"],
+    "stable-diffusion-v35/inpainting": ["artistic", "detailed"],
+    "ideogram/v2/edit": ["realistic", "precise"],
+    "recraft/v3/svg": ["vector", "illustration", "clean"],
+}
+
+
+def select_model_from_prompt(prompt: str, has_mask: bool) -> str:
+    """
+    Select optimal model for editing task.
+    
+    Args:
+        prompt: The edit prompt
+        has_mask: Whether a mask is provided
+        
+    Returns:
+        Model key from MODEL_ENDPOINTS
+    """
+    prompt_lower = prompt.lower()
+    
+    # If no mask provided, use redux for general editing
+    if not has_mask:
+        return "flux-2/redux"
+    
+    # Check for inpainting/fill keywords
+    if any(kw in prompt_lower for kw in ["fill", "complete", "extend", "expand"]):
+        return "flux-2/fill"
+    
+    # Check for removal keywords
+    if any(kw in prompt_lower for kw in ["remove", "erase", "delete", "clean"]):
+        return "flux-2/fill"
+    
+    # Check for vector/illustration
+    if any(kw in prompt_lower for kw in ["vector", "illustration", "clean", "svg"]):
+        return "recraft/v3/svg"
+    
+    # Check for premium quality
+    if any(kw in prompt_lower for kw in ["professional", "high quality", "premium"]):
+        return "flux-pro-v11/fill"
+    
+    # Default to general fill model
+    return "flux-2/fill"
+
+
+def prepare_image_input(image_path: str) -> str:
+    """
+    Upload image to fal.ai storage.
+    
+    Args:
+        image_path: Path to local image or URL
+        
+    Returns:
+        Image URL
+    """
+    if image_path.startswith(("http://", "https://")):
+        return image_path
+    
+    image_full_path = Path(image_path).resolve()
+    if not image_full_path.exists():
+        raise FileNotFoundError(f"Image not found: {image_path}")
+    
+    click.echo(f"⏳ Uploading: {image_path}")
+    with open(image_full_path, "rb") as f:
+        image_data = f.read()
+        url = fal_client.upload(image_data, "image/png")
+    click.echo(f"✓ Uploaded")
+    
+    return url
+
+
+def save_image_with_metadata(
+    image_url: str,
+    output_path: Path,
+    prompt: str,
+    model: str,
+    source_image: str,
+    metadata: Dict[str, Any]
+) -> None:
+    """
+    Download and save edited image with metadata.
+    """
+    response = requests.get(image_url, stream=True)
+    response.raise_for_status()
+    image = Image.open(response.raw)
+    
+    png_info = PngInfo()
+    png_info.add_text("prompt", prompt)
+    png_info.add_text("model", model)
+    png_info.add_text("source_image", source_image)
+    png_info.add_text("metadata", json.dumps(metadata))
+    png_info.add_text("generated_at", datetime.now().isoformat())
+    png_info.add_text("generator", "fal.ai via fal-image-edit skill")
+    
+    image.save(output_path, "PNG", pnginfo=png_info)
+    click.echo(f"✓ Image saved: {output_path}")
+
+
+@click.command()
+@click.argument("input_image", required=True, type=str)
+@click.argument("mask_image", required=False, type=str)
+@click.argument("prompt", required=True, type=str)
+@click.option(
+    "-m", "--model",
+    type=click.Choice(list(MODEL_ENDPOINTS.keys()), case_sensitive=False),
+    help="Model to use (auto-selected if not specified)"
+)
+@click.option(
+    "-o", "--output",
+    type=str,
+    help="Output filename (default: edited_TIMESTAMP.png)"
+)
+@click.option(
+    "--mask-prompt",
+    type=str,
+    help="Generate mask from text description (no mask image needed)"
+)
+@click.option(
+    "-s", "--strength",
+    type=float,
+    default=0.95,
+    help="Edit strength 0.0-1.0 (default: 0.95)"
+)
+@click.option(
+    "--guidance",
+    type=float,
+    default=7.5,
+    help="Guidance scale (default: 7.5)"
+)
+@click.option(
+    "--seed",
+    type=int,
+    help="Random seed for reproducibility"
+)
+@click.option(
+    "--steps",
+    type=int,
+    help="Number of inference steps"
+)
+def edit_image(
+    input_image: str,
+    mask_image: Optional[str],
+    prompt: str,
+    model: Optional[str],
+    output: Optional[str],
+    mask_prompt: Optional[str],
+    strength: float,
+    guidance: float,
+    seed: Optional[int],
+    steps: Optional[int],
+) -> None:
+    """
+    Edit images using AI inpainting and masked editing.
+    
+    INPUT_IMAGE: Path or URL to source image
+    MASK_IMAGE: Path or URL to mask (white=edit, black=preserve) [optional if using --mask-prompt]
+    PROMPT: How to edit the masked region
+    
+    Examples:
+    
+        # With mask image
+        uv run python fal-image-edit photo.jpg mask.png "Replace with garden"
+        
+        # Auto-generate mask from prompt
+        uv run python fal-image-edit photo.jpg --mask-prompt "sky" "Make it sunset"
+        
+        # Remove objects
+        uv run python fal-image-edit image.jpg mask.png "Remove" --strength 1.0
+        
+        # General editing (no mask)
+        uv run python fal-image-edit photo.jpg "Enhance lighting and colors"
+    """
+    # Verify API key
+    api_key = os.getenv("FAL_KEY")
+    if not api_key:
+        click.echo("✗ Error: FAL_KEY environment variable not set", err=True)
+        click.echo("\nSet your API key:", err=True)
+        click.echo("  export FAL_KEY='your-api-key-here'", err=True)
+        click.echo("\nGet your key at: https://fal.ai/dashboard/keys", err=True)
+        sys.exit(1)
+    
+    # Validate inputs
+    if not mask_image and not mask_prompt:
+        click.echo("⚠ No mask provided - using general editing mode")
+        has_mask = False
+    else:
+        has_mask = True
+    
+    # Validate strength
+    if not 0.0 <= strength <= 1.0:
+        click.echo("✗ Error: Strength must be between 0.0 and 1.0", err=True)
+        sys.exit(1)
+    
+    # Select model
+    if model is None:
+        model = select_model_from_prompt(prompt, has_mask)
+        click.echo(f"ℹ Auto-selected model: {model}")
+    
+    model_endpoint = MODEL_ENDPOINTS[model]
+    
+    # Prepare image inputs
+    try:
+        image_url = prepare_image_input(input_image)
+        
+        mask_url = None
+        if mask_image:
+            mask_url = prepare_image_input(mask_image)
+    except Exception as e:
+        click.echo(f"✗ Error preparing images: {e}", err=True)
+        sys.exit(1)
+    
+    # Prepare request parameters
+    request_params = {
+        "prompt": prompt,
+        "image_url": image_url,
+        "strength": strength,
+        "guidance_scale": guidance,
+    }
+    
+    # Add mask
+    if mask_url:
+        request_params["mask_url"] = mask_url
+    elif mask_prompt:
+        request_params["mask_prompt"] = mask_prompt
+    
+    # Add optional parameters
+    if seed is not None:
+        request_params["seed"] = seed
+    
+    if steps is not None:
+        request_params["num_inference_steps"] = steps
+    
+    # Display edit info
+    click.echo(f"\n{'='*60}")
+    click.echo(f"Editing image with {model}")
+    click.echo(f"{'='*60}")
+    click.echo(f"Source: {input_image}")
+    if mask_image:
+        click.echo(f"Mask: {mask_image}")
+    elif mask_prompt:
+        click.echo(f"Mask prompt: {mask_prompt}")
+    else:
+        click.echo(f"Mask: None (general editing)")
+    click.echo(f"Prompt: {prompt}")
+    click.echo(f"Strength: {strength}")
+    click.echo(f"Guidance: {guidance}")
+    if seed:
+        click.echo(f"Seed: {seed}")
+    click.echo(f"{'='*60}\n")
+    
+    # Generate edited image
+    try:
+        start_time = time.time()
+        click.echo("⏳ Editing image...")
+        
+        def handle_queue_update(update):
+            if hasattr(update, 'position'):
+                click.echo(f"   Queue position: {update.position}")
+            elif isinstance(update, dict):
+                click.echo(f"   Queue position: {update.get('position', 'processing...')}")
+        
+        result = fal_client.subscribe(
+            model_endpoint,
+            arguments=request_params,
+            with_logs=True,
+            on_queue_update=handle_queue_update
+        )
+        
+        generation_time = time.time() - start_time
+        
+        # Extract image URL
+        if isinstance(result, dict) and "images" in result:
+            output_image_url = result["images"][0]["url"]
+        elif isinstance(result, dict) and "image" in result:
+            output_image_url = result["image"]["url"]
+        else:
+            click.echo(f"✗ Unexpected result format: {result}", err=True)
+            sys.exit(1)
+        
+        click.echo(f"✓ Edited in {generation_time:.2f}s")
+        
+        # Prepare output path
+        if output is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output = f"edited_{model.replace('/', '_')}_{timestamp}.png"
+            output_path = Path("outputs") / output
+        else:
+            output_path = Path(output)
+        
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Save with metadata
+        metadata = {
+            "model": model,
+            "endpoint": model_endpoint,
+            "mask_image": mask_image,
+            "mask_prompt": mask_prompt,
+            "strength": strength,
+            "guidance": guidance,
+            "seed": seed,
+            "steps": steps,
+            "generation_time": generation_time,
+        }
+        
+        save_image_with_metadata(
+            image_url=output_image_url,
+            output_path=output_path,
+            prompt=prompt,
+            model=model,
+            source_image=input_image,
+            metadata=metadata
+        )
+        
+        click.echo(f"\nOutput URL: {output_image_url}")
+        click.echo(f"{'='*60}\n")
+        
+    except Exception as e:
+        click.echo(f"\n✗ Edit failed: {e}", err=True)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    edit_image()

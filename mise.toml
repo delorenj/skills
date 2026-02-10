@@ -1,0 +1,7 @@
+# Mise configuration
+[tools]
+python = "3.11"
+node = "20"
+
+[env]
+NODE_ENV = "development"

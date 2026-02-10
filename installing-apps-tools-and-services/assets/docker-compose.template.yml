@@ -1,0 +1,44 @@
+# Docker Compose Template
+# Replace placeholders: SERVICE_NAME, SUBDOMAIN, PORT
+
+services:
+  SERVICE_NAME:
+    image: SERVICE_NAME:latest
+    container_name: SERVICE_NAME
+    restart: unless-stopped
+    networks:
+      - proxy
+    environment:
+      # PostgreSQL connection
+      - DATABASE_URL=postgresql://delorenj:${POSTGRES_PASSWORD}@host.docker.internal:5432/SERVICE_NAME
+      # Redis connection
+      - REDIS_URL=redis://host.docker.internal:6379
+      # Qdrant connection
+      - QDRANT_URL=http://host.docker.internal:6333
+      # Application secrets
+      - SECRET_KEY=${SECRET_KEY}
+      - API_KEY=${OPENAI_API_KEY}
+    volumes:
+      # Uncomment if data persistence needed
+      # - SERVICE_NAME-data:/app/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.SERVICE_NAME.rule=Host(`SUBDOMAIN.delo.sh`)"
+      - "traefik.http.routers.SERVICE_NAME.entrypoints=websecure"
+      - "traefik.http.routers.SERVICE_NAME.tls.certresolver=letsencrypt"
+      # Uncomment and set port if service doesn't expose on 80
+      # - "traefik.http.services.SERVICE_NAME.loadbalancer.server.port=PORT"
+    # Uncomment if health check needed
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:PORT/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+
+# Uncomment if using named volumes
+# volumes:
+#   SERVICE_NAME-data:
+
+networks:
+  proxy:
+    external: true

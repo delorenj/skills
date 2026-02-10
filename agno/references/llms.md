@@ -1,0 +1,1690 @@
+# Agno
+
+## Docs
+
+- [AgentUI](https://docs.agno.com/agent-os/agent-ui.md): An Open Source AgentUI for your AgentOS
+- [AgentOS API](https://docs.agno.com/agent-os/api.md): Learn how to use the AgentOS API to interact with your agentic system
+- [Connecting Your AgentOS](https://docs.agno.com/agent-os/connecting-your-os.md): Step-by-step guide to connect your local AgentOS to the AgentOS Control Plane
+- [Control Plane](https://docs.agno.com/agent-os/control-plane.md): The main web interface for interacting with and managing your AgentOS instances
+- [Create Your First AgentOS](https://docs.agno.com/agent-os/creating-your-first-os.md): Quick setup guide to get your first AgentOS instance running locally
+- [AgentOS Configuration](https://docs.agno.com/agent-os/customize/config.md): Learn how to check and adjust your AgentOS configuration
+- [Bring Your Own FastAPI App](https://docs.agno.com/agent-os/customize/custom-fastapi.md): Learn how to use your own FastAPI app in your AgentOS
+- [Custom Middleware](https://docs.agno.com/agent-os/customize/middleware/custom.md): Create and add your own middleware to AgentOS applications
+- [JWT Middleware](https://docs.agno.com/agent-os/customize/middleware/jwt.md): Add JWT authentication and parameter injection to your AgentOS application
+- [Overview](https://docs.agno.com/agent-os/customize/middleware/overview.md): How to add middleware to your AgentOS application
+- [AgentOS Parameters](https://docs.agno.com/agent-os/customize/os/attributes.md): Learn about the attributes of the AgentOS class
+- [Lifespan](https://docs.agno.com/agent-os/customize/os/lifespan.md): Complete AgentOS setup with custom lifespan
+- [Overriding Routes](https://docs.agno.com/agent-os/customize/os/override_routes.md): Complete AgentOS setup with custom routes
+- [Chat Interface](https://docs.agno.com/agent-os/features/chat-interface.md): Use AgentOS chat to talk to agents, collaborate with teams, and run workflows
+- [Knowledge Management](https://docs.agno.com/agent-os/features/knowledge-management.md): Upload, organize, and manage knowledge for your agents in AgentOS
+- [Memories](https://docs.agno.com/agent-os/features/memories.md): View and manage persistent memory storage for your agents in AgentOS
+- [Session Tracking](https://docs.agno.com/agent-os/features/session-tracking.md): Monitor, analyze, and manage agent sessions through the AgentOS interface
+- [A2A](https://docs.agno.com/agent-os/interfaces/a2a/introduction.md): Expose your Agno Agent via the A2A protocol
+- [AG-UI](https://docs.agno.com/agent-os/interfaces/ag-ui/introduction.md): Expose your Agno Agent via the AG-UI protocol
+- [Slack](https://docs.agno.com/agent-os/interfaces/slack/introduction.md): Host agents as Slack Applications.
+- [Whatsapp](https://docs.agno.com/agent-os/interfaces/whatsapp/introduction.md): Host agents as Whatsapp Applications.
+- [What is AgentOS?](https://docs.agno.com/agent-os/introduction.md): The production runtime and control plane for your agentic systems
+- [MCP enabled AgentOS](https://docs.agno.com/agent-os/mcp/mcp.md): Learn how to enable MCP functionality in your AgentOS
+- [AgentOS + MCPTools](https://docs.agno.com/agent-os/mcp/tools.md): Learn how to use MCPTools in your AgentOS
+- [AgentOS Security](https://docs.agno.com/agent-os/security.md): Learn how to secure your AgentOS instance with a security key
+- [Building Agents](https://docs.agno.com/concepts/agents/building-agents.md): Learn how to build Agents with Agno.
+- [Context Engineering](https://docs.agno.com/concepts/agents/context.md): Learn how to write prompts and other context engineering techniques for your agents.
+- [Custom Loggers](https://docs.agno.com/concepts/agents/custom-logger.md): Learn how to use custom loggers in your Agno setup.
+- [Debugging Agents](https://docs.agno.com/concepts/agents/debugging-agents.md): Learn how to debug Agno Agents.
+- [Dependencies](https://docs.agno.com/concepts/agents/dependencies.md): Learn how to use dependencies to add context to your agents.
+- [OpenAI Moderation Guardrail](https://docs.agno.com/concepts/agents/guardrails/openai-moderation.md): Learn about the OpenAI Moderation Guardrail and how to use it with your Agents.
+- [Overview](https://docs.agno.com/concepts/agents/guardrails/overview.md): Learn about securing the input of your Agents using guardrails.
+- [PII Detection Guardrail](https://docs.agno.com/concepts/agents/guardrails/pii.md): Learn about the PII Detection Guardrail and how to use it with your Agents.
+- [Prompt Injection Guardrail](https://docs.agno.com/concepts/agents/guardrails/prompt-injection.md): Learn about the Prompt Injection Guardrail and how to use it with your Agents.
+- [Input and Output](https://docs.agno.com/concepts/agents/input-output.md): Learn how to use structured input and output with Agents for reliable, production-ready systems.
+- [Knowledge](https://docs.agno.com/concepts/agents/knowledge.md): Understanding knowledge and how to use it with Agno agents
+- [Memory](https://docs.agno.com/concepts/agents/memory.md): Memory gives an Agent the ability to recall information about the user.
+- [Metrics](https://docs.agno.com/concepts/agents/metrics.md): Understanding agent run and session metrics in Agno
+- [Multimodal Agents](https://docs.agno.com/concepts/agents/multimodal.md)
+- [Agents](https://docs.agno.com/concepts/agents/overview.md): Learn about Agno Agents and how they work.
+- [Pre-hooks and Post-hooks](https://docs.agno.com/concepts/agents/pre-hooks-and-post-hooks.md): Learn about using pre-hooks and post-hooks with your agents.
+- [Cancelling a Run](https://docs.agno.com/concepts/agents/run-cancel.md): Learn how to cancel an Agent run.
+- [Running Agents](https://docs.agno.com/concepts/agents/running-agents.md): Learn how to run Agno Agents.
+- [Agent Sessions](https://docs.agno.com/concepts/agents/sessions.md): Learn about Agent sessions and managing conversation history.
+- [Agent State](https://docs.agno.com/concepts/agents/state.md): Learn about state in agents.
+- [Storage](https://docs.agno.com/concepts/agents/storage.md): Use Storage to persist Agent sessions and state to a database or file.
+- [Tools](https://docs.agno.com/concepts/agents/tools.md): Learn how to use tools in Agno to build AI agents.
+- [Async PostgreSQL](https://docs.agno.com/concepts/db/async_postgres.md): Learn to use Async Postgre as a database for your Agents
+- [DynamoDB](https://docs.agno.com/concepts/db/dynamodb.md): Learn to use DynamoDB as a database for your Agents
+- [Firestore](https://docs.agno.com/concepts/db/firestore.md): Learn to use Firestore as a database for your Agents
+- [JSON files as database, on Google Cloud Storage (GCS)](https://docs.agno.com/concepts/db/gcs.md)
+- [In-Memory Storage](https://docs.agno.com/concepts/db/in_memory.md)
+- [JSON Files as Database](https://docs.agno.com/concepts/db/json.md)
+- [MongoDB Database](https://docs.agno.com/concepts/db/mongodb.md): Learn to use MongoDB as a database for your Agents
+- [MySQL](https://docs.agno.com/concepts/db/mysql.md): Learn to use MySQL as a database for your Agents
+- [Neon](https://docs.agno.com/concepts/db/neon.md): Learn to use Neon as a database provider for your Agents
+- [What is Storage?](https://docs.agno.com/concepts/db/overview.md): Enable your Agents to store session history, memories, and more.
+- [PostgreSQL](https://docs.agno.com/concepts/db/postgres.md): Learn to use PostgreSQL as a database for your Agents
+- [Redis](https://docs.agno.com/concepts/db/redis.md): Learn to use Redis as a database for your Agents
+- [Singlestore](https://docs.agno.com/concepts/db/singlestore.md): Learn to use Singlestore as a database for your Agents
+- [SQLite](https://docs.agno.com/concepts/db/sqlite.md): Learn to use Sqlite as a database for your Agents
+- [Supabase](https://docs.agno.com/concepts/db/supabase.md): Learn to use Supabase as a database provider for your Agents
+- [Accuracy Evals](https://docs.agno.com/concepts/evals/accuracy.md): Learn how to evaluate your Agno Agents and Teams for accuracy using LLM-as-a-judge methodology with input/output pairs.
+- [Simple Agent Evals](https://docs.agno.com/concepts/evals/overview.md): Learn how to evaluate your Agno Agents and Teams across three key dimensions - accuracy (using LLM-as-a-judge), performance (runtime and memory), and reliability (tool calls).
+- [Performance Evals](https://docs.agno.com/concepts/evals/performance.md): Learn how to measure the latency and memory footprint of your Agno Agents and Teams.
+- [Reliability Evals](https://docs.agno.com/concepts/evals/reliability.md): Learn how to evaluate your Agno Agents and Teams for reliability by testing tool calls and error handling.
+- [Human-in-the-Loop in Agents](https://docs.agno.com/concepts/hitl/overview.md): Learn how to control the flow of an agent's execution in Agno.
+- [Implementing a Custom Retriever](https://docs.agno.com/concepts/knowledge/advanced/custom-retriever.md): Learn how to implement a custom retriever for precise control over document retrieval in your knowledge base.
+- [Hybrid Search- Combining Keyword and Vector Search](https://docs.agno.com/concepts/knowledge/advanced/hybrid-search.md): Understanding Hybrid Search and its benefits in combining keyword and vector search for better results.
+- [Performance Quick Wins](https://docs.agno.com/concepts/knowledge/advanced/performance-tips.md): Practical tips to optimize Agno knowledge base performance, improve search quality, and speed up content loading.
+- [Agentic Chunking](https://docs.agno.com/concepts/knowledge/chunking/agentic-chunking.md)
+- [CSV Row Chunking](https://docs.agno.com/concepts/knowledge/chunking/csv-row-chunking.md)
+- [Custom Chunking](https://docs.agno.com/concepts/knowledge/chunking/custom-chunking.md)
+- [Document Chunking](https://docs.agno.com/concepts/knowledge/chunking/document-chunking.md)
+- [Fixed Size Chunking](https://docs.agno.com/concepts/knowledge/chunking/fixed-size-chunking.md)
+- [Markdown Chunking](https://docs.agno.com/concepts/knowledge/chunking/markdown-chunking.md)
+- [What is Chunking?](https://docs.agno.com/concepts/knowledge/chunking/overview.md): Chunking is the process of breaking down large documents into smaller pieces for effective vector search and retrieval.
+- [Recursive Chunking](https://docs.agno.com/concepts/knowledge/chunking/recursive-chunking.md)
+- [Semantic Chunking](https://docs.agno.com/concepts/knowledge/chunking/semantic-chunking.md)
+- [Knowledge Contents DB](https://docs.agno.com/concepts/knowledge/content_db.md): Learn how to add a Content DB to your Knowledge.
+- [Knowledge Content Types](https://docs.agno.com/concepts/knowledge/content_types.md)
+- [Knowledge Base Architecture](https://docs.agno.com/concepts/knowledge/core-concepts/knowledge-bases.md): Deep dive into knowledge base design, architecture, and how they're optimized for AI agent retrieval.
+- [Search & Retrieval](https://docs.agno.com/concepts/knowledge/core-concepts/search-retrieval.md): Understand how agents intelligently search and retrieve information from knowledge bases to provide accurate, contextual responses.
+- [Core Concepts & Terminology](https://docs.agno.com/concepts/knowledge/core-concepts/terminology.md): Essential concepts and terminology for understanding how Knowledge works in Agno agents.
+- [AWS Bedrock Embedder](https://docs.agno.com/concepts/knowledge/embedder/aws_bedrock.md)
+- [Azure OpenAI Embedder](https://docs.agno.com/concepts/knowledge/embedder/azure_openai.md)
+- [Cohere Embedder](https://docs.agno.com/concepts/knowledge/embedder/cohere.md)
+- [Fireworks Embedder](https://docs.agno.com/concepts/knowledge/embedder/fireworks.md)
+- [Gemini Embedder](https://docs.agno.com/concepts/knowledge/embedder/gemini.md)
+- [HuggingFace Embedder](https://docs.agno.com/concepts/knowledge/embedder/huggingface.md)
+- [Mistral Embedder](https://docs.agno.com/concepts/knowledge/embedder/mistral.md)
+- [Nebius Embedder](https://docs.agno.com/concepts/knowledge/embedder/nebius.md)
+- [Ollama Embedder](https://docs.agno.com/concepts/knowledge/embedder/ollama.md)
+- [OpenAI Embedder](https://docs.agno.com/concepts/knowledge/embedder/openai.md)
+- [What are Embedders?](https://docs.agno.com/concepts/knowledge/embedder/overview.md): Learn how to use embedders with Agno to convert complex information into vector representations.
+- [Qdrant FastEmbed Embedder](https://docs.agno.com/concepts/knowledge/embedder/qdrant_fastembed.md)
+- [SentenceTransformers Embedder](https://docs.agno.com/concepts/knowledge/embedder/sentencetransformers.md)
+- [Together Embedder](https://docs.agno.com/concepts/knowledge/embedder/together.md)
+- [Voyage AI Embedder](https://docs.agno.com/concepts/knowledge/embedder/voyageai.md)
+- [null](https://docs.agno.com/concepts/knowledge/filters/agentic-filters.md)
+- [null](https://docs.agno.com/concepts/knowledge/filters/manual-filters.md)
+- [What are Knowledge Filters?](https://docs.agno.com/concepts/knowledge/filters/overview.md): Use knowledge filters to restrict and refine searches
+- [Getting Started with Knowledge](https://docs.agno.com/concepts/knowledge/getting-started.md): Build your first knowledge-powered agent in three simple steps with this hands-on tutorial.
+- [How Knowledge Works](https://docs.agno.com/concepts/knowledge/how-it-works.md): Learn the Knowledge pipeline and technical architecture that powers intelligent knowledge retrieval in Agno agents.
+- [Introduction to Knowledge](https://docs.agno.com/concepts/knowledge/overview.md): Understand why Knowledge is essential for building intelligent, context-aware AI agents that provide accurate, relevant responses.
+- [Readers](https://docs.agno.com/concepts/knowledge/readers.md): Learn how to use readers to convert raw data into searchable knowledge for your Agents.
+- [What is Memory?](https://docs.agno.com/concepts/memory/overview.md): Give your agents the ability to remember user preferences, context, and past interactions for truly personalized experiences.
+- [Production Best Practices](https://docs.agno.com/concepts/memory/production-best-practices.md): Avoid common pitfalls, optimize costs, and ensure reliable memory behavior in production.
+- [Working with Memories](https://docs.agno.com/concepts/memory/working-with-memories.md): Customize how memories are created, control context inclusion, share memories across agents, and use memory tools for advanced workflows.
+- [AI/ML API](https://docs.agno.com/concepts/models/aimlapi.md): Learn how to use AI/ML API with Agno.
+- [Anthropic Claude](https://docs.agno.com/concepts/models/anthropic.md): Learn how to use Anthropic Claude models in Agno.
+- [AWS Bedrock](https://docs.agno.com/concepts/models/aws-bedrock.md): Learn how to use AWS Bedrock with Agno.
+- [AWS Claude](https://docs.agno.com/concepts/models/aws-claude.md): Learn how to use AWS Claude models in Agno.
+- [Azure AI Foundry](https://docs.agno.com/concepts/models/azure-ai-foundry.md): Learn how to use Azure AI Foundry models in Agno.
+- [Azure OpenAI](https://docs.agno.com/concepts/models/azure-openai.md): Learn how to use Azure OpenAI models in Agno.
+- [Cohere](https://docs.agno.com/concepts/models/cohere.md): Learn how to use Cohere models in Agno.
+- [CometAPI](https://docs.agno.com/concepts/models/cometapi.md): Learn how to use CometAPI models in Agno.
+- [Compatibility Overview](https://docs.agno.com/concepts/models/compatibility.md)
+- [DashScope](https://docs.agno.com/concepts/models/dashscope.md): Learn how to use DashScope models in Agno.
+- [DeepInfra](https://docs.agno.com/concepts/models/deepinfra.md): Learn how to use DeepInfra models in Agno.
+- [DeepSeek](https://docs.agno.com/concepts/models/deepseek.md): Learn how to use DeepSeek models in Agno.
+- [Fireworks](https://docs.agno.com/concepts/models/fireworks.md): Learn how to use Fireworks models in Agno.
+- [Gemini](https://docs.agno.com/concepts/models/google.md): Learn how to use Gemini models in Agno.
+- [Groq](https://docs.agno.com/concepts/models/groq.md): Learn how to use Groq with Agno.
+- [HuggingFace](https://docs.agno.com/concepts/models/huggingface.md): Learn how to use HuggingFace models in Agno.
+- [IBM WatsonX](https://docs.agno.com/concepts/models/ibm-watsonx.md): Learn how to use IBM WatsonX models in Agno.
+- [LangDB](https://docs.agno.com/concepts/models/langdb.md)
+- [LiteLLM](https://docs.agno.com/concepts/models/litellm.md): Integrate LiteLLM with Agno for a unified LLM experience.
+- [LiteLLM OpenAI](https://docs.agno.com/concepts/models/litellm_openai.md): Use LiteLLM with Agno with an openai-compatible proxy server.
+- [LlamaCpp](https://docs.agno.com/concepts/models/llama_cpp.md): Learn how to use LlamaCpp with Agno.
+- [LM Studio](https://docs.agno.com/concepts/models/lmstudio.md): Learn how to use LM Studio with Agno.
+- [Meta](https://docs.agno.com/concepts/models/meta.md): Learn how to use Meta models in Agno.
+- [Mistral](https://docs.agno.com/concepts/models/mistral.md): Learn how to use Mistral models in Agno.
+- [Nebius](https://docs.agno.com/concepts/models/nebius.md): Learn how to use Nebius models in Agno.
+- [Nexus](https://docs.agno.com/concepts/models/nexus.md): Learn how to use Nexus models in Agno.
+- [Nvidia](https://docs.agno.com/concepts/models/nvidia.md): Learn how to use Nvidia models in Agno.
+- [Ollama](https://docs.agno.com/concepts/models/ollama.md): Learn how to use Ollama with Agno.
+- [OpenAI](https://docs.agno.com/concepts/models/openai.md): Learn how to use OpenAI models in Agno.
+- [OpenAI-compatible models](https://docs.agno.com/concepts/models/openai-like.md): Learn how to use any OpenAI-like compatible endpoint with Agno
+- [OpenAI Responses](https://docs.agno.com/concepts/models/openai-responses.md): Learn how to use OpenAI Responses with Agno.
+- [OpenRouter](https://docs.agno.com/concepts/models/openrouter.md): Learn how to use OpenRouter with Agno.
+- [What are Models?](https://docs.agno.com/concepts/models/overview.md): Language Models are machine-learning programs that are trained to understand natural language and code.
+- [Perplexity](https://docs.agno.com/concepts/models/perplexity.md): Learn how to use Perplexity with Agno.
+- [Portkey](https://docs.agno.com/concepts/models/portkey.md): Learn how to use models through the Portkey AI Gateway in Agno.
+- [Requesty](https://docs.agno.com/concepts/models/requesty.md): Learn how to use Requesty with Agno.
+- [Sambanova](https://docs.agno.com/concepts/models/sambanova.md): Learn how to use Sambanova with Agno.
+- [SiliconFlow](https://docs.agno.com/concepts/models/siliconflow.md): Learn how to use Siliconflow models in Agno.
+- [Together](https://docs.agno.com/concepts/models/together.md): Learn how to use Together with Agno.
+- [Vercel v0](https://docs.agno.com/concepts/models/vercel.md): Learn how to use Vercel v0 models with Agno.
+- [Vertex AI Claude](https://docs.agno.com/concepts/models/vertexai-claude.md): Learn how to use Vertex AI Claude models with Agno.
+- [vLLM](https://docs.agno.com/concepts/models/vllm.md)
+- [xAI](https://docs.agno.com/concepts/models/xai.md): Learn how to use xAI with Agno.
+- [Audio Generation Tools](https://docs.agno.com/concepts/multimodal/audio/audio_generation.md): Learn how to use audio generation tools with Agno agents.
+- [Audio As Input](https://docs.agno.com/concepts/multimodal/audio/audio_input.md): Learn how to use audio as input with Agno agents.
+- [Audio Model Output](https://docs.agno.com/concepts/multimodal/audio/audio_output.md): Learn how to use audio from models as output with Agno agents.
+- [Speech-to-Text](https://docs.agno.com/concepts/multimodal/audio/speech-to-text.md): Learn how to transcribe audio with Agno agents.
+- [Files Generation Tools](https://docs.agno.com/concepts/multimodal/files/file_generation.md): Learn how to use files generation tools with Agno agents.
+- [Files As Input](https://docs.agno.com/concepts/multimodal/files/file_input.md): Learn how to use files as input with Agno agents.
+- [Image Generation Tools](https://docs.agno.com/concepts/multimodal/images/image_generation.md): Learn how to use image generation tools with Agno agents.
+- [Image As Input](https://docs.agno.com/concepts/multimodal/images/image_input.md): Learn how to use image as input with Agno agents.
+- [Image Model Output](https://docs.agno.com/concepts/multimodal/images/image_output.md): Learn how to use images from models as output with Agno agents.
+- [Overview](https://docs.agno.com/concepts/multimodal/overview.md): Learn how to create multimodal agents in Agno.
+- [Video Generation Tools](https://docs.agno.com/concepts/multimodal/video/video_generation.md): Learn how to use video generation tools with Agno agents.
+- [Video as input](https://docs.agno.com/concepts/multimodal/video/video_input.md): Learn how to use video as input with Agno agents.
+- [What is Reasoning?](https://docs.agno.com/concepts/reasoning/overview.md): Reasoning gives Agents the ability to "think" before responding and "analyze" the results of their actions (i.e. tool calls), greatly improving the Agents' ability to solve problems that require sequential tool calls.
+- [Reasoning Agents](https://docs.agno.com/concepts/reasoning/reasoning-agents.md)
+- [Reasoning Models](https://docs.agno.com/concepts/reasoning/reasoning-models.md)
+- [Reasoning Tools](https://docs.agno.com/concepts/reasoning/reasoning-tools.md)
+- [Building Teams](https://docs.agno.com/concepts/teams/building-teams.md): Learn how to build Teams with Agno.
+- [Conversation History](https://docs.agno.com/concepts/teams/chat_history.md): Learn about Team session history and managing conversation history.
+- [Context Engineering](https://docs.agno.com/concepts/teams/context.md): Learn how to write prompts and other context engineering techniques for your teams.
+- [Custom Loggers](https://docs.agno.com/concepts/teams/custom-logger.md): Learn how to use custom loggers in your Agno setup.
+- [Debugging Teams](https://docs.agno.com/concepts/teams/debugging-teams.md): Learn how to debug Agno Teams.
+- [How team execution works](https://docs.agno.com/concepts/teams/delegation.md): How tasks are delegated to team members.
+- [Dependencies](https://docs.agno.com/concepts/teams/dependencies.md): Learn how to use dependencies in your teams.
+- [Guardrails](https://docs.agno.com/concepts/teams/guardrails.md): Learn about securing the input of your Teams using guardrails.
+- [Input and Output](https://docs.agno.com/concepts/teams/input-output.md): Learn how to use structured input and output with Teams for reliable, production-ready systems.
+- [Teams with Knowledge](https://docs.agno.com/concepts/teams/knowledge.md): Learn how to use teams with knowledge bases.
+- [Teams with Memory](https://docs.agno.com/concepts/teams/memory.md): Learn how to use teams with memory.
+- [Metrics](https://docs.agno.com/concepts/teams/metrics.md): Understanding team run and session metrics in Agno
+- [Teams](https://docs.agno.com/concepts/teams/overview.md): Build autonomous multi-agent systems with Agno Teams.
+- [Pre-hooks and Post-hooks](https://docs.agno.com/concepts/teams/pre-hooks-and-post-hooks.md): Learn about using pre-hooks and post-hooks with your teams.
+- [Cancelling a Run](https://docs.agno.com/concepts/teams/run-cancel.md): Learn how to cancel a team run.
+- [Running Teams](https://docs.agno.com/concepts/teams/running-teams.md): Learn how to run Agno Teams.
+- [Team Sessions](https://docs.agno.com/concepts/teams/sessions.md): Learn about Team sessions and managing conversation history.
+- [Shared State](https://docs.agno.com/concepts/teams/state.md): Learn about the shared state of Agent Teams.
+- [Storage](https://docs.agno.com/concepts/teams/storage.md): Use Storage to persist Team sessions and state to a database or file.
+- [Agno Telemetry](https://docs.agno.com/concepts/telemetry.md): Understanding what Agno logs
+- [Async Tools](https://docs.agno.com/concepts/tools/async-tools.md): Learn how to use async tools in Agno.
+- [Updating Tools](https://docs.agno.com/concepts/tools/attaching-tools.md): Learn how to add/update tools on Agents and Teams after they have been created.
+- [Tool Result Caching](https://docs.agno.com/concepts/tools/caching.md): Learn how to cache tool results in Agno.
+- [Creating your own tools](https://docs.agno.com/concepts/tools/custom-tools.md): Learn how to write your own tools and how to use the `@tool` decorator to modify the behavior of a tool.
+- [Exceptions & Retries](https://docs.agno.com/concepts/tools/exceptions.md)
+- [Hooks](https://docs.agno.com/concepts/tools/hooks.md): Learn how to use tool hooks to modify the behavior of a tool.
+- [Model Context Protocol (MCP)](https://docs.agno.com/concepts/tools/mcp/mcp.md): Learn how to use MCP with Agno to enable your agents to interact with external systems through a standardized interface.
+- [MCP Toolbox](https://docs.agno.com/concepts/tools/mcp/mcp-toolbox.md): Learn how to use MCPToolbox with Agno to connect to MCP Toolbox for Databases with tool filtering capabilities.
+- [Multiple MCP Servers](https://docs.agno.com/concepts/tools/mcp/multiple-servers.md): Understanding how to connect to multiple MCP servers with Agno
+- [Understanding Server Parameters](https://docs.agno.com/concepts/tools/mcp/server-params.md): Understanding how to configure the server parameters for the MCPTools and MultiMCPTools classes
+- [SSE Transport](https://docs.agno.com/concepts/tools/mcp/transports/sse.md)
+- [Stdio Transport](https://docs.agno.com/concepts/tools/mcp/transports/stdio.md)
+- [Streamable HTTP Transport](https://docs.agno.com/concepts/tools/mcp/transports/streamable_http.md)
+- [What are Tools?](https://docs.agno.com/concepts/tools/overview.md): Tools are functions your Agno Agents can use to get things done.
+- [Knowledge Tools](https://docs.agno.com/concepts/tools/reasoning_tools/knowledge-tools.md)
+- [Memory Tools](https://docs.agno.com/concepts/tools/reasoning_tools/memory-tools.md)
+- [Reasoning Tools](https://docs.agno.com/concepts/tools/reasoning_tools/reasoning-tools.md)
+- [Workflow Tools](https://docs.agno.com/concepts/tools/reasoning_tools/workflow-tools.md)
+- [Including and excluding tools](https://docs.agno.com/concepts/tools/selecting-tools.md): Learn how to include and exclude tools from a Toolkit.
+- [Tool Call Limit](https://docs.agno.com/concepts/tools/tool-call-limit.md): Learn to limit the number of tool calls an agent can make.
+- [CSV](https://docs.agno.com/concepts/tools/toolkits/database/csv.md)
+- [DuckDb](https://docs.agno.com/concepts/tools/toolkits/database/duckdb.md)
+- [Google BigQuery](https://docs.agno.com/concepts/tools/toolkits/database/google_bigquery.md): GoogleBigQueryTools enables agents to interact with Google BigQuery for large-scale data analysis and SQL queries.
+- [Neo4j](https://docs.agno.com/concepts/tools/toolkits/database/neo4j.md)
+- [Pandas](https://docs.agno.com/concepts/tools/toolkits/database/pandas.md)
+- [Postgres](https://docs.agno.com/concepts/tools/toolkits/database/postgres.md)
+- [SQL](https://docs.agno.com/concepts/tools/toolkits/database/sql.md)
+- [Zep](https://docs.agno.com/concepts/tools/toolkits/database/zep.md)
+- [File Generation](https://docs.agno.com/concepts/tools/toolkits/file-generation/file-generation.md)
+- [Calculator](https://docs.agno.com/concepts/tools/toolkits/local/calculator.md)
+- [Docker](https://docs.agno.com/concepts/tools/toolkits/local/docker.md)
+- [File](https://docs.agno.com/concepts/tools/toolkits/local/file.md)
+- [Local File System](https://docs.agno.com/concepts/tools/toolkits/local/local_file_system.md): LocalFileSystemTools enables agents to write files to the local file system with automatic directory management.
+- [Python](https://docs.agno.com/concepts/tools/toolkits/local/python.md)
+- [Shell](https://docs.agno.com/concepts/tools/toolkits/local/shell.md)
+- [Sleep](https://docs.agno.com/concepts/tools/toolkits/local/sleep.md)
+- [Azure OpenAI](https://docs.agno.com/concepts/tools/toolkits/models/azure_openai.md): AzureOpenAITools provides access to Azure OpenAI services including DALL-E image generation.
+- [Gemini](https://docs.agno.com/concepts/tools/toolkits/models/gemini.md)
+- [Groq](https://docs.agno.com/concepts/tools/toolkits/models/groq.md)
+- [Morph](https://docs.agno.com/concepts/tools/toolkits/models/morph.md): MorphTools provides advanced code editing capabilities using Morph's Fast Apply API for intelligent code modifications.
+- [Nebius](https://docs.agno.com/concepts/tools/toolkits/models/nebius.md): NebiusTools provides access to Nebius AI Studio's text-to-image generation capabilities with advanced AI models.
+- [OpenAI](https://docs.agno.com/concepts/tools/toolkits/models/openai.md)
+- [Airflow](https://docs.agno.com/concepts/tools/toolkits/others/airflow.md)
+- [Apify](https://docs.agno.com/concepts/tools/toolkits/others/apify.md)
+- [AWS Lambda](https://docs.agno.com/concepts/tools/toolkits/others/aws_lambda.md)
+- [AWS SES](https://docs.agno.com/concepts/tools/toolkits/others/aws_ses.md)
+- [Bitbucket](https://docs.agno.com/concepts/tools/toolkits/others/bitbucket.md): BitbucketTools enables agents to interact with Bitbucket repositories for managing code, pull requests, and issues.
+- [Brandfetch](https://docs.agno.com/concepts/tools/toolkits/others/brandfetch.md): BrandfetchTools provides access to brand data and logo information through the Brandfetch API.
+- [Cal.com](https://docs.agno.com/concepts/tools/toolkits/others/calcom.md)
+- [Cartesia](https://docs.agno.com/concepts/tools/toolkits/others/cartesia.md): Tools for interacting with Cartesia Voice AI services including text-to-speech and voice localization
+- [ClickUp](https://docs.agno.com/concepts/tools/toolkits/others/clickup.md): ClickUpTools enables agents to interact with ClickUp workspaces for project management and task organization.
+- [Composio](https://docs.agno.com/concepts/tools/toolkits/others/composio.md)
+- [Confluence](https://docs.agno.com/concepts/tools/toolkits/others/confluence.md)
+- [Custom API](https://docs.agno.com/concepts/tools/toolkits/others/custom_api.md)
+- [Dalle](https://docs.agno.com/concepts/tools/toolkits/others/dalle.md)
+- [Daytona](https://docs.agno.com/concepts/tools/toolkits/others/daytona.md): Enable your Agents to run code in a remote, secure sandbox.
+- [Desi Vocal](https://docs.agno.com/concepts/tools/toolkits/others/desi_vocal.md): DesiVocalTools provides text-to-speech capabilities using Indian voices through the Desi Vocal API.
+- [E2B](https://docs.agno.com/concepts/tools/toolkits/others/e2b.md): Enable your Agents to run code in a remote, secure sandbox.
+- [Eleven Labs](https://docs.agno.com/concepts/tools/toolkits/others/eleven_labs.md)
+- [EVM (Ethereum Virtual Machine)](https://docs.agno.com/concepts/tools/toolkits/others/evm.md): EvmTools enables agents to interact with Ethereum and EVM-compatible blockchains for transactions and smart contract operations.
+- [Fal](https://docs.agno.com/concepts/tools/toolkits/others/fal.md)
+- [Financial Datasets API](https://docs.agno.com/concepts/tools/toolkits/others/financial_datasets.md)
+- [Giphy](https://docs.agno.com/concepts/tools/toolkits/others/giphy.md)
+- [Github](https://docs.agno.com/concepts/tools/toolkits/others/github.md)
+- [Google Maps](https://docs.agno.com/concepts/tools/toolkits/others/google_maps.md): Tools for interacting with Google Maps services including place search, directions, geocoding, and more
+- [Google Sheets](https://docs.agno.com/concepts/tools/toolkits/others/google_sheets.md)
+- [Google Calendar](https://docs.agno.com/concepts/tools/toolkits/others/googlecalendar.md)
+- [Jira](https://docs.agno.com/concepts/tools/toolkits/others/jira.md)
+- [Knowledge Tools](https://docs.agno.com/concepts/tools/toolkits/others/knowledge.md): KnowledgeTools provide intelligent search and analysis capabilities over knowledge bases with reasoning integration.
+- [Linear](https://docs.agno.com/concepts/tools/toolkits/others/linear.md)
+- [Lumalabs](https://docs.agno.com/concepts/tools/toolkits/others/lumalabs.md)
+- [Mem0](https://docs.agno.com/concepts/tools/toolkits/others/mem0.md): Mem0Tools provides intelligent memory management capabilities for agents using the Mem0 memory platform.
+- [Memori](https://docs.agno.com/concepts/tools/toolkits/others/memori.md): MemoriTools provides persistent memory capabilities for agents with conversation history, user preferences, and long-term context.
+- [MLX Transcribe](https://docs.agno.com/concepts/tools/toolkits/others/mlx_transcribe.md)
+- [ModelsLabs](https://docs.agno.com/concepts/tools/toolkits/others/models_labs.md)
+- [MoviePy Video Tools](https://docs.agno.com/concepts/tools/toolkits/others/moviepy.md): Agno MoviePyVideoTools enable an Agent to process videos, extract audio, generate SRT caption files, and embed rich, word-highlighted captions.
+- [OpenBB](https://docs.agno.com/concepts/tools/toolkits/others/openbb.md)
+- [OpenCV](https://docs.agno.com/concepts/tools/toolkits/others/opencv.md): OpenCVTools enables agents to capture images and videos from webcam using OpenCV computer vision library.
+- [OpenWeather](https://docs.agno.com/concepts/tools/toolkits/others/openweather.md)
+- [Reasoning](https://docs.agno.com/concepts/tools/toolkits/others/reasoning.md): ReasoningTools provides step-by-step reasoning capabilities for agents to think through complex problems systematically.
+- [Replicate](https://docs.agno.com/concepts/tools/toolkits/others/replicate.md)
+- [Resend](https://docs.agno.com/concepts/tools/toolkits/others/resend.md)
+- [Todoist](https://docs.agno.com/concepts/tools/toolkits/others/todoist.md)
+- [Trello](https://docs.agno.com/concepts/tools/toolkits/others/trello.md): Agno TrelloTools helps to integrate Trello functionalities into your agents, enabling management of boards, lists, and cards.
+- [User Control Flow](https://docs.agno.com/concepts/tools/toolkits/others/user_control_flow.md): UserControlFlowTools enable agents to pause execution and request input from users during conversations.
+- [Visualization](https://docs.agno.com/concepts/tools/toolkits/others/visualization.md): VisualizationTools enables agents to create various types of charts and plots using matplotlib.
+- [Web Browser Tools](https://docs.agno.com/concepts/tools/toolkits/others/web-browser.md): WebBrowser Tools enable an Agent to open a URL in a web browser.
+- [Web Tools](https://docs.agno.com/concepts/tools/toolkits/others/webtools.md): WebTools provides utilities for working with web URLs including URL expansion and web-related operations.
+- [Yfinance](https://docs.agno.com/concepts/tools/toolkits/others/yfinance.md)
+- [Youtube](https://docs.agno.com/concepts/tools/toolkits/others/youtube.md)
+- [Zendesk](https://docs.agno.com/concepts/tools/toolkits/others/zendesk.md)
+- [Arxiv](https://docs.agno.com/concepts/tools/toolkits/search/arxiv.md)
+- [BaiduSearch](https://docs.agno.com/concepts/tools/toolkits/search/baidusearch.md)
+- [Brave Search](https://docs.agno.com/concepts/tools/toolkits/search/bravesearch.md)
+- [DuckDuckGo](https://docs.agno.com/concepts/tools/toolkits/search/duckduckgo.md)
+- [Exa](https://docs.agno.com/concepts/tools/toolkits/search/exa.md)
+- [Google Search](https://docs.agno.com/concepts/tools/toolkits/search/googlesearch.md)
+- [Hacker News](https://docs.agno.com/concepts/tools/toolkits/search/hackernews.md)
+- [Linkup](https://docs.agno.com/concepts/tools/toolkits/search/linkup.md): LinkupTools provides advanced web search capabilities with deep search options and structured results.
+- [Pubmed](https://docs.agno.com/concepts/tools/toolkits/search/pubmed.md)
+- [Searxng](https://docs.agno.com/concepts/tools/toolkits/search/searxng.md)
+- [Serpapi](https://docs.agno.com/concepts/tools/toolkits/search/serpapi.md)
+- [SerperApi](https://docs.agno.com/concepts/tools/toolkits/search/serper.md)
+- [Tavily](https://docs.agno.com/concepts/tools/toolkits/search/tavily.md)
+- [Valyu](https://docs.agno.com/concepts/tools/toolkits/search/valyu.md): ValyuTools provides academic and web search capabilities with advanced filtering and relevance scoring.
+- [Wikipedia](https://docs.agno.com/concepts/tools/toolkits/search/wikipedia.md)
+- [Discord](https://docs.agno.com/concepts/tools/toolkits/social/discord.md)
+- [Email](https://docs.agno.com/concepts/tools/toolkits/social/email.md)
+- [Gmail](https://docs.agno.com/concepts/tools/toolkits/social/gmail.md)
+- [Reddit](https://docs.agno.com/concepts/tools/toolkits/social/reddit.md): RedditTools enables agents to interact with Reddit for browsing posts, comments, and subreddit information.
+- [Slack](https://docs.agno.com/concepts/tools/toolkits/social/slack.md)
+- [Telegram](https://docs.agno.com/concepts/tools/toolkits/social/telegram.md)
+- [Twilio](https://docs.agno.com/concepts/tools/toolkits/social/twilio.md)
+- [Webex](https://docs.agno.com/concepts/tools/toolkits/social/webex.md)
+- [WhatsApp](https://docs.agno.com/concepts/tools/toolkits/social/whatsapp.md)
+- [X (Twitter)](https://docs.agno.com/concepts/tools/toolkits/social/x.md)
+- [Zoom](https://docs.agno.com/concepts/tools/toolkits/social/zoom.md)
+- [Toolkit Index](https://docs.agno.com/concepts/tools/toolkits/toolkits.md)
+- [AgentQL](https://docs.agno.com/concepts/tools/toolkits/web_scrape/agentql.md)
+- [BrightData](https://docs.agno.com/concepts/tools/toolkits/web_scrape/brightdata.md)
+- [Browserbase](https://docs.agno.com/concepts/tools/toolkits/web_scrape/browserbase.md)
+- [Crawl4AI](https://docs.agno.com/concepts/tools/toolkits/web_scrape/crawl4ai.md)
+- [Firecrawl](https://docs.agno.com/concepts/tools/toolkits/web_scrape/firecrawl.md): Use Firecrawl with Agno to scrape and crawl the web.
+- [Jina Reader](https://docs.agno.com/concepts/tools/toolkits/web_scrape/jina_reader.md)
+- [Newspaper](https://docs.agno.com/concepts/tools/toolkits/web_scrape/newspaper.md)
+- [Newspaper4k](https://docs.agno.com/concepts/tools/toolkits/web_scrape/newspaper4k.md)
+- [Oxylabs](https://docs.agno.com/concepts/tools/toolkits/web_scrape/oxylabs.md)
+- [ScrapeGraph](https://docs.agno.com/concepts/tools/toolkits/web_scrape/scrapegraph.md): ScrapeGraphTools enable an Agent to extract structured data from webpages, convert content to markdown, and retrieve raw HTML content.
+- [Spider](https://docs.agno.com/concepts/tools/toolkits/web_scrape/spider.md)
+- [Trafilatura](https://docs.agno.com/concepts/tools/toolkits/web_scrape/trafilatura.md): TrafilaturaTools provides advanced web scraping and text extraction capabilities with support for crawling and content analysis.
+- [Website Tools](https://docs.agno.com/concepts/tools/toolkits/web_scrape/website.md)
+- [Azure Cosmos DB MongoDB vCore Agent Knowledge](https://docs.agno.com/concepts/vectordb/azure_cosmos_mongodb.md)
+- [Cassandra Agent Knowledge](https://docs.agno.com/concepts/vectordb/cassandra.md)
+- [ChromaDB Agent Knowledge](https://docs.agno.com/concepts/vectordb/chroma.md)
+- [Clickhouse Agent Knowledge](https://docs.agno.com/concepts/vectordb/clickhouse.md)
+- [Couchbase Agent Knowledge](https://docs.agno.com/concepts/vectordb/couchbase.md)
+- [LanceDB Agent Knowledge](https://docs.agno.com/concepts/vectordb/lancedb.md)
+- [LightRAG Agent Knowledge](https://docs.agno.com/concepts/vectordb/lightrag.md)
+- [Milvus Agent Knowledge](https://docs.agno.com/concepts/vectordb/milvus.md)
+- [MongoDB Agent Knowledge](https://docs.agno.com/concepts/vectordb/mongodb.md)
+- [What are Vector Databases?](https://docs.agno.com/concepts/vectordb/overview.md): Vector databases enable us to store information as embeddings and search for "results similar" to our input query using cosine similarity or full text search. These results are then provided to the Agent as context so it can respond in a context-aware manner using Retrieval Augmented Generation (RAG).
+- [PgVector Agent Knowledge](https://docs.agno.com/concepts/vectordb/pgvector.md)
+- [Pinecone Agent Knowledge](https://docs.agno.com/concepts/vectordb/pinecone.md)
+- [Qdrant Agent Knowledge](https://docs.agno.com/concepts/vectordb/qdrant.md)
+- [SingleStore Agent Knowledge](https://docs.agno.com/concepts/vectordb/singlestore.md)
+- [SurrealDB Agent Knowledge](https://docs.agno.com/concepts/vectordb/surrealdb.md)
+- [Weaviate Agent Knowledge](https://docs.agno.com/concepts/vectordb/weaviate.md)
+- [Accessing Multiple Previous Steps](https://docs.agno.com/concepts/workflows/access-previous-steps.md): How to access multiple previous steps
+- [Additional Data and Metadata](https://docs.agno.com/concepts/workflows/additional-data.md): How to pass additional data to workflows
+- [Background Workflow Execution](https://docs.agno.com/concepts/workflows/background-execution.md): How to execute workflows as non-blocking background tasks
+- [Building Workflows](https://docs.agno.com/concepts/workflows/building-workflow.md): Learn how to build your workflows.
+- [Workflow Cancellation](https://docs.agno.com/concepts/workflows/cancel-workflow.md): How to cancel workflows
+- [Early Stopping](https://docs.agno.com/concepts/workflows/early-stop.md): How to early stop workflows
+- [Input and Output](https://docs.agno.com/concepts/workflows/input-and-output.md): Learn how to use structured input and output with Workflows for reliable, production-ready systems.
+- [What are Workflows?](https://docs.agno.com/concepts/workflows/overview.md): Learn how Agno Workflows enable deterministic, controlled automation of multi-agent systems
+- [Running Workflows](https://docs.agno.com/concepts/workflows/running-workflow.md): Learn how to run a workflow and get the response.
+- [Advanced Workflow Patterns](https://docs.agno.com/concepts/workflows/workflow-patterns/advanced-workflow-patterns.md): Combine multiple workflow patterns to build sophisticated, production-ready automation systems
+- [Branching Workflow](https://docs.agno.com/concepts/workflows/workflow-patterns/branching-workflow.md): Complex decision trees requiring dynamic path selection based on content analysis
+- [Conditional Workflow](https://docs.agno.com/concepts/workflows/workflow-patterns/conditional-workflow.md): Deterministic branching based on input analysis or business rules
+- [Custom Functions in Workflows](https://docs.agno.com/concepts/workflows/workflow-patterns/custom-function-step-workflow.md): How to use custom functions in workflows
+- [Fully Python Workflow](https://docs.agno.com/concepts/workflows/workflow-patterns/fully-python-workflow.md): Keep it Simple with Pure Python, in v1 workflows style
+- [Grouped Steps Workflow](https://docs.agno.com/concepts/workflows/workflow-patterns/grouped-steps-workflow.md): Organize multiple steps into reusable, logical sequences for complex workflows with clean separation of concerns
+- [Iterative Workflow](https://docs.agno.com/concepts/workflows/workflow-patterns/iterative-workflow.md): Quality-driven processes requiring repetition until specific conditions are met
+- [Workflow Patterns](https://docs.agno.com/concepts/workflows/workflow-patterns/overview.md): Master deterministic workflow patterns including sequential, parallel, conditional, and looping execution for reliable multi-agent automation.
+- [Parallel Workflow](https://docs.agno.com/concepts/workflows/workflow-patterns/parallel-workflow.md): Independent, concurrent tasks that can execute simultaneously for improved efficiency
+- [Sequential Workflows](https://docs.agno.com/concepts/workflows/workflow-patterns/sequential.md): Linear, deterministic processes where each step depends on the output of the previous step.
+- [Step-Based Workflows](https://docs.agno.com/concepts/workflows/workflow-patterns/step-based-workflow.md): Named steps for better logging and support on the AgentOS chat page
+- [Workflow Tools](https://docs.agno.com/concepts/workflows/workflow-tools.md): How to execute a workflow inside an Agent or Team
+- [How does shared state work between workflows, teams and agents?](https://docs.agno.com/concepts/workflows/workflow_session_state.md): Learn to handle shared state between the different components of a Workflow
+- [Workflow History & Continuous Execution](https://docs.agno.com/concepts/workflows/workflow_with_history.md): Build conversational workflows that maintain context across multiple executions, creating truly intelligent and natural interactions.
+- [Agno Infra](https://docs.agno.com/deploy/agno-infra.md)
+- [Deploy your AgentOS](https://docs.agno.com/deploy/introduction.md): How to take your AgentOS to production
+- [AgentOS Demo](https://docs.agno.com/examples/agent-os/demo.md): AgentOS demo with agents and teams
+- [AgentOS Configuration](https://docs.agno.com/examples/agent-os/extra_configuration.md): Passing extra configuration to your AgentOS
+- [Human-in-the-Loop Example](https://docs.agno.com/examples/agent-os/hitl.md): AgentOS with tools requiring user confirmation
+- [Agent with Tools](https://docs.agno.com/examples/agent-os/interfaces/a2a/agent_with_tools.md): Investment analyst agent with financial tools and web interface
+- [Basic](https://docs.agno.com/examples/agent-os/interfaces/a2a/basic.md): Create a basic AI agent with A2A interface
+- [Research Team](https://docs.agno.com/examples/agent-os/interfaces/a2a/team.md): Multi-agent research team with specialized roles and web interface
+- [Agent with Tools](https://docs.agno.com/examples/agent-os/interfaces/ag-ui/agent_with_tools.md): Investment analyst agent with financial tools and web interface
+- [Basic](https://docs.agno.com/examples/agent-os/interfaces/ag-ui/basic.md): Create a basic AI agent with ChatGPT-like web interface
+- [Research Team](https://docs.agno.com/examples/agent-os/interfaces/ag-ui/team.md): Multi-agent research team with specialized roles and web interface
+- [Slack Agent with User Memory](https://docs.agno.com/examples/agent-os/interfaces/slack/agent_with_user_memory.md): Personalized Slack agent that remembers user information and preferences
+- [Basic Slack Agent](https://docs.agno.com/examples/agent-os/interfaces/slack/basic.md): Create a basic AI agent that integrates with Slack for conversations
+- [Slack Reasoning Finance Agent](https://docs.agno.com/examples/agent-os/interfaces/slack/reasoning_agent.md): Slack agent with advanced reasoning and financial analysis capabilities
+- [WhatsApp Agent with Media Support](https://docs.agno.com/examples/agent-os/interfaces/whatsapp/agent_with_media.md): WhatsApp agent that analyzes images, videos, and audio using multimodal AI
+- [WhatsApp Agent with User Memory](https://docs.agno.com/examples/agent-os/interfaces/whatsapp/agent_with_user_memory.md): Personalized WhatsApp agent that remembers user information and preferences
+- [Basic WhatsApp Agent](https://docs.agno.com/examples/agent-os/interfaces/whatsapp/basic.md): Create a basic AI agent that integrates with WhatsApp Business API
+- [WhatsApp Image Generation Agent (Model-based)](https://docs.agno.com/examples/agent-os/interfaces/whatsapp/image_generation_model.md): WhatsApp agent that generates images using Gemini's built-in capabilities
+- [WhatsApp Image Generation Agent (Tool-based)](https://docs.agno.com/examples/agent-os/interfaces/whatsapp/image_generation_tools.md): WhatsApp agent that generates images using OpenAI's image generation tools
+- [WhatsApp Reasoning Finance Agent](https://docs.agno.com/examples/agent-os/interfaces/whatsapp/reasoning_agent.md): WhatsApp agent with advanced reasoning and financial analysis capabilities
+- [Enable AgentOS MCP](https://docs.agno.com/examples/agent-os/mcp/enable_mcp_example.md): Complete AgentOS setup with MCP support enabled
+- [AgentOS with MCPTools](https://docs.agno.com/examples/agent-os/mcp/mcp_tools_example.md): Complete AgentOS setup with MCPTools enabled on agents
+- [Custom FastAPI App with JWT Middleware](https://docs.agno.com/examples/agent-os/middleware/custom-fastapi-jwt.md): Custom FastAPI application with JWT middleware for authentication and AgentOS integration
+- [Custom Middleware](https://docs.agno.com/examples/agent-os/middleware/custom-middleware.md): AgentOS with custom middleware for rate limiting, logging, and monitoring
+- [JWT Middleware with Cookies](https://docs.agno.com/examples/agent-os/middleware/jwt-cookies.md): AgentOS with JWT middleware using HTTP-only cookies for secure web authentication
+- [JWT Middleware with Authorization Headers](https://docs.agno.com/examples/agent-os/middleware/jwt-middleware.md): AgentOS with JWT middleware for authentication and parameter injection using Authorization headers
+- [Agentic RAG with Hybrid Search and Reranking](https://docs.agno.com/examples/concepts/agent/agentic_search/agentic_rag.md)
+- [Agentic RAG with Infinity Reranker](https://docs.agno.com/examples/concepts/agent/agentic_search/agentic_rag_infinity_reranker.md)
+- [Agentic RAG with Reasoning Tools](https://docs.agno.com/examples/concepts/agent/agentic_search/agentic_rag_with_reasoning.md)
+- [Agentic RAG with LightRAG](https://docs.agno.com/examples/concepts/agent/agentic_search/lightrag/agentic_rag_with_lightrag.md)
+- [Basic Async Agent Usage](https://docs.agno.com/examples/concepts/agent/async/basic.md)
+- [Async Data Analyst Agent with DuckDB](https://docs.agno.com/examples/concepts/agent/async/data_analyst.md)
+- [Async Agents with Delayed Execution](https://docs.agno.com/examples/concepts/agent/async/delay.md)
+- [Gathering Multiple Async Agents](https://docs.agno.com/examples/concepts/agent/async/gather_agents.md)
+- [Async Agent with Reasoning Capabilities](https://docs.agno.com/examples/concepts/agent/async/reasoning.md)
+- [Async Agent Streaming Responses](https://docs.agno.com/examples/concepts/agent/async/streaming.md)
+- [Async Agent with Structured Output](https://docs.agno.com/examples/concepts/agent/async/structured_output.md)
+- [Async Agent with Tool Usage](https://docs.agno.com/examples/concepts/agent/async/tool_use.md)
+- [Context Management with DateTime Instructions](https://docs.agno.com/examples/concepts/agent/context_management/datetime_instructions.md)
+- [Dynamic Instructions Based on Session State](https://docs.agno.com/examples/concepts/agent/context_management/dynamic_instructions.md)
+- [Few-Shot Learning with Additional Input](https://docs.agno.com/examples/concepts/agent/context_management/few_shot_learning.md)
+- [Managing Tool Calls](https://docs.agno.com/examples/concepts/agent/context_management/filter_tool_calls_from_history.md)
+- [Basic Agent Instructions](https://docs.agno.com/examples/concepts/agent/context_management/instructions.md)
+- [Dynamic Instructions via Function](https://docs.agno.com/examples/concepts/agent/context_management/instructions_via_function.md)
+- [Location-Aware Agent Instructions](https://docs.agno.com/examples/concepts/agent/context_management/location_instructions.md)
+- [Access Dependencies in Tool](https://docs.agno.com/examples/concepts/agent/dependencies/access_dependencies_in_tool.md): How to access dependencies passed to an agent in a tool
+- [Add Dependencies to Agent Run](https://docs.agno.com/examples/concepts/agent/dependencies/add_dependencies_run.md)
+- [Add Dependencies to Agent Context](https://docs.agno.com/examples/concepts/agent/dependencies/add_dependencies_to_context.md)
+- [Basic Agent Events Handling](https://docs.agno.com/examples/concepts/agent/events/basic_agent_events.md)
+- [Custom Events](https://docs.agno.com/examples/concepts/agent/events/custom_events.md): Learn how to yield custom events from your own tools.
+- [Reasoning Agent Events Handling](https://docs.agno.com/examples/concepts/agent/events/reasoning_agent_events.md)
+- [OpenAI Moderation Guardrail](https://docs.agno.com/examples/concepts/agent/guardrails/openai_moderation.md)
+- [PII Detection Guardrail](https://docs.agno.com/examples/concepts/agent/guardrails/pii_detection.md)
+- [Prompt Injection Guardrail](https://docs.agno.com/examples/concepts/agent/guardrails/prompt_injection.md)
+- [Input Transformation Pre-Hook](https://docs.agno.com/examples/concepts/agent/hooks/input_transformation_pre_hook.md)
+- [Input Validation Pre-Hook](https://docs.agno.com/examples/concepts/agent/hooks/input_validation_pre_hook.md)
+- [Output Transformation Post-Hook](https://docs.agno.com/examples/concepts/agent/hooks/output_transformation_post_hook.md)
+- [Output Validation Post-Hook](https://docs.agno.com/examples/concepts/agent/hooks/output_validation_post_hook.md)
+- [Agentic User Input with Control Flow](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/agentic_user_input.md)
+- [Tool Confirmation Required](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/confirmation_required.md)
+- [Async Tool Confirmation Required](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/confirmation_required_async.md)
+- [Confirmation Required with Mixed Tools](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/confirmation_required_mixed_tools.md)
+- [Confirmation Required with Multiple Tools](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/confirmation_required_multiple_tools.md)
+- [Confirmation Required with Streaming](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/confirmation_required_stream.md)
+- [Confirmation Required with Async Streaming](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/confirmation_required_stream_async.md)
+- [Confirmation Required with Toolkit](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/confirmation_required_toolkit.md)
+- [Confirmation Required with History](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/confirmation_required_with_history.md)
+- [Confirmation Required with Run ID](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/confirmation_required_with_run_id.md)
+- [External Tool Execution](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/external_tool_execution.md)
+- [External Tool Execution Async](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/external_tool_execution_async.md)
+- [External Tool Execution Async Responses](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/external_tool_execution_async_responses.md)
+- [External Tool Execution Stream](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/external_tool_execution_stream.md)
+- [External Tool Execution Stream Async](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/external_tool_execution_stream_async.md)
+- [External Tool Execution Toolkit](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/external_tool_execution_toolkit.md)
+- [User Input Required for Tool Execution](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/user_input_required.md)
+- [User Input Required All Fields](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/user_input_required_all_fields.md)
+- [User Input Required Async](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/user_input_required_async.md)
+- [User Input Required Stream](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/user_input_required_stream.md)
+- [User Input Required Stream Async](https://docs.agno.com/examples/concepts/agent/human_in_the_loop/user_input_required_stream_async.md)
+- [Agent Input as Dictionary](https://docs.agno.com/examples/concepts/agent/input_and_output/input_as_dict.md)
+- [Agent Input as List](https://docs.agno.com/examples/concepts/agent/input_and_output/input_as_list.md)
+- [Agent Input as Message Object](https://docs.agno.com/examples/concepts/agent/input_and_output/input_as_message.md)
+- [Agent Input as Messages List](https://docs.agno.com/examples/concepts/agent/input_and_output/input_as_messages_list.md)
+- [Agent with Input Schema](https://docs.agno.com/examples/concepts/agent/input_and_output/input_schema_on_agent.md)
+- [Agent with Input Schema as TypedDict](https://docs.agno.com/examples/concepts/agent/input_and_output/input_schema_on_agent_as_typed_dict.md)
+- [Agent with Output Model](https://docs.agno.com/examples/concepts/agent/input_and_output/output_model.md)
+- [Parser Model for Structured Output](https://docs.agno.com/examples/concepts/agent/input_and_output/parser_model.md)
+- [Agent with Ollama Parser Model](https://docs.agno.com/examples/concepts/agent/input_and_output/parser_model_ollama.md)
+- [Streaming Agent with Parser Model](https://docs.agno.com/examples/concepts/agent/input_and_output/parser_model_stream.md)
+- [Capturing Agent Response as Variable](https://docs.agno.com/examples/concepts/agent/input_and_output/response_as_variable.md)
+- [Structured Input with Pydantic Models](https://docs.agno.com/examples/concepts/agent/input_and_output/structured_input.md)
+- [Agent Same Run Image Analysis](https://docs.agno.com/examples/concepts/agent/multimodal/agent_same_run_image_analysis.md)
+- [Agent Using Multimodal Tool Response in Runs](https://docs.agno.com/examples/concepts/agent/multimodal/agent_using_multimodal_tool_response_in_runs.md)
+- [Audio Input Output](https://docs.agno.com/examples/concepts/agent/multimodal/audio_input_output.md)
+- [Audio Multi Turn](https://docs.agno.com/examples/concepts/agent/multimodal/audio_multi_turn.md)
+- [Audio Sentiment Analysis](https://docs.agno.com/examples/concepts/agent/multimodal/audio_sentiment_analysis.md)
+- [Audio Streaming](https://docs.agno.com/examples/concepts/agent/multimodal/audio_streaming.md)
+- [Audio to Text Transcription](https://docs.agno.com/examples/concepts/agent/multimodal/audio_to_text.md)
+- [File Input for Tools](https://docs.agno.com/examples/concepts/agent/multimodal/file_input_for_tool.md)
+- [Generate Image with Intermediate Steps](https://docs.agno.com/examples/concepts/agent/multimodal/generate_image_with_intermediate_steps.md)
+- [Generate Video Using ModelsLab](https://docs.agno.com/examples/concepts/agent/multimodal/generate_video_using_models_lab.md)
+- [Generate Video Using Replicate](https://docs.agno.com/examples/concepts/agent/multimodal/generate_video_using_replicate.md)
+- [Image Input for Tools](https://docs.agno.com/examples/concepts/agent/multimodal/image_input_for_tool.md)
+- [High Fidelity Image Input](https://docs.agno.com/examples/concepts/agent/multimodal/image_input_high_fidelity.md)
+- [Image to Audio Story Generation](https://docs.agno.com/examples/concepts/agent/multimodal/image_to_audio.md)
+- [Image to Image Generation Agent](https://docs.agno.com/examples/concepts/agent/multimodal/image_to_image_agent.md)
+- [Image to Structured Output](https://docs.agno.com/examples/concepts/agent/multimodal/image_to_structured_output.md)
+- [Image to Text Analysis](https://docs.agno.com/examples/concepts/agent/multimodal/image_to_text.md)
+- [Video Caption Generator Agent](https://docs.agno.com/examples/concepts/agent/multimodal/video_caption_agent.md)
+- [Video to Shorts Generation](https://docs.agno.com/examples/concepts/agent/multimodal/video_to_shorts.md)
+- [Agent Extra Metrics](https://docs.agno.com/examples/concepts/agent/other/agent_extra_metrics.md)
+- [Agent Metrics and Performance Monitoring](https://docs.agno.com/examples/concepts/agent/other/agent_metrics.md)
+- [Agent Run Metadata](https://docs.agno.com/examples/concepts/agent/other/agent_run_metadata.md)
+- [Cancel Agent Run](https://docs.agno.com/examples/concepts/agent/other/cancel_a_run.md)
+- [Agent Debug Mode](https://docs.agno.com/examples/concepts/agent/other/debug.md)
+- [Debug Level](https://docs.agno.com/examples/concepts/agent/other/debug_level.md)
+- [Agent Intermediate Steps Streaming](https://docs.agno.com/examples/concepts/agent/other/intermediate_steps.md)
+- [Run Response Events](https://docs.agno.com/examples/concepts/agent/other/run_response_events.md)
+- [Scenario Testing](https://docs.agno.com/examples/concepts/agent/other/scenario_testing.md)
+- [Tool Call Limit](https://docs.agno.com/examples/concepts/agent/other/tool_call_limit.md)
+- [Agentic RAG with LanceDB](https://docs.agno.com/examples/concepts/agent/rag/agentic_rag_lancedb.md)
+- [Agentic RAG with PgVector](https://docs.agno.com/examples/concepts/agent/rag/agentic_rag_pgvector.md)
+- [Agentic RAG with Reranking](https://docs.agno.com/examples/concepts/agent/rag/agentic_rag_with_reranking.md)
+- [RAG with Sentence Transformer Reranker](https://docs.agno.com/examples/concepts/agent/rag/rag_sentence_transformer.md)
+- [RAG with LanceDB and SQLite Storage](https://docs.agno.com/examples/concepts/agent/rag/rag_with_lance_db_and_sqlite.md)
+- [Traditional RAG with LanceDB](https://docs.agno.com/examples/concepts/agent/rag/traditional_rag_lancedb.md)
+- [Traditional RAG with PgVector](https://docs.agno.com/examples/concepts/agent/rag/traditional_rag_pgvector.md)
+- [Persistent Session Storage](https://docs.agno.com/examples/concepts/agent/session/01_persistent_session.md)
+- [Persistent Session with History Limit](https://docs.agno.com/examples/concepts/agent/session/02_persistent_session_history.md)
+- [Session Summary Management](https://docs.agno.com/examples/concepts/agent/session/03_session_summary.md)
+- [Session Summary with References](https://docs.agno.com/examples/concepts/agent/session/04_session_summary_references.md)
+- [Chat History Management](https://docs.agno.com/examples/concepts/agent/session/05_chat_history.md)
+- [Session Name Management](https://docs.agno.com/examples/concepts/agent/session/06_rename_session.md)
+- [In-Memory Database Storage](https://docs.agno.com/examples/concepts/agent/session/07_in_memory_db.md)
+- [Session Caching](https://docs.agno.com/examples/concepts/agent/session/08_cache_session.md)
+- [Disable Storing History Messages](https://docs.agno.com/examples/concepts/agent/session/09_disable_storing_history_messages.md): This example demonstrates how to disable storing history messages in a session.
+- [Disable Storing Tool Messages](https://docs.agno.com/examples/concepts/agent/session/10_disable_storing_tool_messages.md): This example demonstrates how to disable storing tool messages in a session.
+- [Agentic Session State](https://docs.agno.com/examples/concepts/agent/state/agentic_session_state.md)
+- [Change State On Run](https://docs.agno.com/examples/concepts/agent/state/change_state_on_run.md)
+- [Dynamic Session State](https://docs.agno.com/examples/concepts/agent/state/dynamic_session_state.md)
+- [Last N Session Messages](https://docs.agno.com/examples/concepts/agent/state/last_n_session_messages.md)
+- [Advanced Session State Management](https://docs.agno.com/examples/concepts/agent/state/session_state_advanced.md)
+- [Basic Session State Management](https://docs.agno.com/examples/concepts/agent/state/session_state_basic.md)
+- [Session State In Context](https://docs.agno.com/examples/concepts/agent/state/session_state_in_context.md)
+- [Session State In Instructions](https://docs.agno.com/examples/concepts/agent/state/session_state_in_instructions.md)
+- [Session State for Multiple Users](https://docs.agno.com/examples/concepts/agent/state/session_state_multiple_users.md)
+- [Async Postgres for Agent](https://docs.agno.com/examples/concepts/db/async_postgres/async_postgres_for_agent.md)
+- [Async Postgres for Team](https://docs.agno.com/examples/concepts/db/async_postgres/async_postgres_for_team.md)
+- [Async Postgres for Workflows](https://docs.agno.com/examples/concepts/db/async_postgres/async_postgres_for_workflow.md)
+- [DynamoDB for Agent](https://docs.agno.com/examples/concepts/db/dynamodb/dynamodb_for_agent.md)
+- [DynamoDB for Team](https://docs.agno.com/examples/concepts/db/dynamodb/dynamodb_for_team.md)
+- [DynamoDB Workflow Storage](https://docs.agno.com/examples/concepts/db/dynamodb/dynamodb_for_workflow.md)
+- [Firestore for Agent](https://docs.agno.com/examples/concepts/db/firestore/firestore_for_agent.md)
+- [Firestore for Team](https://docs.agno.com/examples/concepts/db/firestore/firestore_for_team.md)
+- [Firestore for Workflows](https://docs.agno.com/examples/concepts/db/firestore/firestore_for_workflow.md)
+- [Google Cloud Storage for Agent](https://docs.agno.com/examples/concepts/db/gcs/gcs_for_agent.md)
+- [GCS for Team](https://docs.agno.com/examples/concepts/db/gcs/gcs_for_team.md)
+- [GCS for Workflows](https://docs.agno.com/examples/concepts/db/gcs/gcs_for_workflow.md)
+- [In-Memory Storage for Agents](https://docs.agno.com/examples/concepts/db/in_memory/in_memory_for_agent.md)
+- [In-Memory Storage for Teams](https://docs.agno.com/examples/concepts/db/in_memory/in_memory_for_team.md)
+- [In-Memory Storage for Workflows](https://docs.agno.com/examples/concepts/db/in_memory/in_memory_for_workflow.md)
+- [JSON for Agent](https://docs.agno.com/examples/concepts/db/json/json_for_agent.md)
+- [JSON for Team](https://docs.agno.com/examples/concepts/db/json/json_for_team.md)
+- [JSON for Workflows](https://docs.agno.com/examples/concepts/db/json/json_for_workflow.md)
+- [Selecting Custom Table Names](https://docs.agno.com/examples/concepts/db/miscellaneous/selecting_tables.md)
+- [MongoDB for Agent](https://docs.agno.com/examples/concepts/db/mongodb/mongodb_for_agent.md)
+- [MongoDB for Team](https://docs.agno.com/examples/concepts/db/mongodb/mongodb_for_team.md)
+- [MongoDB for Workflow](https://docs.agno.com/examples/concepts/db/mongodb/mongodb_for_workflow.md)
+- [MySQL for Agent](https://docs.agno.com/examples/concepts/db/mysql/mysql_for_agent.md)
+- [MySQL for Team](https://docs.agno.com/examples/concepts/db/mysql/mysql_for_team.md)
+- [MySQL Workflow Storage](https://docs.agno.com/examples/concepts/db/mysql/mysql_for_workflow.md)
+- [Postgres for Agent](https://docs.agno.com/examples/concepts/db/postgres/postgres_for_agent.md)
+- [Postgres for Team](https://docs.agno.com/examples/concepts/db/postgres/postgres_for_team.md)
+- [Postgres for Workflows](https://docs.agno.com/examples/concepts/db/postgres/postgres_for_workflow.md)
+- [Redis for Agent](https://docs.agno.com/examples/concepts/db/redis/redis_for_agent.md)
+- [Redis for Team](https://docs.agno.com/examples/concepts/db/redis/redis_for_team.md)
+- [Redis for Workflows](https://docs.agno.com/examples/concepts/db/redis/redis_for_workflow.md)
+- [Singlestore for Agent](https://docs.agno.com/examples/concepts/db/singlestore/singlestore_for_agent.md)
+- [Singlestore for Team](https://docs.agno.com/examples/concepts/db/singlestore/singlestore_for_team.md)
+- [Singlestore for Workflow](https://docs.agno.com/examples/concepts/db/singlestore/singlestore_for_workflow.md)
+- [Sqlite for Agent](https://docs.agno.com/examples/concepts/db/sqlite/sqlite_for_agent.md)
+- [Sqlite for Team](https://docs.agno.com/examples/concepts/db/sqlite/sqlite_for_team.md)
+- [SQLite for Workflow](https://docs.agno.com/examples/concepts/db/sqlite/sqlite_for_workflow.md)
+- [Async Accuracy Evaluation](https://docs.agno.com/examples/concepts/evals/accuracy/accuracy_async.md): Learn how to run accuracy evaluations asynchronously for better performance.
+- [Comparison Accuracy Evaluation](https://docs.agno.com/examples/concepts/evals/accuracy/accuracy_comparison.md): Learn how to evaluate agent accuracy on comparison tasks.
+- [Accuracy with Database Logging](https://docs.agno.com/examples/concepts/evals/accuracy/accuracy_db_logging.md): Learn how to store evaluation results in the database for tracking and analysis.
+- [Accuracy with Given Answer](https://docs.agno.com/examples/concepts/evals/accuracy/accuracy_with_given_answer.md): Learn how to evaluate the accuracy of an Agno Agent's response with a given answer.
+- [Accuracy with Teams](https://docs.agno.com/examples/concepts/evals/accuracy/accuracy_with_teams.md): Learn how to evaluate the accuracy of an Agno Team.
+- [Accuracy with Tools](https://docs.agno.com/examples/concepts/evals/accuracy/accuracy_with_tools.md): Learn how to evaluate the accuracy of an Agent that is using tools.
+- [Simple Accuracy](https://docs.agno.com/examples/concepts/evals/accuracy/basic.md): Learn to check how complete, correct and accurate an Agno Agent's response is.
+- [Performance on Agent Instantiation](https://docs.agno.com/examples/concepts/evals/performance/performance_agent_instantiation.md): Evaluation to analyze the runtime and memory usage of an Agent.
+- [Async Performance Evaluation](https://docs.agno.com/examples/concepts/evals/performance/performance_async.md): Learn how to run performance evaluations on async functions.
+- [Performance with Database Logging](https://docs.agno.com/examples/concepts/evals/performance/performance_db_logging.md): Learn how to store performance evaluation results in the database.
+- [Performance on Agent Instantiation with Tool](https://docs.agno.com/examples/concepts/evals/performance/performance_instantiation_with_tool.md): Example showing how to analyze the runtime and memory usage of an Agent that is using tools.
+- [Performance on Agent Response](https://docs.agno.com/examples/concepts/evals/performance/performance_simple_response.md): Example showing how to analyze the runtime and memory usage of an Agent's run, given its response.
+- [Performance with Teams](https://docs.agno.com/examples/concepts/evals/performance/performance_team_instantiation.md): Learn how to analyze the runtime and memory usage of an Agno Team.
+- [Team Performance with Memory](https://docs.agno.com/examples/concepts/evals/performance/performance_team_with_memory.md): Learn how to evaluate team performance with memory tracking and growth monitoring.
+- [Performance with Memory Updates](https://docs.agno.com/examples/concepts/evals/performance/performance_with_memory.md): Learn how to evaluate performance when memory updates are involved.
+- [Performance on Agent with Storage](https://docs.agno.com/examples/concepts/evals/performance/performance_with_storage.md): Example showing how to analyze the runtime and memory usage of an Agent that is using storage.
+- [Reliability with Single Tool](https://docs.agno.com/examples/concepts/evals/reliability/basic.md): Evaluation to assert an Agent is making the expected tool calls.
+- [Async Reliability Evaluation](https://docs.agno.com/examples/concepts/evals/reliability/reliability_async.md): Learn how to run reliability evaluations asynchronously.
+- [Reliability with Database Logging](https://docs.agno.com/examples/concepts/evals/reliability/reliability_db_logging.md): Learn how to store reliability evaluation results in the database.
+- [Single Tool Reliability](https://docs.agno.com/examples/concepts/evals/reliability/reliability_single_tool.md): Learn how to evaluate reliability of single tool calls.
+- [Team Reliability with Stock Tools](https://docs.agno.com/examples/concepts/evals/reliability/reliability_team_advanced.md): Learn how to evaluate team reliability with real-world tools like stock price lookup.
+- [Reliability with Multiple Tools](https://docs.agno.com/examples/concepts/evals/reliability/reliability_with_multiple_tools.md): Learn how to assert an Agno Agent is making multiple expected tool calls.
+- [Reliability with Teams](https://docs.agno.com/examples/concepts/evals/reliability/reliability_with_teams.md): Learn how to assert an Agno Team is making the expected tool calls.
+- [Agent with Media](https://docs.agno.com/examples/concepts/integrations/discord/agent_with_media.md)
+- [Agent with User Memory](https://docs.agno.com/examples/concepts/integrations/discord/agent_with_user_memory.md)
+- [Basic](https://docs.agno.com/examples/concepts/integrations/discord/basic.md)
+- [Agent Ops](https://docs.agno.com/examples/concepts/integrations/observability/agent_ops.md)
+- [Arize Phoenix via OpenInference](https://docs.agno.com/examples/concepts/integrations/observability/arize-phoenix-via-openinference.md)
+- [Arize Phoenix via OpenInference (Local Collector)](https://docs.agno.com/examples/concepts/integrations/observability/arize-phoenix-via-openinference-local.md)
+- [Atla](https://docs.agno.com/examples/concepts/integrations/observability/atla_op.md)
+- [Langfuse Via Openinference](https://docs.agno.com/examples/concepts/integrations/observability/langfuse_via_openinference.md)
+- [Langfuse Via Openinference (With Structured Output)](https://docs.agno.com/examples/concepts/integrations/observability/langfuse_via_openinference_response_model.md)
+- [Teams with Langfuse Via Openinference](https://docs.agno.com/examples/concepts/integrations/observability/langfuse_via_openinference_team.md)
+- [Langfuse Via Openlit](https://docs.agno.com/examples/concepts/integrations/observability/langfuse_via_openlit.md)
+- [LangSmith](https://docs.agno.com/examples/concepts/integrations/observability/langsmith-via-openinference.md)
+- [Langtrace](https://docs.agno.com/examples/concepts/integrations/observability/langtrace-op.md)
+- [Langwatch](https://docs.agno.com/examples/concepts/integrations/observability/langwatch_op.md)
+- [Maxim](https://docs.agno.com/examples/concepts/integrations/observability/maxim.md)
+- [Weave](https://docs.agno.com/examples/concepts/integrations/observability/weave-op.md)
+- [Scenario Testing](https://docs.agno.com/examples/concepts/integrations/testing/scenario/basic.md)
+- [Include and Exclude Files](https://docs.agno.com/examples/concepts/knowledge/basic-operations/include-exclude-files.md)
+- [Remove Content](https://docs.agno.com/examples/concepts/knowledge/basic-operations/remove-content.md)
+- [Remove Vectors](https://docs.agno.com/examples/concepts/knowledge/basic-operations/remove-vectors.md)
+- [Skip If Exists](https://docs.agno.com/examples/concepts/knowledge/basic-operations/skip-if-exists.md)
+- [Sync Operations](https://docs.agno.com/examples/concepts/knowledge/basic-operations/sync-operations.md)
+- [Agentic Chunking](https://docs.agno.com/examples/concepts/knowledge/chunking/agentic-chunking.md)
+- [CSV Row Chunking](https://docs.agno.com/examples/concepts/knowledge/chunking/csv-row-chunking.md)
+- [Document Chunking](https://docs.agno.com/examples/concepts/knowledge/chunking/document-chunking.md)
+- [Fixed Size Chunking](https://docs.agno.com/examples/concepts/knowledge/chunking/fixed-size-chunking.md)
+- [Markdown Chunking](https://docs.agno.com/examples/concepts/knowledge/chunking/markdown-chunking.md)
+- [Recursive Chunking](https://docs.agno.com/examples/concepts/knowledge/chunking/recursive-chunking.md)
+- [Semantic Chunking](https://docs.agno.com/examples/concepts/knowledge/chunking/semantic-chunking.md)
+- [Async Custom Retriever](https://docs.agno.com/examples/concepts/knowledge/custom_retriever/async-custom-retriever.md)
+- [Custom Retriever](https://docs.agno.com/examples/concepts/knowledge/custom_retriever/custom-retriever.md)
+- [AWS Bedrock Embedder](https://docs.agno.com/examples/concepts/knowledge/embedders/aws-bedrock-embedder.md)
+- [Azure OpenAI Embedder](https://docs.agno.com/examples/concepts/knowledge/embedders/azure-embedder.md)
+- [Cohere Embedder](https://docs.agno.com/examples/concepts/knowledge/embedders/cohere-embedder.md)
+- [Fireworks Embedder](https://docs.agno.com/examples/concepts/knowledge/embedders/fireworks-embedder.md)
+- [Gemini Embedder](https://docs.agno.com/examples/concepts/knowledge/embedders/gemini-embedder.md)
+- [Huggingface Embedder](https://docs.agno.com/examples/concepts/knowledge/embedders/huggingface-embedder.md)
+- [Jina Embedder](https://docs.agno.com/examples/concepts/knowledge/embedders/jina-embedder.md)
+- [LangDB Embedder](https://docs.agno.com/examples/concepts/knowledge/embedders/langdb-embedder.md)
+- [Mistral Embedder](https://docs.agno.com/examples/concepts/knowledge/embedders/mistral-embedder.md)
+- [Nebius Embedder](https://docs.agno.com/examples/concepts/knowledge/embedders/nebius-embedder.md)
+- [Ollama Embedder](https://docs.agno.com/examples/concepts/knowledge/embedders/ollama-embedder.md)
+- [OpenAI Embedder](https://docs.agno.com/examples/concepts/knowledge/embedders/openai-embedder.md)
+- [Qdrant FastEmbed Embedder](https://docs.agno.com/examples/concepts/knowledge/embedders/qdrant-fastembed.md)
+- [Sentence Transformer Embedder](https://docs.agno.com/examples/concepts/knowledge/embedders/sentence-transformer-embedder.md)
+- [Together Embedder](https://docs.agno.com/examples/concepts/knowledge/embedders/together-embedder.md)
+- [VoyageAI Embedder](https://docs.agno.com/examples/concepts/knowledge/embedders/voyageai-embedder.md)
+- [Agentic Filtering](https://docs.agno.com/examples/concepts/knowledge/filters/agentic-filtering.md)
+- [Async Filtering](https://docs.agno.com/examples/concepts/knowledge/filters/async-filtering.md)
+- [Filtering](https://docs.agno.com/examples/concepts/knowledge/filters/filtering.md)
+- [Filtering on Load](https://docs.agno.com/examples/concepts/knowledge/filters/filtering_on_load.md)
+- [Filtering with Invalid Keys](https://docs.agno.com/examples/concepts/knowledge/filters/filtering_with_invalid_keys.md)
+- [Filtering on ChromaDB](https://docs.agno.com/examples/concepts/knowledge/filters/vector-dbs/filtering_chroma_db.md): Learn how to filter knowledge base searches using Pdf documents with user-specific metadata in ChromaDB.
+- [Filtering on LanceDB](https://docs.agno.com/examples/concepts/knowledge/filters/vector-dbs/filtering_lance_db.md): Learn how to filter knowledge base searches using Pdf documents with user-specific metadata in LanceDB.
+- [Filtering on MilvusDB](https://docs.agno.com/examples/concepts/knowledge/filters/vector-dbs/filtering_milvus_db.md): Learn how to filter knowledge base searches using Pdf documents with user-specific metadata in MilvusDB.
+- [Filtering on MongoDB](https://docs.agno.com/examples/concepts/knowledge/filters/vector-dbs/filtering_mongo_db.md): Learn how to filter knowledge base searches using Pdf documents with user-specific metadata in MongoDB.
+- [Filtering on PgVector](https://docs.agno.com/examples/concepts/knowledge/filters/vector-dbs/filtering_pgvector.md): Learn how to filter knowledge base searches using Pdf documents with user-specific metadata in PgVector.
+- [Filtering on Pinecone](https://docs.agno.com/examples/concepts/knowledge/filters/vector-dbs/filtering_pinecone.md): Learn how to filter knowledge base searches using Pdf documents with user-specific metadata in Pinecone.
+- [Filtering on SurrealDB](https://docs.agno.com/examples/concepts/knowledge/filters/vector-dbs/filtering_surreal_db.md): Learn how to filter knowledge base searches using Pdf documents with user-specific metadata in SurrealDB.
+- [Filtering on Weaviate](https://docs.agno.com/examples/concepts/knowledge/filters/vector-dbs/filtering_weaviate.md): Learn how to filter knowledge base searches using Pdf documents with user-specific metadata in Weaviate.
+- [Agentic RAG with LanceDB](https://docs.agno.com/examples/concepts/knowledge/rag/agentic-rag-lancedb.md)
+- [Agentic RAG with PgVector](https://docs.agno.com/examples/concepts/knowledge/rag/agentic-rag-pgvector.md)
+- [Agentic RAG with Reranking](https://docs.agno.com/examples/concepts/knowledge/rag/agentic-rag-with-reranking.md)
+- [RAG with LanceDB and SQLite](https://docs.agno.com/examples/concepts/knowledge/rag/rag-with-lance-db-and-sqlite.md)
+- [RAG with Sentence Transformer](https://docs.agno.com/examples/concepts/knowledge/rag/rag_sentence_transformer.md)
+- [Traditional RAG with LanceDB](https://docs.agno.com/examples/concepts/knowledge/rag/traditional-rag-lancedb.md)
+- [Traditional RAG with PgVector](https://docs.agno.com/examples/concepts/knowledge/rag/traditional-rag-pgvector.md)
+- [ArXiv Reader](https://docs.agno.com/examples/concepts/knowledge/readers/arxiv/arxiv-reader.md)
+- [ArXiv Reader Async](https://docs.agno.com/examples/concepts/knowledge/readers/arxiv/arxiv-reader-async.md)
+- [CSV Reader](https://docs.agno.com/examples/concepts/knowledge/readers/csv/csv-reader.md)
+- [CSV Reader Async](https://docs.agno.com/examples/concepts/knowledge/readers/csv/csv-reader-async.md)
+- [CSV URL Reader](https://docs.agno.com/examples/concepts/knowledge/readers/csv/csv-url-reader.md)
+- [Field Labeled CSV Reader](https://docs.agno.com/examples/concepts/knowledge/readers/field-labeled-csv/field-labeled-csv-reader.md)
+- [Firecrawl Reader](https://docs.agno.com/examples/concepts/knowledge/readers/firecrawl/firecrawl-reader.md)
+- [Firecrawl Reader (Async)](https://docs.agno.com/examples/concepts/knowledge/readers/firecrawl/firecrawl-reader-async.md)
+- [JSON Reader](https://docs.agno.com/examples/concepts/knowledge/readers/json/json-reader.md)
+- [JSON Reader (Async)](https://docs.agno.com/examples/concepts/knowledge/readers/json/json-reader-async.md)
+- [Markdown Reader](https://docs.agno.com/examples/concepts/knowledge/readers/markdown/markdown-reader.md)
+- [Markdown Reader (Async)](https://docs.agno.com/examples/concepts/knowledge/readers/markdown/markdown-reader-async.md)
+- [PDF Password Reader](https://docs.agno.com/examples/concepts/knowledge/readers/pdf/pdf-password-reader.md)
+- [PDF Reader](https://docs.agno.com/examples/concepts/knowledge/readers/pdf/pdf-reader.md)
+- [PDF Reader Async](https://docs.agno.com/examples/concepts/knowledge/readers/pdf/pdf-reader-async.md)
+- [PDF URL Password Reader](https://docs.agno.com/examples/concepts/knowledge/readers/pdf/pdf-url-password-reader.md)
+- [PPTX Reader](https://docs.agno.com/examples/concepts/knowledge/readers/pptx/pptx-reader.md)
+- [PPTX Reader Async](https://docs.agno.com/examples/concepts/knowledge/readers/pptx/pptx-reader-async.md)
+- [Web Search Reader](https://docs.agno.com/examples/concepts/knowledge/readers/web-search/web-search-reader.md)
+- [Web Search Reader (Async)](https://docs.agno.com/examples/concepts/knowledge/readers/web-search/web-search-reader-async.md)
+- [Website Reader](https://docs.agno.com/examples/concepts/knowledge/readers/website/website-reader.md)
+- [Website Reader (Async)](https://docs.agno.com/examples/concepts/knowledge/readers/website/website-reader-async.md)
+- [Wikipedia Reader](https://docs.agno.com/examples/concepts/knowledge/readers/wikipedia/wikipedia-reader.md)
+- [Wikipedia Reader (Async)](https://docs.agno.com/examples/concepts/knowledge/readers/wikipedia/wikipedia-reader-async.md)
+- [YouTube Reader](https://docs.agno.com/examples/concepts/knowledge/readers/youtube/youtube-reader.md)
+- [YouTube Reader (Async)](https://docs.agno.com/examples/concepts/knowledge/readers/youtube/youtube-reader-async.md)
+- [GCS Content](https://docs.agno.com/examples/concepts/knowledge/remote-content/gcs-content.md)
+- [S3 Content](https://docs.agno.com/examples/concepts/knowledge/remote-content/s3-content.md)
+- [Hybrid Search](https://docs.agno.com/examples/concepts/knowledge/search_type/hybrid-search.md)
+- [Keyword Search](https://docs.agno.com/examples/concepts/knowledge/search_type/keyword-search.md)
+- [Vector Search](https://docs.agno.com/examples/concepts/knowledge/search_type/vector-search.md)
+- [Agent with Memory](https://docs.agno.com/examples/concepts/memory/01-agent-with-memory.md)
+- [Agentic Memory](https://docs.agno.com/examples/concepts/memory/02-agentic-memory.md)
+- [Share Memory between Agents](https://docs.agno.com/examples/concepts/memory/03-agents-share-memory.md)
+- [Custom Memory Manager](https://docs.agno.com/examples/concepts/memory/04-custom-memory-manager.md)
+- [Multi-user, Multi-session Chat](https://docs.agno.com/examples/concepts/memory/05-multi-user-multi-session-chat.md)
+- [Multi-User, Multi-Session Chat Concurrently](https://docs.agno.com/examples/concepts/memory/06-multi-user-multi-session-chat-concurrent.md)
+- [Share Memory and History between Agents](https://docs.agno.com/examples/concepts/memory/07-share-memory-and-history-between-agents.md)
+- [Memory with MongoDB](https://docs.agno.com/examples/concepts/memory/db/mem-mongodb-memory.md)
+- [Memory with PostgreSQL](https://docs.agno.com/examples/concepts/memory/db/mem-postgres-memory.md)
+- [Memory with Redis](https://docs.agno.com/examples/concepts/memory/db/mem-redis-memory.md)
+- [Memory with SQLite](https://docs.agno.com/examples/concepts/memory/db/mem-sqlite-memory.md)
+- [Standalone Memory](https://docs.agno.com/examples/concepts/memory/memory_manager/01-standalone-memory.md)
+- [Memory Creation](https://docs.agno.com/examples/concepts/memory/memory_manager/02-memory-creation.md)
+- [Custom Memory Instructions](https://docs.agno.com/examples/concepts/memory/memory_manager/03-custom-memory-instructions.md)
+- [Memory Search](https://docs.agno.com/examples/concepts/memory/memory_manager/04-memory-search.md)
+- [Audio Input Output](https://docs.agno.com/examples/concepts/multimodal/audio-input-output.md)
+- [Multi-turn Audio Agent](https://docs.agno.com/examples/concepts/multimodal/audio-multi-turn.md)
+- [Audio Sentiment Analysis Agent](https://docs.agno.com/examples/concepts/multimodal/audio-sentiment-analysis.md)
+- [Audio Streaming Agent](https://docs.agno.com/examples/concepts/multimodal/audio-streaming.md)
+- [Audio to text Agent](https://docs.agno.com/examples/concepts/multimodal/audio-to-text.md)
+- [Blog to Podcast Agent](https://docs.agno.com/examples/concepts/multimodal/blog-to-podcast.md)
+- [Generate Images with Intermediate Steps](https://docs.agno.com/examples/concepts/multimodal/generate-image.md)
+- [Generate Music using Models Lab](https://docs.agno.com/examples/concepts/multimodal/generate-music-agent.md)
+- [Generate Video using Models Lab](https://docs.agno.com/examples/concepts/multimodal/generate-video-models-lab.md)
+- [Generate Video using Replicate](https://docs.agno.com/examples/concepts/multimodal/generate-video-replicate.md)
+- [Image to Audio Agent](https://docs.agno.com/examples/concepts/multimodal/image-to-audio.md)
+- [Image to Image Agent](https://docs.agno.com/examples/concepts/multimodal/image-to-image.md)
+- [Image to Text Agent](https://docs.agno.com/examples/concepts/multimodal/image-to-text.md)
+- [Video Caption Agent](https://docs.agno.com/examples/concepts/multimodal/video-caption.md)
+- [Video to Shorts Agent](https://docs.agno.com/examples/concepts/multimodal/video-to-shorts.md)
+- [Basic Reasoning Agent](https://docs.agno.com/examples/concepts/reasoning/agents/basic-cot.md)
+- [Capture Reasoning Content](https://docs.agno.com/examples/concepts/reasoning/agents/capture-reasoning-content-cot.md)
+- [Non-Reasoning Model Agent](https://docs.agno.com/examples/concepts/reasoning/agents/non-reasoning-model.md)
+- [Azure AI Foundry](https://docs.agno.com/examples/concepts/reasoning/models/azure-ai-foundary/azure-ai-foundary.md)
+- [Azure OpenAI o1](https://docs.agno.com/examples/concepts/reasoning/models/azure-openai/o1.md)
+- [Azure OpenAI o3](https://docs.agno.com/examples/concepts/reasoning/models/azure-openai/o3-tools.md)
+- [Azure OpenAI GPT 4.1](https://docs.agno.com/examples/concepts/reasoning/models/azure-openai/reasoning-model-gpt4-1.md)
+- [DeepSeek Reasoner](https://docs.agno.com/examples/concepts/reasoning/models/deepseek/trolley-problem.md)
+- [Groq DeepSeek R1](https://docs.agno.com/examples/concepts/reasoning/models/groq/groq-basic.md)
+- [Groq Claude + DeepSeek R1](https://docs.agno.com/examples/concepts/reasoning/models/groq/groq-plus-claude.md)
+- [Ollama DeepSeek R1](https://docs.agno.com/examples/concepts/reasoning/models/ollama/ollama-basic.md)
+- [OpenAI o1 pro](https://docs.agno.com/examples/concepts/reasoning/models/openai/o1-pro.md)
+- [OpenAI gpt-5-mini](https://docs.agno.com/examples/concepts/reasoning/models/openai/o3-mini.md)
+- [OpenAI gpt-5-mini with Tools](https://docs.agno.com/examples/concepts/reasoning/models/openai/o3-mini-tools.md)
+- [OpenAI o4-mini](https://docs.agno.com/examples/concepts/reasoning/models/openai/o4-mini.md)
+- [OpenAI gpt-5-mini with reasoning effort](https://docs.agno.com/examples/concepts/reasoning/models/openai/reasoning-effort.md)
+- [OpenAI GPT-4.1](https://docs.agno.com/examples/concepts/reasoning/models/openai/reasoning-model-gpt-4-1.md)
+- [OpenAI o4-mini with reasoning summary](https://docs.agno.com/examples/concepts/reasoning/models/openai/reasoning-summary.md)
+- [xAI Grok 3 Mini](https://docs.agno.com/examples/concepts/reasoning/models/xai/reasoning-effort.md)
+- [Finance Team Chain of Thought](https://docs.agno.com/examples/concepts/reasoning/teams/finance_team_chain_of_thought.md)
+- [Team with Knowledge Tools](https://docs.agno.com/examples/concepts/reasoning/teams/knowledge-tool-team.md)
+- [Team with Reasoning Tools](https://docs.agno.com/examples/concepts/reasoning/teams/reasoning-finance-team.md)
+- [Azure OpenAI with Reasoning Tools](https://docs.agno.com/examples/concepts/reasoning/tools/azure-openai-reasoning-tools.md)
+- [Capture Reasoning Content with Knowledge Tools](https://docs.agno.com/examples/concepts/reasoning/tools/capture-reasoning-content-knowledge-tools.md)
+- [Capture Reasoning Content with Reasoning Tools](https://docs.agno.com/examples/concepts/reasoning/tools/capture-reasoning-content-reasoning-tools.md)
+- [Cerebras Llama with Reasoning Tools](https://docs.agno.com/examples/concepts/reasoning/tools/cerebras-llama-reasoning-tools.md)
+- [Claude with Reasoning Tools](https://docs.agno.com/examples/concepts/reasoning/tools/claude-reasoning-tools.md)
+- [Gemini with Reasoning Tools](https://docs.agno.com/examples/concepts/reasoning/tools/gemini-reasoning-tools.md)
+- [Groq Llama Finance Agent](https://docs.agno.com/examples/concepts/reasoning/tools/groq-llama-finance-agent.md)
+- [Reasoning Agent with Knowledge Tools](https://docs.agno.com/examples/concepts/reasoning/tools/knowledge-tools.md)
+- [Ollama with Reasoning Tools](https://docs.agno.com/examples/concepts/reasoning/tools/ollama-reasoning-tools.md)
+- [OpenAI with Reasoning Tools](https://docs.agno.com/examples/concepts/reasoning/tools/openai-reasoning-tools.md)
+- [Reasoning Tools](https://docs.agno.com/examples/concepts/reasoning/tools/reasoning-tools.md)
+- [Vercel with Reasoning Tools](https://docs.agno.com/examples/concepts/reasoning/tools/vercel-reasoning-tools.md)
+- [Async Coordinated Team](https://docs.agno.com/examples/concepts/teams/async/async_coordination_team.md)
+- [Async Collaborative Team](https://docs.agno.com/examples/concepts/teams/async/async_delegate_to_all_members.md)
+- [Async Multi-Language Team](https://docs.agno.com/examples/concepts/teams/async/async_respond_directly.md)
+- [Basic Team Coordination](https://docs.agno.com/examples/concepts/teams/basic/basic_coordination.md)
+- [Delegate to All Members (Cooperation)](https://docs.agno.com/examples/concepts/teams/basic/delegate_to_all_members_cooperation.md)
+- [Member-Level History](https://docs.agno.com/examples/concepts/teams/basic/history_of_members.md)
+- [Router Team with Direct Response](https://docs.agno.com/examples/concepts/teams/basic/respond_directly_router_team.md)
+- [Direct Response with Team History](https://docs.agno.com/examples/concepts/teams/basic/respond_directly_with_history.md)
+- [Share Member Interactions](https://docs.agno.com/examples/concepts/teams/basic/share_member_interactions.md)
+- [Team History for Members](https://docs.agno.com/examples/concepts/teams/basic/team_history.md)
+- [Managing Tool Calls](https://docs.agno.com/examples/concepts/teams/context_management/filter_tool_calls_from_history.md)
+- [Access Dependencies in Team Tool](https://docs.agno.com/examples/concepts/teams/dependencies/access_dependencies_in_tool.md): How to access dependencies passed to a team in a tool
+- [Adding Dependencies to Team Run](https://docs.agno.com/examples/concepts/teams/dependencies/add_dependencies_run.md)
+- [Adding Dependencies to Team Context](https://docs.agno.com/examples/concepts/teams/dependencies/add_dependencies_to_context.md)
+- [Using Reference Dependencies in Team Instructions](https://docs.agno.com/examples/concepts/teams/dependencies/reference_dependencies.md)
+- [Distributed RAG with LanceDB](https://docs.agno.com/examples/concepts/teams/distributed_rag/distributed_rag_lancedb.md)
+- [Distributed RAG with PgVector](https://docs.agno.com/examples/concepts/teams/distributed_rag/distributed_rag_pgvector.md)
+- [Distributed RAG with Advanced Reranking](https://docs.agno.com/examples/concepts/teams/distributed_rag/distributed_rag_with_reranking.md)
+- [Custom Events](https://docs.agno.com/examples/concepts/teams/events/custom_events.md): Learn how to yield custom events from your own tools.
+- [OpenAI Moderation Guardrail](https://docs.agno.com/examples/concepts/teams/guardrails/openai_moderation.md)
+- [PII Detection Guardrail](https://docs.agno.com/examples/concepts/teams/guardrails/pii_detection.md)
+- [Prompt Injection Guardrail](https://docs.agno.com/examples/concepts/teams/guardrails/prompt_injection.md)
+- [Input Transformation Pre-Hook](https://docs.agno.com/examples/concepts/teams/hooks/input_transformation_pre_hook.md)
+- [Input Validation Pre-Hook](https://docs.agno.com/examples/concepts/teams/hooks/input_validation_pre_hook.md)
+- [Output Transformation Post-Hook](https://docs.agno.com/examples/concepts/teams/hooks/output_transformation_post_hook.md)
+- [Output Validation Post-Hook](https://docs.agno.com/examples/concepts/teams/hooks/output_validation_post_hook.md)
+- [Team with Agentic Knowledge Filters](https://docs.agno.com/examples/concepts/teams/knowledge/team_with_agentic_knowledge_filters.md)
+- [Team with Knowledge Base](https://docs.agno.com/examples/concepts/teams/knowledge/team_with_knowledge.md)
+- [Team with Knowledge Filters](https://docs.agno.com/examples/concepts/teams/knowledge/team_with_knowledge_filters.md)
+- [Team with Agentic Memory](https://docs.agno.com/examples/concepts/teams/memory/team_with_agentic_memory.md)
+- [Team with Memory Manager](https://docs.agno.com/examples/concepts/teams/memory/team_with_memory_manager.md)
+- [Team Metrics Analysis](https://docs.agno.com/examples/concepts/teams/metrics/team_metrics.md)
+- [Audio Sentiment Analysis Team](https://docs.agno.com/examples/concepts/teams/multimodal/audio_sentiment_analysis.md)
+- [Audio to Text Transcription Team](https://docs.agno.com/examples/concepts/teams/multimodal/audio_to_text.md)
+- [Collaborative Image Generation Team](https://docs.agno.com/examples/concepts/teams/multimodal/generate_image_with_team.md)
+- [AI Image Transformation Team](https://docs.agno.com/examples/concepts/teams/multimodal/image_to_image_transformation.md)
+- [Image to Structured Movie Script Team](https://docs.agno.com/examples/concepts/teams/multimodal/image_to_structured_output.md)
+- [Image to Fiction Story Team](https://docs.agno.com/examples/concepts/teams/multimodal/image_to_text.md)
+- [Video Caption Generation Team](https://docs.agno.com/examples/concepts/teams/multimodal/video_caption_generation.md)
+- [Few-Shot Learning with Customer Support Team](https://docs.agno.com/examples/concepts/teams/other/few_shot_learning.md)
+- [Input as Dictionary](https://docs.agno.com/examples/concepts/teams/other/input_as_dict.md)
+- [Team Input as Image List](https://docs.agno.com/examples/concepts/teams/other/input_as_list.md)
+- [Team Input as Messages List](https://docs.agno.com/examples/concepts/teams/other/input_as_messages_list.md)
+- [Capturing Team Responses as Variables](https://docs.agno.com/examples/concepts/teams/other/response_as_variable.md)
+- [Interactive CLI Writing Team](https://docs.agno.com/examples/concepts/teams/other/run_as_cli.md)
+- [Team Run Cancellation](https://docs.agno.com/examples/concepts/teams/other/team_cancel_a_run.md)
+- [Team with Exponential Backoff](https://docs.agno.com/examples/concepts/teams/other/team_exponential_backoff.md)
+- [Async Multi-Purpose Reasoning Team](https://docs.agno.com/examples/concepts/teams/reasoning/async_multi_purpose_reasoning_team.md)
+- [Multi-Purpose Reasoning Team](https://docs.agno.com/examples/concepts/teams/reasoning/reasoning_multi_purpose_team.md)
+- [Coordinated Agentic RAG Team](https://docs.agno.com/examples/concepts/teams/search_coordination/coordinated_agentic_rag.md)
+- [Coordinated Reasoning RAG Team](https://docs.agno.com/examples/concepts/teams/search_coordination/coordinated_reasoning_rag.md)
+- [Distributed Search with Infinity Reranker](https://docs.agno.com/examples/concepts/teams/search_coordination/distributed_infinity_search.md)
+- [Session Caching for Performance](https://docs.agno.com/examples/concepts/teams/session/cache_session.md)
+- [Chat History Retrieval](https://docs.agno.com/examples/concepts/teams/session/chat_history.md)
+- [In-Memory Database Session](https://docs.agno.com/examples/concepts/teams/session/in_memory_db.md)
+- [Persistent Session with Database](https://docs.agno.com/examples/concepts/teams/session/persistent_session.md)
+- [Persistent Session with History Context](https://docs.agno.com/examples/concepts/teams/session/persistent_session_history.md)
+- [Session Name Management](https://docs.agno.com/examples/concepts/teams/session/rename_session.md)
+- [Session Summary Management](https://docs.agno.com/examples/concepts/teams/session/session_summary.md)
+- [Session Summary with Context References](https://docs.agno.com/examples/concepts/teams/session/session_summary_references.md)
+- [Agentic Session State](https://docs.agno.com/examples/concepts/teams/state/agentic_session_state.md)
+- [Change Session State on Run](https://docs.agno.com/examples/concepts/teams/state/change_state_on_run.md)
+- [Session State in Instructions](https://docs.agno.com/examples/concepts/teams/state/session_state_in_instructions.md)
+- [Share Member Interactions](https://docs.agno.com/examples/concepts/teams/state/share_member_interactions.md)
+- [Team with Nested Shared State](https://docs.agno.com/examples/concepts/teams/state/team_with_nested_shared_state.md)
+- [Async Team Events Monitoring](https://docs.agno.com/examples/concepts/teams/streaming/async_team_events.md)
+- [Async Team Streaming](https://docs.agno.com/examples/concepts/teams/streaming/async_team_streaming.md)
+- [Team Events Monitoring](https://docs.agno.com/examples/concepts/teams/streaming/events.md)
+- [Route Mode Team Events](https://docs.agno.com/examples/concepts/teams/streaming/route_mode_events.md)
+- [Team Streaming Responses](https://docs.agno.com/examples/concepts/teams/streaming/team_streaming.md)
+- [Async Structured Output Streaming](https://docs.agno.com/examples/concepts/teams/structured_input_output/async_structured_output_streaming.md)
+- [Team Input Schema Validation](https://docs.agno.com/examples/concepts/teams/structured_input_output/input_schema_on_team.md)
+- [Pydantic Models as Team Input](https://docs.agno.com/examples/concepts/teams/structured_input_output/pydantic_model_as_input.md)
+- [Pydantic Models as Team Output](https://docs.agno.com/examples/concepts/teams/structured_input_output/pydantic_model_output.md)
+- [Structured Output Streaming](https://docs.agno.com/examples/concepts/teams/structured_input_output/structured_output_streaming.md)
+- [Team with Output Model](https://docs.agno.com/examples/concepts/teams/structured_input_output/team_with_output_model.md)
+- [Team with Parser Model](https://docs.agno.com/examples/concepts/teams/structured_input_output/team_with_parser_model.md)
+- [Async Team with Tools](https://docs.agno.com/examples/concepts/teams/tools/async_team_with_tools.md)
+- [Team with Custom Tools](https://docs.agno.com/examples/concepts/teams/tools/team_with_custom_tools.md)
+- [Team with Tool Hooks](https://docs.agno.com/examples/concepts/teams/tools/team_with_tool_hooks.md)
+- [CSV Tools](https://docs.agno.com/examples/concepts/tools/database/csv.md)
+- [DuckDB Tools](https://docs.agno.com/examples/concepts/tools/database/duckdb.md)
+- [Google BigQuery Tools](https://docs.agno.com/examples/concepts/tools/database/google_bigquery.md)
+- [Neo4j Tools](https://docs.agno.com/examples/concepts/tools/database/neo4j.md): Neo4jTools enables agents to interact with Neo4j graph databases for querying and managing graph data.
+- [null](https://docs.agno.com/examples/concepts/tools/database/pandas.md)
+- [Postgres Tools](https://docs.agno.com/examples/concepts/tools/database/postgres.md)
+- [SQL Tools](https://docs.agno.com/examples/concepts/tools/database/sql.md)
+- [Zep Memory Tools](https://docs.agno.com/examples/concepts/tools/database/zep.md)
+- [Zep Async Memory Tools](https://docs.agno.com/examples/concepts/tools/database/zep_async.md)
+- [File Generation Tools](https://docs.agno.com/examples/concepts/tools/file-generation.md): This cookbook shows how to use the FileGenerationTool to generate various file types (JSON, CSV, PDF, TXT).
+- [Calculator](https://docs.agno.com/examples/concepts/tools/local/calculator.md)
+- [Docker Tools](https://docs.agno.com/examples/concepts/tools/local/docker.md)
+- [File Tools](https://docs.agno.com/examples/concepts/tools/local/file.md)
+- [Local File System Tools](https://docs.agno.com/examples/concepts/tools/local/local_file_system.md)
+- [Python Tools](https://docs.agno.com/examples/concepts/tools/local/python.md)
+- [Shell Tools](https://docs.agno.com/examples/concepts/tools/local/shell.md)
+- [Sleep Tools](https://docs.agno.com/examples/concepts/tools/local/sleep.md)
+- [Airbnb MCP agent](https://docs.agno.com/examples/concepts/tools/mcp/airbnb.md)
+- [GitHub MCP agent](https://docs.agno.com/examples/concepts/tools/mcp/github.md)
+- [Notion MCP agent](https://docs.agno.com/examples/concepts/tools/mcp/notion.md)
+- [Pipedream Auth](https://docs.agno.com/examples/concepts/tools/mcp/pipedream_auth.md): This example shows how to add authorization when integrating Pipedream MCP servers with Agno Agents.
+- [Pipedream Google Calendar](https://docs.agno.com/examples/concepts/tools/mcp/pipedream_google_calendar.md): This example shows how to use the Google Calendar Pipedream MCP server with Agno Agents.
+- [Pipedream LinkedIn](https://docs.agno.com/examples/concepts/tools/mcp/pipedream_linkedin.md): This example shows how to use the LinkedIn Pipedream MCP server with Agno Agents.
+- [Pipedream Slack](https://docs.agno.com/examples/concepts/tools/mcp/pipedream_slack.md): This example shows how to use the Slack Pipedream MCP server with Agno Agents.
+- [Stagehand MCP agent](https://docs.agno.com/examples/concepts/tools/mcp/stagehand.md): A web scraping agent that uses the Stagehand MCP server to automate browser interactions and create a structured content digest from Hacker News.
+- [Stripe MCP agent](https://docs.agno.com/examples/concepts/tools/mcp/stripe.md)
+- [Supabase MCP agent](https://docs.agno.com/examples/concepts/tools/mcp/supabase.md)
+- [Azure OpenAI Tools](https://docs.agno.com/examples/concepts/tools/models/azure_openai.md)
+- [Morph Tools](https://docs.agno.com/examples/concepts/tools/models/morph.md)
+- [Nebius Tools](https://docs.agno.com/examples/concepts/tools/models/nebius.md)
+- [Meeting Summary Agent](https://docs.agno.com/examples/concepts/tools/models/openai/meeting-summarizer.md): Multi-modal Agno agent that transcribes meeting recordings, extracts key insights, generates visual summaries, and creates audio summaries using OpenAI tools.
+- [Recipe RAG Image Agent](https://docs.agno.com/examples/concepts/tools/models/openai/rag-recipe-image.md)
+- [Airflow Tools](https://docs.agno.com/examples/concepts/tools/others/airflow.md)
+- [Apify Tools](https://docs.agno.com/examples/concepts/tools/others/apify.md)
+- [AWS Lambda Tools](https://docs.agno.com/examples/concepts/tools/others/aws_lambda.md)
+- [AWS SES Tools](https://docs.agno.com/examples/concepts/tools/others/aws_ses.md)
+- [Bitbucket Tools](https://docs.agno.com/examples/concepts/tools/others/bitbucket.md)
+- [Brandfetch Tools](https://docs.agno.com/examples/concepts/tools/others/brandfetch.md)
+- [Cal.com Tools](https://docs.agno.com/examples/concepts/tools/others/calcom.md)
+- [ClickUp Tools](https://docs.agno.com/examples/concepts/tools/others/clickup.md)
+- [Composio Tools](https://docs.agno.com/examples/concepts/tools/others/composio.md)
+- [Confluence Tools](https://docs.agno.com/examples/concepts/tools/others/confluence.md)
+- [Custom API Tools](https://docs.agno.com/examples/concepts/tools/others/custom_api.md)
+- [DALL-E Tools](https://docs.agno.com/examples/concepts/tools/others/dalle.md)
+- [Daytona Code Execution](https://docs.agno.com/examples/concepts/tools/others/daytona.md): Learn to use Agno's Daytona integration to run your Agent-generated code in a secure sandbox.
+- [Desi Vocal Tools](https://docs.agno.com/examples/concepts/tools/others/desi_vocal.md)
+- [E2B Code Execution](https://docs.agno.com/examples/concepts/tools/others/e2b.md): Learn to use Agno's E2B integration to run your Agent-generated code in a secure sandbox.
+- [EVM Tools](https://docs.agno.com/examples/concepts/tools/others/evm.md)
+- [Fal Tools](https://docs.agno.com/examples/concepts/tools/others/fal.md)
+- [Financial Datasets Tools](https://docs.agno.com/examples/concepts/tools/others/financial_datasets.md)
+- [Giphy Tools](https://docs.agno.com/examples/concepts/tools/others/giphy.md)
+- [GitHub Tools](https://docs.agno.com/examples/concepts/tools/others/github.md)
+- [Google Calendar Tools](https://docs.agno.com/examples/concepts/tools/others/google_calendar.md)
+- [Google Maps Tools](https://docs.agno.com/examples/concepts/tools/others/google_maps.md)
+- [Jira Tools](https://docs.agno.com/examples/concepts/tools/others/jira.md)
+- [Knowledge Tools](https://docs.agno.com/examples/concepts/tools/others/knowledge.md)
+- [Linear Tools](https://docs.agno.com/examples/concepts/tools/others/linear.md)
+- [Luma Labs Tools](https://docs.agno.com/examples/concepts/tools/others/lumalabs.md)
+- [Mem0 Tools](https://docs.agno.com/examples/concepts/tools/others/mem0.md)
+- [Memori Tools](https://docs.agno.com/examples/concepts/tools/others/memori.md)
+- [MLX Transcribe Tools](https://docs.agno.com/examples/concepts/tools/others/mlx_transcribe.md)
+- [Models Labs Tools](https://docs.agno.com/examples/concepts/tools/others/models_labs.md)
+- [OpenBB Tools](https://docs.agno.com/examples/concepts/tools/others/openbb.md)
+- [OpenCV Tools](https://docs.agno.com/examples/concepts/tools/others/opencv.md)
+- [Reasoning Tools](https://docs.agno.com/examples/concepts/tools/others/reasoning.md)
+- [Replicate Tools](https://docs.agno.com/examples/concepts/tools/others/replicate.md)
+- [Resend Tools](https://docs.agno.com/examples/concepts/tools/others/resend.md)
+- [Todoist Tools](https://docs.agno.com/examples/concepts/tools/others/todoist.md)
+- [User Control Flow Tools](https://docs.agno.com/examples/concepts/tools/others/user_control_flow.md)
+- [Visualization Tools](https://docs.agno.com/examples/concepts/tools/others/visualization.md)
+- [Web Tools](https://docs.agno.com/examples/concepts/tools/others/webtools.md)
+- [YFinance Tools](https://docs.agno.com/examples/concepts/tools/others/yfinance.md)
+- [YouTube Tools](https://docs.agno.com/examples/concepts/tools/others/youtube.md)
+- [Zendesk Tools](https://docs.agno.com/examples/concepts/tools/others/zendesk.md)
+- [ArXiv Tools](https://docs.agno.com/examples/concepts/tools/search/arxiv.md)
+- [Baidu Search Tools](https://docs.agno.com/examples/concepts/tools/search/baidusearch.md)
+- [Brave Search Tools](https://docs.agno.com/examples/concepts/tools/search/bravesearch.md)
+- [Crawl4ai Tools](https://docs.agno.com/examples/concepts/tools/search/crawl4ai.md)
+- [DuckDuckGo Search](https://docs.agno.com/examples/concepts/tools/search/duckduckgo.md)
+- [Exa Tools](https://docs.agno.com/examples/concepts/tools/search/exa.md)
+- [Google Search Tools](https://docs.agno.com/examples/concepts/tools/search/google_search.md)
+- [Hacker News Tools](https://docs.agno.com/examples/concepts/tools/search/hackernews.md)
+- [Linkup Tools](https://docs.agno.com/examples/concepts/tools/search/linkup.md)
+- [PubMed Tools](https://docs.agno.com/examples/concepts/tools/search/pubmed.md)
+- [SearxNG Tools](https://docs.agno.com/examples/concepts/tools/search/searxng.md)
+- [SerpAPI Tools](https://docs.agno.com/examples/concepts/tools/search/serpapi.md)
+- [Tavily Tools](https://docs.agno.com/examples/concepts/tools/search/tavily.md)
+- [Valyu Tools](https://docs.agno.com/examples/concepts/tools/search/valyu.md)
+- [Wikipedia Tools](https://docs.agno.com/examples/concepts/tools/search/wikipedia.md)
+- [Discord Tools](https://docs.agno.com/examples/concepts/tools/social/discord.md)
+- [Email Tools](https://docs.agno.com/examples/concepts/tools/social/email.md)
+- [Reddit Tools](https://docs.agno.com/examples/concepts/tools/social/reddit.md)
+- [Slack Tools](https://docs.agno.com/examples/concepts/tools/social/slack.md)
+- [Twilio Tools](https://docs.agno.com/examples/concepts/tools/social/twilio.md)
+- [Webex Tools](https://docs.agno.com/examples/concepts/tools/social/webex.md)
+- [WhatsApp Tools](https://docs.agno.com/examples/concepts/tools/social/whatsapp.md)
+- [X (Twitter) Tools](https://docs.agno.com/examples/concepts/tools/social/x.md)
+- [BrightData Tools](https://docs.agno.com/examples/concepts/tools/web_scrape/brightdata.md)
+- [Firecrawl Tools](https://docs.agno.com/examples/concepts/tools/web_scrape/firecrawl.md): Use Firecrawl with Agno to scrape and crawl the web.
+- [Jina Reader Tools](https://docs.agno.com/examples/concepts/tools/web_scrape/jina_reader.md)
+- [Newspaper Tools](https://docs.agno.com/examples/concepts/tools/web_scrape/newspaper.md)
+- [Newspaper4k Tools](https://docs.agno.com/examples/concepts/tools/web_scrape/newspaper4k.md)
+- [Oxylabs Tools](https://docs.agno.com/examples/concepts/tools/web_scrape/oxylabs.md): Use Oxylabs with Agno to scrape and crawl the web.
+- [Spider Tools](https://docs.agno.com/examples/concepts/tools/web_scrape/spider.md)
+- [Trafilatura Tools](https://docs.agno.com/examples/concepts/tools/web_scrape/trafilatura.md)
+- [Website Tools](https://docs.agno.com/examples/concepts/tools/web_scrape/website.md)
+- [Cassandra Async](https://docs.agno.com/examples/concepts/vectordb/cassandra-db/async-cassandra-db.md)
+- [Cassandra](https://docs.agno.com/examples/concepts/vectordb/cassandra-db/cassandra-db.md)
+- [ChromaDB Async](https://docs.agno.com/examples/concepts/vectordb/chroma-db/async-chroma-db.md)
+- [ChromaDB](https://docs.agno.com/examples/concepts/vectordb/chroma-db/chroma-db.md)
+- [ClickHouse Async](https://docs.agno.com/examples/concepts/vectordb/clickhouse-db/async-clickhouse-db.md)
+- [ClickHouse](https://docs.agno.com/examples/concepts/vectordb/clickhouse-db/clickhouse-db.md)
+- [Couchbase Async](https://docs.agno.com/examples/concepts/vectordb/couchbase-db/async-couchbase-db.md)
+- [Couchbase](https://docs.agno.com/examples/concepts/vectordb/couchbase-db/couchbase-db.md)
+- [LanceDB Async](https://docs.agno.com/examples/concepts/vectordb/lance-db/async-lance-db.md)
+- [LanceDB](https://docs.agno.com/examples/concepts/vectordb/lance-db/lance-db.md)
+- [LanceDB Hybrid Search](https://docs.agno.com/examples/concepts/vectordb/lance-db/lance-db-hybrid-search.md)
+- [LangChain Async](https://docs.agno.com/examples/concepts/vectordb/langchain/async-langchain-db.md)
+- [LangChain](https://docs.agno.com/examples/concepts/vectordb/langchain/langchain-db.md)
+- [LightRAG Async](https://docs.agno.com/examples/concepts/vectordb/lightrag/async-lightrag-db.md)
+- [LightRAG](https://docs.agno.com/examples/concepts/vectordb/lightrag/lightrag-db.md)
+- [LlamaIndex Async](https://docs.agno.com/examples/concepts/vectordb/llamaindex-db/async-llamaindex-db.md)
+- [LlamaIndex](https://docs.agno.com/examples/concepts/vectordb/llamaindex-db/llamaindex-db.md)
+- [Milvus Async](https://docs.agno.com/examples/concepts/vectordb/milvus-db/async-milvus-db.md)
+- [Milvus Async Hybrid Search](https://docs.agno.com/examples/concepts/vectordb/milvus-db/async-milvus-db-hybrid-search.md)
+- [Milvus](https://docs.agno.com/examples/concepts/vectordb/milvus-db/milvus-db.md)
+- [Milvus Hybrid Search](https://docs.agno.com/examples/concepts/vectordb/milvus-db/milvus-db-hybrid-search.md)
+- [MongoDB Async](https://docs.agno.com/examples/concepts/vectordb/mongo-db/async-mongo-db.md)
+- [MongoDB Cosmos vCore](https://docs.agno.com/examples/concepts/vectordb/mongo-db/cosmos-mongodb-vcore.md)
+- [MongoDB](https://docs.agno.com/examples/concepts/vectordb/mongo-db/mongo-db.md)
+- [MongoDB Hybrid Search](https://docs.agno.com/examples/concepts/vectordb/mongo-db/mongo-db-hybrid-search.md)
+- [PgVector Async](https://docs.agno.com/examples/concepts/vectordb/pgvector/async-pgvector-db.md)
+- [PgVector](https://docs.agno.com/examples/concepts/vectordb/pgvector/pgvector-db.md)
+- [PgVector Hybrid Search](https://docs.agno.com/examples/concepts/vectordb/pgvector/pgvector-hybrid-search.md)
+- [Pinecone Async](https://docs.agno.com/examples/concepts/vectordb/pinecone-db/async-pinecone-db.md)
+- [Pinecone](https://docs.agno.com/examples/concepts/vectordb/pinecone-db/pinecone-db.md)
+- [Qdrant Async](https://docs.agno.com/examples/concepts/vectordb/qdrant-db/async-qdrant-db.md)
+- [Qdrant](https://docs.agno.com/examples/concepts/vectordb/qdrant-db/qdrant-db.md)
+- [Qdrant Hybrid Search](https://docs.agno.com/examples/concepts/vectordb/qdrant-db/qdrant-db-hybrid-search.md)
+- [SingleStore Async](https://docs.agno.com/examples/concepts/vectordb/singlestore-db/async-singlestore-db.md)
+- [SingleStore](https://docs.agno.com/examples/concepts/vectordb/singlestore-db/singlestore-db.md)
+- [SurrealDB Async](https://docs.agno.com/examples/concepts/vectordb/surrealdb/async-surreal-db.md)
+- [SurrealDB](https://docs.agno.com/examples/concepts/vectordb/surrealdb/surreal-db.md)
+- [Upstash Async](https://docs.agno.com/examples/concepts/vectordb/upstash-db/async-upstash-db.md)
+- [Upstash](https://docs.agno.com/examples/concepts/vectordb/upstash-db/upstash-db.md)
+- [Weaviate Async](https://docs.agno.com/examples/concepts/vectordb/weaviate-db/async-weaviate-db.md)
+- [Weaviate](https://docs.agno.com/examples/concepts/vectordb/weaviate-db/weaviate-db.md)
+- [Weaviate Hybrid Search](https://docs.agno.com/examples/concepts/vectordb/weaviate-db/weaviate-db-hybrid-search.md)
+- [Async Events Streaming](https://docs.agno.com/examples/concepts/workflows/01-basic-workflows/async_events_streaming.md): This example demonstrates how to stream events from a workflow.
+- [Class-based Executor](https://docs.agno.com/examples/concepts/workflows/01-basic-workflows/class_based_executor.md): This example demonstrates how to use a class-based executor in a workflow.
+- [Function instead of steps](https://docs.agno.com/examples/concepts/workflows/01-basic-workflows/function_instead_of_steps.md): This example demonstrates how to use just a single function instead of steps in a workflow.
+- [Sequence of functions and agents](https://docs.agno.com/examples/concepts/workflows/01-basic-workflows/sequence_of_functions_and_agents.md): This example demonstrates how to use a sequence of functions and agents in a workflow.
+- [Sequence of steps](https://docs.agno.com/examples/concepts/workflows/01-basic-workflows/sequence_of_steps.md): This example demonstrates how to use named steps in a workflow.
+- [Step with function](https://docs.agno.com/examples/concepts/workflows/01-basic-workflows/step_with_function.md): This example demonstrates how to use named steps with custom function executors.
+- [Step with custom function streaming on AgentOS](https://docs.agno.com/examples/concepts/workflows/01-basic-workflows/step_with_function_streaming_agentos.md): This example demonstrates how to use named steps with custom function executors and streaming on AgentOS.
+- [Workflow using steps](https://docs.agno.com/examples/concepts/workflows/01-basic-workflows/workflow_using_steps.md): This example demonstrates how to use the Steps object to organize multiple individual steps into logical sequences.
+- [Workflow using Steps with Nested Pattern](https://docs.agno.com/examples/concepts/workflows/01-basic-workflows/workflow_using_steps_nested.md): This example demonstrates **Workflows 2.0** nested patterns using `Steps` to encapsulate a complex workflow with conditional parallel execution.
+- [Condition and Parallel Steps Workflow](https://docs.agno.com/examples/concepts/workflows/02-workflows-conditional-execution/condition_and_parallel_steps_stream.md): This example demonstrates **Workflows 2.0** advanced pattern combining conditional execution with parallel processing.
+- [Condition steps workflow](https://docs.agno.com/examples/concepts/workflows/02-workflows-conditional-execution/condition_steps_workflow_stream.md): This example demonstrates how to use conditional steps in a workflow.
+- [Condition with list of steps](https://docs.agno.com/examples/concepts/workflows/02-workflows-conditional-execution/condition_with_list_of_steps.md): This example demonstrates how to use conditional step to execute multiple steps in parallel.
+- [Loop Steps Workflow](https://docs.agno.com/examples/concepts/workflows/03_workflows_loop_execution/loop_steps_workflow.md): This example demonstrates **Workflows 2.0** loop execution for quality-driven iterative processes.
+- [Loop with Parallel Steps Workflow](https://docs.agno.com/examples/concepts/workflows/03_workflows_loop_execution/loop_with_parallel_steps_stream.md): This example demonstrates **Workflows 2.0** most sophisticated pattern combining loop execution with parallel processing and real-time streaming.
+- [Parallel and custom function step streaming on AgentOS](https://docs.agno.com/examples/concepts/workflows/04-workflows-parallel-execution/parallel_and_custom_function_step_streaming_agentos.md): This example demonstrates how to use parallel steps with custom function executors and streaming on AgentOS.
+- [Parallel Steps Workflow](https://docs.agno.com/examples/concepts/workflows/04-workflows-parallel-execution/parallel_steps_workflow.md): This example demonstrates **Workflows 2.0** parallel execution for independent tasks that can run simultaneously. Shows how to optimize workflow performance by executing non-dependent steps in parallel, significantly reducing total execution time.
+- [Conditional Branching Workflow](https://docs.agno.com/examples/concepts/workflows/05_workflows_conditional_branching/router_steps_workflow.md): This example demonstrates **Workflows 2.0** router pattern for intelligent, content-based workflow routing.
+- [Router with Loop Steps Workflow](https://docs.agno.com/examples/concepts/workflows/05_workflows_conditional_branching/router_with_loop_steps.md): This example demonstrates **Workflows 2.0** advanced pattern combining Router-based intelligent path selection with Loop execution for iterative quality improvement.
+- [Selector for Image Video Generation Pipelines](https://docs.agno.com/examples/concepts/workflows/05_workflows_conditional_branching/selector_for_image_video_generation_pipelines.md): This example demonstrates **Workflows 2.0** router pattern for dynamically selecting between image and video generation pipelines.
+- [Access Multiple Previous Steps Output](https://docs.agno.com/examples/concepts/workflows/06_workflows_advanced_concepts/access_multiple_previous_steps_output.md): This example demonstrates **Workflows 2.0** advanced data flow capabilities
+- [Access Session State in Condition Evaluator Function](https://docs.agno.com/examples/concepts/workflows/06_workflows_advanced_concepts/access_session_state_in_condition_evaluator_function.md): This example demonstrates how to access session state in the evaluator function of a condition step
+- [Access Session State in Custom Python Function Step](https://docs.agno.com/examples/concepts/workflows/06_workflows_advanced_concepts/access_session_state_in_custom_python_function_step.md): This example demonstrates how to access session state in a custom python function step
+- [Access Session State in Router Selector Function](https://docs.agno.com/examples/concepts/workflows/06_workflows_advanced_concepts/access_session_state_in_router_selector_function.md): This example demonstrates how to access session state in the selector function of a router step
+- [Early Stop a Workflow](https://docs.agno.com/examples/concepts/workflows/06_workflows_advanced_concepts/early_stop_workflow.md): This example demonstrates **Workflows 2.0** early termination of a running workflow.
+- [Step with Function using Additional Data](https://docs.agno.com/examples/concepts/workflows/06_workflows_advanced_concepts/step_with_function_additional_data.md): This example demonstrates **Workflows 2.0** support for passing metadata and contextual information to steps via `additional_data`.
+- [Store Events and Events to Skip in a Workflow](https://docs.agno.com/examples/concepts/workflows/06_workflows_advanced_concepts/store_events_and_events_to_skip_in_a_workflow.md): This example demonstrates **Workflows 2.0** event storage capabilities
+- [null](https://docs.agno.com/examples/concepts/workflows/06_workflows_advanced_concepts/structured_io_at_each_step_level.md)
+- [Workflow Cancellation](https://docs.agno.com/examples/concepts/workflows/06_workflows_advanced_concepts/workflow_cancellation.md): This example demonstrates **Workflows 2.0** support for cancelling running workflow executions, including thread-based cancellation and handling cancelled responses.
+- [Single Step Continuous Execution Workflow](https://docs.agno.com/examples/concepts/workflows/06_workflows_advanced_concepts/workflow_history/01_single_step_continuous_execution_workflow.md): This example demonstrates a workflow with a single step that is executed continuously with access to workflow history.
+- [Workflow with History Enabled for Steps](https://docs.agno.com/examples/concepts/workflows/06_workflows_advanced_concepts/workflow_history/02_workflow_with_history_enabled_for_steps.md): This example demonstrates a workflow with history enabled for specific steps.
+- [Enable History for Specific Steps](https://docs.agno.com/examples/concepts/workflows/06_workflows_advanced_concepts/workflow_history/03_enable_history_for_step.md): This example demonstrates a workflow with history enabled for a specific step.
+- [Get History in Function](https://docs.agno.com/examples/concepts/workflows/06_workflows_advanced_concepts/workflow_history/04_get_history_in_function.md): This example demonstrates how to get workflow history in a custom function.
+- [Multi Purpose CLI App with Workflow History](https://docs.agno.com/examples/concepts/workflows/06_workflows_advanced_concepts/workflow_history/05_multi_purpose_cli.md): This example demonstrates how to use workflow history in a multi purpose CLI.
+- [Intent Routing with Workflow History](https://docs.agno.com/examples/concepts/workflows/06_workflows_advanced_concepts/workflow_history/06_intent_routing_with_history.md): This example demonstrates how to use workflow history in intent routing.
+- [Workflow with Input Schema Validation](https://docs.agno.com/examples/concepts/workflows/06_workflows_advanced_concepts/workflow_with_input_schema.md): This example demonstrates **Workflows** support for input schema validation using Pydantic models to ensure type safety and data integrity at the workflow entry point.
+- [Basic Agent](https://docs.agno.com/examples/getting-started/01-basic-agent.md)
+- [Agent with Tools](https://docs.agno.com/examples/getting-started/02-agent-with-tools.md)
+- [Agent with Knowledge](https://docs.agno.com/examples/getting-started/03-agent-with-knowledge.md)
+- [Write Your Own Tool](https://docs.agno.com/examples/getting-started/04-write-your-own-tool.md)
+- [Structured Output](https://docs.agno.com/examples/getting-started/05-structured-output.md)
+- [Agent with Storage](https://docs.agno.com/examples/getting-started/06-agent-with-storage.md)
+- [Agent State](https://docs.agno.com/examples/getting-started/07-agent-state.md)
+- [Agent Context](https://docs.agno.com/examples/getting-started/08-agent-context.md)
+- [Agent Session](https://docs.agno.com/examples/getting-started/09-agent-session.md)
+- [User Memories and Session Summaries](https://docs.agno.com/examples/getting-started/10-user-memories-and-summaries.md)
+- [Retry Function Call](https://docs.agno.com/examples/getting-started/11-retry-function-call.md)
+- [Human in the Loop](https://docs.agno.com/examples/getting-started/12-human-in-the-loop.md)
+- [Image Agent](https://docs.agno.com/examples/getting-started/13-image-agent.md)
+- [Image Generation](https://docs.agno.com/examples/getting-started/14-image-generation.md)
+- [Video Generation](https://docs.agno.com/examples/getting-started/15-video-generation.md)
+- [Audio Input-Output Agent](https://docs.agno.com/examples/getting-started/16-audio-agent.md)
+- [Agent Team](https://docs.agno.com/examples/getting-started/17-agent-team.md)
+- [Research Agent](https://docs.agno.com/examples/getting-started/18-research-agent-exa.md)
+- [Research Workflow](https://docs.agno.com/examples/getting-started/19-blog-generator-workflow.md)
+- [Introduction](https://docs.agno.com/examples/getting-started/introduction.md)
+- [Examples Gallery](https://docs.agno.com/examples/introduction.md): Explore Agno's example gallery showcasing everything from single-agent tasks to sophisticated multi-agent workflows.
+- [Basic Agent](https://docs.agno.com/examples/models/anthropic/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/anthropic/basic_stream.md)
+- [Code Execution Tool](https://docs.agno.com/examples/models/anthropic/code_execution.md): Learn how to use Anthropic's code execution tool with Agno.
+- [File Upload](https://docs.agno.com/examples/models/anthropic/file_upload.md): Learn how to use Anthropic's Files API with Agno.
+- [Image Input Bytes Content](https://docs.agno.com/examples/models/anthropic/image_input_bytes.md)
+- [Image Input URL](https://docs.agno.com/examples/models/anthropic/image_input_url.md)
+- [Agent with Knowledge](https://docs.agno.com/examples/models/anthropic/knowledge.md)
+- [PDF Input Bytes Agent](https://docs.agno.com/examples/models/anthropic/pdf_input_bytes.md)
+- [PDF Input Local Agent](https://docs.agno.com/examples/models/anthropic/pdf_input_local.md)
+- [PDF Input URL Agent](https://docs.agno.com/examples/models/anthropic/pdf_input_url.md)
+- [Prompt Caching](https://docs.agno.com/examples/models/anthropic/prompt_caching.md): Learn how to use prompt caching with Anthropic models and Agno.
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/anthropic/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/anthropic/tool_use.md)
+- [Web Fetch](https://docs.agno.com/examples/models/anthropic/web_fetch.md)
+- [Basic Agent](https://docs.agno.com/examples/models/aws/bedrock/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/aws/bedrock/basic_stream.md)
+- [Agent with Image Input](https://docs.agno.com/examples/models/aws/bedrock/image_agent.md)
+- [Agent with Knowledge](https://docs.agno.com/examples/models/aws/bedrock/knowledge.md)
+- [Agent with Storage](https://docs.agno.com/examples/models/aws/bedrock/storage.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/aws/bedrock/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/aws/bedrock/tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/aws/claude/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/aws/claude/basic_stream.md)
+- [Agent with Knowledge](https://docs.agno.com/examples/models/aws/claude/knowledge.md)
+- [Agent with Storage](https://docs.agno.com/examples/models/aws/claude/storage.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/aws/claude/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/aws/claude/tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/azure/ai_foundry/basic.md)
+- [Basic Streaming](https://docs.agno.com/examples/models/azure/ai_foundry/basic_stream.md)
+- [Agent with Knowledge Base](https://docs.agno.com/examples/models/azure/ai_foundry/knowledge.md)
+- [Agent with Storage](https://docs.agno.com/examples/models/azure/ai_foundry/storage.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/azure/ai_foundry/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/azure/ai_foundry/tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/azure/openai/basic.md)
+- [Basic Streaming](https://docs.agno.com/examples/models/azure/openai/basic_stream.md)
+- [Agent with Knowledge Base](https://docs.agno.com/examples/models/azure/openai/knowledge.md)
+- [Agent with Storage](https://docs.agno.com/examples/models/azure/openai/storage.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/azure/openai/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/azure/openai/tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/cerebras/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/cerebras/basic_stream.md)
+- [Agent with Knowledge Base](https://docs.agno.com/examples/models/cerebras/knowledge.md)
+- [Agent with Storage](https://docs.agno.com/examples/models/cerebras/storage.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/cerebras/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/cerebras/tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/cerebras_openai/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/cerebras_openai/basic_stream.md)
+- [Agent with Storage](https://docs.agno.com/examples/models/cerebras_openai/knowledge.md)
+- [Agent with Storage](https://docs.agno.com/examples/models/cerebras_openai/storage.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/cerebras_openai/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/cerebras_openai/tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/cohere/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/cohere/basic_stream.md)
+- [Image Agent](https://docs.agno.com/examples/models/cohere/image_agent.md)
+- [Agent with Knowledge](https://docs.agno.com/examples/models/cohere/knowledge.md)
+- [Agent with Storage](https://docs.agno.com/examples/models/cohere/storage.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/cohere/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/cohere/tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/dashscope/basic.md)
+- [Basic Agent with Streaming](https://docs.agno.com/examples/models/dashscope/basic_stream.md)
+- [Image Agent](https://docs.agno.com/examples/models/dashscope/image_agent.md)
+- [Image Agent with Bytes](https://docs.agno.com/examples/models/dashscope/image_agent_bytes.md)
+- [Structured Output Agent](https://docs.agno.com/examples/models/dashscope/structured_output.md)
+- [Thinking Agent](https://docs.agno.com/examples/models/dashscope/thinking_agent.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/dashscope/tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/deepinfra/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/deepinfra/basic_stream.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/deepinfra/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/deepinfra/tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/deepseek/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/deepseek/basic_stream.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/deepseek/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/deepseek/tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/fireworks/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/fireworks/basic_stream.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/fireworks/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/fireworks/tool_use.md)
+- [Audio Input (Bytes Content)](https://docs.agno.com/examples/models/gemini/audio_input_bytes_content.md)
+- [Audio Input (Upload the file)](https://docs.agno.com/examples/models/gemini/audio_input_file_upload.md)
+- [Audio Input (Local file)](https://docs.agno.com/examples/models/gemini/audio_input_local_file_upload.md)
+- [Basic Agent](https://docs.agno.com/examples/models/gemini/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/gemini/basic_stream.md)
+- [Flash Thinking Agent](https://docs.agno.com/examples/models/gemini/flash_thinking.md)
+- [Agent with Grounding](https://docs.agno.com/examples/models/gemini/grounding.md)
+- [Image Editing Agent](https://docs.agno.com/examples/models/gemini/image_editing.md)
+- [Image Generation Agent](https://docs.agno.com/examples/models/gemini/image_generation.md)
+- [Image Generation Agent (Streaming)](https://docs.agno.com/examples/models/gemini/image_generation_stream.md)
+- [Image Agent](https://docs.agno.com/examples/models/gemini/image_input.md)
+- [Image Agent with File Upload](https://docs.agno.com/examples/models/gemini/image_input_file_upload.md)
+- [Imagen Tool with OpenAI](https://docs.agno.com/examples/models/gemini/imagen_tool.md)
+- [Advanced Imagen Tool with Vertex AI](https://docs.agno.com/examples/models/gemini/imagen_tool_advanced.md)
+- [Agent with Knowledge](https://docs.agno.com/examples/models/gemini/knowledge.md)
+- [Agent with PDF Input (Local file)](https://docs.agno.com/examples/models/gemini/pdf_input_local.md)
+- [Agent with PDF Input (URL)](https://docs.agno.com/examples/models/gemini/pdf_input_url.md)
+- [Agent with Storage](https://docs.agno.com/examples/models/gemini/storage.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/gemini/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/gemini/tool_use.md)
+- [Agent with URL Context](https://docs.agno.com/examples/models/gemini/url_context.md)
+- [Agent with URL Context and Search](https://docs.agno.com/examples/models/gemini/url_context_with_search.md)
+- [Agent with Vertex AI](https://docs.agno.com/examples/models/gemini/vertexai.md)
+- [Video Input (Bytes Content)](https://docs.agno.com/examples/models/gemini/video_input_bytes_content.md)
+- [Video Input (File Upload)](https://docs.agno.com/examples/models/gemini/video_input_file_upload.md)
+- [Video Input (Local File Upload)](https://docs.agno.com/examples/models/gemini/video_input_local_file_upload.md)
+- [Basic Agent](https://docs.agno.com/examples/models/groq/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/groq/basic_stream.md)
+- [Browser Search Agent](https://docs.agno.com/examples/models/groq/browser_search.md)
+- [Deep Knowledge Agent](https://docs.agno.com/examples/models/groq/deep_knowledge.md)
+- [Image Agent](https://docs.agno.com/examples/models/groq/image_agent.md)
+- [Agent with Knowledge](https://docs.agno.com/examples/models/groq/knowledge.md)
+- [Agent with Metrics](https://docs.agno.com/examples/models/groq/metrics.md)
+- [Reasoning Agent](https://docs.agno.com/examples/models/groq/reasoning_agent.md)
+- [Agent with Storage](https://docs.agno.com/examples/models/groq/storage.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/groq/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/groq/tool_use.md)
+- [Transcription Agent](https://docs.agno.com/examples/models/groq/transcription_agent.md)
+- [Translation Agent](https://docs.agno.com/examples/models/groq/translation_agent.md)
+- [Async Basic.Py](https://docs.agno.com/examples/models/huggingface/async_basic.md)
+- [Async Basic Stream.Py](https://docs.agno.com/examples/models/huggingface/async_basic_stream.md)
+- [Basic Agent](https://docs.agno.com/examples/models/huggingface/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/huggingface/basic_stream.md)
+- [Llama Essay Writer](https://docs.agno.com/examples/models/huggingface/llama_essay_writer.md)
+- [Tool Use](https://docs.agno.com/examples/models/huggingface/tool_use.md)
+- [Async Basic Agent](https://docs.agno.com/examples/models/ibm/async_basic.md)
+- [Async Streaming Agent](https://docs.agno.com/examples/models/ibm/async_basic_stream.md)
+- [Agent with Async Tool Usage](https://docs.agno.com/examples/models/ibm/async_tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/ibm/basic.md)
+- [Streaming Basic Agent](https://docs.agno.com/examples/models/ibm/basic_stream.md)
+- [Image Agent](https://docs.agno.com/examples/models/ibm/image_agent_bytes.md)
+- [RAG Agent](https://docs.agno.com/examples/models/ibm/knowledge.md)
+- [Agent with Storage](https://docs.agno.com/examples/models/ibm/storage.md)
+- [Agent with Structured Output](https://docs.agno.com/examples/models/ibm/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/ibm/tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/langdb/basic.md)
+- [Basic Streaming Agent](https://docs.agno.com/examples/models/langdb/basic_stream.md)
+- [Data Analyst Agent](https://docs.agno.com/examples/models/langdb/data_analyst.md)
+- [Structured Output](https://docs.agno.com/examples/models/langdb/structured_output.md)
+- [Web Search Agent](https://docs.agno.com/examples/models/langdb/tool_use.md)
+- [Async Basic Agent](https://docs.agno.com/examples/models/litellm/async_basic.md)
+- [Async Basic Streaming Agent](https://docs.agno.com/examples/models/litellm/async_basic_stream.md)
+- [Async Tool Use](https://docs.agno.com/examples/models/litellm/async_tool_use.md)
+- [Audio Input Agent](https://docs.agno.com/examples/models/litellm/audio_input_agent.md)
+- [Basic Agent](https://docs.agno.com/examples/models/litellm/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/litellm/basic_stream.md)
+- [Agent with Knowledge](https://docs.agno.com/examples/models/litellm/knowledge.md)
+- [Agent with Storage](https://docs.agno.com/examples/models/litellm/storage.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/litellm/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/litellm/tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/litellm_openai/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/litellm_openai/basic_stream.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/litellm_openai/tool_use.md)
+- [Basic](https://docs.agno.com/examples/models/llama_cpp/basic.md)
+- [Basic Stream](https://docs.agno.com/examples/models/llama_cpp/basic_stream.md)
+- [Structured Output](https://docs.agno.com/examples/models/llama_cpp/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/llama_cpp/tool_use.md)
+- [Agent with Tools Stream](https://docs.agno.com/examples/models/llama_cpp/tool_use_stream.md)
+- [Basic Agent](https://docs.agno.com/examples/models/lmstudio/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/lmstudio/basic_stream.md)
+- [Image Agent](https://docs.agno.com/examples/models/lmstudio/image_agent.md)
+- [Agent with Knowledge](https://docs.agno.com/examples/models/lmstudio/knowledge.md)
+- [Agent with Storage](https://docs.agno.com/examples/models/lmstudio/storage.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/lmstudio/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/lmstudio/tool_use.md)
+- [Asynchronous Agent](https://docs.agno.com/examples/models/meta/async_basic.md)
+- [Asynchronous Streaming Agent](https://docs.agno.com/examples/models/meta/async_stream.md)
+- [Agent with Async Tool Usage](https://docs.agno.com/examples/models/meta/async_tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/meta/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/meta/basic_stream.md)
+- [Asynchronous Agent with Image Input](https://docs.agno.com/examples/models/meta/image_input_bytes.md)
+- [Agent With Knowledge](https://docs.agno.com/examples/models/meta/knowledge.md)
+- [Agent with Memory](https://docs.agno.com/examples/models/meta/memory.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/meta/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/meta/tool_use.md)
+- [Async Basic Agent](https://docs.agno.com/examples/models/mistral/async_basic.md)
+- [Async Basic Streaming Agent](https://docs.agno.com/examples/models/mistral/async_basic_stream.md)
+- [Async Structured Output Agent](https://docs.agno.com/examples/models/mistral/async_structured_output.md)
+- [Async Agent with Tools](https://docs.agno.com/examples/models/mistral/async_tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/mistral/basic.md)
+- [Basic Streaming Agent](https://docs.agno.com/examples/models/mistral/basic_stream.md)
+- [Image Bytes Input Agent](https://docs.agno.com/examples/models/mistral/image_bytes_input_agent.md)
+- [Image Compare Agent](https://docs.agno.com/examples/models/mistral/image_compare_agent.md)
+- [Image File Input Agent](https://docs.agno.com/examples/models/mistral/image_file_input_agent.md)
+- [Image Ocr With Structured Output](https://docs.agno.com/examples/models/mistral/image_ocr_with_structured_output.md)
+- [Image Transcribe Document Agent](https://docs.agno.com/examples/models/mistral/image_transcribe_document_agent.md)
+- [Agent with Memory](https://docs.agno.com/examples/models/mistral/memory.md)
+- [Mistral Small](https://docs.agno.com/examples/models/mistral/mistral_small.md)
+- [Structured Output](https://docs.agno.com/examples/models/mistral/structured_output.md)
+- [Structured Output With Tool Use](https://docs.agno.com/examples/models/mistral/structured_output_with_tool_use.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/mistral/tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/nebius/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/nebius/basic_stream.md)
+- [Agent with Knowledge](https://docs.agno.com/examples/models/nebius/knowledge.md)
+- [Agent with Storage](https://docs.agno.com/examples/models/nebius/storage.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/nebius/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/nebius/tool_use.md)
+- [Async Basic Agent](https://docs.agno.com/examples/models/nexus/async_basic.md)
+- [Async Streaming Agent](https://docs.agno.com/examples/models/nexus/async_basic_stream.md)
+- [Async Agent with Tools](https://docs.agno.com/examples/models/nexus/async_tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/nexus/basic.md)
+- [Basic Streaming Agent](https://docs.agno.com/examples/models/nexus/basic_stream.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/nexus/tool_use.md)
+- [Async Basic Agent](https://docs.agno.com/examples/models/nvidia/async_basic.md)
+- [Async Streaming Agent](https://docs.agno.com/examples/models/nvidia/async_basic_stream.md)
+- [Async Agent with Tools](https://docs.agno.com/examples/models/nvidia/async_tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/nvidia/basic.md)
+- [Basic Streaming Agent](https://docs.agno.com/examples/models/nvidia/basic_stream.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/nvidia/tool_use.md)
+- [Async Basic](https://docs.agno.com/examples/models/ollama/async_basic.md)
+- [Async Basic Stream](https://docs.agno.com/examples/models/ollama/async_basic_stream.md)
+- [Basic](https://docs.agno.com/examples/models/ollama/basic.md)
+- [Basic Stream](https://docs.agno.com/examples/models/ollama/basic_stream.md)
+- [Ollama Cloud](https://docs.agno.com/examples/models/ollama/cloud.md)
+- [Db](https://docs.agno.com/examples/models/ollama/db.md)
+- [Demo Deepseek R1](https://docs.agno.com/examples/models/ollama/demo_deepseek_r1.md)
+- [Demo Gemma](https://docs.agno.com/examples/models/ollama/demo_gemma.md)
+- [Demo Phi4](https://docs.agno.com/examples/models/ollama/demo_phi4.md)
+- [Demo Qwen](https://docs.agno.com/examples/models/ollama/demo_qwen.md)
+- [Image Agent](https://docs.agno.com/examples/models/ollama/image_agent.md)
+- [Knowledge](https://docs.agno.com/examples/models/ollama/knowledge.md)
+- [Memory](https://docs.agno.com/examples/models/ollama/memory.md)
+- [Multimodal Agent](https://docs.agno.com/examples/models/ollama/multimodal.md)
+- [Set Client](https://docs.agno.com/examples/models/ollama/set_client.md)
+- [Set Temperature](https://docs.agno.com/examples/models/ollama/set_temperature.md)
+- [Agent with Storage](https://docs.agno.com/examples/models/ollama/storage.md)
+- [Structured Output](https://docs.agno.com/examples/models/ollama/structured_output.md)
+- [Tool Use](https://docs.agno.com/examples/models/ollama/tool_use.md)
+- [Tool Use Stream](https://docs.agno.com/examples/models/ollama/tool_use_stream.md)
+- [Audio Input Agent](https://docs.agno.com/examples/models/openai/chat/audio_input_agent.md)
+- [Audio Output Agent](https://docs.agno.com/examples/models/openai/chat/audio_output_agent.md)
+- [Basic Agent](https://docs.agno.com/examples/models/openai/chat/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/openai/chat/basic_stream.md)
+- [Generate Images](https://docs.agno.com/examples/models/openai/chat/generate_images.md)
+- [Image Agent](https://docs.agno.com/examples/models/openai/chat/image_agent.md)
+- [Agent with Knowledge](https://docs.agno.com/examples/models/openai/chat/knowledge.md)
+- [Agent with Reasoning Effort](https://docs.agno.com/examples/models/openai/chat/reasoning_effort.md)
+- [Agent with Storage](https://docs.agno.com/examples/models/openai/chat/storage.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/openai/chat/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/openai/chat/tool_use.md)
+- [Agent Flex Tier](https://docs.agno.com/examples/models/openai/responses/agent_flex_tier.md)
+- [Async Basic](https://docs.agno.com/examples/models/openai/responses/async_basic.md)
+- [Async Basic Stream](https://docs.agno.com/examples/models/openai/responses/async_basic_stream.md)
+- [Async Tool Use](https://docs.agno.com/examples/models/openai/responses/async_tool_use.md)
+- [Basic](https://docs.agno.com/examples/models/openai/responses/basic.md)
+- [Basic Stream](https://docs.agno.com/examples/models/openai/responses/basic_stream.md)
+- [Db](https://docs.agno.com/examples/models/openai/responses/db.md)
+- [Deep Research Agent](https://docs.agno.com/examples/models/openai/responses/deep_research_agent.md)
+- [Image Agent](https://docs.agno.com/examples/models/openai/responses/image_agent.md)
+- [Image Agent Bytes](https://docs.agno.com/examples/models/openai/responses/image_agent_bytes.md)
+- [Image Agent With Memory](https://docs.agno.com/examples/models/openai/responses/image_agent_with_memory.md)
+- [Image Generation Agent](https://docs.agno.com/examples/models/openai/responses/image_generation_agent.md)
+- [Knowledge](https://docs.agno.com/examples/models/openai/responses/knowledge.md)
+- [Memory](https://docs.agno.com/examples/models/openai/responses/memory.md)
+- [Pdf Input Local](https://docs.agno.com/examples/models/openai/responses/pdf_input_local.md)
+- [Pdf Input Url](https://docs.agno.com/examples/models/openai/responses/pdf_input_url.md)
+- [Reasoning O3 Mini](https://docs.agno.com/examples/models/openai/responses/reasoning_o3_mini.md)
+- [Structured Output](https://docs.agno.com/examples/models/openai/responses/structured_output.md)
+- [Tool Use](https://docs.agno.com/examples/models/openai/responses/tool_use.md)
+- [Tool Use Gpt 5](https://docs.agno.com/examples/models/openai/responses/tool_use_gpt_5.md)
+- [Tool Use O3](https://docs.agno.com/examples/models/openai/responses/tool_use_o3.md)
+- [Tool Use Stream](https://docs.agno.com/examples/models/openai/responses/tool_use_stream.md)
+- [Verbosity Control](https://docs.agno.com/examples/models/openai/responses/verbosity_control.md)
+- [Websearch Builtin Tool](https://docs.agno.com/examples/models/openai/responses/websearch_builtin_tool.md)
+- [ZDR Reasoning Agent](https://docs.agno.com/examples/models/openai/responses/zdr_reasoning_agent.md)
+- [Async Basic Agent](https://docs.agno.com/examples/models/perplexity/async_basic.md)
+- [Async Basic Streaming Agent](https://docs.agno.com/examples/models/perplexity/async_basic_stream.md)
+- [Basic Agent](https://docs.agno.com/examples/models/perplexity/basic.md)
+- [Basic Streaming Agent](https://docs.agno.com/examples/models/perplexity/basic_stream.md)
+- [Agent with Knowledge](https://docs.agno.com/examples/models/perplexity/knowledge.md)
+- [Agent with Memory](https://docs.agno.com/examples/models/perplexity/memory.md)
+- [Agent with Structured Output](https://docs.agno.com/examples/models/perplexity/structured_output.md)
+- [Basic Agent](https://docs.agno.com/examples/models/portkey/basic.md)
+- [Basic Agent with Streaming](https://docs.agno.com/examples/models/portkey/basic_stream.md)
+- [Structured Output Agent](https://docs.agno.com/examples/models/portkey/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/portkey/tool_use.md)
+- [Agent with Tools and Streaming](https://docs.agno.com/examples/models/portkey/tool_use_stream.md)
+- [Basic Agent](https://docs.agno.com/examples/models/requesty/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/requesty/basic_stream.md)
+- [Agent with Structured Output](https://docs.agno.com/examples/models/requesty/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/requesty/tool_use.md)
+- [Async Basic Agent](https://docs.agno.com/examples/models/siliconflow/async_basic.md)
+- [Async Streaming Agent](https://docs.agno.com/examples/models/siliconflow/async_basic_stream.md)
+- [Async Agent with Tools](https://docs.agno.com/examples/models/siliconflow/async_tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/siliconflow/basic.md)
+- [Basic Streaming Agent](https://docs.agno.com/examples/models/siliconflow/basic_stream.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/siliconflow/tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/together/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/together/basic_stream.md)
+- [Image Agent](https://docs.agno.com/examples/models/together/image_agent.md)
+- [Image Input Bytes Content](https://docs.agno.com/examples/models/together/image_agent_bytes.md)
+- [Image Agent with Memory](https://docs.agno.com/examples/models/together/image_agent_memory.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/together/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/together/tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/vercel/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/vercel/basic_stream.md)
+- [Image Agent](https://docs.agno.com/examples/models/vercel/image_agent.md)
+- [Agent with Knowledge](https://docs.agno.com/examples/models/vercel/knowledge.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/vercel/tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/vertexai/claude/basic.md)
+- [Streaming Agent](https://docs.agno.com/examples/models/vertexai/claude/basic_stream.md)
+- [Image Input Bytes Content](https://docs.agno.com/examples/models/vertexai/claude/image_input_bytes.md)
+- [Image Input URL](https://docs.agno.com/examples/models/vertexai/claude/image_input_url.md)
+- [PDF Input Bytes Agent](https://docs.agno.com/examples/models/vertexai/claude/pdf_input_bytes.md)
+- [PDF Input Local Agent](https://docs.agno.com/examples/models/vertexai/claude/pdf_input_local.md)
+- [PDF Input URL Agent](https://docs.agno.com/examples/models/vertexai/claude/pdf_input_url.md)
+- [Agent with Structured Outputs](https://docs.agno.com/examples/models/vertexai/claude/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/vertexai/claude/tool_use.md)
+- [Async Agent](https://docs.agno.com/examples/models/vllm/async_basic.md)
+- [Async Agent with Streaming](https://docs.agno.com/examples/models/vllm/async_basic_stream.md)
+- [Async Agent with Tools](https://docs.agno.com/examples/models/vllm/async_tool_use.md)
+- [Basic Agent](https://docs.agno.com/examples/models/vllm/basic.md)
+- [Agent with Streaming](https://docs.agno.com/examples/models/vllm/basic_stream.md)
+- [Code Generation](https://docs.agno.com/examples/models/vllm/code_generation.md)
+- [Agent with Memory](https://docs.agno.com/examples/models/vllm/memory.md)
+- [Agent with Storage](https://docs.agno.com/examples/models/vllm/storage.md)
+- [Structured Output](https://docs.agno.com/examples/models/vllm/structured_output.md)
+- [Agent with Tools](https://docs.agno.com/examples/models/vllm/tool_use.md)
+- [Async Tool Use](https://docs.agno.com/examples/models/xai/async_tool_use.md)
+- [Basic](https://docs.agno.com/examples/models/xai/basic.md)
+- [Async Basic Agent](https://docs.agno.com/examples/models/xai/basic_async.md)
+- [Async Streaming Agent](https://docs.agno.com/examples/models/xai/basic_async_stream.md)
+- [Basic Stream](https://docs.agno.com/examples/models/xai/basic_stream.md)
+- [Image Agent](https://docs.agno.com/examples/models/xai/image_agent.md)
+- [Image Agent Bytes](https://docs.agno.com/examples/models/xai/image_agent_bytes.md)
+- [Live Search Agent](https://docs.agno.com/examples/models/xai/live_search_agent.md)
+- [Live Search Agent Stream](https://docs.agno.com/examples/models/xai/live_search_agent_stream.md)
+- [Reasoning Agent](https://docs.agno.com/examples/models/xai/reasoning_agent.md)
+- [Structured Output](https://docs.agno.com/examples/models/xai/structured_output.md)
+- [Tool Use](https://docs.agno.com/examples/models/xai/tool_use.md)
+- [Tool Use Stream](https://docs.agno.com/examples/models/xai/tool_use_stream.md)
+- [Agno Assist](https://docs.agno.com/examples/use-cases/agents/agno_assist.md)
+- [Airbnb Mcp](https://docs.agno.com/examples/use-cases/agents/airbnb_mcp.md)
+- [Books Recommender](https://docs.agno.com/examples/use-cases/agents/books-recommender.md)
+- [Competitor Analysis Agent](https://docs.agno.com/examples/use-cases/agents/competitor_analysis_agent.md)
+- [Deep Knowledge](https://docs.agno.com/examples/use-cases/agents/deep_knowledge.md)
+- [Deep Research Agent](https://docs.agno.com/examples/use-cases/agents/deep_research_agent_exa.md)
+- [Legal Consultant](https://docs.agno.com/examples/use-cases/agents/legal_consultant.md)
+- [Media Trend Analysis Agent](https://docs.agno.com/examples/use-cases/agents/media_trend_analysis_agent.md)
+- [Meeting Summarizer Agent](https://docs.agno.com/examples/use-cases/agents/meeting_summarizer_agent.md)
+- [Movie Recommender](https://docs.agno.com/examples/use-cases/agents/movie-recommender.md)
+- [Readme Generator](https://docs.agno.com/examples/use-cases/agents/readme_generator.md)
+- [Recipe Creator](https://docs.agno.com/examples/use-cases/agents/recipe-creator.md)
+- [Recipe Rag Image](https://docs.agno.com/examples/use-cases/agents/recipe_rag_image.md)
+- [Reddit Post Generator](https://docs.agno.com/examples/use-cases/agents/reddit-post-generator.md)
+- [Research Agent](https://docs.agno.com/examples/use-cases/agents/research-agent.md)
+- [Research Agent using Exa](https://docs.agno.com/examples/use-cases/agents/research-agent-exa.md)
+- [Run As Cli](https://docs.agno.com/examples/use-cases/agents/run_as_cli.md)
+- [Shopping Partner](https://docs.agno.com/examples/use-cases/agents/shopping_partner.md)
+- [Social Media Agent](https://docs.agno.com/examples/use-cases/agents/social_media_agent.md)
+- [Startup Analyst Agent](https://docs.agno.com/examples/use-cases/agents/startup-analyst-agent.md): A sophisticated startup intelligence agent that leverages the `ScrapeGraph` Toolkit for comprehensive due diligence on companies
+- [Study Partner](https://docs.agno.com/examples/use-cases/agents/study-partner.md)
+- [Translation Agent](https://docs.agno.com/examples/use-cases/agents/translation_agent.md)
+- [Travel Agent](https://docs.agno.com/examples/use-cases/agents/travel-planner.md)
+- [Tweet Analysis Agent](https://docs.agno.com/examples/use-cases/agents/tweet-analysis-agent.md): An agent that analyzes tweets and provides comprehensive brand monitoring and sentiment analysis.
+- [Web Extraction Agent](https://docs.agno.com/examples/use-cases/agents/web_extraction_agent.md)
+- [Youtube Agent](https://docs.agno.com/examples/use-cases/agents/youtube-agent.md)
+- [AI Support Team](https://docs.agno.com/examples/use-cases/teams/ai_support_team.md)
+- [Autonomous Startup Team](https://docs.agno.com/examples/use-cases/teams/autonomous_startup_team.md)
+- [Content Team](https://docs.agno.com/examples/use-cases/teams/content_team.md)
+- [Collaboration Team](https://docs.agno.com/examples/use-cases/teams/discussion_team.md)
+- [HackerNews Team](https://docs.agno.com/examples/use-cases/teams/hackernews_team.md)
+- [Multi Language Team](https://docs.agno.com/examples/use-cases/teams/multi_language_team.md)
+- [News Agency Team](https://docs.agno.com/examples/use-cases/teams/news_agency_team.md)
+- [Reasoning Team](https://docs.agno.com/examples/use-cases/teams/reasoning_team.md)
+- [Blog Post Generator](https://docs.agno.com/examples/use-cases/workflows/blog-post-generator.md): This example demonstrates how to migrate from the similar workflows 1.0 example to workflows 2.0 structure.
+- [Company Description Workflow](https://docs.agno.com/examples/use-cases/workflows/company-description.md): A workflow that generates comprehensive supplier profiles by gathering information from multiple sources and delivers them via email.
+- [Employee Recruiter](https://docs.agno.com/examples/use-cases/workflows/employee-recruiter.md): This example demonstrates how to migrate from the similar workflows 1.0 example to workflows 2.0 structure.
+- [Investment Report Generator](https://docs.agno.com/examples/use-cases/workflows/investment-report-generator.md): This example demonstrates how to build a sophisticated investment analysis system that combines market research, financial analysis, and portfolio management.
+- [Startup Idea Validator](https://docs.agno.com/examples/use-cases/workflows/startup-idea-validator.md): This example demonstrates how to migrate from the similar workflows 1.0 example to workflows 2.0 structure.
+- [When to use a Workflow vs a Team in Agno](https://docs.agno.com/faq/When-to-use-a-Workflow-vs-a-Team-in-Agno.md)
+- [AgentOS Connection Issues](https://docs.agno.com/faq/agentos-connection.md)
+- [Connecting to Tableplus](https://docs.agno.com/faq/connecting-to-tableplus.md)
+- [Could Not Connect To Docker](https://docs.agno.com/faq/could-not-connect-to-docker.md)
+- [Setting Environment Variables](https://docs.agno.com/faq/environment-variables.md)
+- [OpenAI Key Request While Using Other Models](https://docs.agno.com/faq/openai-key-request-for-other-models.md)
+- [Structured outputs](https://docs.agno.com/faq/structured-outputs.md)
+- [How to Switch Between Different Models](https://docs.agno.com/faq/switching-models.md)
+- [Tokens-per-minute rate limiting](https://docs.agno.com/faq/tpm-issues.md)
+- [Contributing to Agno](https://docs.agno.com/how-to/contribute.md): Learn how to contribute to Agno through our fork and pull request workflow.
+- [Cursor Rules for Building Agents](https://docs.agno.com/how-to/cursor-rules.md): Use .cursorrules to improve AI coding assistant suggestions when building agents with Agno
+- [Install & Setup](https://docs.agno.com/how-to/install.md)
+- [Agno v2.0 Changelog](https://docs.agno.com/how-to/v2-changelog.md)
+- [Migrating to Agno v2.0](https://docs.agno.com/how-to/v2-migration.md): Guide to migrate your Agno applications from v1 to v2.
+- [Migrating to Workflows 2.0](https://docs.agno.com/how-to/workflows-migration.md): Learn how to migrate to Workflows 2.0.
+- [Discord Bot](https://docs.agno.com/integrations/discord/overview.md): Host agents as Discord Bots.
+- [AgentOps](https://docs.agno.com/integrations/observability/agentops.md): Integrate Agno with AgentOps to send traces and logs to a centralized observability platform.
+- [Arize](https://docs.agno.com/integrations/observability/arize.md): Integrate Agno with Arize Phoenix to send traces and gain insights into your agent's performance.
+- [Atla](https://docs.agno.com/integrations/observability/atla.md): Integrate `Atla` with Agno for real-time monitoring, automated evaluation, and performance analytics of your AI agents.
+- [LangDB](https://docs.agno.com/integrations/observability/langdb.md): Integrate Agno with LangDB to trace agent execution, tool calls, and gain comprehensive observability into your agent's performance.
+- [Langfuse](https://docs.agno.com/integrations/observability/langfuse.md): Integrate Agno with Langfuse to send traces and gain insights into your agent's performance.
+- [LangSmith](https://docs.agno.com/integrations/observability/langsmith.md): Integrate Agno with LangSmith to send traces and gain insights into your agent's performance.
+- [Langtrace](https://docs.agno.com/integrations/observability/langtrace.md): Integrate Agno with Langtrace to send traces and gain insights into your agent's performance.
+- [Maxim](https://docs.agno.com/integrations/observability/maxim.md): Connect Agno with Maxim to monitor, trace, and evaluate your agent's activity and performance.
+- [OpenTelemetry](https://docs.agno.com/integrations/observability/overview.md): Agno supports observability through OpenTelemetry, integrating seamlessly with popular tracing and monitoring platforms.
+- [Weave](https://docs.agno.com/integrations/observability/weave.md): Integrate Agno with Weave by WandB to send traces and gain insights into your agent's performance.
+- [Scenario Testing](https://docs.agno.com/integrations/testing/scenario-testing.md)
+- [What is Agno?](https://docs.agno.com/introduction.md): **Agno is an incredibly fast multi-agent framework, runtime and control plane.**
+- [Designed for Agent Engineering](https://docs.agno.com/introduction/features.md)
+- [Getting Help](https://docs.agno.com/introduction/getting-help.md): Connect with builders, get support, and explore Agent Engineering.
+- [Performance](https://docs.agno.com/introduction/performance.md): Get extreme performance out of the box with Agno.
+- [Quickstart](https://docs.agno.com/introduction/quickstart.md): Build and run your first Agent using Agno.
+- [AgentOS API Overview](https://docs.agno.com/reference-api/overview.md): Complete API reference for interacting with AgentOS programmatically
+- [Send Message](https://docs.agno.com/reference-api/schema/a2a/send-message.md): Send a message to an Agno Agent, Team, or Workflow. The Agent, Team or Workflow is identified via the 'agentId' field in params.message or X-Agent-ID header. Optional: Pass user ID via X-User-ID header (recommended) or 'userId' in params.message.metadata.
+- [Stream Message](https://docs.agno.com/reference-api/schema/a2a/stream-message.md): Stream a message to an Agno Agent, Team, or Workflow.The Agent, Team or Workflow is identified via the 'agentId' field in params.message or X-Agent-ID header. Optional: Pass user ID via X-User-ID header (recommended) or 'userId' in params.message.metadata. Returns real-time updates as newline-delimited JSON (NDJSON).
+- [Cancel Agent Run](https://docs.agno.com/reference-api/schema/agents/cancel-agent-run.md): Cancel a currently executing agent run. This will attempt to stop the agent's execution gracefully.
+
+**Note:** Cancellation may not be immediate for all operations.
+- [Continue Agent Run](https://docs.agno.com/reference-api/schema/agents/continue-agent-run.md): Continue a paused or incomplete agent run with updated tool results.
+
+**Use Cases:**
+- Resume execution after tool approval/rejection
+- Provide manual tool execution results
+
+**Tools Parameter:**
+JSON string containing array of tool execution objects with results.
+- [Create Agent Run](https://docs.agno.com/reference-api/schema/agents/create-agent-run.md): Execute an agent with a message and optional media files. Supports both streaming and non-streaming responses.
+
+**Features:**
+- Text message input with optional session management
+- Multi-media support: images (PNG, JPEG, WebP), audio (WAV, MP3), video (MP4, WebM, etc.)
+- Document processing: PDF, CSV, DOCX, TXT, JSON
+- Real-time streaming responses with Server-Sent Events (SSE)
+- User and session context preservation
+
+**Streaming Response:**
+When `stream=true`, returns SSE events with `event` and `data` fields.
+- [Get Agent Details](https://docs.agno.com/reference-api/schema/agents/get-agent-details.md): Retrieve detailed configuration and capabilities of a specific agent.
+
+**Returns comprehensive agent information including:**
+- Model configuration and provider details
+- Complete tool inventory and configurations
+- Session management settings
+- Knowledge base and memory configurations
+- Reasoning capabilities and settings
+- System prompts and response formatting options
+- [List All Agents](https://docs.agno.com/reference-api/schema/agents/list-all-agents.md): Retrieve a comprehensive list of all agents configured in this OS instance.
+
+**Returns:**
+- Agent metadata (ID, name, description)
+- Model configuration and capabilities
+- Available tools and their configurations
+- Session, knowledge, memory, and reasoning settings
+- Only meaningful (non-default) configurations are included
+- [Get Status](https://docs.agno.com/reference-api/schema/agui/get-status.md)
+- [Run Agent](https://docs.agno.com/reference-api/schema/agui/run-agent.md)
+- [Get OS Configuration](https://docs.agno.com/reference-api/schema/core/get-os-configuration.md): Retrieve the complete configuration of the AgentOS instance, including:
+
+- Available models and databases
+- Registered agents, teams, and workflows
+- Chat, session, memory, knowledge, and evaluation configurations
+- Available interfaces and their routes
+- [Delete Evaluation Runs](https://docs.agno.com/reference-api/schema/evals/delete-evaluation-runs.md): Delete multiple evaluation runs by their IDs. This action cannot be undone.
+- [Execute Evaluation](https://docs.agno.com/reference-api/schema/evals/execute-evaluation.md): Run evaluation tests on agents or teams. Supports accuracy, performance, and reliability evaluations. Requires either agent_id or team_id, but not both.
+- [Get Evaluation Run](https://docs.agno.com/reference-api/schema/evals/get-evaluation-run.md): Retrieve detailed results and metrics for a specific evaluation run.
+- [List Evaluation Runs](https://docs.agno.com/reference-api/schema/evals/list-evaluation-runs.md): Retrieve paginated evaluation runs with filtering and sorting options. Filter by agent, team, workflow, model, or evaluation type.
+- [Update Evaluation Run](https://docs.agno.com/reference-api/schema/evals/update-evaluation-run.md): Update the name or other properties of an existing evaluation run.
+- [Delete All Content](https://docs.agno.com/reference-api/schema/knowledge/delete-all-content.md): Permanently remove all content from the knowledge base. This is a destructive operation that cannot be undone. Use with extreme caution.
+- [Delete Content by ID](https://docs.agno.com/reference-api/schema/knowledge/delete-content-by-id.md): Permanently remove a specific content item from the knowledge base. This action cannot be undone.
+- [Get Content by ID](https://docs.agno.com/reference-api/schema/knowledge/get-content-by-id.md): Retrieve detailed information about a specific content item including processing status and metadata.
+- [Get Content Status](https://docs.agno.com/reference-api/schema/knowledge/get-content-status.md): Retrieve the current processing status of a content item. Useful for monitoring asynchronous content processing progress and identifying any processing errors.
+- [List Content](https://docs.agno.com/reference-api/schema/knowledge/list-content.md): Retrieve paginated list of all content in the knowledge base with filtering and sorting options. Filter by status, content type, or metadata properties.
+- [Search Knowledge](https://docs.agno.com/reference-api/schema/knowledge/search-knowledge.md): Search the knowledge base for relevant documents using query, filters and search type.
+- [Update Content](https://docs.agno.com/reference-api/schema/knowledge/update-content.md): Update content properties such as name, description, metadata, or processing configuration. Allows modification of existing content without re-uploading.
+- [Upload Content](https://docs.agno.com/reference-api/schema/knowledge/upload-content.md): Upload content to the knowledge base. Supports file uploads, text content, or URLs. Content is processed asynchronously in the background. Supports custom readers and chunking strategies.
+- [Create Memory](https://docs.agno.com/reference-api/schema/memory/create-memory.md): Create a new user memory with content and associated topics. Memories are used to store contextual information for users across conversations.
+- [Delete Memory](https://docs.agno.com/reference-api/schema/memory/delete-memory.md): Permanently delete a specific user memory. This action cannot be undone.
+- [Delete Multiple Memories](https://docs.agno.com/reference-api/schema/memory/delete-multiple-memories.md): Delete multiple user memories by their IDs in a single operation. This action cannot be undone and all specified memories will be permanently removed.
+- [Get Memory by ID](https://docs.agno.com/reference-api/schema/memory/get-memory-by-id.md): Retrieve detailed information about a specific user memory by its ID.
+- [Get Memory Topics](https://docs.agno.com/reference-api/schema/memory/get-memory-topics.md): Retrieve all unique topics associated with memories in the system. Useful for filtering and categorizing memories by topic.
+- [Get User Memory Statistics](https://docs.agno.com/reference-api/schema/memory/get-user-memory-statistics.md): Retrieve paginated statistics about memory usage by user. Provides insights into user engagement and memory distribution across users.
+- [List Memories](https://docs.agno.com/reference-api/schema/memory/list-memories.md): Retrieve paginated list of user memories with filtering and search capabilities. Filter by user, agent, team, topics, or search within memory content.
+- [Update Memory](https://docs.agno.com/reference-api/schema/memory/update-memory.md): Update an existing user memory's content and topics. Replaces the entire memory content and topic list with the provided values.
+- [Get AgentOS Metrics](https://docs.agno.com/reference-api/schema/metrics/get-agentos-metrics.md): Retrieve AgentOS metrics and analytics data for a specified date range. If no date range is specified, returns all available metrics.
+- [Refresh Metrics](https://docs.agno.com/reference-api/schema/metrics/refresh-metrics.md): Manually trigger recalculation of system metrics from raw data. This operation analyzes system activity logs and regenerates aggregated metrics. Useful for ensuring metrics are up-to-date or after system maintenance.
+- [null](https://docs.agno.com/reference-api/schema/sessions/create-new-session.md)
+- [Delete Multiple Sessions](https://docs.agno.com/reference-api/schema/sessions/delete-multiple-sessions.md): Delete multiple sessions by their IDs in a single operation. This action cannot be undone and will permanently remove all specified sessions and their runs.
+- [Delete Session](https://docs.agno.com/reference-api/schema/sessions/delete-session.md): Permanently delete a specific session and all its associated runs. This action cannot be undone and will remove all conversation history.
+- [Get Run by ID](https://docs.agno.com/reference-api/schema/sessions/get-run-by-id.md): Retrieve a specific run by its ID from a session. Response schema varies based on the run type (agent run, team run, or workflow run).
+- [Get Session by ID](https://docs.agno.com/reference-api/schema/sessions/get-session-by-id.md): Retrieve detailed information about a specific session including metadata, configuration, and run history. Response schema varies based on session type (agent, team, or workflow).
+- [Get Session Runs](https://docs.agno.com/reference-api/schema/sessions/get-session-runs.md): Retrieve all runs (executions) for a specific session. Runs represent individual interactions or executions within a session. Response schema varies based on session type.
+- [List Sessions](https://docs.agno.com/reference-api/schema/sessions/list-sessions.md): Retrieve paginated list of sessions with filtering and sorting options. Supports filtering by session type (agent, team, workflow), component, user, and name. Sessions represent conversation histories and execution contexts.
+- [Rename Session](https://docs.agno.com/reference-api/schema/sessions/rename-session.md): Update the name of an existing session. Useful for organizing and categorizing sessions with meaningful names for better identification and management.
+- [null](https://docs.agno.com/reference-api/schema/sessions/update-session.md)
+- [Slack Events](https://docs.agno.com/reference-api/schema/slack/slack-events.md): Process incoming Slack events
+- [Cancel Team Run](https://docs.agno.com/reference-api/schema/teams/cancel-team-run.md): Cancel a currently executing team run. This will attempt to stop the team's execution gracefully.
+
+**Note:** Cancellation may not be immediate for all operations.
+- [Create Team Run](https://docs.agno.com/reference-api/schema/teams/create-team-run.md): Execute a team collaboration with multiple agents working together on a task.
+
+**Features:**
+- Text message input with optional session management
+- Multi-media support: images (PNG, JPEG, WebP), audio (WAV, MP3), video (MP4, WebM, etc.)
+- Document processing: PDF, CSV, DOCX, TXT, JSON
+- Real-time streaming responses with Server-Sent Events (SSE)
+- User and session context preservation
+
+**Streaming Response:**
+When `stream=true`, returns SSE events with `event` and `data` fields.
+- [Get Team Details](https://docs.agno.com/reference-api/schema/teams/get-team-details.md): Retrieve detailed configuration and member information for a specific team.
+- [List All Teams](https://docs.agno.com/reference-api/schema/teams/list-all-teams.md): Retrieve a comprehensive list of all teams configured in this OS instance.
+
+**Returns team information including:**
+- Team metadata (ID, name, description, execution mode)
+- Model configuration for team coordination
+- Team member roster with roles and capabilities
+- Knowledge sharing and memory configurations
+- [Status](https://docs.agno.com/reference-api/schema/whatsapp/status.md)
+- [Verify Webhook](https://docs.agno.com/reference-api/schema/whatsapp/verify-webhook.md): Handle WhatsApp webhook verification
+- [Webhook](https://docs.agno.com/reference-api/schema/whatsapp/webhook.md): Handle incoming WhatsApp messages
+- [Cancel Workflow Run](https://docs.agno.com/reference-api/schema/workflows/cancel-workflow-run.md): Cancel a currently executing workflow run, stopping all active steps and cleanup.
+**Note:** Complex workflows with multiple parallel steps may take time to fully cancel.
+- [Execute Workflow](https://docs.agno.com/reference-api/schema/workflows/execute-workflow.md): Execute a workflow with the provided input data. Workflows can run in streaming or batch mode.
+
+**Execution Modes:**
+- **Streaming (`stream=true`)**: Real-time step-by-step execution updates via SSE
+- **Non-Streaming (`stream=false`)**: Complete workflow execution with final result
+
+**Workflow Execution Process:**
+1. Input validation against workflow schema
+2. Sequential or parallel step execution based on workflow design
+3. Data flow between steps with transformation
+4. Error handling and automatic retries where configured
+5. Final result compilation and response
+
+**Session Management:**
+Workflows support session continuity for stateful execution across multiple runs.
+- [Get Workflow Details](https://docs.agno.com/reference-api/schema/workflows/get-workflow-details.md): Retrieve detailed configuration and step information for a specific workflow.
+- [List All Workflows](https://docs.agno.com/reference-api/schema/workflows/list-all-workflows.md): Retrieve a comprehensive list of all workflows configured in this OS instance.
+
+**Return Information:**
+- Workflow metadata (ID, name, description)
+- Input schema requirements
+- Step sequence and execution flow
+- Associated agents and teams
+- [AgentOS](https://docs.agno.com/reference/agent-os/agent-os.md)
+- [AgentOSConfig](https://docs.agno.com/reference/agent-os/configuration.md)
+- [Agent](https://docs.agno.com/reference/agents/agent.md)
+- [RunOutput](https://docs.agno.com/reference/agents/run-response.md)
+- [AgentSession](https://docs.agno.com/reference/agents/session.md)
+- [ag infra config](https://docs.agno.com/reference/agno-infra/cli/ws/config.md)
+- [ag infra create](https://docs.agno.com/reference/agno-infra/cli/ws/create.md)
+- [ag infra delete](https://docs.agno.com/reference/agno-infra/cli/ws/delete.md)
+- [ag infra down](https://docs.agno.com/reference/agno-infra/cli/ws/down.md)
+- [ag infra patch](https://docs.agno.com/reference/agno-infra/cli/ws/patch.md)
+- [ag infra restart](https://docs.agno.com/reference/agno-infra/cli/ws/restart.md)
+- [ag infra up](https://docs.agno.com/reference/agno-infra/cli/ws/up.md)
+- [BaseGuardrail](https://docs.agno.com/reference/hooks/base-guardrail.md)
+- [OpenAIModerationGuardrail](https://docs.agno.com/reference/hooks/openai-moderation-guardrail.md)
+- [PIIDetectionGuardrail](https://docs.agno.com/reference/hooks/pii-guardrail.md)
+- [Post-hooks](https://docs.agno.com/reference/hooks/post-hooks.md)
+- [Pre-hooks](https://docs.agno.com/reference/hooks/pre-hooks.md)
+- [PromptInjectionGuardrail](https://docs.agno.com/reference/hooks/prompt-injection-guardrail.md)
+- [Agentic Chunking](https://docs.agno.com/reference/knowledge/chunking/agentic.md)
+- [CSV Row Chunking](https://docs.agno.com/reference/knowledge/chunking/csv-row.md)
+- [Document Chunking](https://docs.agno.com/reference/knowledge/chunking/document.md)
+- [Fixed Size Chunking](https://docs.agno.com/reference/knowledge/chunking/fixed-size.md)
+- [Markdown Chunking](https://docs.agno.com/reference/knowledge/chunking/markdown.md)
+- [Recursive Chunking](https://docs.agno.com/reference/knowledge/chunking/recursive.md)
+- [Semantic Chunking](https://docs.agno.com/reference/knowledge/chunking/semantic.md)
+- [Azure OpenAI](https://docs.agno.com/reference/knowledge/embedder/azure_openai.md)
+- [Cohere](https://docs.agno.com/reference/knowledge/embedder/cohere.md)
+- [FastEmbed](https://docs.agno.com/reference/knowledge/embedder/fastembed.md)
+- [Fireworks](https://docs.agno.com/reference/knowledge/embedder/fireworks.md)
+- [Gemini](https://docs.agno.com/reference/knowledge/embedder/gemini.md)
+- [Hugging Face](https://docs.agno.com/reference/knowledge/embedder/huggingface.md)
+- [Mistral](https://docs.agno.com/reference/knowledge/embedder/mistral.md)
+- [Nebius](https://docs.agno.com/reference/knowledge/embedder/nebius.md)
+- [Ollama](https://docs.agno.com/reference/knowledge/embedder/ollama.md)
+- [OpenAI](https://docs.agno.com/reference/knowledge/embedder/openai.md)
+- [Sentence Transformer](https://docs.agno.com/reference/knowledge/embedder/sentence-transformer.md)
+- [Together](https://docs.agno.com/reference/knowledge/embedder/together.md)
+- [VoyageAI](https://docs.agno.com/reference/knowledge/embedder/voyageai.md)
+- [Knowledge](https://docs.agno.com/reference/knowledge/knowledge.md)
+- [Arxiv Reader](https://docs.agno.com/reference/knowledge/reader/arxiv.md)
+- [Reader](https://docs.agno.com/reference/knowledge/reader/base.md)
+- [CSV Reader](https://docs.agno.com/reference/knowledge/reader/csv.md)
+- [Docx Reader](https://docs.agno.com/reference/knowledge/reader/docx.md)
+- [Field Labeled CSV Reader](https://docs.agno.com/reference/knowledge/reader/field-labeled-csv.md)
+- [FireCrawl Reader](https://docs.agno.com/reference/knowledge/reader/firecrawl.md)
+- [JSON Reader](https://docs.agno.com/reference/knowledge/reader/json.md)
+- [PDF Reader](https://docs.agno.com/reference/knowledge/reader/pdf.md)
+- [PPTX Reader](https://docs.agno.com/reference/knowledge/reader/pptx.md)
+- [Text Reader](https://docs.agno.com/reference/knowledge/reader/text.md)
+- [Web Search Reader](https://docs.agno.com/reference/knowledge/reader/web-search.md)
+- [Website Reader](https://docs.agno.com/reference/knowledge/reader/website.md)
+- [Wikipedia Reader](https://docs.agno.com/reference/knowledge/reader/wikipedia.md)
+- [YouTube Reader](https://docs.agno.com/reference/knowledge/reader/youtube.md)
+- [GCS Content](https://docs.agno.com/reference/knowledge/remote-content/gcs-content.md)
+- [S3 Content](https://docs.agno.com/reference/knowledge/remote-content/s3-content.md)
+- [Cohere Reranker](https://docs.agno.com/reference/knowledge/reranker/cohere.md)
+- [Memory Manager](https://docs.agno.com/reference/memory/memory.md)
+- [AI/ML API](https://docs.agno.com/reference/models/aimlapi.md)
+- [Claude](https://docs.agno.com/reference/models/anthropic.md)
+- [Azure AI Foundry](https://docs.agno.com/reference/models/azure.md)
+- [Azure OpenAI](https://docs.agno.com/reference/models/azure_open_ai.md)
+- [AWS Bedrock](https://docs.agno.com/reference/models/bedrock.md): Learn how to use AWS Bedrock models in Agno.
+- [AWS Bedrock Claude](https://docs.agno.com/reference/models/bedrock_claude.md)
+- [Cohere](https://docs.agno.com/reference/models/cohere.md)
+- [DeepInfra](https://docs.agno.com/reference/models/deepinfra.md)
+- [DeepSeek](https://docs.agno.com/reference/models/deepseek.md)
+- [Fireworks](https://docs.agno.com/reference/models/fireworks.md)
+- [Gemini](https://docs.agno.com/reference/models/gemini.md)
+- [Groq](https://docs.agno.com/reference/models/groq.md)
+- [HuggingFace](https://docs.agno.com/reference/models/huggingface.md)
+- [IBM WatsonX](https://docs.agno.com/reference/models/ibm-watsonx.md)
+- [InternLM](https://docs.agno.com/reference/models/internlm.md)
+- [Meta](https://docs.agno.com/reference/models/meta.md)
+- [Mistral](https://docs.agno.com/reference/models/mistral.md)
+- [Model](https://docs.agno.com/reference/models/model.md)
+- [Nebius](https://docs.agno.com/reference/models/nebius.md)
+- [Nvidia](https://docs.agno.com/reference/models/nvidia.md)
+- [Ollama](https://docs.agno.com/reference/models/ollama.md)
+- [Ollama Tools](https://docs.agno.com/reference/models/ollama_tools.md)
+- [OpenAI](https://docs.agno.com/reference/models/openai.md)
+- [OpenAI Like](https://docs.agno.com/reference/models/openai_like.md)
+- [OpenRouter](https://docs.agno.com/reference/models/openrouter.md)
+- [Perplexity](https://docs.agno.com/reference/models/perplexity.md)
+- [Requesty](https://docs.agno.com/reference/models/requesty.md)
+- [Sambanova](https://docs.agno.com/reference/models/sambanova.md)
+- [Together](https://docs.agno.com/reference/models/together.md)
+- [Vercel v0](https://docs.agno.com/reference/models/vercel.md)
+- [xAI](https://docs.agno.com/reference/models/xai.md)
+- [SessionSummaryManager](https://docs.agno.com/reference/session/summary_manager.md)
+- [DynamoDB](https://docs.agno.com/reference/storage/dynamodb.md)
+- [FirestoreDb](https://docs.agno.com/reference/storage/firestore.md)
+- [GcsJsonDb](https://docs.agno.com/reference/storage/gcs.md)
+- [InMemoryDb](https://docs.agno.com/reference/storage/in_memory.md)
+- [JsonDb](https://docs.agno.com/reference/storage/json.md)
+- [MongoDB](https://docs.agno.com/reference/storage/mongodb.md)
+- [MySQLDb](https://docs.agno.com/reference/storage/mysql.md)
+- [PostgresDb](https://docs.agno.com/reference/storage/postgres.md)
+- [RedisDb](https://docs.agno.com/reference/storage/redis.md)
+- [SingleStoreDb](https://docs.agno.com/reference/storage/singlestore.md)
+- [SqliteDb](https://docs.agno.com/reference/storage/sqlite.md)
+- [Team Session](https://docs.agno.com/reference/teams/session.md)
+- [Team](https://docs.agno.com/reference/teams/team.md)
+- [TeamRunOutput](https://docs.agno.com/reference/teams/team-response.md)
+- [Cassandra](https://docs.agno.com/reference/vector_db/cassandra.md)
+- [ChromaDb](https://docs.agno.com/reference/vector_db/chromadb.md)
+- [Clickhouse](https://docs.agno.com/reference/vector_db/clickhouse.md)
+- [Couchbase](https://docs.agno.com/reference/vector_db/couchbase.md)
+- [LanceDb](https://docs.agno.com/reference/vector_db/lancedb.md)
+- [Milvus](https://docs.agno.com/reference/vector_db/milvus.md)
+- [MongoDb](https://docs.agno.com/reference/vector_db/mongodb.md)
+- [PgVector](https://docs.agno.com/reference/vector_db/pgvector.md)
+- [Pinecone](https://docs.agno.com/reference/vector_db/pinecone.md)
+- [Qdrant](https://docs.agno.com/reference/vector_db/qdrant.md)
+- [SingleStore](https://docs.agno.com/reference/vector_db/singlestore.md)
+- [SurrealDB](https://docs.agno.com/reference/vector_db/surrealdb.md)
+- [Weaviate](https://docs.agno.com/reference/vector_db/weaviate.md)
+- [Conditional Steps](https://docs.agno.com/reference/workflows/conditional-steps.md)
+- [Loop Steps](https://docs.agno.com/reference/workflows/loop-steps.md)
+- [Parallel Steps](https://docs.agno.com/reference/workflows/parallel-steps.md)
+- [Router Steps](https://docs.agno.com/reference/workflows/router-steps.md)
+- [Step](https://docs.agno.com/reference/workflows/step.md)
+- [StepInput](https://docs.agno.com/reference/workflows/step_input.md)
+- [StepOutput](https://docs.agno.com/reference/workflows/step_output.md)
+- [Steps](https://docs.agno.com/reference/workflows/steps-step.md)
+- [Workflow](https://docs.agno.com/reference/workflows/workflow.md)
+- [WorkflowRunOutput](https://docs.agno.com/reference/workflows/workflow_run_output.md)
+- [Agent Infra AWS](https://docs.agno.com/templates/agent-infra-aws/introduction.md)
+- [Agent Infra Docker](https://docs.agno.com/templates/agent-infra-docker/introduction.md)
+- [CI/CD](https://docs.agno.com/templates/infra-management/ci-cd.md)
+- [Database Tables](https://docs.agno.com/templates/infra-management/database-tables.md)
+- [Development Application](https://docs.agno.com/templates/infra-management/development-app.md)
+- [Use Custom Domain and HTTPS](https://docs.agno.com/templates/infra-management/domain-https.md)
+- [Environment variables](https://docs.agno.com/templates/infra-management/env-vars.md)
+- [Format & Validate](https://docs.agno.com/templates/infra-management/format-and-validate.md)
+- [Create Git Repo](https://docs.agno.com/templates/infra-management/git-repo.md)
+- [Infra Settings](https://docs.agno.com/templates/infra-management/infra-settings.md)
+- [Install & Setup](https://docs.agno.com/templates/infra-management/install.md)
+- [Setup infra for new users](https://docs.agno.com/templates/infra-management/new-users.md)
+- [Production Application](https://docs.agno.com/templates/infra-management/production-app.md)
+- [Add Python Libraries](https://docs.agno.com/templates/infra-management/python-packages.md)
+- [Add Secrets](https://docs.agno.com/templates/infra-management/secrets.md)
+- [SSH Access](https://docs.agno.com/templates/infra-management/ssh-access.md)
+- [Overview](https://docs.agno.com/tutorials/overview.md): Guides for Agno
+- [Build a Social Media Intelligence Agent with Agno, X Tools, and Exa](https://docs.agno.com/tutorials/social-media-agent.md): Create a professional-grade social media intelligence system using Agno.

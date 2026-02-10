@@ -1,0 +1,367 @@
+#!/usr/bin/env python3
+"""
+fal.ai Text-to-Image Generation Script
+
+Generates high-quality images from text prompts using fal.ai's state-of-the-art models.
+Supports intelligent model selection, style transfer, and professional outputs.
+
+Usage:
+    uv run python fal-text-to-image "A beautiful sunset over mountains"
+    uv run python fal-text-to-image -m flux-pro/v1.1-ultra "Professional portrait"
+    uv run python fal-text-to-image -i reference.jpg "Artistic landscape" -m flux-2/lora/edit
+"""
+
+import os
+import sys
+import json
+import time
+from pathlib import Path
+from datetime import datetime
+from typing import Optional, Dict, Any
+
+import click
+from dotenv import load_dotenv
+import fal_client
+from PIL import Image
+from PIL.PngImagePlugin import PngInfo
+import requests
+
+# Load environment variables
+load_dotenv()
+
+# Model endpoint mapping
+MODEL_ENDPOINTS = {
+    "flux-pro/v1.1-ultra": "fal-ai/flux-pro/v1.1-ultra",
+    "recraft/v3/text-to-image": "fal-ai/recraft/v3/text-to-image",
+    "flux-2": "fal-ai/flux-2",
+    "flux-2/lora": "fal-ai/flux-2/lora",
+    "flux-2/lora/edit": "fal-ai/flux-2/lora/edit",
+    "flux-2-pro": "fal-ai/flux-2-pro",
+    "imagen4/preview": "fal-ai/imagen4/preview",
+    "imagen4/preview/fast": "fal-ai/imagen4/preview/fast",
+    "stable-diffusion-v35-large": "fal-ai/stable-diffusion-v35-large",
+    "ideogram/v2": "fal-ai/ideogram/v2",
+    "bria/text-to-image/3.2": "fal-ai/bria/text-to-image/3.2",
+    "flux/dev": "fal-ai/flux/dev",
+    "flux-general": "fal-ai/flux-general",
+    "hidream-i1-full": "fal-ai/hidream-i1-full",
+    "hidream-i1-dev": "fal-ai/hidream-i1-dev",
+    "hidream-i1-fast": "fal-ai/hidream-i1-fast",
+}
+
+# Model characteristics for intelligent selection
+MODEL_TRAITS = {
+    "flux-pro/v1.1-ultra": ["high-res", "professional", "photo", "realism", "portrait", "headshot"],
+    "recraft/v3/text-to-image": ["typography", "text", "logo", "poster", "vector", "brand", "sign"],
+    "flux-2": ["general", "balanced", "realistic"],
+    "flux-2/lora/edit": ["style-transfer", "edit", "reference"],
+    "ideogram/v2": ["typography", "logo", "poster", "text"],
+    "stable-diffusion-v35-large": ["complex", "style", "artistic"],
+    "imagen4/preview": ["google", "quality"],
+    "bria/text-to-image/3.2": ["commercial", "safe", "licensed"],
+}
+
+
+def select_model_from_prompt(prompt: str, has_reference: bool = False) -> str:
+    """
+    Intelligently select the best model based on prompt content and context.
+
+    Args:
+        prompt: The text prompt for image generation
+        has_reference: Whether a reference image is provided
+
+    Returns:
+        Model key from MODEL_ENDPOINTS
+    """
+    prompt_lower = prompt.lower()
+
+    # If reference image provided, use edit model
+    if has_reference:
+        return "flux-2/lora/edit"
+
+    # Check for typography/text needs
+    typography_keywords = ["logo", "text", "poster", "sign", "typography", "brand", "lettering"]
+    if any(keyword in prompt_lower for keyword in typography_keywords):
+        return "recraft/v3/text-to-image"
+
+    # Check for high-res professional needs
+    highres_keywords = ["professional", "portrait", "headshot", "high quality", "detailed", "photo"]
+    if any(keyword in prompt_lower for keyword in highres_keywords):
+        return "flux-pro/v1.1-ultra"
+
+    # Check for vector/brand style
+    vector_keywords = ["vector", "illustration", "brand", "minimal"]
+    if any(keyword in prompt_lower for keyword in vector_keywords):
+        return "recraft/v3/text-to-image"
+
+    # Check for artistic/complex compositions
+    artistic_keywords = ["artistic", "complex", "style", "painting"]
+    if any(keyword in prompt_lower for keyword in artistic_keywords):
+        return "stable-diffusion-v35-large"
+
+    # Default to balanced general model
+    return "flux-2"
+
+
+def prepare_image_input(image_path: str) -> Dict[str, str]:
+    """
+    Prepare image input for API (handles local files and URLs).
+
+    Args:
+        image_path: Path to local image or URL
+
+    Returns:
+        Dictionary with image_url key
+    """
+    if image_path.startswith(("http://", "https://")):
+        return {"image_url": image_path}
+
+    # For local files, we need to upload or encode
+    # fal.ai accepts URLs, so we return the path for now
+    # In production, you'd upload to temporary storage
+    image_full_path = Path(image_path).resolve()
+    if not image_full_path.exists():
+        raise FileNotFoundError(f"Image not found: {image_path}")
+
+    return {"image_url": f"file://{image_full_path}"}
+
+
+def save_image_with_metadata(
+    image_url: str,
+    output_path: Path,
+    prompt: str,
+    model: str,
+    metadata: Dict[str, Any]
+) -> None:
+    """
+    Download and save image with embedded metadata.
+
+    Args:
+        image_url: URL of generated image
+        output_path: Where to save the image
+        prompt: Generation prompt
+        model: Model used
+        metadata: Additional metadata to embed
+    """
+    # Download image
+    response = requests.get(image_url)
+    response.raise_for_status()
+
+    # Open image
+    image = Image.open(requests.get(image_url, stream=True).raw)
+
+    # Prepare metadata
+    png_info = PngInfo()
+    png_info.add_text("prompt", prompt)
+    png_info.add_text("model", model)
+    png_info.add_text("metadata", json.dumps(metadata))
+    png_info.add_text("generated_at", datetime.now().isoformat())
+    png_info.add_text("generator", "fal.ai via fal-text-to-image skill")
+
+    # Save with metadata
+    image.save(output_path, "PNG", pnginfo=png_info)
+    click.echo(f"✓ Image saved: {output_path}")
+
+
+@click.command()
+@click.argument("prompt", required=True)
+@click.option(
+    "-m", "--model",
+    type=click.Choice(list(MODEL_ENDPOINTS.keys()), case_sensitive=False),
+    help="Model to use for generation (auto-selected if not specified)"
+)
+@click.option(
+    "-i", "--image",
+    type=str,
+    help="Reference image path or URL for style transfer"
+)
+@click.option(
+    "-o", "--output",
+    type=str,
+    help="Output filename (default: generated_TIMESTAMP.png)"
+)
+@click.option(
+    "-s", "--size",
+    type=str,
+    default="1024x1024",
+    help="Image size (e.g., '1024x1024', 'landscape_16_9')"
+)
+@click.option(
+    "--seed",
+    type=int,
+    help="Random seed for reproducibility"
+)
+@click.option(
+    "--steps",
+    type=int,
+    help="Number of inference steps (model-dependent)"
+)
+@click.option(
+    "--guidance",
+    type=float,
+    help="Guidance scale (higher = more prompt adherence)"
+)
+def generate_image(
+    prompt: str,
+    model: Optional[str],
+    image: Optional[str],
+    output: Optional[str],
+    size: str,
+    seed: Optional[int],
+    steps: Optional[int],
+    guidance: Optional[float],
+) -> None:
+    """
+    Generate images from text prompts using fal.ai models.
+
+    PROMPT: Text description of the image to generate
+
+    Examples:
+
+        uv run python fal-text-to-image "A serene mountain landscape"
+
+        uv run python fal-text-to-image -m flux-pro/v1.1-ultra "Professional headshot"
+
+        uv run python fal-text-to-image -i style.jpg "Portrait in garden"
+    """
+    # Verify API key
+    api_key = os.getenv("FAL_KEY")
+    if not api_key:
+        click.echo("✗ Error: FAL_KEY environment variable not set", err=True)
+        click.echo("\nSet your API key:", err=True)
+        click.echo("  export FAL_KEY='your-api-key-here'", err=True)
+        click.echo("\nOr create a .env file with:", err=True)
+        click.echo("  FAL_KEY=your-api-key-here", err=True)
+        click.echo("\nGet your key at: https://fal.ai/dashboard/keys", err=True)
+        sys.exit(1)
+
+    # Select model
+    if model is None:
+        model = select_model_from_prompt(prompt, has_reference=bool(image))
+        click.echo(f"ℹ Auto-selected model: {model}")
+
+    model_endpoint = MODEL_ENDPOINTS[model]
+
+    # Prepare request parameters
+    request_params = {
+        "prompt": prompt,
+    }
+
+    # Add size parameter
+    if "x" in size:
+        # Handle WIDTHxHEIGHT format
+        width, height = size.split("x")
+        request_params["image_size"] = {
+            "width": int(width),
+            "height": int(height)
+        }
+    else:
+        # Handle named sizes like landscape_16_9
+        request_params["image_size"] = size
+
+    # Add optional parameters
+    if seed is not None:
+        request_params["seed"] = seed
+
+    if steps is not None:
+        request_params["num_inference_steps"] = steps
+
+    if guidance is not None:
+        request_params["guidance_scale"] = guidance
+
+    # Add reference image if provided
+    if image:
+        if "edit" not in model:
+            click.echo(f"⚠ Warning: Image reference provided but model '{model}' may not support editing", err=True)
+            click.echo("  Consider using -m flux-2/lora/edit for style transfer", err=True)
+
+        try:
+            image_input = prepare_image_input(image)
+            request_params.update(image_input)
+        except Exception as e:
+            click.echo(f"✗ Error preparing image: {e}", err=True)
+            sys.exit(1)
+
+    # Display generation info
+    click.echo(f"\n{'='*60}")
+    click.echo(f"Generating image with {model}")
+    click.echo(f"{'='*60}")
+    click.echo(f"Prompt: {prompt}")
+    click.echo(f"Size: {size}")
+    if seed:
+        click.echo(f"Seed: {seed}")
+    if image:
+        click.echo(f"Reference: {image}")
+    click.echo(f"{'='*60}\n")
+
+    # Generate image
+    try:
+        start_time = time.time()
+        click.echo("⏳ Generating image...")
+
+        # Subscribe to generation
+        def handle_queue_update(update):
+            if hasattr(update, 'position'):
+                click.echo(f"   Queue position: {update.position}")
+            elif isinstance(update, dict):
+                click.echo(f"   Queue position: {update.get('position', 'processing...')}")
+
+        result = fal_client.subscribe(
+            model_endpoint,
+            arguments=request_params,
+            with_logs=True,
+            on_queue_update=handle_queue_update
+        )
+
+        generation_time = time.time() - start_time
+
+        # Extract image URL
+        if isinstance(result, dict) and "images" in result:
+            image_url = result["images"][0]["url"]
+        elif isinstance(result, dict) and "image" in result:
+            image_url = result["image"]["url"]
+        else:
+            click.echo(f"✗ Unexpected result format: {result}", err=True)
+            sys.exit(1)
+
+        click.echo(f"✓ Generated in {generation_time:.2f}s")
+
+        # Prepare output path
+        if output is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output = f"generated_{model.replace('/', '_')}_{timestamp}.png"
+            output_path = Path("outputs") / output
+        else:
+            output_path = Path(output)
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Save image with metadata
+        metadata = {
+            "model": model,
+            "endpoint": model_endpoint,
+            "size": size,
+            "seed": seed,
+            "steps": steps,
+            "guidance": guidance,
+            "generation_time": generation_time,
+        }
+
+        save_image_with_metadata(
+            image_url=image_url,
+            output_path=output_path,
+            prompt=prompt,
+            model=model,
+            metadata=metadata
+        )
+
+        click.echo(f"\nImage URL: {image_url}")
+        click.echo(f"{'='*60}\n")
+
+    except Exception as e:
+        click.echo(f"\n✗ Generation failed: {e}", err=True)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    generate_image()

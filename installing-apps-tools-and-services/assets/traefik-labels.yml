@@ -1,0 +1,93 @@
+# Traefik Labels Templates
+# Copy relevant labels to your docker-compose.yml
+
+# === BASIC HTTP SERVICE ===
+labels:
+  - "traefik.enable=true"
+  - "traefik.http.routers.SERVICE_NAME.rule=Host(`SUBDOMAIN.delo.sh`)"
+  - "traefik.http.routers.SERVICE_NAME.entrypoints=websecure"
+  - "traefik.http.routers.SERVICE_NAME.tls.certresolver=letsencrypt"
+
+# === WITH CUSTOM PORT ===
+labels:
+  - "traefik.enable=true"
+  - "traefik.http.routers.SERVICE_NAME.rule=Host(`SUBDOMAIN.delo.sh`)"
+  - "traefik.http.routers.SERVICE_NAME.entrypoints=websecure"
+  - "traefik.http.routers.SERVICE_NAME.tls.certresolver=letsencrypt"
+  - "traefik.http.services.SERVICE_NAME.loadbalancer.server.port=8080"
+
+# === WITH PATH PREFIX ===
+labels:
+  - "traefik.enable=true"
+  - "traefik.http.routers.SERVICE_NAME.rule=Host(`delo.sh`) && PathPrefix(`/SERVICE_NAME`)"
+  - "traefik.http.routers.SERVICE_NAME.entrypoints=websecure"
+  - "traefik.http.routers.SERVICE_NAME.tls.certresolver=letsencrypt"
+  - "traefik.http.middlewares.SERVICE_NAME-strip.stripprefix.prefixes=/SERVICE_NAME"
+  - "traefik.http.routers.SERVICE_NAME.middlewares=SERVICE_NAME-strip"
+
+# === WITH CORS ===
+labels:
+  - "traefik.enable=true"
+  - "traefik.http.routers.SERVICE_NAME.rule=Host(`api.delo.sh`)"
+  - "traefik.http.routers.SERVICE_NAME.entrypoints=websecure"
+  - "traefik.http.routers.SERVICE_NAME.tls.certresolver=letsencrypt"
+  - "traefik.http.middlewares.SERVICE_NAME-cors.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS"
+  - "traefik.http.middlewares.SERVICE_NAME-cors.headers.accesscontrolalloworigin=*"
+  - "traefik.http.middlewares.SERVICE_NAME-cors.headers.accesscontrolallowheaders=*"
+  - "traefik.http.routers.SERVICE_NAME.middlewares=SERVICE_NAME-cors"
+
+# === WITH BASIC AUTH ===
+labels:
+  - "traefik.enable=true"
+  - "traefik.http.routers.SERVICE_NAME.rule=Host(`admin.delo.sh`)"
+  - "traefik.http.routers.SERVICE_NAME.entrypoints=websecure"
+  - "traefik.http.routers.SERVICE_NAME.tls.certresolver=letsencrypt"
+  - "traefik.http.middlewares.SERVICE_NAME-auth.basicauth.users=admin:$$apr1$$H6uskkkW$$IgXLP6ewTrSuBkTrqE8wj/"
+  - "traefik.http.routers.SERVICE_NAME.middlewares=SERVICE_NAME-auth"
+
+# === WITH RATE LIMITING ===
+labels:
+  - "traefik.enable=true"
+  - "traefik.http.routers.SERVICE_NAME.rule=Host(`api.delo.sh`)"
+  - "traefik.http.routers.SERVICE_NAME.entrypoints=websecure"
+  - "traefik.http.routers.SERVICE_NAME.tls.certresolver=letsencrypt"
+  - "traefik.http.middlewares.SERVICE_NAME-ratelimit.ratelimit.average=100"
+  - "traefik.http.middlewares.SERVICE_NAME-ratelimit.ratelimit.burst=50"
+  - "traefik.http.routers.SERVICE_NAME.middlewares=SERVICE_NAME-ratelimit"
+
+# === WEBSOCKET SUPPORT ===
+labels:
+  - "traefik.enable=true"
+  - "traefik.http.routers.SERVICE_NAME.rule=Host(`ws.delo.sh`)"
+  - "traefik.http.routers.SERVICE_NAME.entrypoints=websecure"
+  - "traefik.http.routers.SERVICE_NAME.tls.certresolver=letsencrypt"
+  - "traefik.http.services.SERVICE_NAME.loadbalancer.server.port=8080"
+
+# === MULTIPLE SERVICES ===
+labels:
+  # Web interface
+  - "traefik.enable=true"
+  - "traefik.http.routers.SERVICE_NAME-web.rule=Host(`SERVICE_NAME.delo.sh`)"
+  - "traefik.http.routers.SERVICE_NAME-web.entrypoints=websecure"
+  - "traefik.http.routers.SERVICE_NAME-web.tls.certresolver=letsencrypt"
+  - "traefik.http.routers.SERVICE_NAME-web.service=SERVICE_NAME-web"
+  - "traefik.http.services.SERVICE_NAME-web.loadbalancer.server.port=80"
+  # API
+  - "traefik.http.routers.SERVICE_NAME-api.rule=Host(`api.SERVICE_NAME.delo.sh`)"
+  - "traefik.http.routers.SERVICE_NAME-api.entrypoints=websecure"
+  - "traefik.http.routers.SERVICE_NAME-api.tls.certresolver=letsencrypt"
+  - "traefik.http.routers.SERVICE_NAME-api.service=SERVICE_NAME-api"
+  - "traefik.http.services.SERVICE_NAME-api.loadbalancer.server.port=8080"
+
+# === CHAINED MIDDLEWARES ===
+labels:
+  - "traefik.enable=true"
+  - "traefik.http.routers.SERVICE_NAME.rule=Host(`SERVICE_NAME.delo.sh`)"
+  - "traefik.http.routers.SERVICE_NAME.entrypoints=websecure"
+  - "traefik.http.routers.SERVICE_NAME.tls.certresolver=letsencrypt"
+  # Define middlewares
+  - "traefik.http.middlewares.SERVICE_NAME-strip.stripprefix.prefixes=/api"
+  - "traefik.http.middlewares.SERVICE_NAME-cors.headers.accesscontrolalloworigin=*"
+  - "traefik.http.middlewares.SERVICE_NAME-ratelimit.ratelimit.average=100"
+  # Chain them
+  - "traefik.http.routers.SERVICE_NAME.middlewares=SERVICE_NAME-strip,SERVICE_NAME-cors,SERVICE_NAME-ratelimit"
