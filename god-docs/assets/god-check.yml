@@ -1,0 +1,55 @@
+name: GOD Doc Freshness
+on: [pull_request]
+jobs:
+  god-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check GOD doc freshness
+        run: |
+          CHANGED=$(git diff --name-only origin/main...HEAD)
+          STALE=""
+
+          for file in $CHANGED; do
+            # Map file to component (first path segment)
+            component=$(echo "$file" | cut -d'/' -f1)
+
+            # Skip if no GOD doc exists for this component
+            [ -f "$component/GOD.md" ] || continue
+
+            # Skip if GOD doc is already in the diff (it was updated)
+            echo "$CHANGED" | grep -q "^$component/GOD.md$" && continue
+
+            # Skip if only the GOD doc itself changed (no source changes)
+            COMP_CHANGES=$(echo "$CHANGED" | grep "^$component/" | grep -v "GOD.md" | head -1)
+            [ -z "$COMP_CHANGES" ] && continue
+
+            STALE="$STALE $component/GOD.md"
+          done
+
+          if [ -n "$STALE" ]; then
+            echo "::error::Stale GOD Docs detected:$STALE"
+            echo ""
+            echo "The following GOD Docs need updating because source files changed:"
+            for doc in $STALE; do
+              echo "  ⚠️  $doc"
+            done
+            echo ""
+            echo "Update the GOD Docs to reflect your changes, then push again."
+            exit 1
+          fi
+
+          echo "✅ All GOD Docs are fresh."
+
+      - name: Check unfilled placeholders
+        run: |
+          UNFILLED=$(grep -rl "{{" */GOD.md docs/*/GOD.md docs/domains/*/GOD.md 2>/dev/null || true)
+          if [ -n "$UNFILLED" ]; then
+            echo "::error::GOD Docs with unfilled {{PLACEHOLDER}} tokens:"
+            echo "$UNFILLED"
+            exit 1
+          fi
+          echo "✅ No unfilled placeholders."
