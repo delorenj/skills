@@ -271,3 +271,34 @@ cat << EOF
   "identity": { "name": "${NAME}" }
 }
 EOF
+
+# ── Git Init + GitHub Repo ──────────────────────────────────────
+echo "📦 Initializing git repository..."
+
+# Write .gitignore
+cat > "$WORKSPACE/.gitignore" << 'GITEOF'
+# Agent workspace
+*.jsonl
+*.tmp
+.openclaw/
+node_modules/
+__pycache__/
+.env
+.env.*
+!.env.example
+GITEOF
+
+cd "$WORKSPACE"
+git init -b main
+git add -A
+git commit -m "Initial workspace setup for ${NAME}"
+
+REPO_NAME="agent-oc-$(echo "${NAME}" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')"
+echo "🔗 Creating GitHub repo: delorenj/${REPO_NAME}"
+gh repo create "delorenj/${REPO_NAME}" --private --source . --push 2>/dev/null || {
+  echo "⚠️  GitHub repo creation failed (may already exist). Add remote manually:"
+  echo "  git remote add origin git@github.com:delorenj/${REPO_NAME}.git && git push -u origin main"
+}
+
+echo ""
+echo "📦 Git repo: https://github.com/delorenj/${REPO_NAME}"
