@@ -5,24 +5,55 @@ description: "Guide for creating, registering, and deploying new microservices i
 
 # 33GOD Service Developer
 
-Expert guide for onboarding new microservices into the 33GOD event-driven ecosystem.
+Expert guide for onboarding new microservices into the **33GOD event-driven ecosystem**.
 
 ## Core Principles
 
 Services in 33GOD are:
 
-- **Passive Consumers**: Sleep until relevant events arrive on Bloodbank (RabbitMQ)
+- **Event-Driven**: React to Bloodbank events rather than being called directly
+- **Passive Consumers**: Sleep until relevant events arrive on their `agent.{name}.inbox`
+- **Heartbeat-Aware**: Consume `system.heartbeat.tick` for periodic tasks and orchestration
 - **Single Responsibility**: Do one thing well (e.g., "Process Transcripts", "Calculate Costs")
-- **Stateless**: Store state in Vault (filesystem) or database, not in memory
-- **Event-Driven**: React to events rather than being called directly
+- **Stateless**: Store state in Candystore (events), Vault (filesystem), or database—not in memory
+- **Schema-First**: Event contracts defined in Holyfields before code is written
 
 ## Architecture Context
 
-33GOD uses Bloodbank (RabbitMQ topic exchange) as its event bus. All services:
+33GOD uses Bloodbank (RabbitMQ topic exchange) as its event bus. All services participate in the event flow:
 
-- Subscribe to specific routing keys via durable queues
-- Receive EventEnvelope-wrapped messages
-- Publish events back to Bloodbank for other services
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    SERVICE IN EVENT FLOW                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   HOLYFIELDS → BLOODBANK → CANDYSTORE → HOLOCENE → YOUR SERVICE             │
+│   (Schema)      (Event)      (History)      (View)      (Action)            │
+│                                │                                             │
+│                                │         ┌─────────────────────────────┐     │
+│                                │         │  Your Service Consumer      │     │
+│                                │         │  (FastStream)               │     │
+│                                │         │                             │     │
+│                                │         │  Queue: agent.yourservice.  │     │
+│                                │         │         inbox               │     │
+│                                │         │  Routing: agent.yourservice.│     │
+│                                │         │           #                 │     │
+│                                │         │                             │     │
+│                                │         │  Handles:                   │     │
+│                                │         │  • system.heartbeat.tick    │     │
+│                                │         │  • domain.resource.action   │     │
+│                                │         │                             │     │
+│                                │         │  Emits:                     │     │
+│                                │         │  • agent.yourservice.result │     │
+│                                │         └─────────────────────────────┘     │
+│                                │                       │                      │
+│                                └───────────────────────┤                      │
+│                                                        ▼                      │
+│                                              Back to Bloodbank                │
+│                                              (new events)                     │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
 **Registry**: `/home/delorenj/code/33GOD/services/registry.yaml` is the single source of truth for:
 - Service definitions and metadata

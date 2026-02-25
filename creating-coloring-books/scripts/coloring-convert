@@ -1,0 +1,268 @@
+#!/usr/bin/env python3
+"""
+Coloring Book Conversion Pipeline (Steps 3 & 4)
+
+Step 3: Convert source image → coloring book outline via fal.ai Qwen Image Edit 2511
+Step 4: Vectorize the coloring page raster → SVG via fal.ai Recraft Vectorize
+
+Usage:
+    python3 coloring-convert <input_image> [--output-dir ./out] [--prompt "custom prompt"]
+    python3 coloring-convert screenshot-01.png --output-dir ./cleaned
+
+Requires: FAL_KEY environment variable set.
+Dependencies: pip install fal-client requests
+"""
+
+import argparse
+import json
+import os
+import sys
+import time
+import base64
+import hashlib
+from pathlib import Path
+from datetime import datetime
+
+try:
+    import fal_client
+except ImportError:
+    print("ERROR: fal-client not installed. Run: pip install fal-client", file=sys.stderr)
+    sys.exit(1)
+
+import requests
+
+# --- Constants ---
+QWEN_ENDPOINT = "fal-ai/qwen-image-edit-2511"
+VECTORIZE_ENDPOINT = "fal-ai/recraft/vectorize"
+
+DEFAULT_PROMPT = (
+    "Convert this image into a black and white coloring book page. "
+    "Clean vector-like outlines only, thick outer contour, medium interior detail. "
+    "Pure white background, no grayscale, no halftone, no shading, no text. "
+    "Printable 8.5x11 coloring book style."
+)
+
+QWEN_PARAMS = {
+    "num_inference_steps": 28,
+    "guidance_scale": 4.5,
+    "output_format": "png",
+    "enable_safety_checker": False,
+}
+
+
+def sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def ts() -> str:
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def upload_to_fal(filepath: Path) -> str:
+    """Upload a local file to fal.ai storage, return public URL."""
+    url = fal_client.upload_file(filepath)
+    return url
+
+
+def step3_to_coloring(image_path: Path, prompt: str) -> dict:
+    """
+    Step 3: Convert source image to coloring book outline via Qwen Image Edit 2511.
+    Returns dict with result URL and metadata.
+    """
+    print(f"  [Step 3] Uploading {image_path.name} to fal.ai storage...")
+    image_url = upload_to_fal(image_path)
+
+    print(f"  [Step 3] Submitting to {QWEN_ENDPOINT}...")
+    t0 = time.time()
+
+    result = fal_client.subscribe(
+        QWEN_ENDPOINT,
+        arguments={
+            "prompt": prompt,
+            "image_urls": [image_url],
+            **QWEN_PARAMS,
+        },
+    )
+
+    elapsed = round(time.time() - t0, 1)
+    images = result.get("images", [])
+    if not images:
+        raise RuntimeError(f"Qwen returned no images: {result}")
+
+    output_url = images[0]["url"]
+    print(f"  [Step 3] Done in {elapsed}s → {output_url}")
+
+    return {
+        "step": 3,
+        "model": QWEN_ENDPOINT,
+        "prompt": prompt,
+        "input_url": image_url,
+        "output_url": output_url,
+        "output_width": images[0].get("width"),
+        "output_height": images[0].get("height"),
+        "elapsed_s": elapsed,
+        "seed": result.get("seed"),
+        "ts": ts(),
+    }
+
+
+def step4_vectorize(raster_url: str) -> dict:
+    """
+    Step 4: Vectorize coloring page raster → SVG via Recraft Vectorize.
+    Returns dict with SVG URL and metadata.
+    """
+    print(f"  [Step 4] Submitting to {VECTORIZE_ENDPOINT}...")
+    t0 = time.time()
+
+    result = fal_client.subscribe(
+        VECTORIZE_ENDPOINT,
+        arguments={"image_url": raster_url},
+    )
+
+    elapsed = round(time.time() - t0, 1)
+    image = result.get("image", {})
+    svg_url = image.get("url")
+    if not svg_url:
+        raise RuntimeError(f"Recraft vectorize returned no SVG: {result}")
+
+    print(f"  [Step 4] Done in {elapsed}s → {svg_url}")
+
+    return {
+        "step": 4,
+        "model": VECTORIZE_ENDPOINT,
+        "input_url": raster_url,
+        "output_url": svg_url,
+        "output_content_type": image.get("content_type"),
+        "output_file_size": image.get("file_size"),
+        "elapsed_s": elapsed,
+        "ts": ts(),
+    }
+
+
+def download(url: str, dest: Path):
+    """Download a URL to local path."""
+    r = requests.get(url, timeout=120)
+    r.raise_for_status()
+    dest.write_bytes(r.content)
+    print(f"  Downloaded → {dest} ({len(r.content)} bytes)")
+
+
+def process_one(image_path: Path, output_dir: Path, prompt: str, page_num: int) -> dict:
+    """Run steps 3+4 for a single source image. Returns manifest entry."""
+    stem = f"page-{page_num:02d}"
+    coloring_png = output_dir / f"{stem}-coloring.png"
+    coloring_svg = output_dir / f"{stem}-coloring.svg"
+    meta_path = output_dir / f"{stem}.meta.json"
+
+    entry = {
+        "page": page_num,
+        "stem": stem,
+        "source_file": str(image_path),
+        "source_sha256": sha256(image_path),
+    }
+
+    # Step 3: Qwen coloring conversion
+    s3 = step3_to_coloring(image_path, prompt)
+    download(s3["output_url"], coloring_png)
+    entry["step3"] = s3
+    entry["coloring_png"] = str(coloring_png)
+    entry["coloring_png_sha256"] = sha256(coloring_png)
+
+    # Step 4: Vectorize
+    s4 = step4_vectorize(s3["output_url"])
+    download(s4["output_url"], coloring_svg)
+    entry["step4"] = s4
+    entry["coloring_svg"] = str(coloring_svg)
+
+    # Write per-page metadata
+    meta_path.write_text(json.dumps(entry, indent=2))
+    print(f"  Metadata → {meta_path}")
+
+    return entry
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Convert source images to coloring book pages (PNG + SVG) via fal.ai"
+    )
+    parser.add_argument(
+        "inputs",
+        nargs="+",
+        help="One or more source image paths (or a directory of images)",
+    )
+    parser.add_argument(
+        "--output-dir", "-o",
+        default="./coloring-output",
+        help="Output directory (default: ./coloring-output)",
+    )
+    parser.add_argument(
+        "--prompt", "-p",
+        default=DEFAULT_PROMPT,
+        help="Custom coloring conversion prompt",
+    )
+    parser.add_argument(
+        "--start-page", "-s",
+        type=int, default=1,
+        help="Starting page number (default: 1)",
+    )
+    args = parser.parse_args()
+
+    if not os.environ.get("FAL_KEY"):
+        print("ERROR: FAL_KEY environment variable not set.", file=sys.stderr)
+        print("Get your key from https://fal.ai/dashboard/keys", file=sys.stderr)
+        sys.exit(1)
+
+    # Collect input files
+    files = []
+    for inp in args.inputs:
+        p = Path(inp)
+        if p.is_dir():
+            files.extend(sorted(p.glob("*.png")) + sorted(p.glob("*.jpg")) + sorted(p.glob("*.jpeg")))
+        elif p.is_file():
+            files.append(p)
+        else:
+            print(f"WARNING: {inp} not found, skipping", file=sys.stderr)
+
+    if not files:
+        print("ERROR: No input images found.", file=sys.stderr)
+        sys.exit(1)
+
+    out = Path(args.output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    print(f"Processing {len(files)} image(s) → {out}/")
+    print(f"Prompt: {args.prompt[:80]}...")
+    print()
+
+    manifest = []
+    for i, f in enumerate(files):
+        page_num = args.start_page + i
+        print(f"[{page_num}/{args.start_page + len(files) - 1}] {f.name}")
+        try:
+            entry = process_one(f, out, args.prompt, page_num)
+            manifest.append(entry)
+        except Exception as e:
+            print(f"  ERROR: {e}", file=sys.stderr)
+            manifest.append({
+                "page": page_num,
+                "source_file": str(f),
+                "error": str(e),
+                "ts": ts(),
+            })
+        print()
+
+    # Write manifest
+    manifest_path = out / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2))
+    print(f"Manifest → {manifest_path}")
+
+    ok = sum(1 for m in manifest if "error" not in m)
+    print(f"\nDone: {ok}/{len(files)} succeeded")
+
+
+if __name__ == "__main__":
+    main()

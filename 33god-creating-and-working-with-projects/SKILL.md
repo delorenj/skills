@@ -16,13 +16,15 @@ description: >
 
 **iMi is the Project Registry**: Every 33GOD project must be registered through iMi. Every unit of work must be executed within an iMi-managed worktree. This is non-negotiable for the 33GOD pipeline.
 
+**Events Drive Everything**: All 33GOD work emits events through Bloodbank. Worktrees emit `worktree.created`, tasks emit `agent.task.*`, and the heartbeat system (`system.heartbeat.tick`) orchestrates agent coordination every 60 seconds.
+
 **Entity-Based Workspace Isolation**: All actors (humans and Yi agents) are equal **entities** with token-based authentication. Each entity has a completely isolated workspace directory. No more shared `.iMi` cluster hubs.
 
 **Universal Identity**: Once registered, a project has a UUID that is referenced across all 33GOD components (Bloodbank events, Plane tickets, Yi orchestrations, Flume task management). Entities also have UUIDs for cross-component identity resolution.
 
 **Worktree = Work Unit**: Each worktree represents a discrete unit of work traceable to a specific task source. All worktrees live within entity workspaces for complete isolation and accountability.
 
-**Accountability Through Code**: Agents cannot release worktrees until changes are staged and committed. The git history + workspace access logs become the audit trail for all actions.
+**Accountability Through Code**: Agents cannot release worktrees until changes are staged and committed. The git history + workspace access logs + Bloodbank events become the audit trail for all actions.
 
 ## When to Use This Skill
 

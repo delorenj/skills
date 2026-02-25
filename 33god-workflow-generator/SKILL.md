@@ -5,11 +5,24 @@ description: Generate complete workflow implementations from semantic descriptio
 
 # 33GOD Workflow Generator
 
-Generates complete workflow implementations from semantic descriptions, following 33GOD architecture patterns.
+Generates complete workflow implementations from semantic descriptions, following **33GOD event-driven architecture patterns**.
 
 ## Overview
 
 This skill transforms high-level workflow descriptions into production-ready implementations including Node-RED flows, Python services, Bloodbank event definitions, and registry entries. It encodes the architectural patterns and best practices of the 33GOD event-driven ecosystem.
+
+**The Event-Driven Architecture Flow:**
+
+```
+Holyfields (Definition) → Bloodbank (Transport) → Candystore (Persistence) → Holocene (Visibility) → Agents (Action)
+```
+
+Every workflow you generate must fit into this flow:
+1. **Define events** in Holyfields (schema-first)
+2. **Transport** via Bloodbank (RabbitMQ)
+3. **Persist** to Candystore (automatic, wildcard binding)
+4. **Visualize** in Holocene (automatic, API + WS)
+5. **Act** via Agents (consumers, heartbeat-aware)
 
 ## Workflow Generation Process
 
@@ -239,7 +252,8 @@ Python: Async scheduled task → Query → Transform → Publish
 
 ## Workflow Checklist
 
-- [ ] Architecture decision documented
+- [ ] Architecture decision documented (event-driven vs request/response)
+- [ ] Holyfields schema defined (if new events)
 - [ ] Node-RED flow JSON generated (if needed)
 - [ ] Python service created (if needed)
 - [ ] Registry.yaml updated
@@ -247,3 +261,4 @@ Python: Async scheduled task → Query → Transform → Publish
 - [ ] Testing instructions provided
 - [ ] Event flow diagram created
 - [ ] Error handling implemented
+- [ ] Heartbeat consumption considered (for long-running services)

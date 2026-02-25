@@ -7,7 +7,37 @@ description: Meta-level orchestration for 33GOD platform development. Use when (
 
 ## Overview
 
-This skill provides meta-level orchestration for the 33GOD platform, coordinating development across multiple independent components using hierarchical BMAD workflows. It enables Director of Engineering level coordination, cross-component story management, and component maturity tracking.
+This skill provides meta-level orchestration for the **33GOD event-driven platform**, coordinating development across multiple independent components using hierarchical BMAD workflows and Bloodbank events.
+
+**The Event-Driven Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    33GOD PLATFORM ARCHITECTURE                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   HOLYFIELDS → BLOODBANK → CANDYSTORE → HOLOCENE → COMPONENTS               │
+│   (Schemas)     (Events)    (History)    (View)      (Services)             │
+│                    │                              & AGENTS                  │
+│                    │                                                         │
+│                    ▼                                                         │
+│            system.heartbeat.tick                                             │
+│            (every 60 seconds)                                                │
+│                    │                                                         │
+│                    ▼                                                         │
+│            HeartbeatRouter                                                   │
+│                    │                                                         │
+│                    ▼                                                         │
+│            Agent Coordination                                                │
+│            & Cross-Component Sync                                           │
+│                                                                              │
+│   This skill operates at the PLATFORM level, coordinating all components     │
+│   through BMAD workflows AND Bloodbank events.                               │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+It enables Director of Engineering level coordination, cross-component story management, and component maturity tracking through both traditional workflows and event-driven automation.
 
 ## Core Concepts
 

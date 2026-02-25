@@ -10,26 +10,26 @@ Generate professional AI voiceovers for Remotion videos using ElevenLabs API.
 
 ## Prerequisites
 
-- `ELEVENLABS_API_KEY` in `.env.local`
+- `ELEVEN_API_KEY` in `.env.local`
 
 ## Quick Start
 
 ```bash
 # Generate voiceover from text
-node .claude/skills/elevenlabs-remotion-skill/generate.js --text "Your text here" --output public/audio/voiceover.mp3
+node ~/.agents/skills/elevenlabs-remotion/generate.js --text "Your text here" --output public/audio/voiceover.mp3
 
 # Generate with narrator style (more natural)
-node .claude/skills/elevenlabs-remotion-skill/generate.js --text "Your text" --character narrator --output voiceover.mp3
+node ~/.agents/skills/elevenlabs-remotion/generate.js --text "Your text" --character narrator --output voiceover.mp3
 
 # Generate scenes with request stitching
-node .claude/skills/elevenlabs-remotion-skill/generate.js --scenes remotion/scenes.json --output-dir public/audio/project/
+node ~/.agents/skills/elevenlabs-remotion/generate.js --scenes remotion/scenes.json --output-dir public/audio/project/
 
 # Regenerate a single scene
-node .claude/skills/elevenlabs-remotion-skill/generate.js --scenes scenes.json --scene scene2 --new-text "Updated text"
+node ~/.agents/skills/elevenlabs-remotion/generate.js --scenes scenes.json --scene scene2 --new-text "Updated text"
 
 # List available voices and character presets
-node .claude/skills/elevenlabs-remotion-skill/generate.js --list-voices
-node .claude/skills/elevenlabs-remotion-skill/generate.js --list-characters
+node ~/.agents/skills/elevenlabs-remotion/generate.js --list-voices
+node ~/.agents/skills/elevenlabs-remotion/generate.js --list-characters
 ```
 
 ## Character Presets
@@ -48,7 +48,7 @@ Use character presets for more natural voiceovers instead of literal screen text
 
 ```bash
 # Use narrator style globally
-node .claude/skills/elevenlabs-remotion-skill/generate.js --scenes scenes.json --character narrator --output-dir public/audio/
+node ~/.agents/skills/elevenlabs-remotion/generate.js --scenes scenes.json --character narrator --output-dir public/audio/
 
 # Or set per-scene in scenes.json
 {
@@ -95,7 +95,7 @@ Generate multiple scenes with consistent prosody using ElevenLabs request stitch
 ### Generate All Scenes
 
 ```bash
-node .claude/skills/elevenlabs-remotion-skill/generate.js \
+node ~/.agents/skills/elevenlabs-remotion/generate.js \
   --scenes remotion/product-demo-scenes.json \
   --output-dir public/audio/product-demo/
 ```
@@ -111,27 +111,27 @@ If a scene starts too early, has wrong timing, or needs different text:
 
 ```bash
 # Regenerate scene2 with new text
-node .claude/skills/elevenlabs-remotion-skill/generate.js \
+node ~/.agents/skills/elevenlabs-remotion/generate.js \
   --scenes remotion/scenes.json \
   --scene scene2 \
   --new-text "Updated scene 2 text" \
   --output-dir public/audio/project/
 
 # Regenerate scene3 with different character
-node .claude/skills/elevenlabs-remotion-skill/generate.js \
+node ~/.agents/skills/elevenlabs-remotion/generate.js \
   --scenes remotion/scenes.json \
   --scene scene3 \
   --character salesperson \
   --output-dir public/audio/project/
 
 # Just regenerate (same text, same character)
-node .claude/skills/elevenlabs-remotion-skill/generate.js \
+node ~/.agents/skills/elevenlabs-remotion/generate.js \
   --scenes remotion/scenes.json \
   --scene scene1 \
   --output-dir public/audio/project/
 
 # Embed a thumbnail into an MP4 video
-node .claude/skills/elevenlabs-remotion-skill/generate.js \
+node ~/.agents/skills/elevenlabs-remotion/generate.js \
   --embed-thumbnail public/videos/my-video.mp4 \
   --thumbnail public/videos/my-thumbnail.png \
   --output public/videos/my-video-with-thumb.mp4
@@ -150,12 +150,12 @@ Embed a thumbnail image into MP4 videos so platforms like Twitter, YouTube, and 
 
 ```bash
 # Basic usage - outputs to video-thumb.mp4
-node .claude/skills/elevenlabs-remotion-skill/generate.js \
+node ~/.agents/skills/elevenlabs-remotion/generate.js \
   --embed-thumbnail public/videos/promo.mp4 \
   --thumbnail public/videos/thumbnail.png
 
 # Custom output path
-node .claude/skills/elevenlabs-remotion-skill/generate.js \
+node ~/.agents/skills/elevenlabs-remotion/generate.js \
   --embed-thumbnail public/videos/promo.mp4 \
   --thumbnail public/videos/thumbnail.png \
   --output public/videos/promo-final.mp4
@@ -171,7 +171,7 @@ npx remotion render MyVideo public/videos/my-video.mp4
 npx remotion still MyVideoThumbnail public/videos/my-thumbnail.png
 
 # 3. Embed the thumbnail
-node .claude/skills/elevenlabs-remotion-skill/generate.js \
+node ~/.agents/skills/elevenlabs-remotion/generate.js \
   --embed-thumbnail public/videos/my-video.mp4 \
   --thumbnail public/videos/my-thumbnail.png \
   --output public/videos/my-video-final.mp4
@@ -201,7 +201,7 @@ The skill automatically validates timing after generation using `ffprobe`:
 
 ```bash
 # Validate all scenes in a project
-node .claude/skills/elevenlabs-remotion-skill/generate.js --validate public/audio/product-demo/
+node ~/.agents/skills/elevenlabs-remotion/generate.js --validate public/audio/product-demo/
 ```
 
 Output example:
@@ -322,14 +322,14 @@ export const VideoWithVoiceover: React.FC = () => {
 ```bash
 # 1. Create scenes.json with your script
 # 2. Generate all scenes with narrator style
-node .claude/skills/elevenlabs-remotion-skill/generate.js \
+node ~/.agents/skills/elevenlabs-remotion/generate.js \
   --scenes remotion/my-video-scenes.json \
   --character narrator \
   --output-dir public/audio/my-video/
 
 # 3. Preview in Remotion, notice scene2 starts too early
 # 4. Regenerate just scene2 with updated text
-node .claude/skills/elevenlabs-remotion-skill/generate.js \
+node ~/.agents/skills/elevenlabs-remotion/generate.js \
   --scenes remotion/my-video-scenes.json \
   --scene scene2 \
   --new-text "Slightly longer text to fill the visual timing" \
