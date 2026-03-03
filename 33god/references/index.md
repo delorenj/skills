@@ -9,6 +9,7 @@ Use this file to choose exactly where to go next.
 - Need coding standards + delivery protocol? → `coding-workflow.md`
 - Need to build/register a new service? → `service-development.md`
 - Need semantic workflow generation? → `workflow-generation.md`
+- Need to add/change/prune event/command contracts? → `event-command-lifecycle.md`
 - Need platform-wide coordination/status/delegation? → `platform-lifecycle.md`
 - Need GOD-doc maintenance policy? → `god-doc-policy.md`
 

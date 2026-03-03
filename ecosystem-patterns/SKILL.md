@@ -158,6 +158,50 @@ $VAULT/Projects/repo-name/
 - Terminal logging system [WIP]
 - Settings in ~/.config are moved to home/delorenj/.config/zshyzsh and symlinked back to ~/.config
 
+### 2a. Editor Configuration (LazyVim)
+
+**Environment Variable:**
+```bash
+export NVIM_APPNAME=lazyvim  # Points to ~/.config/lazyvim (symlinked to zshyzsh/lazyvim)
+```
+
+**Config Location:**
+- Primary: `~/.config/zshyzsh/lazyvim/`
+- Symlinked: `~/.config/lazyvim -> zshyzsh/lazyvim`
+
+**Key Files:**
+```bash
+~/.config/zshyzsh/lazyvim/
+├── init.lua                    # Entry point
+├── lazy-lock.json             # Plugin lock file
+├── lazyvim.json               # LazyVim settings
+├── lua/
+│   ├── config/
+│   │   ├── keymaps.lua        # Custom keymaps (user additions here)
+│   │   ├── options.lua        # Vim options
+│   │   └── autocmds.lua       # Auto commands
+│   └── plugins/               # Custom plugins
+└── snippets/                  # Custom snippets
+```
+
+**Aliases:**
+```bash
+alias vi='nvim'  # Opens with $NVIM_APPNAME (lazyvim)
+```
+
+**Common Custom Keymaps (in keymaps.lua):**
+```lua
+-- Format JSON with jq
+vim.keymap.set("n", "<leader>j", ":%!jq .<CR>", { desc = "Format JSON (jq)" })
+vim.keymap.set("n", "<leader>J", ":%!jq --indent 2 .<CR>", { desc = "Format JSON (jq, 2-space)" })
+```
+
+**When Modifying Editor Config:**
+- Always edit in `~/.config/zshyzsh/lazyvim/`
+- Keymaps go in `lua/config/keymaps.lua`
+- Custom plugins go in `lua/plugins/`
+- Never edit directly in `~/.config/lazyvim` (it's a symlink)
+
 **Structure:**
 
 ```

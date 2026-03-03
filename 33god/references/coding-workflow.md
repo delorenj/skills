@@ -7,6 +7,7 @@ Use this when writing or modifying code in 33GOD.
 1. Choose implementation strategy first (complexity, parallelism, risk).
 2. Use specialist reference based on task type:
    - service implementation → `service-development.md`
+   - event/command contract lifecycle → `event-command-lifecycle.md`
    - full workflow generation → `workflow-generation.md`
    - cross-component changes → `platform-lifecycle.md`
 

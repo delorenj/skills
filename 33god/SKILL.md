@@ -31,6 +31,7 @@ Read exactly one target unless the task genuinely spans multiple concerns.
 - **Coding delivery protocol** → `references/coding-workflow.md`
 - **Create/register services** → `references/service-development.md`
 - **Generate end-to-end workflows** → `references/workflow-generation.md`
+- **Add/change/prune events or commands** → `references/event-command-lifecycle.md`
 - **Cross-component/platform orchestration** → `references/platform-lifecycle.md`
 - **GOD-doc behavior + drift policy** → `references/god-doc-policy.md`
 
@@ -41,6 +42,7 @@ Use these when you need low-variance execution:
 - `workflows/project-bootstrap.md`
 - `workflows/task-intake.md`
 - `workflows/coding-delivery.md`
+- `workflows/event-contract-rollout.md`
 
 ## Deterministic Utility Scripts
 

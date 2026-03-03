@@ -17,6 +17,9 @@ Use this for new event-consumer/producer services and service registration.
 5. Add tests and run local verification.
 6. Validate end-to-end event flow.
 
+If schema contract work is the main task, load:
+- `event-command-lifecycle.md`
+
 ## Required output
 
 - Service code scaffold + implementation

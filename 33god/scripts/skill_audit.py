@@ -14,11 +14,13 @@ REQUIRED = [
     "references/coding-workflow.md",
     "references/service-development.md",
     "references/workflow-generation.md",
+    "references/event-command-lifecycle.md",
     "references/platform-lifecycle.md",
     "references/god-doc-policy.md",
     "workflows/project-bootstrap.md",
     "workflows/task-intake.md",
     "workflows/coding-delivery.md",
+    "workflows/event-contract-rollout.md",
     "scripts/task_router_check.py",
 ]
 

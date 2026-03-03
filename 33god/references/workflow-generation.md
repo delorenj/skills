@@ -14,6 +14,9 @@ Example trigger:
 5. Wire registry/subscriptions.
 6. Produce verification steps.
 
+If the request is primarily about contract lifecycle (new event/command, versioning, or pruning), route to:
+- `event-command-lifecycle.md`
+
 ## Output package should include
 
 - Architecture summary
