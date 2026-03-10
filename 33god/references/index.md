@@ -4,14 +4,17 @@ Use this file to choose exactly where to go next.
 
 ## Decision Tree
 
-- Need to create/clone/bootstrap a project? → `project-creation.md`
-- Need to pick up and execute a task? → `task-execution.md`
-- Need coding standards + delivery protocol? → `coding-workflow.md`
-- Need to build/register a new service? → `service-development.md`
-- Need semantic workflow generation? → `workflow-generation.md`
-- Need to add/change/prune event/command contracts? → `event-command-lifecycle.md`
-- Need platform-wide coordination/status/delegation? → `platform-lifecycle.md`
-- Need GOD-doc maintenance policy? → `god-doc-policy.md`
+Are you...
+
+- Creating/cloning/bootstrap a project? → `project-creation.md`
+- About to execute a new task? → `task-execution.md`
+- Writing, refactorying, or deploying code? → `coding-workflow.md`
+- Building or registering a new service? → `service-development.md`
+- Creating or encapsulating a new workflow? → `workflow-generation.md`
+- Are you adding/changing/pruning event/command contracts? → `event-command-lifecycle.md`
+- Planning platform-wide coordination/status/delegation? → `platform-lifecycle.md`
+- Performing repo maintenance? → `repo-maintenance.md`
+- Checking for documentation drift or updating documentation? → `god-doc-policy.md`
 
 ## Core locations
 
@@ -19,7 +22,7 @@ Use this file to choose exactly where to go next.
 - System GOD doc: `~/code/33GOD/docs/GOD.md`
 - Domain GOD docs: `~/code/33GOD/docs/domains/{domain}/GOD.md`
 - Component GOD docs: `~/code/33GOD/{component}/GOD.md`
-- Compose source of truth: `~/code/33GOD/docker-compose.yml`
+- Compose source of truth: `~/code/33GOD/compose.yml`
 
 ## Routing rule
 

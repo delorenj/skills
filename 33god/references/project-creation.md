@@ -2,6 +2,9 @@
 
 Use this when creating a new 33GOD project or importing an existing repo.
 
+> **Quick Start**: Run `pjangler init 33god` for automated setup.
+> See `workflows/project-bootstrap-pjangler.md` for details.
+
 ## Required assets
 
 - Plane project/board

@@ -635,6 +635,24 @@ pub async fn create_pr_worktree_safe(&self, pr_number: u32) -> Result<PathBuf> {
 - `git-state-recovery.md` - Recovery procedures when state is corrupted
 - `layered-bug-diagnosis.md` - Debugging multi-layer operations
 
+### 5.6. Tailscale Audio Forwarding (PulseAudio over Tailnet)
+
+**Core Principle:** When SSH'd into a remote machine, route audio back to the local laptop via PulseAudio TCP over the Tailscale mesh network. No SSH tunnel needed.
+
+**Setup (remote machine):**
+```bash
+export PULSE_SERVER=tcp:carries-macbook-air.burro-salmon.ts.net:4713
+export PULSE_SINK=1__2  # MacBook Air Speakers
+```
+
+**Critical Details:**
+- Default sink must be `1__2` (MacBook speakers), not sink #0 (Background Music virtual device)
+- Mac must have PulseAudio running with `module-native-protocol-tcp port=4713 auth-anonymous=1`
+- Tailscale direct connection is preferred over SSH reverse tunnel (survives disconnects, no port mapping)
+- `PULSE_SERVER` must be set in the execution environment for non-interactive contexts (AgentVibes, automation)
+
+**See Also:** `references/tailscale_audio_forwarding.md` for full setup, verification commands, and sink reference.
+
 ### 5. Documentation Patterns (Obsidian Vault)
 
 **Key Patterns:**

@@ -231,10 +231,59 @@ Runs at session end to update ticket.
 }
 ```
 
-**Per-project override:** Create `.plane.json` in project root:
+## Registering a Project
+
+Every project that uses Plane tickets needs two things: a `.plane.json` in the project root and an entry in the global workspace config.
+
+### 1. Create `.plane.json` in the project root
+
+This is the primary detection mechanism (highest priority in the resolution chain). Place it at the repo root alongside `CLAUDE.md`.
+
+See [references/plane-json-template.json](references/plane-json-template.json) for the template.
+
 ```json
-{ "workspace": "intelliforia", "project_id": "uuid-here" }
+{
+  "workspace": "33god",
+  "base_url": "plane.delo.sh",
+  "project_id": "ce150fc4-bfd9-4b6f-9f14-6468c18616e3"
+}
 ```
+
+| Field | Description |
+|---|---|
+| `workspace` | Workspace slug matching a key in `~/.claude/plane-workspaces.json` |
+| `base_url` | Plane instance hostname (no protocol, no trailing slash) |
+| `project_id` | UUID of the project in Plane (find via API or Plane UI URL) |
+
+### 2. Register in global workspace config
+
+Add the project to `~/.claude/plane-workspaces.json` under the workspace's `projects` map:
+
+```json
+{
+  "workspaces": {
+    "33god": {
+      "projects": {
+        "ssbnk": "ce150fc4-bfd9-4b6f-9f14-6468c18616e3"
+      }
+    }
+  }
+}
+```
+
+The key (e.g., `ssbnk`) is a human-friendly alias used for lookups when `.plane.json` is absent.
+
+### Finding the project ID
+
+If you don't know the project UUID, query the API:
+
+```bash
+curl -s -H "X-Api-Key: $PLANE_33GOD_API_KEY" \
+  "https://plane.delo.sh/api/v1/workspaces/33god/projects/" \
+  | python3 -c "import json,sys; [print(f'{p[\"identifier\"]}: {p[\"id\"]}') for p in json.load(sys.stdin).get('results', json.load(sys.stdin))]"
+```
+
+Or grab it from the Plane UI URL: `https://plane.delo.sh/<workspace>/projects/<project_id>/...`
 
 ## Ticket Template
 

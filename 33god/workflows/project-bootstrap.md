@@ -1,4 +1,8 @@
-# Workflow: Project Bootstrap
+# Workflow: Project Bootstrap (Manual)
+
+> **Note**: For automated bootstrap, use `pjangler init 33god` instead.
+> See `workflows/project-bootstrap-pjangler.md` for the automated approach.
+> Use this manual workflow only for custom cases requiring deviation from standard setup.
 
 1. Confirm project classification (platform vs revenue).
 2. Create/clone repository.

@@ -6,6 +6,9 @@ set -euo pipefail
 
 # ── Parse Arguments ──────────────────────────────────────────────
 ID="" NAME="" ROLE="" PURPOSE="" PERSONALITY="competent, concise, team-player" MODEL=""
+WORKSPACE_SLUG=""
+REPORTS_TO="Cack" ROLE_TITLE=""
+LOCAL_DIRECTIVES=()
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -15,23 +18,46 @@ while [[ $# -gt 0 ]]; do
     --purpose) PURPOSE="$2"; shift 2;;
     --personality) PERSONALITY="$2"; shift 2;;
     --model) MODEL="$2"; shift 2;;
+    --workspace-slug) WORKSPACE_SLUG="$2"; shift 2;;
+    --reports-to) REPORTS_TO="$2"; shift 2;;
+    --role-title) ROLE_TITLE="$2"; shift 2;;
+    --directive) LOCAL_DIRECTIVES+=("$2"); shift 2;;
     *) echo "Unknown: $1"; exit 1;;
   esac
 done
 
 [[ -z "$ID" || -z "$NAME" || -z "$ROLE" || -z "$PURPOSE" ]] && {
-  echo "Usage: bootstrap.sh --id <id> --name <name> --role <role> --purpose <purpose> [--personality <p>] [--model <m>]"
+  echo "Usage: bootstrap.sh --id <id> --name <name> --role <role> --purpose <purpose> [--personality <p>] [--model <m>] [--workspace-slug <slug>] [--reports-to <name>] [--role-title <title>] [--directive <text> ...]"
   exit 1
 }
 
 # Validate role
 [[ "$ROLE" =~ ^(manager|exec|ic|contractor)$ ]] || { echo "Invalid role: $ROLE (must be manager|exec|ic|contractor)"; exit 1; }
 
+# Default role charter title if not explicitly provided
+if [[ -z "$ROLE_TITLE" ]]; then
+  case "$ROLE" in
+    manager) ROLE_TITLE="Manager" ;;
+    exec) ROLE_TITLE="Exec" ;;
+    ic) ROLE_TITLE="Individual Contributor" ;;
+    contractor) ROLE_TITLE="Contractor" ;;
+  esac
+fi
+
 # ── Setup ────────────────────────────────────────────────────────
-WORKSPACE="$HOME/.openclaw/workspace-${ID}"
+if [[ -z "$WORKSPACE_SLUG" ]]; then
+  # Agent-based workspace naming by default (first token of display name, slugged)
+  WORKSPACE_SLUG="$(echo "$NAME" | awk '{print $1}' | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+fi
+if [[ -z "$WORKSPACE_SLUG" ]]; then
+  WORKSPACE_SLUG="$ID"
+fi
+WORKSPACE="$HOME/.openclaw/workspace-${WORKSPACE_SLUG}"
 SKILLS_SRC="$HOME/.openclaw/skills"
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 REF_DIR="${SCRIPT_DIR}/references"
+GOVERNANCE_SCRIPT="${SCRIPT_DIR}/scripts/role_governance.py"
+GOVERNANCE_DIR="$HOME/.openclaw/workspace/frameworks/agent-governance"
 
 [[ -d "$WORKSPACE" ]] && { echo "Workspace already exists: $WORKSPACE"; exit 1; }
 
@@ -169,6 +195,41 @@ cat > "$WORKSPACE/AGENTS.md" << EOF
 - Broker: RabbitMQ on the 33GOD cluster
 - Follow \`33god-service-development\` skill for event patterns
 
+## Repo Execution Protocol (Non-Negotiable)
+
+### Ticket + Branch discipline
+- No-ticket, no-work.
+- Every implementation task uses a ticket branch (ticket id in branch name).
+- Never code directly on \`main\`/\`master\`.
+
+### PR-first delivery
+- All code changes go through PRs. No direct merges to \`main\`.
+- Report PR URL + commit hash + test evidence in every completion update.
+
+### End-of-turn repo hygiene
+Before handoff/status update, capture and report exact repo state:
+- \`git rev-parse --abbrev-ref HEAD\`
+- \`git log -1 --oneline\`
+- \`git status --short\`
+- \`git stash list\`
+- open PRs for active branches
+
+If work is merged/complete, return repo to clean \`main\`:
+- \`git checkout main && git pull --ff-only\`
+
+Do not leave human-owned repos parked on random feature branches.
+
+### Evidence-first reporting
+- Never narrate guesses.
+- If uncertain, say unknown + run the command to verify.
+- Status format must be: **Facts / Unknowns / Next Action**.
+
+### BMAD mandatory
+- BMAD method is required for coding work.
+- If target repo does not have BMAD initialized, run:
+  - \`npx bmad-method@alpha install\`
+- Keep BMAD artifacts tracked according to repo policy.
+
 ## Safety
 - Don't send emails, tweets, or public messages without Jarad's approval
 - Internal operations (read, build, test, commit) are free to do
@@ -214,6 +275,29 @@ cat > "$WORKSPACE/HEARTBEAT.md" << EOF
 # Add periodic tasks below. Keep it small to limit token burn.
 EOF
 
+# ── Role Governance (matrix + inherited directives) ─────────────
+if [[ -x "$GOVERNANCE_SCRIPT" ]]; then
+  GOV_ARGS=(
+    --governance-dir "$GOVERNANCE_DIR"
+    upsert-and-apply
+    --workspace "$WORKSPACE"
+    --agent "$NAME"
+    --role "$ROLE_TITLE"
+    --reports-to "$REPORTS_TO"
+    --mission "$PURPOSE"
+  )
+  for directive in "${LOCAL_DIRECTIVES[@]}"; do
+    GOV_ARGS+=(--directive "$directive")
+  done
+
+  echo "🧭 Syncing role governance..."
+  python3 "$GOVERNANCE_SCRIPT" "${GOV_ARGS[@]}" || {
+    echo "⚠️  Governance sync failed (continuing workspace bootstrap)."
+  }
+else
+  echo "⚠️  Governance script missing: $GOVERNANCE_SCRIPT"
+fi
+
 # ── Symlink Skills ───────────────────────────────────────────────
 echo "🔗 Symlinking skills..."
 
@@ -221,6 +305,7 @@ echo "🔗 Symlinking skills..."
 BASE_SKILLS=(
   "github"
   "installing-apps-tools-and-services"
+  "hindsight"
 )
 
 # Extended skills for non-contractors
@@ -257,10 +342,11 @@ echo ""
 echo "✅ Agent workspace created: $WORKSPACE"
 echo ""
 echo "📋 Next steps:"
-echo "  1. Add agent to openclaw.json agents.list"
-echo "  2. Add channel binding (if needed)"
-echo "  3. Restart gateway"
-echo "  4. Send onboarding briefing via sessions_send"
+echo "  1. Verify role governance row in $GOVERNANCE_DIR/AGENT_ROLE_MATRIX.json"
+echo "  2. Add agent to openclaw.json agents.list"
+echo "  3. Add channel binding (if needed)"
+echo "  4. Restart gateway"
+echo "  5. Send onboarding briefing via sessions_send"
 echo ""
 echo "Agent config JSON:"
 cat << EOF
