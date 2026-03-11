@@ -1,19 +1,32 @@
 ---
 name: mise-task-managing
-description: Expert guidance for mise task runners including TOML task configuration, file-based tasks, task orchestration with dependencies, sources/outputs caching, parallel execution, and workflow patterns. Use when working with mise.toml task definitions, mise-tasks/ directory, task dependencies, build caching, or mise task automation.
+description: Conventions for creating and managing development workflow tasks.Use 1) when asked to create a mise task, 2) when adding a tasks to node package file, pnpm, bun, 3) when creating or modifying a script, 4) to encapsulate a complex workflow or chain of commands.
 ---
+# Mise Task Conventions
 
-# Mise Task Management
+## Mandatory
 
-Expert skill for mise task runners with TOML-based and file-based task definitions.
+- Every project root _MUST_ contain a `mise.toml`
+- If a project root does _NOT_ contain a `mise.toml` then copy the [base](./references/base-mise.toml) to the project root as `mise.toml`
 
-## Task Definition Methods
+## Progressive Discovery Reference Map
 
-Mise supports two primary approaches for defining tasks:
+**When you see a relevant match to your current task, STOP!**
+Read no further and load the applicable reference.
 
-### 1. TOML Tasks (Recommended for Simple Tasks)
+- Are you starting a fresh project? See [starting-fresh](./references/starting-fresh.md)
+- Are you integrating mise in a brownfield project? See [brownfield](./references/brownfield.md)
+- Were you asked to encapsulate a multi-step custom workflow? See [custom-workflows](./references/workflows.md)
 
-Define tasks directly in `mise.toml` under the `[tasks.*]` section:
+- Did you create a new script, add a new CLI command, or get asked to expose or make available any of the former as a convenience task? See [wraping-an-interface](./references/wrapping-an-interface.md)
+
+- Are you implementing or adapting one of the supported common workflows (`Database`, `Build`, `CI`, `Test`, `Deploy`, `Lint`)? See [common-workflows](./references/common-workflows.md)
+
+## If you didn't find a match, here are the general rules to follow
+
+1. If defining a simple task like a one-liner, use TOML Tasks
+
+Then, define tasks directly in `mise.toml` under the `[tasks.*]` section:
 
 ```toml
 [tasks.build]
@@ -28,9 +41,9 @@ depends = ["build"]
 
 Execute: `mise run build` or `mise build`
 
-### 2. File Tasks (Recommended for Complex Scripts)
+1. If your task is multi-line and looks more like inline code, use File Tasks
 
-Create executable scripts in `mise-tasks/` directory:
+Implement the task as an executable shell or python script in `.mise/tasks/` directory:
 
 ```bash
 #!/usr/bin/env bash
@@ -39,24 +52,20 @@ Create executable scripts in `mise-tasks/` directory:
 cargo build
 ```
 
-Place in `mise-tasks/build` (no extension), make executable, and run identically: `mise run build`
+Place in `.mise/tasks/build` (no extension), make executable, and run identically: `mise run build`
 
-## Configuration File Structure
+1. Configuration File Structure
 
 ```
 project-root/
 ├── mise.toml              # Primary config with [tasks.*] section
-├── mise-tasks/            # Directory for file-based tasks
+├── .mise/tasks/            # Directory for file-based tasks
 │   ├── build             # Executable task script
 │   ├── test              # Executable task script
 │   └── deploy            # Executable task script
-└── .mise/
-    └── config.toml        # Alternative location for mise.toml
 ```
 
-## Core Task Configuration
-
-### TOML Task Structure
+1. TOML Task Structure
 
 ```toml
 [tasks.task-name]
@@ -69,7 +78,7 @@ sources = ["src/**/*.rs"]
 outputs = ["target/release/binary"]
 ```
 
-### File Task Metadata
+1. File Task Metadata
 
 Use `#MISE` comments for task configuration:
 
@@ -84,93 +93,109 @@ Use `#MISE` comments for task configuration:
 ./deploy.sh
 ```
 
-## Task Configuration Options
+1. Task Configuration Options
 
-### Essential Fields
+**Essential Fields**:
 
 **`run`** (TOML tasks only, required)
+
 - String: `run = "cargo build"`
 - Array: `run = ["cargo build", "cargo test"]`
 - Mixed with task refs: `run = [{ task = "lint" }, "cargo build"]`
 
 **`description`**
+
 - Used in help output, completions, and `mise tasks` listing
 - Visible to users as documentation
 
 **`depends`**
+
 - Tasks that run before this task
 - `depends = ["lint", "test"]`
 
 **`depends_post`**
+
 - Tasks that run after this task completes
 - `depends_post = ["cleanup"]`
 
-### Environment & Execution
+1. Environment & Execution
 
 **`env`**
+
 - Task-specific environment variables
 - Not propagated to dependent tasks
 - `env = { NODE_ENV = "production", API_KEY = "secret" }`
 
 **`tools`**
+
 - Tools to install/activate before task
 - Only for this task, not dependencies
 - `tools = ["node@20", "python@3.12"]`
 
 **`dir`**
+
 - Working directory for execution
 - Default: `"{{ config_root }}"` (where mise.toml lives)
 - `dir = "{{ cwd }}/subdir"`
 
 **`shell`**
+
 - Override default shell for inline execution
 - TOML tasks only
 - `shell = "bash -c"`
 
-### Caching with Sources & Outputs
+1. Caching with Sources & Outputs
 
 **`sources`**
+
 - Input files/globs that this task uses
 - Mise skips execution if sources unchanged and outputs are newer
 - `sources = ["src/**/*.rs", "Cargo.toml"]`
 
 **`outputs`**
+
 - Output files/directories produced by task
 - Enable automatic change detection with `outputs = [{ auto = true }]`
 - `outputs = ["target/release/binary"]`
 
 **Caching behavior:**
+
 - Mise compares modification times of oldest output vs newest source
 - If outputs are newer, task is skipped
 - Use `mise run --force` to bypass cache
 
-### Control & Visibility
+1. Control & Visibility
 
 **`hide`**
+
 - Hide from `mise tasks` output, help, and completions
 - Useful for internal/deprecated tasks
 - `hide = true`
 
 **`quiet`**
+
 - Suppress mise's own output (like command being run)
 - `quiet = true`
 
 **`silent`**
+
 - Suppress all task output
 - Options: `true` (both), `"stdout"`, `"stderr"`
 - `silent = "stdout"`
 
 **`raw`**
+
 - Connect task directly to shell stdin/stdout/stderr
 - Disables parallel execution
 - Required for interactive tasks
 - `raw = true`
 
 **`confirm`**
+
 - Prompt user before running
 - `confirm = "Are you sure you want to deploy?"`
 
-### Advanced: Task Arguments
+1. Advanced: Task Arguments
 
 Define formal arguments and flags in `usage` field:
 
@@ -210,18 +235,21 @@ mise run test -- --nocapture
 ### Multiple Tasks
 
 Run sequentially:
+
 ```bash
 mise run lint build test
 ```
 
 Run separate sequences with `:::` delimiter:
+
 ```bash
 mise run build arg1 ::: test arg2
 ```
 
-### Parallel Execution
+1. Advanced: Parallel Execution
 
 Default: 4 parallel jobs. Control via:
+
 - `--jobs N` flag
 - `MISE_JOBS` environment variable
 - `jobs` setting in mise.toml
@@ -232,7 +260,7 @@ mise run -j 8 task1 task2 task3
 
 Output is line-prefixed to prevent interleaving. Use `--interleave` for direct stdout/stderr.
 
-### Listing Tasks
+1. Listing Tasks
 
 ```bash
 mise tasks                    # List all tasks
@@ -240,7 +268,7 @@ mise tasks --hidden           # Include hidden tasks
 mise tasks deps [tasks]...    # Show task dependencies
 ```
 
-### Watching for Changes
+1. Watching for Changes
 
 ```bash
 mise watch task-name          # Re-run on file changes
@@ -248,9 +276,7 @@ mise watch task-name          # Re-run on file changes
 
 Uses watchexec internally to monitor source files.
 
-## Common Patterns
-
-### Task Orchestration
+1. Common Pattern: Task Orchestration
 
 ```toml
 [tasks.ci]
@@ -264,7 +290,7 @@ depends_post = ["notify"]
 run = "./deploy.sh"
 ```
 
-### Environment-Specific Tasks
+1. Common Pattern: Environment-Specific Tasks
 
 ```toml
 [tasks.build]
@@ -278,7 +304,7 @@ run = "npm run build"
 env = { NODE_ENV = "production" }
 ```
 
-### Conditional Execution with Sources
+1. Common Pattern: Conditional Execution with Sources
 
 ```toml
 [tasks.compile]
@@ -288,7 +314,7 @@ sources = ["src/*.c", "src/*.h"]
 outputs = ["bin/app"]
 ```
 
-### File Task with Dependencies
+1. Common Pattern: File Task with Dependencies
 
 ```bash
 #!/usr/bin/env bash
@@ -323,9 +349,7 @@ description = "Start full development environment"
 depends = ["backend", "frontend"]
 ```
 
-## Environment Variables Provided to Tasks
-
-Mise automatically injects these variables:
+1. Mise automatically injects these globals:
 
 - `MISE_ORIGINAL_CWD` - Initial working directory
 - `MISE_CONFIG_ROOT` - Directory containing mise.toml
@@ -334,34 +358,11 @@ Mise automatically injects these variables:
 - `MISE_TASK_DIR` - Task script location (file tasks)
 - `MISE_TASK_FILE` - Full task script path (file tasks)
 
-## Workflow Commands
-
-### Initialize Mise in Project
+1. Workflow Command: Initialize Mise in Project
 
 ```bash
 # 1. Create mise.toml
-cat > mise.toml <<'EOF'
-[tools]
-# Optional: Define tool versions
-# node = "20"
-# python = "3.12"
-
-[env]
-PROJECT_ROOT = "{{ cwd }}"
-
-[tasks.build]
-description = "Build the project"
-run = "make build"
-
-[tasks.test]
-description = "Run tests"
-depends = ["build"]
-run = "make test"
-
-[tasks.clean]
-description = "Clean build artifacts"
-run = "make clean"
-EOF
+`cp ./references/base-mise.toml mise.toml`
 
 # 2. Trust the config
 mise trust
@@ -370,7 +371,7 @@ mise trust
 mise tasks
 ```
 
-### Convert Makefile to Mise Tasks
+1. Workflow Command: Convert Makefile to Mise Tasks
 
 For projects with Makefiles, migrate to mise for better dependency management:
 
@@ -394,6 +395,7 @@ run = "npm test"
 ```
 
 Benefits over Make:
+
 - Automatic parallel execution
 - Built-in file watching
 - Cross-platform compatibility
@@ -403,10 +405,10 @@ Benefits over Make:
 
 ```bash
 # 1. Create task directory
-mkdir -p mise-tasks
+mkdir -p .mise/tasks
 
 # 2. Create executable script
-cat > mise-tasks/deploy <<'BASH'
+cat > .mise/tasks/deploy <<'BASH'
 #!/usr/bin/env bash
 #MISE description="Deploy application to production"
 #MISE depends=["test"]
@@ -416,61 +418,63 @@ cat > mise-tasks/deploy <<'BASH'
 set -euo pipefail
 
 echo "Deploying to production..."
-./scripts/deploy.sh "$@"
+$MISE_PROJECT_ROOT/scripts/deploy.sh "$@"
 BASH
 
 # 3. Make executable
-chmod +x mise-tasks/deploy
+chmod +x .mise/tasks/deploy
 
 # 4. Run it
 mise run deploy
 ```
 
-## Best Practices
-
-### Task Naming
+1. Best Practice: Task Naming
 
 - Use semantic names: `build`, `test`, `deploy`
 - Group with colons: `test:unit`, `test:integration`, `test:e2e`
 - Wildcard support: `mise run test:*` runs all test tasks
 
-### Dependency Management
+1. Best Practice: Dependency Management
 
 - Use `depends` for prerequisites: `depends = ["lint", "test"]`
 - Use `depends_post` for cleanup: `depends_post = ["notify"]`
 - Keep dependency chains shallow (2-3 levels max)
 - Tasks run in parallel when possible
 
-### Caching Strategy
+1. Best Practice: Caching Strategy
 
 - Define `sources` for input files
 - Define `outputs` for generated artifacts
 - Use globs for flexibility: `sources = ["src/**/*.rs"]`
 - Use `{ auto = true }` for automatic output detection
 
-### File Tasks vs TOML Tasks
+1. Best Practice: File Tasks vs TOML Tasks
 
 **Use File Tasks when:**
+
 - Script is >10 lines
 - Complex bash logic required
 - Multiple commands with error handling
 - Script needs version control
 
 **Use TOML Tasks when:**
+
 - Simple one-liners
 - Task orchestration (depends on other tasks)
 - Environment variable setup
 - Quick prototyping
 
-### Error Handling
+1. Best Practice: Error Handling
 
 **In TOML tasks:**
+
 ```toml
 [tasks.robust]
 run = ["set -euo pipefail", "./script.sh"]
 ```
 
 **In File tasks:**
+
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail  # Exit on error, undefined vars, pipe failures
@@ -478,42 +482,44 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 # Task implementation
 ```
 
-## Troubleshooting
-
-### Tasks Not Appearing
+1. Troubleshooting: Tasks Not Appearing
 
 **Check:**
+
 1. Syntax errors in mise.toml: `mise tasks --verbose`
 2. Missing `description` field
 3. Task marked `hide = true`
 4. Config not trusted: `mise trust`
 
-### Task Not Caching
+5. Troubleshooting: Task Not Caching
 
 **Verify:**
+
 1. `sources` and `outputs` are defined
 2. Globs match files: `ls src/**/*.rs`
 3. Output files exist after task runs
 4. Use `mise run --force task-name` to bypass cache once
 
-### File Task Not Executable
+5. Troubleshooting: File Task Not Executable
 
 ```bash
 chmod +x mise-tasks/task-name
 ```
 
-### Tasks Running in Wrong Directory
+1. Troubleshooting: Tasks Running in Wrong Directory
 
 Set explicit working directory:
+
 ```toml
 [tasks.task-name]
 dir = "{{ config_root }}/subdir"
 run = "make build"
 ```
 
-### Parallel Execution Issues
+1. Troubleshooting: Parallel Execution Issues
 
 For interactive tasks or tasks requiring stdin:
+
 ```toml
 [tasks.interactive]
 raw = true
@@ -522,6 +528,6 @@ run = "npm run dev"
 
 ## Additional Resources
 
-- Official docs: https://mise.jdx.dev/tasks/
-- Task configuration: https://mise.jdx.dev/tasks/task-configuration.html
-- Running tasks: https://mise.jdx.dev/tasks/running-tasks.html
+- Official docs: <https://mise.jdx.dev/tasks/>
+- Task configuration: <https://mise.jdx.dev/tasks/task-configuration.html>
+- Running tasks: <https://mise.jdx.dev/tasks/running-tasks.html>

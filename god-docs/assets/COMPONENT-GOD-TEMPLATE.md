@@ -1,6 +1,6 @@
 # {{COMPONENT_NAME}} - GOD Document
 
-> **Guaranteed Organizational Document** - Developer-facing reference for {{COMPONENT_NAME}}
+> **GOD** - Developer-facing reference for {{COMPONENT_NAME}}
 >
 > **Last Updated**: {{DATE}}
 > **Domain**: {{DOMAIN}}

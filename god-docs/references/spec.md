@@ -1,5 +1,5 @@
 # GOD Docs
-### Guaranteed Organizational Documents
+### GOD
 
 > *Documentation that knows when it's lying to you.*
 
