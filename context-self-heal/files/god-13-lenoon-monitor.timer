@@ -1,0 +1,19 @@
+[Unit]
+Description=GOD-13 Agent Context Self-Heal Monitor (Lenoon)
+Documentation=file://%h/.openclaw/workspace-lenoon/god-13-context-monitor.sh
+After=network-online.target
+Wants=network-online.target
+
+[Timer]
+# Run every 5 minutes
+OnBootSec=2min
+OnUnitActiveSec=5min
+
+# Randomize start time to avoid thundering herd
+RandomizedDelaySec=30
+
+# Log journal on failure
+Unit=god-13-lenoon-monitor.service
+
+[Install]
+WantedBy=timers.target
