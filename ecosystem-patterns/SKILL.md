@@ -815,6 +815,15 @@ Term: 33GOD (codename for agentic pipeline that contains many microservices)
 - Docker Compose for services in `~/docker`
 - Vault docs in `$VAULT/Projects/` for every project
 
+**Network/Infrastructure Architecture:**
+
+- **Cloudflare Tunnel** for external access (no public IP needed)
+- **Traefik** as reverse proxy for service routing and SSL
+- **Proxy network** (`proxy`) for inter-service communication
+- **Direct container routing** for simple services, **Traefik routing** for complex multi-domain apps
+
+See `references/docker_patterns.md` for Cloudflare Tunnel + Traefik setup.
+
 **Communication Style:**
 
 - Direct, concise, technical authority

@@ -438,3 +438,217 @@ services:
 - Consider overlay networks for multi-host
 - Minimize cross-network communication
 - Implement DNS resolution for service discovery
+
+---
+
+## Cloudflare Tunnel + Traefik Architecture
+
+**Purpose:** Expose services externally without public IP, port forwarding, or DNS updates when switching networks.
+
+### Architecture Overview
+
+```
+Internet → Cloudflare DNS (CNAME → Tunnel)
+         → Cloudflare Edge (SSL termination)
+         → Cloudflare Tunnel (outbound HTTPS)
+         → Traefik (internal routing) OR Direct to Container
+         → Services
+```
+
+**Benefits:**
+- No public IP required (works through CGNAT)
+- No port forwarding needed
+- Survives network changes (router/AP mode switches)
+- Automatic HTTPS at Cloudflare edge
+- DDoS protection
+
+### Directory Structure
+
+```
+~/docker/stacks/cloudflare-tunnel/
+├── compose.yml           # Tunnel container
+├── config.yml            # Ingress routing rules
+├── credentials.json      # Tunnel credentials (from cloudflared)
+└── POST_MORTEM.md        # Full documentation
+```
+
+### Tunnel Configuration
+
+**Step 1: Create Tunnel**
+```bash
+# Authenticate (opens browser)
+cloudflared tunnel login
+
+# Create tunnel
+cloudflared tunnel create homelab-delosh
+
+# Get tunnel ID
+export TUNNEL_ID="your-tunnel-id"
+```
+
+**Step 2: Configure Ingress Rules**
+```yaml
+# ~/docker/stacks/cloudflare-tunnel/config.yml
+tunnel: ${TUNNEL_ID}
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  # Direct routing for simple services
+  - hostname: "holocene.delo.sh"
+    service: http://holocene:80
+  
+  # Through Traefik for complex routing
+  - hostname: "plane.delo.sh"
+    service: https://traefik:443
+    originRequest:
+      noTLSVerify: true  # Internal network
+  
+  # Wildcard fallback for Traefik-routed services
+  - hostname: "*.delo.sh"
+    service: https://traefik:443
+    originRequest:
+      noTLSVerify: true
+  
+  - service: http_status:404
+```
+
+**Step 3: Docker Compose**
+```yaml
+# ~/docker/stacks/cloudflare-tunnel/compose.yml
+services:
+  cloudflare-tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflare-tunnel
+    restart: unless-stopped
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./config.yml:/etc/cloudflared/config.yml:ro
+      - ./credentials.json:/etc/cloudflared/credentials.json:ro
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+```
+
+**Step 4: Route DNS**
+```bash
+# Add DNS route for each subdomain
+cloudflared tunnel route dns ${TUNNEL_ID} service.delo.sh
+
+# Or add wildcard
+cloudflared tunnel route dns ${TUNNEL_ID} "*.delo.sh"
+```
+
+### Routing Patterns
+
+**Pattern 1: Direct to Container (Simple Services)**
+```yaml
+- hostname: "app.delo.sh"
+  service: http://container-name:port
+```
+- Use for: Single-purpose services with simple routing
+- Benefits: One less hop, simpler debugging
+
+**Pattern 2: Through Traefik (Complex Services)**
+```yaml
+- hostname: "app.delo.sh"
+  service: https://traefik:443
+  originRequest:
+    noTLSVerify: true
+```
+- Use for: Multi-service apps, path-based routing, middleware needs
+- Benefits: Traefik handles SSL, rate limiting, auth
+
+**Important: Order Matters**
+```yaml
+# Most specific first
+- hostname: "api.app.delo.sh"    # Specific
+  service: http://api:8080
+
+- hostname: "*.delo.sh"          # Wildcard LAST
+  service: https://traefik:443
+```
+
+### Service Integration
+
+**Add Traefik Labels (for Traefik routing):**
+```yaml
+services:
+  myapp:
+    image: myapp:latest
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.myapp.rule=Host(`myapp.delo.sh`)"
+      - "traefik.http.routers.myapp.entrypoints=websecure"
+      - "traefik.http.routers.myapp.tls.certresolver=letsencrypt"
+      - "traefik.http.services.myapp.loadbalancer.server.port=3000"
+```
+
+**No Labels (for Direct routing):**
+```yaml
+services:
+  myapp:
+    image: myapp:latest
+    networks:
+      - proxy
+    # No Traefik labels needed
+```
+
+### Troubleshooting
+
+**523 Error (Origin Unreachable):**
+```bash
+# Check tunnel is running
+docker ps | grep cloudflare
+
+# Check DNS is CNAME to tunnel
+dig service.delo.sh
+
+# Verify container is on proxy network
+docker network inspect proxy | grep container-name
+```
+
+**525/526 SSL Errors:**
+- If routing to Traefik: Ensure `noTLSVerify: true` or valid certs
+- If direct: Check service SSL configuration
+
+**Tunnel Disconnects:**
+```bash
+# Check logs
+docker logs cloudflare-tunnel | grep ERR
+
+# Force reconnect
+docker restart cloudflare-tunnel
+```
+
+### Migration from Port Forwarding
+
+**Before:**
+```
+Internet → Router (port 443) → Traefik → Services
+```
+
+**After:**
+```
+Internet → Cloudflare Tunnel → Traefik/Direct → Services
+```
+
+**Steps:**
+1. Set up tunnel (see above)
+2. Move DNS from A records to CNAME (tunnel)
+3. Remove port forwarding from router
+4. Test all services
+5. Switch networks to verify mobility
+
+### Security Best Practices
+
+1. **Tunnel credentials** (`credentials.json`) - treat as secrets
+2. **No public ports** - everything goes through tunnel
+3. **Internal SSL** - Traefik handles internal certs, Cloudflare handles external
+4. **Network isolation** - Only `proxy` network accessible to tunnel
+5. **Service-to-service** - Use internal Docker DNS, not public URLs
+

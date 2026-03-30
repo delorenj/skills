@@ -13,6 +13,7 @@ Are you...
 - Creating or encapsulating a new workflow? → `workflow-generation.md`
 - Are you adding/changing/pruning event/command contracts? → `event-command-lifecycle.md`
 - Planning platform-wide coordination/status/delegation? → `platform-lifecycle.md`
+- **Deploying/configuring infrastructure or external access? → `infrastructure-deployment.md`**
 - Performing repo maintenance? → `repo-maintenance.md`
 - Checking for documentation drift or updating documentation? → `god-doc-policy.md`
 
@@ -23,6 +24,7 @@ Are you...
 - Domain GOD docs: `~/code/33GOD/docs/domains/{domain}/GOD.md`
 - Component GOD docs: `~/code/33GOD/{component}/GOD.md`
 - Compose source of truth: `~/code/33GOD/compose.yml`
+- Infrastructure/Tunnel: `~/docker/stacks/cloudflare-tunnel/`
 
 ## Routing rule
 
