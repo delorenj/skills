@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # shadcn/ui Component Catalog
 
 Complete reference of all available shadcn/ui components, organized by category.

@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Team Roles & Ownership
 
 *Who does what. Clear ownership = no bottlenecks.*

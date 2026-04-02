@@ -1,10 +1,9 @@
 ---
 name: coding-strategy
-description: >
-  Consult before ANY coding task. Chooses the optimal coding agent strategy based on task complexity,
-  available free tokens, parallelism potential, and provider quotas. Covers: OpenClaw sub-agents,
-  Codex CLI, Claude Flow swarms/hive-minds, Jules (Google), GitHub Copilot coding models,
-  Augment Code, Kimi K2.5, and OpenAI gpt-5.3-codex. All agents must read this before writing code.
+description: |
+  Consult before ANY coding task. Chooses the optimal coding agent strategy based on task complexity, available free tokens, parallelism potential, and provider quotas. Covers: OpenClaw sub-agents, Codex CLI, Claude Flow swarms/hive-minds, Jules (Google), GitHub Copilot coding models, Augment Code, Kimi K2.5, and OpenAI gpt-5.3-codex. All agents must read this before writing code.
+pipeline-status:
+  - new
 ---
 
 # Coding Strategy Skill

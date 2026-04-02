@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # err-server-errors: Handle Server Function Errors
 
 ## Priority: MEDIUM

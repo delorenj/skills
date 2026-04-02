@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Infrastructure & Deployment
 
 Use this for deploying 33GOD services, configuring networking, and managing external access.

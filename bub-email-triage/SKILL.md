@@ -1,6 +1,8 @@
 ---
 name: bub-email-triage
 description: Bub's canonical workflow for inbox/calendar triage escalation filtering (known contacts, money/security risk, high-signal AI changes).
+pipeline-status:
+  - new
 ---
 
 # Bub Email & Calendar Triage Workflow

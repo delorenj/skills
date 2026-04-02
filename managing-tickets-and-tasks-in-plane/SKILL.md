@@ -12,6 +12,8 @@ description: |
   - Working with multiple Plane workspaces (auto-detects from git remote or directory)
 
   Triggers: "create ticket", "board audit", "what should I work on", "next ticket", "promote to production", "changelog", "sprint status", "WIP limit", plane ticket operations
+pipeline-status:
+  - new
 ---
 
 # Managing Tickets and Tasks in Plane

@@ -3,6 +3,8 @@ title: Optimize List Performance with Stable Object References
 impact: CRITICAL
 impactDescription: virtualization relies on reference stability
 tags: lists, performance, flatlist, virtualization
+pipeline-status:
+  - new
 ---
 
 ## Optimize List Performance with Stable Object References

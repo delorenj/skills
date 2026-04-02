@@ -3,6 +3,8 @@ title: Use Native Menus for Dropdowns and Context Menus
 impact: HIGH
 impactDescription: native accessibility, platform-consistent UX
 tags: user-interface, menus, context-menus, zeego, accessibility
+pipeline-status:
+  - new
 ---
 
 ## Use Native Menus for Dropdowns and Context Menus

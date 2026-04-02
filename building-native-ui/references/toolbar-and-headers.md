@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Toolbars and headers
 
 Add native iOS toolbar items to Stack screens. Items can be placed in the header (left/right) or in a bottom toolbar area.

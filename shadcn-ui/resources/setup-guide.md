@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # shadcn/ui Setup Guide
 
 This guide walks you through setting up shadcn/ui in both new and existing projects.

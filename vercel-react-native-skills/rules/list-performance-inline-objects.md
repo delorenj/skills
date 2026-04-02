@@ -3,6 +3,8 @@ title: Avoid Inline Objects in renderItem
 impact: HIGH
 impactDescription: prevents unnecessary re-renders of memoized list items
 tags: lists, performance, flatlist, virtualization, memo
+pipeline-status:
+  - new
 ---
 
 ## Avoid Inline Objects in renderItem

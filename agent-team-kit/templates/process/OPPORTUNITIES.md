@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Opportunities
 
 *Raw discoveries. Anyone can add. Rhythm triages.*

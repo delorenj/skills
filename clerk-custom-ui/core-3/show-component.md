@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # `<Show>` Component
 
 The `<Show>` component conditionally renders content based on authentication state, roles, permissions, billing plans, and features.

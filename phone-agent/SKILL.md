@@ -1,6 +1,8 @@
 ---
 name: phone-agent
 description: "Run a real-time AI phone agent using Twilio, Deepgram, and ElevenLabs. Handles incoming calls, transcribes audio, generates responses via LLM, and speaks back via streaming TTS. Use when user wants to: (1) Test voice AI capabilities, (2) Handle phone calls programmatically, (3) Build a conversational voice bot."
+pipeline-status:
+  - new
 ---
 
 # Phone Agent Skill

@@ -3,6 +3,8 @@ title: Keep List Items Lightweight
 impact: HIGH
 impactDescription: reduces render time for visible items during scroll
 tags: lists, performance, virtualization, hooks
+pipeline-status:
+  - new
 ---
 
 ## Keep List Items Lightweight

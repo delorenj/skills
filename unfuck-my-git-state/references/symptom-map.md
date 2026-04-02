@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Symptom Map
 
 Use this map after running `scripts/snapshot_git_state.sh`.

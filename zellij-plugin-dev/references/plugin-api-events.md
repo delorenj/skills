@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Zellij Plugin Event System
 
 Complete reference for Zellij plugin events and subscription patterns.

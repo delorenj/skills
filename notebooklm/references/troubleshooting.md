@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # NotebookLM Skill Troubleshooting Guide
 
 ## Quick Fix Table

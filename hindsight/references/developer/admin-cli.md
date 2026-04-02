@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Admin CLI
 
 The `hindsight-admin` CLI provides administrative commands for managing your Hindsight deployment, including database migrations, backup, and restore operations.

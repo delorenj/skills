@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # 🎨 UI/UX Design Mastery Guide for QuickPost
 **Compiled:** 2026-02-05  
 **Purpose:** Build beautiful, modern web designs before starting MVP

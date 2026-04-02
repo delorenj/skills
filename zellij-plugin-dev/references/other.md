@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Zellij-Plugin-Dev - Other
 
 **Pages:** 1

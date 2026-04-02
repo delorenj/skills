@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Playlist Module API Reference
 
 **Total Functions:** 41

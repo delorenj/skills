@@ -1,6 +1,8 @@
 ---
 name: context-self-heal
 description: Agent-local context guard and deterministic compaction workflow (GOD-13). Use when context usage is high, when wiring auto-compaction/restart timers, or when deploying standardized context-monitor hooks across agents.
+pipeline-status:
+  - new
 ---
 
 # Context Self-Heal (GOD-13)

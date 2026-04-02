@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Phone Agent Moltbot Skill
 
 A real-time AI voice agent that handles incoming phone calls using Twilio, transcribes speech with Deepgram, generates responses via OpenAI, and speaks back with ElevenLabs text-to-speech.

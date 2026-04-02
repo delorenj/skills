@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Integrating Mise into Existing Projects
 
 This guide covers adding mise to projects with existing build tools, task runners, or package managers.

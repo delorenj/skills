@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Workflow: One Feedback Iteration
 
 1. Generate candidate set.

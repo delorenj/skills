@@ -12,7 +12,9 @@ references:
   - references/custom.md
 metadata:
   author: clerk
-  version: "1.1.0"
+  version: 1.1.0
+pipeline-status:
+  - new
 ---
 
 # Clerk Swift (Native iOS)

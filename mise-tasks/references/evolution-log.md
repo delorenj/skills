@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Evolution Log
 
 > **Convention**: Reverse chronological order (newest on top, oldest at bottom). Prepend new entries.

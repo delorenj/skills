@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Visual Effects
 
 ## Backdrop Blur

@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Monitoring Stack Architecture
 
 ## Stack Root

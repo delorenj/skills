@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # HEARTBEAT.md — Team Operations
 
 ## Autonomous Team Operations

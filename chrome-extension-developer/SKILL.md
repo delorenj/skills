@@ -1,6 +1,8 @@
 ---
 name: chrome-extension-developer
 description: Expert in developing Chrome extensions using Manifest V3, from ideation to Chrome Web Store deployment.
+pipeline-status:
+  - new
 ---
 
 # Chrome Extension Developer

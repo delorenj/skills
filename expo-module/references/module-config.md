@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Module Configuration Reference
 
 ## expo-module.config.json

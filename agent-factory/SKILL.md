@@ -1,6 +1,8 @@
 ---
 name: 33god-33god-agent-factory
 description: Bootstrap new 33GOD ecosystem agents with standardized configuration. Use when creating new agents, spawning workers, or when the user says "spin up an agent", "create a new agent", "deploy a new worker", or needs a new agent for a specific pipeline role. Handles workspace creation, config injection, skill installation, provider mirroring, channel binding, and 33GOD ecosystem onboarding (GOD Docs, Plane, Bloodbank, memory).
+pipeline-status:
+  - new
 ---
 
 # Agent Factory

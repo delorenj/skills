@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Tauri - Tutorials
 
 **Pages:** 7

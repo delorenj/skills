@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Workflow: Project Bootstrap (Manual)
 
 > **Note**: For automated bootstrap, use `pjangler init 33god` instead.

@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Icons (SF Symbols)
 
 Use SF Symbols for native feel. Never use FontAwesome or Ionicons.

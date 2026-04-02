@@ -3,6 +3,8 @@ title: Create Explicit Component Variants
 impact: MEDIUM
 impactDescription: self-documenting code, no hidden conditionals
 tags: composition, variants, architecture
+pipeline-status:
+  - new
 ---
 
 ## Create Explicit Component Variants

@@ -3,6 +3,8 @@ title: Hoist callbacks to the root of lists
 impact: MEDIUM
 impactDescription: Fewer re-renders and faster lists
 tags: tag1, tag2
+pipeline-status:
+  - new
 ---
 
 ## List performance callbacks

@@ -1,9 +1,8 @@
 ---
 name: github-issue-creator
-description:
-  Use this skill when asked to create a GitHub issue. It handles different issue
-  types (bug, feature, etc.) using repository templates and ensures proper
-  labeling.
+description: Use this skill when asked to create a GitHub issue. It handles different issue types (bug, feature, etc.) using repository templates and ensures proper labeling.
+pipeline-status:
+  - new
 ---
 
 # GitHub Issue Creator

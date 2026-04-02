@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Extensions
 
 Extensions allow you to customize and extend Hindsight behavior without modifying core code. They enable multi-tenancy, custom authentication, additional HTTP endpoints, and operation hooks.

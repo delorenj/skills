@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Common Services - Cancellation Guide
 
 Quick reference for cancellation URLs, dark patterns, and tips.

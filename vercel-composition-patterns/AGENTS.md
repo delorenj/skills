@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # React Composition Patterns
 
 **Version 1.0.0**  

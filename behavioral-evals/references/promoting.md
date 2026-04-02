@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Promoting Behavioral Evals
 
 Use this guide when asked to analyze nightly results and promote incubated tests

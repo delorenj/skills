@@ -3,6 +3,8 @@ title: Use Pressable Instead of Touchable Components
 impact: LOW
 impactDescription: modern API, more flexible
 tags: ui, pressable, touchable, gestures
+pipeline-status:
+  - new
 ---
 
 ## Use Pressable Instead of Touchable Components

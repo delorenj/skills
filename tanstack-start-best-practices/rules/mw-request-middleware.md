@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # mw-request-middleware: Use Request Middleware for Cross-Cutting Concerns
 
 ## Priority: HIGH

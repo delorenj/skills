@@ -1,8 +1,9 @@
 ---
 name: string-reviewer
-description: >
-  Use this skill when asked to review text and user-facing strings within the codebase. It ensures that these strings follow rules on clarity,
-  usefulness, brevity and style.
+description: |
+  Use this skill when asked to review text and user-facing strings within the codebase. It ensures that these strings follow rules on clarity, usefulness, brevity and style.
+pipeline-status:
+  - new
 ---
 
 # String Reviewer

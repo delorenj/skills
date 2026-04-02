@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Recipe Interface Reference
 
 ## Interfaces

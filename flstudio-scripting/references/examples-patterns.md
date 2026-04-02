@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Examples, Patterns & Templates
 
 **Table of Contents**

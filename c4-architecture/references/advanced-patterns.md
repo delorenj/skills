@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Advanced C4 Architecture Patterns
 
 This guide covers advanced patterns for documenting complex architectures including microservices, event-driven systems, deployments, and API documentation.

@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Design System: Furniture Collections List
 **Project ID:** 13534454087919359824
 

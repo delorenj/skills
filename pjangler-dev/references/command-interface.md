@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Command Interface Reference
 
 ## Interfaces

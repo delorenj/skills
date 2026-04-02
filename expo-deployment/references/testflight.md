@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # TestFlight
 
 Always ship to TestFlight first. Internal testers, then external testers, then App Store. Never skip this.

@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Silent Failure Detection Patterns
 
 **Problem**: Process managers, task runners, and build tools often return success exit codes even when the underlying operation failed.

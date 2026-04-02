@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # App Store Metadata
 
 Manage App Store metadata and optimize for ASO using EAS Metadata.

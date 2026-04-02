@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # C4 Mermaid Diagram Syntax Reference
 
 Complete syntax reference for Mermaid C4 diagrams. Compatible with PlantUML C4 syntax.

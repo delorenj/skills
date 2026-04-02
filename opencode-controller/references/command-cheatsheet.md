@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 ## Core Opencode commands
 
 - Start Opencode:

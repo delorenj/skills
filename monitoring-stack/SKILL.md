@@ -1,15 +1,9 @@
 ---
 name: monitoring-stack
-description: >
-  Manage the homelab monitoring stack at ~/docker/stacks/monitoring/.
-  Services: Prometheus, Grafana, Alertmanager (Telegram via DeLoNETBot), cadvisor,
-  node-exporter, process-exporter, Loki, OTEL collector, Dockge, Uptime Kuma, health-monitor.
-  Use when: (1) adding, editing, or debugging Prometheus alert rules,
-  (2) managing or restarting monitoring services, (3) checking alert delivery or Telegram bot status,
-  (4) diagnosing system performance issues (CPU hogs, memory bloat, swap pressure),
-  (5) adding new scrape targets to Prometheus, (6) configuring Grafana dashboards or datasources,
-  (7) any task referencing "monitoring", "alerts", "prometheus", "grafana", "cadvisor",
-  "process-exporter", "alertmanager", "telegram alerts", or "DeLoNETBot".
+description: |
+  Manage the homelab monitoring stack at ~/docker/stacks/monitoring/. Services: Prometheus, Grafana, Alertmanager (Telegram via DeLoNETBot), cadvisor, node-exporter, process-exporter, Loki, OTEL collector, Dockge, Uptime Kuma, health-monitor. Use when: (1) adding, editing, or debugging Prometheus alert rules, (2) managing or restarting monitoring services, (3) checking alert delivery or Telegram bot status, (4) diagnosing system performance issues (CPU hogs, memory bloat, swap pressure), (5) adding new scrape targets to Prometheus, (6) configuring Grafana dashboards or datasources, (7) any task referencing "monitoring", "alerts", "prometheus", "grafana", "cadvisor", "process-exporter", "alertmanager", "telegram alerts", or "DeLoNETBot".
+pipeline-status:
+  - new
 ---
 
 # Monitoring Stack

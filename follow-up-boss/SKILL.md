@@ -10,6 +10,7 @@ metadata:
   author: membrane
   version: "1.0"
   categories: ""
+modified: 2026-04-02T11:34:08-04:00
 ---
 
 # Follow Up Boss
@@ -132,15 +133,15 @@ membrane request CONNECTION_ID /path/to/endpoint
 
 Common options:
 
-| Flag | Description |
-|------|-------------|
-| `-X, --method` | HTTP method (GET, POST, PUT, PATCH, DELETE). Defaults to GET |
-| `-H, --header` | Add a request header (repeatable), e.g. `-H "Accept: application/json"` |
-| `-d, --data` | Request body (string) |
-| `--json` | Shorthand to send a JSON body and set `Content-Type: application/json` |
-| `--rawData` | Send the body as-is without any processing |
-| `--query` | Query-string parameter (repeatable), e.g. `--query "limit=10"` |
-| `--pathParam` | Path parameter (repeatable), e.g. `--pathParam "id=123"` |
+| Flag           | Description                                                             |     |
+| -------------- | ----------------------------------------------------------------------- | --- |
+| `-X, --method` | HTTP method (GET, POST, PUT, PATCH, DELETE). Defaults to GET            |     |
+| `-H, --header` | Add a request header (repeatable), e.g. `-H "Accept: application/json"` |     |
+| `-d, --data`   | Request body (string)                                                   |     |
+| `--json`       | Shorthand to send a JSON body and set `Content-Type: application/json`  |     |
+| `--rawData`    | Send the body as-is without any processing                              |     |
+| `--query`      | Query-string parameter (repeatable), e.g. `--query "limit=10"`          |     |
+| `--pathParam`  | Path parameter (repeatable), e.g. `--pathParam "id=123"`                |     |
 
 ## Best practices
 

@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 ## Session rules
 
 - Opencode keeps a history of projects

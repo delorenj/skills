@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # {{DOMAIN_NAME}} Domain - GOD Document
 
 > **GOD** - Developer-facing reference for the {{DOMAIN_NAME}} domain

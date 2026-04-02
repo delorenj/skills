@@ -3,6 +3,8 @@ title: Use Compound Components Over Polymorphic Children
 impact: MEDIUM
 impactDescription: flexible composition, clearer API
 tags: design-system, components, composition
+pipeline-status:
+  - new
 ---
 
 ## Use Compound Components Over Polymorphic Children

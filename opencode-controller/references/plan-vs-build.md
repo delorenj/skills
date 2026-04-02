@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 ## Plan mode
 
 - Thinking only
