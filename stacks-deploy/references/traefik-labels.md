@@ -51,6 +51,14 @@ labels:
   - "traefik.http.services.SERVICE-api.loadbalancer.server.port=API_PORT"
 ```
 
+**IMPORTANT:** Multi-level subdomains like `api.SERVICE.delo.sh` are NOT covered by
+the `*.delo.sh` wildcard CNAME. You must create an explicit CNAME record via the
+Cloudflare API. See `ecosystem-patterns/references/docker_patterns.md` for the
+API examples and the DNS edit token location.
+
+Prefer single-level subdomains (e.g., `SERVICE-api.delo.sh`) when possible to
+avoid this extra step.
+
 ## Environment Variable Domain
 
 Use env var substitution for the domain when it appears in multiple places:
