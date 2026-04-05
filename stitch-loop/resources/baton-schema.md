@@ -1,7 +1,3 @@
----
-pipeline-status:
-  - new
----
 # Baton File Schema
 
 The baton file (`next-prompt.md`) is the communication mechanism between loop iterations. It tells the next agent what to build.
