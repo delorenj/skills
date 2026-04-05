@@ -1,6 +1,8 @@
 ---
 name: tailnet-multi-machine
-description: "Execute commands and manage services across all machines on the Tailnet. Use when tasks involve remote machines, cross-machine deployment, file transfers, service management on non-local hosts, or any operation that spans multiple machines."
+description: Execute commands and manage services across all machines on the Tailnet. Use when tasks involve remote machines, cross-machine deployment, file transfers, service management on non-local hosts, or any operation that spans multiple machines.
+pipeline-status:
+  - new
 ---
 
 # Tailnet Multi-Machine Operations

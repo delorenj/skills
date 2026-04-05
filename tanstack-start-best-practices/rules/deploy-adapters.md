@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # deploy-adapters: Choose Appropriate Deployment Adapter
 
 ## Priority: LOW

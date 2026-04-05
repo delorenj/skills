@@ -1,6 +1,8 @@
 ---
 name: hindsight-memory-governance
 description: DEPRECATED shim. Memory governance is consolidated into the single `hindsight` skill package.
+pipeline-status:
+  - new
 ---
 
 # DEPRECATED

@@ -3,6 +3,8 @@ title: Hoist Intl Formatter Creation
 impact: LOW-MEDIUM
 impactDescription: avoids expensive object recreation
 tags: javascript, intl, optimization, memoization
+pipeline-status:
+  - new
 ---
 
 ## Hoist Intl Formatter Creation

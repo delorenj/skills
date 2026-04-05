@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # WebGPU & Three.js for Expo
 
 **Use this skill for ANY 3D graphics, games, GPU compute, or Three.js features in React Native.**

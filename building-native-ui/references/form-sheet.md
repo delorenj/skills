@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Form Sheets in Expo Router
 
 This skill covers implementing form sheets with footers using Expo Router's Stack navigator and react-native-screens.

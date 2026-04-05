@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Channels Module API Reference
 
 ## Table of Contents

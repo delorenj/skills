@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 **Skill**: [mise-tasks](../SKILL.md) | **Related**: [semantic-release](../../semantic-release/SKILL.md) | [pypi-doppler](../../pypi-doppler/SKILL.md)
 
 # Release Workflow Patterns for mise Tasks

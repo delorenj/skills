@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Zellij Plugin Development Tutorial
 
 Complete guide to developing Zellij plugins in Rust/WASM.

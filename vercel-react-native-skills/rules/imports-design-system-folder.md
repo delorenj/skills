@@ -3,6 +3,8 @@ title: Import from Design System Folder
 impact: LOW
 impactDescription: enables global changes and easy refactoring
 tags: imports, architecture, design-system
+pipeline-status:
+  - new
 ---
 
 ## Import from Design System Folder

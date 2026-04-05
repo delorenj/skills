@@ -2,8 +2,10 @@
 name: enhance-prompt
 description: Transforms vague UI ideas into polished, Stitch-optimized prompts. Enhances specificity, adds UI/UX keywords, injects design system context, and structures output for better generation results.
 allowed-tools:
-  - "Read"
-  - "Write"
+  - Read
+  - Write
+pipeline-status:
+  - new
 ---
 
 # Enhance Prompt for Stitch

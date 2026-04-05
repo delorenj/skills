@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Plugin Examples: UI and Navigation
 
 Real-world examples demonstrating UI rendering, search, and navigation patterns.

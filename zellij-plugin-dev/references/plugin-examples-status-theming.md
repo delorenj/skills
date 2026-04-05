@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Plugin Examples: Status Bars and Theming
 
 Real-world example demonstrating configuration systems, theming, and rendering patterns.

@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # ssr-prerender: Configure Static Prerendering and ISR
 
 ## Priority: MEDIUM

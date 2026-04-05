@@ -1,9 +1,10 @@
 ---
 title: Use Galeria for Image Galleries and Lightbox
 impact: MEDIUM
-impactDescription:
-  native shared element transitions, pinch-to-zoom, pan-to-close
+impactDescription: native shared element transitions, pinch-to-zoom, pan-to-close
 tags: images, gallery, lightbox, expo-image, ui
+pipeline-status:
+  - new
 ---
 
 ## Use Galeria for Image Galleries and Lightbox

@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Monitoring
 
 Hindsight provides comprehensive observability through Prometheus metrics, OpenTelemetry distributed tracing, and pre-built Grafana dashboards.

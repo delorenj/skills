@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 ## Handling questions from Opencode
 
 - If Opencode asks a question:

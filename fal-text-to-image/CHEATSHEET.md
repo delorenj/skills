@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # fal.ai Image Tools Quick Reference
 
 ## Three Tools at a Glance

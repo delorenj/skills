@@ -3,6 +3,8 @@ title: Prefer useDerivedValue Over useAnimatedReaction
 impact: MEDIUM
 impactDescription: cleaner code, automatic dependency tracking
 tags: animation, reanimated, derived-value
+pipeline-status:
+  - new
 ---
 
 ## Prefer useDerivedValue Over useAnimatedReaction

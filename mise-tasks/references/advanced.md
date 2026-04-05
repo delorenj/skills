@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # mise Tasks Advanced Features
 
 Advanced features for watch mode, monorepo support, and experimental functionality.

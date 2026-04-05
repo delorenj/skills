@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Prebuilt Flow Reference (ClerkKitUI)
 
 Use this file only when flow type is `prebuilt`.

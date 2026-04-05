@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # FLP File Parsing with PyFLP
 
 ## Table of Contents

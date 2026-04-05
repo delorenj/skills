@@ -1,6 +1,8 @@
 ---
 name: google
 description: Use when you need to interact with Google services from Clawdbot, including Gmail, Calendar, Drive, Contacts, Sheets, and Docs.
+pipeline-status:
+  - new
 ---
 
 # Google Services Actions

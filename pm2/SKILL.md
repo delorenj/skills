@@ -1,6 +1,8 @@
 ---
 name: pm2
 description: Manage Node.js applications with PM2 process manager. Use for deploying, monitoring, and auto-restarting Node apps in production. Covers starting apps, viewing logs, setting up auto-start on boot, and managing multiple processes.
+pipeline-status:
+  - new
 ---
 
 # PM2 Process Manager

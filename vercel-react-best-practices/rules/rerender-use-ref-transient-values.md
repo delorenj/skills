@@ -3,6 +3,8 @@ title: Use useRef for Transient Values
 impact: MEDIUM
 impactDescription: avoids unnecessary re-renders on frequent updates
 tags: rerender, useref, state, performance
+pipeline-status:
+  - new
 ---
 
 ## Use useRef for Transient Values

@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Tauri - Security
 
 **Pages:** 8

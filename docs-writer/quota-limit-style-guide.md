@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Style Guide: Quota vs. Limit
 
 This guide defines the usage of "quota," "limit," and related terms in

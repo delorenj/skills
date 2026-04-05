@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Backlog
 
 *Triaged work queue. Self-service from Ready.*

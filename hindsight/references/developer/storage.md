@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Storage
 
 Hindsight uses PostgreSQL as its sole storage backend.

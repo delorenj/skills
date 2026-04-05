@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Workflow: Event/Command Contract Rollout
 
 Deterministic runbook for introducing or pruning contracts.

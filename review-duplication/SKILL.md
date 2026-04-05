@@ -1,6 +1,8 @@
 ---
 name: review-duplication
 description: Use this skill during code reviews to proactively investigate the codebase for duplicated functionality, reinvented wheels, or failure to reuse existing project best practices and shared utilities.
+pipeline-status:
+  - new
 ---
 
 # Review Duplication

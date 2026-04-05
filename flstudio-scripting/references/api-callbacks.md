@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Callbacks & FlMidiMsg Reference
 
 ## Table of Contents

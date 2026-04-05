@@ -1,7 +1,9 @@
 ---
 name: mise-tasks
-description: "Orchestrate multi-step project workflows using mise task definitions with dependency management and argument handling. Use whenever the user wants to create, edit, or debug mise tasks, wire up task dependencies with depends/depends_post, or run workflows via 'mise run'. Also use when setting up task runners or automating build pipelines through mise. Do NOT use for mise environment variable configuration (use mise-configuration instead) or for general shell scripting unrelated to mise."
+description: Orchestrate multi-step project workflows using mise task definitions with dependency management and argument handling. Use whenever the user wants to create, edit, or debug mise tasks, wire up task dependencies with depends/depends_post, or run workflows via 'mise run'. Also use when setting up task runners or automating build pipelines through mise. Do NOT use for mise environment variable configuration (use mise-configuration instead) or for general shell scripting unrelated to mise.
 allowed-tools: Read, Bash, Glob, Grep, Edit, Write
+pipeline-status:
+  - new
 ---
 
 # mise Tasks Orchestration

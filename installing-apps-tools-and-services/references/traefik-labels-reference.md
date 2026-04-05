@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Traefik Labels Reference
 
 Common Traefik label patterns for Docker service integration.

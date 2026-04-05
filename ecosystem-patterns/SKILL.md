@@ -1,6 +1,8 @@
 ---
 name: ecosystem-patterns
-description: "Use this when creating new projects, generating documentation, cleaning/organizing a repo, suggesting architecture, deploying containers and services, naming files/folders, or when the user references 'ecosystem', 'patterns', or 'containers'. This skill outlines naming conventions, stack preferences, project organization (iMi worktrees), Docker patterns, and PRD structures from past conversations."
+description: Use this when creating new projects, generating documentation, cleaning/organizing a repo, suggesting architecture, deploying containers and services, naming files/folders, or when the user references 'ecosystem', 'patterns', or 'containers'. This skill outlines naming conventions, stack preferences, project organization (iMi worktrees), Docker patterns, and PRD structures from past conversations.
+pipeline-status:
+  - new
 ---
 
 # Preferred Patterns

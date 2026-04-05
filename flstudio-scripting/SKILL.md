@@ -1,6 +1,8 @@
 ---
 name: flstudio-scripting
 description: FL Studio Python scripting for MIDI controller development, piano roll manipulation, Edison audio editing, workflow automation, and FLP file parsing with PyFLP. Use for programmatic configuration, device customization, MIDI transport, macros, and save file manipulation. Covers all 427+ API functions across 14 MIDI scripting modules plus piano roll, Edison, and PyFLP contexts.
+pipeline-status:
+  - new
 ---
 
 # FL Studio Python Scripting

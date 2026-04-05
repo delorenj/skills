@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # ssr-hydration-safety: Prevent Hydration Mismatches
 
 ## Priority: MEDIUM

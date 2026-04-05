@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Search
 
 ## Header Search Bar

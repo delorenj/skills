@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # React Native Guidelines
 
 A structured repository for creating and maintaining React Native Best Practices

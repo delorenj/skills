@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Component Patterns Library
 
 Common UI component patterns with Tailwind CSS + Shadcn/ui examples.

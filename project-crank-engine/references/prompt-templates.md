@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Project Crank Engine Prompt Templates
 
 ## Template A — Sprint Finish Crank (default)

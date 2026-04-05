@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Vector Update Policy
 
 Use stable, interpretable weights so humans can reason about model behavior.

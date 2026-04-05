@@ -5,6 +5,8 @@ description: |
   This skill uses an outdated workflow (Pixabay sourcing, local potrace).
   The replacement skill uses Google Images → screenshot → fal.ai Qwen + Recraft.
   Do not use this skill for new coloring book work.
+pipeline-status:
+  - new
 ---
 
 # DigiPop Coloring Book Creation Pipeline

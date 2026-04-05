@@ -1,5 +1,7 @@
 ---
 sidebar_position: 7
+pipeline-status:
+  - new
 ---
 
 # Stance Tracker

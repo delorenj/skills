@@ -1,6 +1,8 @@
 ---
 name: fal-text-to-image
 description: Generate, remix, and edit images using fal.ai's AI models. Supports text-to-image generation, image-to-image remixing, and targeted inpainting/editing.
+pipeline-status:
+  - new
 ---
 
 # fal.ai Image Generation & Editing Skill

@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Creating Behavioral Evals
 
 ## 🔬 Rig Selection

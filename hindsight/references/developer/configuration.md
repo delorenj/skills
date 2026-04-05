@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Configuration
 
 Complete reference for configuring Hindsight services through environment variables.

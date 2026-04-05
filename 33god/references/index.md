@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # 33GOD Reference Index
 
 Use this file to choose exactly where to go next.

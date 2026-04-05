@@ -4,6 +4,8 @@ description: Plan and generate terminal ASCII animations/screensaver-style outpu
 license: Complete terms in LICENSE.txt
 dependencies:
   - python>=3.8
+pipeline-status:
+  - new
 ---
 
 

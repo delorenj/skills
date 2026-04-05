@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Alert Rules Guide
 
 ## Rule File Locations

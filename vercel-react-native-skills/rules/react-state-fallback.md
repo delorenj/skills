@@ -3,6 +3,8 @@ title: Use fallback state instead of initialState
 impact: MEDIUM
 impactDescription: reactive fallbacks without syncing
 tags: state, hooks, derived-state, props, initialState
+pipeline-status:
+  - new
 ---
 
 ## Use fallback state instead of initialState

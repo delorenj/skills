@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # [Product Name] Product Requirements Document
 
 **Version:** 1.0  

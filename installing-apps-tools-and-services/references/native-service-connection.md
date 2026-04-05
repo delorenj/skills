@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Native Service Connection Patterns
 
 Connecting Docker containers to native (host-installed) services like PostgreSQL, Redis, Neo4j, and (Non-native) Qdrant.

@@ -1,6 +1,8 @@
 ---
 name: opencode-controller
 description: Control and operate Opencode via slash commands. Use this skill to manage sessions, select models, switch agents (plan/build), and coordinate coding through Opencode.
+pipeline-status:
+  - new
 ---
 
 # Opencode Controller

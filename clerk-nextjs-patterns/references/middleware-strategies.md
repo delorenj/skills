@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Middleware Strategies (HIGH)
 
 > **Filename:** `proxy.ts` (Next.js <=15: `middleware.ts`). The code is identical; only the filename changes.

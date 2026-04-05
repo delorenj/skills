@@ -18,7 +18,9 @@ references:
   - core-3/show-component.md
 metadata:
   author: clerk
-  version: "2.2.0"
+  version: 2.2.0
+pipeline-status:
+  - new
 ---
 
 # Custom UI

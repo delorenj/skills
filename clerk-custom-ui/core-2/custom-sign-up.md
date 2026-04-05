@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Custom Sign-Up Flow (Core 2)
 
 > This document covers the **older SDK** (`@clerk/nextjs` v5–v6, `@clerk/clerk-react` v5–v6, `@clerk/clerk-expo` v1–v2). For the current SDK, see `core-3/custom-sign-up.md`.

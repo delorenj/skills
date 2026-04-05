@@ -1,6 +1,8 @@
 ---
 name: 33god
 description: "Unified 33GOD master skill and router. Use for any 33GOD request: architecture context, project creation, task execution, coding workflow, service development, workflow generation, and platform-level orchestration. This skill routes to focused references/workflows/scripts for incremental discovery."
+pipeline-status:
+  - new
 ---
 
 # 33GOD Master Router

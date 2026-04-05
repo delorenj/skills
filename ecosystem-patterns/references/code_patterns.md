@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Code Patterns & Style Guide
 
 ## Core Architectural Principles

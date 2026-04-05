@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Services
 
 Hindsight consists of three services that can run together or separately depending on your deployment needs.

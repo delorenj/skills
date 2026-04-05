@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # New Architecture
 
 The New Architecture is enabled by default in Expo SDK 53+. It replaces the legacy bridge with a faster, synchronous communication layer between JavaScript and native code.

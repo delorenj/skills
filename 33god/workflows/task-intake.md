@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Workflow: Task Intake
 
 1. Record task source ID.

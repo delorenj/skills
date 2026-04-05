@@ -1,6 +1,8 @@
 ---
 name: ralph-wiggum-v2
 description: Autonomous TDD development loop with parallel agent swarm, category evolution, and convergence detection. Use when running autonomous game development, quality improvement loops, or comprehensive codebase reviews.
+pipeline-status:
+  - new
 ---
 
 # Ralph Wiggum v2 - Autonomous TDD Development Loop

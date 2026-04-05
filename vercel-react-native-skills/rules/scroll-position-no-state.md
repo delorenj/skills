@@ -3,6 +3,8 @@ title: Never Track Scroll Position in useState
 impact: HIGH
 impactDescription: prevents render thrashing during scroll
 tags: scroll, performance, reanimated, useRef
+pipeline-status:
+  - new
 ---
 
 ## Never Track Scroll Position in useState

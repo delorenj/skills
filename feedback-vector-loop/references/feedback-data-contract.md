@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Feedback Data Contract
 
 ## Feedback row schema (JSONL)

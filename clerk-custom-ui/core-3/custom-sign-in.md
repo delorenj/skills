@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Custom Sign-In Flow
 
 Build a custom sign-in experience using the `useSignIn()` hook.

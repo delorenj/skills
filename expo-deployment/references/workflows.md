@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # EAS Workflows
 
 Automate builds, submissions, and deployments with EAS Workflows.

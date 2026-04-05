@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Tauri - Plugins
 
 **Pages:** 5

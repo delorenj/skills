@@ -1,6 +1,8 @@
 ---
 name: feedback-vector-loop
 description: Build reusable directional-feedback loops for any creative/agentic pipeline. Use when replacing binary thumbs-up/down with structured critique vectors (more/less/avoid/replace), compiling feedback into weight adjustments, ranking candidates with those vectors, and iteratively improving outputs with deterministic artifacts.
+pipeline-status:
+  - new
 ---
 
 # Feedback Vector Loop

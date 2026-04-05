@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Remotion Video Design System
 
 This file defines the visual design rules for generated Remotion videos. Claude will use these settings when creating video compositions.

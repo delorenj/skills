@@ -3,6 +3,8 @@ title: Destructure Functions Early in Render (React Compiler)
 impact: HIGH
 impactDescription: stable references, fewer re-renders
 tags: rerender, hooks, performance, react-compiler
+pipeline-status:
+  - new
 ---
 
 ## Destructure Functions Early in Render

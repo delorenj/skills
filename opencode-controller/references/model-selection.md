@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 ## Model selection procedure
 
 - Open model selector with:

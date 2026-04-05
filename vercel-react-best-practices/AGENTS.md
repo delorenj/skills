@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # React Best Practices
 
 **Version 1.0.0**  
