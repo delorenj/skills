@@ -1,50 +1,80 @@
 # Self-Improving Agent
 
-A universal self-improvement system that learns from ALL skill experiences and continuously updates the codebase.
+Structured learning loop for agent work. This skill does not rewrite prompts or mutate skills from raw experience. It records bounded observations, rolls them into episodes, extracts candidate lessons after repeated failures, and publishes the resulting `agent.learning.*` events to Bloodbank on a best-effort basis.
 
-## Overview
+## Operating Model
 
-This agent learns from **every skill interaction** to achieve true lifelong learning. It implements a complete feedback loop with multi-memory architecture, self-correction, and evolution markers.
+The loop is deliberately split into four stages:
 
-## Key Features
+1. Observation
+   - Capture minimal metadata from tool use.
+   - Redact obvious secrets and keep only short previews.
+   - Never persist full prompts, diffs, or command output by default.
+2. Episode creation
+   - Collapse a session into a compact success/failure record.
+   - Preserve the dominant failure mode, task tags, and evidence references.
+3. Candidate extraction
+   - Propose a lesson only after repeated failure modes.
+   - Store candidates separately from active guidance.
+4. Validation and promotion
+   - Default validation result is `needs_more_data`.
+   - Promotion, rejection, and rollback are explicit operations.
 
-- **Multi-Memory Architecture**: Semantic + Episodic + Working memory
-- **Universal Learning**: Learns from ALL skills, not just PRDs
-- **Pattern Extraction**: Converts experiences into reusable patterns
-- **Self-Correction**: Fixes skill guidance when errors occur
-- **Self-Validation**: Periodically verifies skill accuracy
-- **Automatic Updates**: Updates related skills based on learned patterns
-- **Confidence Tracking**: Measures pattern reliability over time
-- **Human-in-the-Loop**: Collects feedback to validate improvements
+The base skill stays stable. Durable guidance lives in an overlay lesson store.
 
-## Memory System
+## State Layout
 
+Runtime state lives outside the repo by default:
+
+```text
+~/.local/share/33god/self-improving-agent/
+  working/
+    current_session.json
+    last_error.json
+    session_end.json
+    observations.jsonl
+    events.jsonl
+    hook-runtime.log
+  candidates/
+    open.jsonl
+    validated.jsonl
+    rejected.jsonl
+  lessons/
+    active.json
+    archive.jsonl
+  episodes.jsonl
 ```
-~/.claude/memory/
-├── semantic/       # Patterns, rules, best practices
-├── episodic/       # Specific experiences and episodes
-└── working/        # Current session context
-```
 
-## How It Works
+Override the root with `SELF_IMPROVING_AGENT_STATE_DIR`.
 
-```
-Any Skill Completes
-        ↓
-Extract Experience → Identify Patterns → Update Skills → Consolidate Memory
-        ↓                     ↓                  ↓              ↓
-   What happened?    What can we reuse?   Which skills?    Track metrics
-```
+## Bloodbank / Holyfields Integration
 
-## Installation
+Holyfields defines the schema family:
+
+- `agent.learning.observation.recorded`
+- `agent.learning.episode.created`
+- `agent.learning.candidate.extracted`
+- `agent.learning.candidate.validated`
+- `agent.learning.lesson.promoted`
+- `agent.learning.lesson.rejected`
+- `agent.learning.lesson.rolled_back`
+- `agent.learning.retrieval.applied`
+
+The runtime publishes them through the Bloodbank CLI surface:
 
 ```bash
-ln -s ~/path/to/agent-playbook/skills/self-improving-agent ~/.claude/skills/self-improving-agent
+uv run bb publish <routing-key> --json -
 ```
 
-## Hooks (Optional)
+Publishing is best-effort:
 
-Wire hooks to capture errors and session-end signals:
+- Set `SELF_IMPROVING_AGENT_DISABLE_BLOODBANK=1` to disable publish attempts.
+- Set `SELF_IMPROVING_AGENT_BLOODBANK_ROOT` if Bloodbank is not at `~/code/33GOD/bloodbank`.
+- Local state is still written even when Bloodbank is unavailable.
+
+## Hook Installation
+
+Use the hook wrappers directly. Do not interpolate raw tool payloads into the shell command.
 
 ```json
 {
@@ -53,7 +83,7 @@ Wire hooks to capture errors and session-end signals:
       {
         "matcher": "Bash|Write|Edit",
         "hooks": [
-          { "type": "command", "command": "bash ${SKILLS_DIR}/self-improving-agent/hooks/pre-tool.sh \"$TOOL_NAME\" \"$TOOL_INPUT\"" }
+          { "type": "command", "command": "bash ${SKILLS_DIR}/self-improving-agent/hooks/pre-tool.sh" }
         ]
       }
     ],
@@ -61,7 +91,7 @@ Wire hooks to capture errors and session-end signals:
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "bash ${SKILLS_DIR}/self-improving-agent/hooks/post-bash.sh \"$TOOL_OUTPUT\" \"$EXIT_CODE\"" }
+          { "type": "command", "command": "bash ${SKILLS_DIR}/self-improving-agent/hooks/post-bash.sh" }
         ]
       }
     ],
@@ -77,60 +107,43 @@ Wire hooks to capture errors and session-end signals:
 }
 ```
 
-## Triggering
+The wrappers read `TOOL_NAME`, `TOOL_INPUT`, `TOOL_OUTPUT`, and `EXIT_CODE` from the hook environment when the host provides them. Positional fallbacks are kept only for backward compatibility.
 
-### Automatic
-After ANY skill completes:
-- prd-planner
-- code-reviewer
-- debugger
-- refactoring-specialist
-- etc.
+## Manual Operations
 
-### Manual
-```
-"自我进化"
-"self-improve"
-"分析今天的经验"
-"总结这次教训"
+Run these from the skill repo:
+
+```bash
+python3 scripts/hook_runtime.py retrieve-lessons --target-skill code-reviewer --task-tag verification
+python3 scripts/hook_runtime.py promote-candidate <candidate-id> --rollout-status active --ttl-days 30
+python3 scripts/hook_runtime.py reject-candidate <candidate-id> --reason "bad generalization"
+python3 scripts/hook_runtime.py rollback-lesson <lesson-id> --reason "false positive"
 ```
 
-## Example Learning
+## Environment Variables
 
-### Episode
-```yaml
-Skill: debugger
-Situation: Form submission doesn't refresh data
-Root Cause: Empty callback function
-Pattern: Always verify callbacks have implementations
-Confidence: 0.95 → Updates: debugger, prd-implementation-precheck
+- `SELF_IMPROVING_AGENT_AGENT_NAME`
+- `SELF_IMPROVING_AGENT_STATE_DIR`
+- `SELF_IMPROVING_AGENT_LOG_PATH`
+- `SELF_IMPROVING_AGENT_BLOODBANK_ROOT`
+- `SELF_IMPROVING_AGENT_DISABLE_BLOODBANK`
+- `SELF_IMPROVING_AGENT_SEED_PATTERNS`
+- `SELF_IMPROVING_AGENT_SESSION_KEY`
+
+## Seed Lessons
+
+`memory/semantic-patterns.json` is treated as a seed corpus, not a live mutation target. The runtime bootstraps those patterns into the active lesson store the first time state is created, then all subsequent promotion and rollback happens in external runtime state.
+
+## Verification
+
+Current local verification:
+
+```bash
+python3 -m unittest discover -s tests -p 'test_*.py'
 ```
 
-### Skill Update
-```markdown
-## Auto-Update (2025-01-11)
+Bloodbank-side verification for the event surface:
 
-### Pattern Added
-**Callback Verification**: Always verify that callback functions
-passed as props are not empty and actually execute logic.
-
-**Source**: Episode ep-2025-01-11-003 (3 occurrences)
-**Action**: Added to debugger checklist
+```bash
+uv run pytest tests/test_agent_feedback_refactor.py tests/test_agent_learning_registry.py
 ```
-
-## Research Basis
-
-- [SimpleMem: Efficient Lifelong Memory](https://arxiv.org/html/2601.02553v1)
-- [ACM Memory Mechanisms Survey](https://dl.acm.org/doi/10.1145/3748302)
-- [Lifelong Learning of LLM Agents](https://arxiv.org/html/2501.07278v1)
-
-## Templates
-
-Reusable templates live in `skills/self-improving-agent/templates`:
-- `pattern-template.md`
-- `correction-template.md`
-- `validation-template.md`
-
-## License
-
-MIT
