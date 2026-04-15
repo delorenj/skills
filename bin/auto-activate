@@ -1,0 +1,124 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""auto-activate — resolve project-local .skills-profile and activate it.
+
+Usage modes:
+    1. Hook mode: receives JSON on stdin (from SessionStart hook). Extracts
+       the project directory from the payload.
+    2. CLI mode: pass a directory as first arg.
+    3. Fallback: uses $CLAUDE_PROJECT_DIR or $PWD.
+
+Behavior:
+    Walks up from the resolved directory looking for a .skills-profile file.
+    If found, reads the first non-blank line as the profile name and invokes
+    ~/.agents/skills/bin/activate-profile <name>.
+
+    If no marker is found, the script exits silently — the currently active
+    profile (if any) is left untouched. This is deliberately non-destructive
+    to avoid surprising the user when opening CC in a directory with no
+    project-specific config.
+
+    When invoked as a hook, prints JSON on stdout to surface a systemMessage
+    to the user confirming which profile activated.
+"""
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+SKILLS_ROOT = Path(__file__).resolve().parent.parent
+ACTIVATE_PROFILE = SKILLS_ROOT / "bin" / "activate-profile"
+MARKER = ".skills-profile"
+
+
+def get_project_dir() -> Path | None:
+    # Hook mode: parse JSON from stdin if present.
+    if not sys.stdin.isatty():
+        try:
+            raw = sys.stdin.read()
+            if raw.strip():
+                data = json.loads(raw)
+                # Try common payload shapes.
+                for path in (
+                    data.get("cwd"),
+                    data.get("workspace", {}).get("current_dir"),
+                    data.get("project_dir"),
+                ):
+                    if path:
+                        return Path(path)
+        except (json.JSONDecodeError, ValueError, AttributeError):
+            pass
+
+    # CLI mode: explicit arg.
+    if len(sys.argv) > 1:
+        return Path(sys.argv[1])
+
+    # Fallback: env vars.
+    env_dir = os.environ.get("CLAUDE_PROJECT_DIR") or os.environ.get("PWD")
+    return Path(env_dir) if env_dir else None
+
+
+def find_marker(start: Path) -> tuple[Path, str] | None:
+    """Walk up from `start` looking for a .skills-profile file."""
+    try:
+        current = start.resolve()
+    except (OSError, RuntimeError):
+        return None
+
+    for parent in [current, *current.parents]:
+        marker_path = parent / MARKER
+        if marker_path.is_file():
+            for line in marker_path.read_text().splitlines():
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    return parent, line
+    return None
+
+
+def emit_hook_response(message: str) -> None:
+    """Emit JSON response for Claude Code hooks to display systemMessage."""
+    print(json.dumps({"systemMessage": message, "suppressOutput": True}))
+
+
+def main() -> None:
+    project_dir = get_project_dir()
+    if not project_dir or not project_dir.exists():
+        sys.exit(0)
+
+    found = find_marker(project_dir)
+    if not found:
+        sys.exit(0)
+
+    marker_dir, profile_name = found
+
+    try:
+        result = subprocess.run(
+            [str(ACTIVATE_PROFILE), profile_name],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+        emit_hook_response(f"skills profile activation failed: {e}")
+        sys.exit(0)
+
+    if result.returncode == 0:
+        emit_hook_response(
+            f"Skills profile '{profile_name}' activated "
+            f"(from {marker_dir}/.skills-profile)"
+        )
+    else:
+        emit_hook_response(
+            f"Skills profile '{profile_name}' activation failed: "
+            f"{result.stderr.strip() or result.stdout.strip()}"
+        )
+
+
+if __name__ == "__main__":
+    main()
