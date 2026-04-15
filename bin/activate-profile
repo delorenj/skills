@@ -1,0 +1,228 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["pyyaml>=6.0"]
+# ///
+"""activate-profile — switch the active skill profile.
+
+Usage:
+    activate-profile <name>      # activate a profile from skills.manifest.yaml
+    activate-profile none        # deactivate all filesystem profile skills
+    activate-profile --list      # list available profiles
+    activate-profile --status    # show currently active profile
+
+How it works:
+    Claude Code (and OpenCode/Codex) discover skills by scanning top-level
+    subdirectories of ~/.claude/skills/ for SKILL.md. Nested profile dirs are
+    NOT discovered. So activation creates top-level symlinks in the skills root
+    pointing into _profiles/<profile>/<skill>/. Deactivation removes them.
+
+    A hidden tracker file at _profiles/.active records which symlinks belong to
+    the active profile, so deactivation can clean up without guessing.
+
+    Plugin profiles (BMAD, agent-skills-lifecycle) are managed by Claude Code's
+    /plugin system; this script prints the right command but does not mutate
+    plugin state.
+"""
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+import yaml
+
+SKILLS_ROOT = Path(__file__).resolve().parent.parent
+MANIFEST = SKILLS_ROOT / "skills.manifest.yaml"
+PROFILES_DIR = SKILLS_ROOT / "_profiles"
+TRACKER = PROFILES_DIR / ".active"
+
+
+def load_manifest() -> dict:
+    if not MANIFEST.exists():
+        sys.exit(f"error: manifest not found at {MANIFEST}")
+    with MANIFEST.open() as f:
+        return yaml.safe_load(f) or {}
+
+
+def load_tracker() -> dict:
+    if not TRACKER.exists():
+        return {"profile": None, "links": []}
+    try:
+        return json.loads(TRACKER.read_text())
+    except json.JSONDecodeError:
+        return {"profile": None, "links": []}
+
+
+def save_tracker(state: dict) -> None:
+    PROFILES_DIR.mkdir(parents=True, exist_ok=True)
+    TRACKER.write_text(json.dumps(state, indent=2))
+
+
+def remove_active_links() -> list[str]:
+    """Remove top-level symlinks created by a previous activation."""
+    state = load_tracker()
+    removed = []
+    for link_name in state.get("links", []):
+        link_path = SKILLS_ROOT / link_name
+        if link_path.is_symlink():
+            link_path.unlink()
+            removed.append(link_name)
+    save_tracker({"profile": None, "links": []})
+    return removed
+
+
+def list_profiles() -> None:
+    manifest = load_manifest()
+    profiles = manifest.get("profiles", {})
+    print(f"Available profiles (from {MANIFEST}):")
+    for name, meta in profiles.items():
+        source = meta.get("source", "?")
+        desc = meta.get("description", "")
+        print(f"  - {name:25s} [{source:10s}] {desc}")
+
+
+def show_status() -> None:
+    state = load_tracker()
+    profile = state.get("profile")
+    if profile:
+        print(f"active profile: {profile}")
+        links = state.get("links", [])
+        if links:
+            print(f"  surfaced skills ({len(links)}):")
+            for link in links:
+                print(f"    - {link}")
+    else:
+        print("active profile: none")
+
+
+def resolve_profile_skills(name: str, profile: dict) -> list[Path]:
+    """Return absolute paths to each skill directory in the profile."""
+    source = profile.get("source")
+    if source != "filesystem":
+        return []
+
+    profile_dir = PROFILES_DIR / name
+    ext_path = profile.get("path")
+    declared = profile.get("skills") or []
+
+    if ext_path:
+        base = Path(ext_path).expanduser().resolve()
+        if not base.is_dir():
+            sys.exit(f"error: external path '{base}' does not exist")
+    elif profile_dir.exists():
+        base = profile_dir.resolve()
+    elif declared:
+        # Skills live in the main skills root; no profile dir needed.
+        base = SKILLS_ROOT
+    else:
+        sys.exit(
+            f"error: filesystem profile '{name}' has no path, no declared "
+            f"skills, and {profile_dir} does not exist"
+        )
+
+    if declared:
+        # Explicit skill list. Each entry resolves relative to SKILLS_ROOT (for
+        # skills that live in the main tree, like ralph-wiggum-v2) or relative
+        # to base if nested under the profile dir.
+        paths = []
+        for skill in declared:
+            candidate_root = SKILLS_ROOT / skill
+            candidate_nested = base / skill
+            if candidate_nested.is_dir():
+                paths.append(candidate_nested)
+            elif candidate_root.is_dir():
+                paths.append(candidate_root)
+            else:
+                print(
+                    f"warning: declared skill '{skill}' not found; skipping",
+                    file=sys.stderr,
+                )
+        return paths
+
+    # No explicit list: every immediate subdir of base that contains SKILL.md.
+    return [p for p in base.iterdir() if p.is_dir() and (p / "SKILL.md").exists()]
+
+
+def activate(name: str) -> None:
+    manifest = load_manifest()
+    profile = manifest.get("profiles", {}).get(name)
+    if profile is None:
+        print(f"error: profile '{name}' not found in manifest", file=sys.stderr)
+        list_profiles()
+        sys.exit(1)
+
+    # Clear any prior profile first.
+    removed = remove_active_links()
+    if removed:
+        print(f"cleared previous profile ({len(removed)} symlinks removed)")
+
+    source = profile.get("source")
+
+    if source == "plugin":
+        plugin = profile.get("plugin", "<unknown>")
+        print(f"plugin profile: {name}")
+        print(f"  in Claude Code, run: /plugin install {plugin}")
+        print("  disable conflicting plugins via: /plugin disable <other>")
+        save_tracker({"profile": name, "links": []})
+
+    elif source == "filesystem":
+        skills = resolve_profile_skills(name, profile)
+        if not skills:
+            print(f"warning: profile '{name}' has no resolvable skills")
+        created = []
+        for skill_path in skills:
+            link_name = skill_path.name
+            link = SKILLS_ROOT / link_name
+            if link.exists() and not link.is_symlink():
+                print(
+                    f"skip: {link_name} exists as real dir; refusing to overwrite",
+                    file=sys.stderr,
+                )
+                continue
+            if link.is_symlink():
+                link.unlink()
+            link.symlink_to(skill_path)
+            created.append(link_name)
+        save_tracker({"profile": name, "links": created})
+        print(f"activated filesystem profile: {name}")
+        for link in created:
+            print(f"  + {link}")
+
+    else:
+        sys.exit(f"error: unknown source type '{source}' for profile '{name}'")
+
+    conflicts = profile.get("conflicts_with") or []
+    if conflicts:
+        print()
+        print("conflicts (ensure these are deactivated):")
+        for c in conflicts:
+            print(f"  - {c}")
+
+
+def deactivate() -> None:
+    removed = remove_active_links()
+    if removed:
+        print(f"deactivated profile. removed {len(removed)} symlinks:")
+        for r in removed:
+            print(f"  - {r}")
+    else:
+        print("no active profile; nothing to clean up.")
+
+
+def main() -> None:
+    cmd = sys.argv[1] if len(sys.argv) > 1 else ""
+    if cmd in ("", "--help", "-h"):
+        print(__doc__)
+    elif cmd in ("--list", "-l"):
+        list_profiles()
+    elif cmd in ("--status", "-s"):
+        show_status()
+    elif cmd in ("none", "off"):
+        deactivate()
+    else:
+        activate(cmd)
+
+
+if __name__ == "__main__":
+    main()

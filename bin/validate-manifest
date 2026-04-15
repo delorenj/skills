@@ -1,0 +1,116 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["pyyaml>=6.0"]
+# ///
+"""validate-manifest — cross-check skills on disk against skills.manifest.yaml.
+
+Reports:
+    - Skills on disk not declared anywhere (orphans)
+    - Skills declared in manifest but missing on disk (ghosts)
+    - Skills declared in more than one bucket/profile (duplicates)
+
+Exits non-zero on any drift, suitable for CI.
+"""
+from __future__ import annotations
+
+import sys
+from collections import Counter
+from pathlib import Path
+
+import yaml
+
+SKILLS_ROOT = Path(__file__).resolve().parent.parent
+MANIFEST = SKILLS_ROOT / "skills.manifest.yaml"
+
+# Paths to exclude from disk enumeration (not skills).
+EXCLUDED = {
+    "bin",
+    "_profiles",
+    "skills.manifest.yaml",
+    "mise.toml",
+    "MEMORY.md",
+    ".env",
+    ".git",
+    ".gitignore",
+    ".github",
+    "README.md",
+    "SKILL.md",
+}
+
+
+def skills_on_disk() -> set[str]:
+    return {
+        p.name
+        for p in SKILLS_ROOT.iterdir()
+        if p.is_dir() and p.name not in EXCLUDED and not p.name.startswith(".")
+    }
+
+
+def declared_skills(manifest: dict) -> tuple[Counter, dict[str, list[str]]]:
+    """Return (count_by_name, locations_by_name)."""
+    counts: Counter = Counter()
+    locations: dict[str, list[str]] = {}
+
+    for bucket, skills in (manifest.get("always_on") or {}).items():
+        for skill in skills or []:
+            counts[skill] += 1
+            locations.setdefault(skill, []).append(f"always_on.{bucket}")
+
+    for name, profile in (manifest.get("profiles") or {}).items():
+        for skill in profile.get("skills") or []:
+            counts[skill] += 1
+            locations.setdefault(skill, []).append(f"profiles.{name}")
+
+    return counts, locations
+
+
+def main() -> None:
+    if not MANIFEST.exists():
+        sys.exit(f"error: manifest not found at {MANIFEST}")
+
+    manifest = yaml.safe_load(MANIFEST.read_text()) or {}
+    disk = skills_on_disk()
+    counts, locations = declared_skills(manifest)
+    declared = set(counts.keys())
+
+    orphans = sorted(disk - declared)
+    ghosts = sorted(declared - disk)
+    duplicates = sorted(name for name, count in counts.items() if count > 1)
+
+    print(f"Disk:     {len(disk)} skills")
+    print(f"Declared: {len(declared)} skills")
+    print()
+
+    ok = True
+
+    if orphans:
+        ok = False
+        print(f"ORPHANS ({len(orphans)}): on disk, not in manifest")
+        for s in orphans:
+            print(f"  - {s}")
+        print()
+
+    if ghosts:
+        ok = False
+        print(f"GHOSTS ({len(ghosts)}): in manifest, not on disk")
+        for s in ghosts:
+            print(f"  - {s} (declared in: {', '.join(locations[s])})")
+        print()
+
+    if duplicates:
+        ok = False
+        print(f"DUPLICATES ({len(duplicates)}): declared more than once")
+        for s in duplicates:
+            print(f"  - {s}: {', '.join(locations[s])}")
+        print()
+
+    if ok:
+        print("OK: manifest matches disk state exactly.")
+        sys.exit(0)
+    else:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

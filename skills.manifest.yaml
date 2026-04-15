@@ -1,0 +1,261 @@
+# Skills Manifest
+# Source of truth for skill organization across CLIs.
+# Consumed by: bin/activate-profile, bin/validate-manifest (future), CLI adapters.
+#
+# Audit date: 2026-04-14 (120 local skills in ~/.agents/skills/)
+#
+# Rules:
+#   - Every subdirectory of ~/.agents/skills/ MUST appear in `always_on.<bucket>`
+#     or in a profile's skills list (but not both).
+#   - Profiles are mutually exclusive at activation time.
+#   - Plugins (CC-specific) are declared for documentation but not enforced.
+
+version: 1
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Always-on skills: loaded on every CLI, every session.
+# Organized by bucket for human navigation. Buckets are descriptive only;
+# the activator does not treat them specially.
+# ─────────────────────────────────────────────────────────────────────────────
+always_on:
+
+  # Clerk authentication ecosystem (10 skills).
+  clerk:
+    - clerk
+    - clerk-android
+    - clerk-backend-api
+    - clerk-custom-ui
+    - clerk-nextjs-patterns
+    - clerk-orgs
+    - clerk-setup
+    - clerk-swift
+    - clerk-testing
+    - clerk-webhooks
+
+  # Expo / React Native platform (10 skills).
+  expo:
+    - building-native-ui
+    - expo-api-routes
+    - expo-cicd-workflows
+    - expo-deployment
+    - expo-dev-client
+    - expo-module
+    - expo-tailwind-setup
+    - native-data-fetching
+    - upgrading-expo
+    - use-dom
+
+  # React / Next.js / TanStack / shadcn (7 skills).
+  react_ecosystem:
+    - react-components
+    - shadcn-components
+    - shadcn-ui
+    - tanstack-start-best-practices
+    - vercel-composition-patterns
+    - vercel-react-best-practices
+    - vercel-react-native-skills
+
+  # Google Stitch design workflow (5 skills).
+  stitch:
+    - design-md
+    - enhance-prompt
+    - stitch-design
+    - stitch-loop
+    - taste-design
+
+  # AI agent frameworks (2 skills).
+  ai_frameworks:
+    - agno
+    - letta
+
+  # Other domain/platform expertise (5 skills).
+  domain_other:
+    - chrome-extension-developer
+    - flstudio-scripting
+    - tauri
+    - temporal-python-testing
+    - zellij-plugin-dev
+
+  # Creative content generation: voice, image, video, books (7 skills).
+  content_creation:
+    - creating-coloring-books
+    - digipop-coloring-book-creation   # DEPRECATED: replaced by creating-coloring-books
+    - elevenlabs-remotion
+    - elevenlabs-voices
+    - fal-text-to-image
+    - remotion
+    - vox-tts
+
+  # External service integrations (13 skills).
+  integrations:
+    - copilot-money
+    - echobox-pipeline
+    - fireflies
+    - follow-up-boss
+    - google
+    - just-fucking-cancel
+    - managing-tickets-and-tasks-in-plane
+    - notebooklm
+    - obsidian-vault-management
+    - openrouter-transcribe
+    - phone-agent
+    - pikastream-video-meeting
+    - stealth-browser
+
+  # Self-hosted infrastructure and message/event backbone (7 skills).
+  infrastructure:
+    - event-driven-architecture
+    - monitoring-stack
+    - oauth-helper
+    - pm2
+    - rabbitmq-management
+    - stacks-deploy
+    - tailnet-multi-machine
+
+  # Hindsight and memory/context persistence (3 skills).
+  memory:
+    - hindsight
+    - hindsight-memory-governance       # DEPRECATED: consolidated into hindsight
+    - hindsight-self-hosted
+
+  # 33GOD platform components and internal tooling (11 skills).
+  33god_ecosystem:
+    - 33god
+    - 33god-task-triage
+    - agent-factory
+    - agent-team-kit
+    - bub-email-triage
+    - god-docs
+    - openclaw-runtime-git
+    - openclaw-upgrade
+    - project-crank-engine
+    - security-monitor
+    - svgme-status-handoff
+
+  # Development workflow utilities: PRs, issues, reviews, debugging (11 skills).
+  utility_dev:
+    - async-pr-review
+    - behavioral-evals
+    - ci
+    - code-reviewer
+    - debugging-complex-multi-layer-systems
+    - github-issue-creator
+    - pr-address-comments
+    - pr-creator
+    - review-duplication
+    - string-reviewer
+    - unfuck-my-git-state
+
+  # Documentation, design, and architecture authoring (8 skills).
+  utility_docs:
+    - c4-architecture
+    - docs-changelog
+    - docs-writer
+    - ecosystem-patterns
+    - high-end-visual-design
+    - product-changelog
+    - ui-ux-design
+    - web-design-guidelines
+
+  # Meta-skills: skill/agent/context/mise management, misc automation (19 skills).
+  # CANDIDATES FOR PRUNING: this bucket has the most speculative inclusions.
+  # Reviewing these would give the largest context wins.
+  utility_meta:
+    - agent-browser
+    - ascii-cli-logo-banner
+    - ascii-terminal-animation-pack
+    - coding-strategy
+    - context-optimizer
+    - context-self-heal
+    - creating-workflows-using-claude-flow
+    - feedback-vector-loop
+    - find-skills
+    - installing-apps-tools-and-services
+    - launch-strategy
+    - mise-task-managing
+    - mise-tasks
+    - opencode-controller
+    - pirate-skill            # candidate for removal: novelty only
+    - pjangler-dev
+    - pricing-strategy
+    - self-improving-agent
+    - skill-creator
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Profiles: mutually exclusive workflow methodologies.
+# Activate exactly one via: ~/.agents/skills/bin/activate-profile <name>
+# ─────────────────────────────────────────────────────────────────────────────
+profiles:
+
+  bmad:
+    description: "BMAD methodology: spec-driven, multi-persona agent workflow"
+    source: plugin
+    plugin: "bmad@bmad-method"
+    skills: []
+    conflicts_with:
+      - google
+      - agent-skills-lifecycle
+      - ralph-wiggum
+
+  google:
+    description: "Google agent skills lifecycle (~/code/google-agent-skills)"
+    source: filesystem
+    path: "~/code/google-agent-skills"
+    skills: []
+    conflicts_with:
+      - bmad
+      - agent-skills-lifecycle
+      - ralph-wiggum
+
+  agent-skills-lifecycle:
+    description: "addy-agent-skills plugin lifecycle (idea-refine -> ship)"
+    source: plugin
+    plugin: "agent-skills@addy-agent-skills"
+    skills: []
+    conflicts_with:
+      - bmad
+      - google
+      - ralph-wiggum
+
+  ralph-wiggum:
+    description: "Autonomous TDD swarm loop with parallel agent evolution"
+    source: filesystem
+    skills:
+      - ralph-wiggum-v2
+      - subagent-driven-development
+    conflicts_with:
+      - bmad
+      - google
+      - agent-skills-lifecycle
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CLI-specific integration hints.
+# Used by adapter scripts to know where to symlink the active profile output.
+# ─────────────────────────────────────────────────────────────────────────────
+cli_targets:
+  claude_code: "~/.claude/skills"
+  opencode:    "~/.config/opencode/skills"
+  codex:       "~/.config/codex/skills"
+  gemini:      "~/.config/gemini/skills"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Audit notes (2026-04-14)
+# ─────────────────────────────────────────────────────────────────────────────
+# Total skills categorized: 120 (118 always-on + 2 in ralph-wiggum profile)
+#
+# Deprecated skills flagged for review/removal:
+#   - digipop-coloring-book-creation (superseded by creating-coloring-books)
+#   - hindsight-memory-governance    (consolidated into hindsight)
+#
+# Skills that could be profile-gated if unused frequently:
+#   - clerk.*              (10 skills; only needed on Clerk-using projects)
+#   - expo.*               (10 skills; only needed on Expo projects)
+#   - react_ecosystem.*    (7 skills; only needed on React projects)
+#   - content_creation.*   (7 skills; only when doing creative work)
+#
+# If context budget becomes a problem, the highest-ROI action is moving the
+# above four buckets into filesystem profiles keyed by project type (e.g.
+# profile: react-native-app activates clerk + expo + react_ecosystem).
+#
+# Context cost note: ~120 skills at ~30 tokens/metadata entry ≈ 3.6K tokens
+# ALWAYS present in Claude Code context. That's the baseline.

@@ -1,2 +1,5 @@
 .env*
 __pycache__
+
+# Profile activation state is per-machine / per-session; do not track.
+_profiles/
