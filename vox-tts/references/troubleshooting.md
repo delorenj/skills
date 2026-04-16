@@ -2,6 +2,42 @@
 
 Observed failure modes and their fixes, ordered by how often they bite.
 
+## Telegram rejects the voice note / sends it as a file
+
+**Symptom:** `sendVoice` returns 400 `Bad Request: WEBPAGE_CURL_FAILED` or Telegram shows a file icon with no waveform.
+
+**Causes, in order:**
+
+1. **Passed a WAV URL where OGG/Opus is required.** Use `speak_url` (returns `.ogg`), not `speak` or `/synthesize` (both return WAV). Telegram voice-notes require OGG/Opus at 48 kHz mono.
+2. **Cache URL expired.** Default TTL is 3600s (`VOX_AUDIO_TTL_SECONDS`). If the agent held the URL longer, resynthesize.
+3. **URL unreachable.** Telegram fetches from its own datacenters. Verify from outside the LAN: `curl -I https://vox.delo.sh/audio/<id>.ogg`. Must be 200 with `content-type: audio/ogg`.
+4. **Trying to `sendVoice` a WAV via OpenClaw `message send`.** The channel adapter only converts when the URL extension matches. Keep `.ogg`.
+
+## Fallback engine never engages
+
+**Symptom:** VoxCPM2 errors (OOM, CUDA fault), but `engine` in the response is still `"voxcpm"` and the request fails.
+
+**Cause:** `ELEVENLABS_API_KEY` is not set in the container env. `GET /healthz` confirms:
+
+```json
+{"engines":[{"name":"voxcpm","available":true},
+            {"name":"elevenlabs","available":false}]}
+```
+
+**Fix:** export `ELEVENLABS_API_KEY` on the host (or in the stack `.env`) and `docker compose up -d` to restart. Key lives in 1password DeLoSecrets.
+
+## Audio URL returns 404
+
+**Symptom:** `GET /audio/<id>.ogg` → 404 shortly after synthesis.
+
+**Causes:**
+
+1. Cache TTL expired. Check mtime: `docker exec vox ls -la /data/audio-cache/`.
+2. Container restarted and the bind mount was reset. Less common; re-synthesize.
+3. The cache id contains non-hex characters (path traversal guard kicks in, returns 404). Only hex uuids are valid; if you see this, something is generating bad ids client-side.
+
+
+
 ## MCP client gets 400 Bad Request
 
 **Symptom:** Agent (Hermes / OpenClaw / Claude Code) reports `Client error '400 Bad Request' for url 'https://vox.delo.sh/mcp/'` on connection test.

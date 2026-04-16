@@ -2,12 +2,115 @@
 
 One service, one contract, multiple consumers. All integrations speak to `https://vox.delo.sh`.
 
+## Universal integration checklist
+
+Before writing a new integration, walk this decision tree. Most new platforms fall into case 1 or case 2 and need zero code on the vox side.
+
+```
+Does the target...
+  1. Speak MCP (streamable HTTP)?
+     → Register https://vox.delo.sh/mcp/ (trailing slash!)
+     → Use the speak_url tool
+     → Example: Hermes, OpenClaw, Claude Code, Cursor, any FastMCP-native client
+
+  2. Accept a remote audio URL (the target fetches it)?
+     → POST /synthesize-url, pass audio_url into the target action
+     → Example: Telegram sendVoice, Discord embed, Home Assistant
+       media_player.play_media, <audio src="...">
+
+  3. Accept raw audio bytes uploaded by the caller?
+     → POST /synthesize, stream the returned WAV or transcode on the caller
+     → Example: legacy SIP voice gateways, some CMS pipelines
+
+  4. Run in Node.js / Node-RED?
+     → Install node-red-contrib-vox (bytes path) or copy the HTTP wrapper
+
+  5. None of the above?
+     → Make the caller do HTTP. Use the Python or TypeScript sketch at the
+       bottom of this file as the starting point.
+```
+
+**Rule of thumb:** prefer the URL path (`POST /synthesize-url` → `audio_url`) whenever the target supports it. Three wins:
+
+1. Agent-side token cost is tiny (small JSON, not base64 audio)
+2. The target's own CDN / fetcher handles delivery, letting it stream and cache
+3. Vox stays domain-pure; no target-specific knowledge leaks in
+
+The one hard rule: Telegram voice notes must be OGG/Opus, not WAV. That's why `speak_url` returns `.ogg` URLs. Do not try to hand `/synthesize`'s raw WAV to Telegram — `sendVoice` will reject it or downgrade playback.
+
+## Telegram (OpenClaw / direct Bot API)
+
+The universal delivery surface for OpenClaw agents. Two steps, regardless of agent.
+
+### From within an OpenClaw agent turn
+
+```
+1. call  vox:speak_url(text="...", voice?="rick")
+         → { audio_url, engine, duration_s, bytes }
+
+2. call  openclaw message send
+         --channel telegram
+         --target <chat_id>            # or "<group>:topic:<topic_id>"
+         --media  <audio_url>
+         --as-voice
+```
+
+The OpenClaw gateway resolves the `target`, POSTs the action to the Telegram adapter, and Telegram servers fetch the URL from `vox.delo.sh/audio/<uuid>.ogg` directly. Cache lives for `VOX_AUDIO_TTL_SECONDS` (default 3600s) — more than enough for Telegram to fetch.
+
+### From a cron / subagent (per-job `delivery` config)
+
+Cron jobs carry their own delivery block. For jobs that should speak their output:
+
+```json
+{
+  "delivery": {
+    "mode": "announce",
+    "channel": "telegram",
+    "to": "-1001234567890:topic:55"
+  },
+  "run": "agent.speakAndReport"
+}
+```
+
+The agent body still calls `vox:speak_url` internally; the gateway routes the resulting `message send` to the topic named in `delivery.to`.
+
+### From the Bot API directly (no OpenClaw)
+
+```bash
+# 1. Synthesize
+audio_url=$(
+  curl -fsS -X POST https://vox.delo.sh/synthesize-url \
+    -H 'content-type: application/json' \
+    -d '{"text":"System online","voice":"rick"}' \
+  | jq -r .audio_url
+)
+
+# 2. Send as voice note
+curl -fsS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendVoice" \
+     -d "chat_id=${TG_CHAT_ID}" \
+     -d "voice=${audio_url}"
+```
+
+The `voice=<url>` form tells Telegram to fetch. No multipart upload needed.
+
+**Gotchas:**
+
+- **Trailing slash** on `/mcp/` is mandatory for MCP; the `/audio/<id>.ogg` path has no such quirk.
+- **Cache expiry:** if you hold the URL longer than 1 hour, Telegram's fetch returns 404. Resynthesize.
+- **Size cap:** Telegram's `channels.telegram.mediaMaxMb` defaults to 100 MB. Voice notes at 32 kbps are ~4 KB/s; you'd need a 7+ hour monologue to trip it.
+- **Format:** `speak_url` always returns OGG/Opus (48 kHz mono, VoIP preset). Telegram's native voice-note format.
+
+## MCP-capable agents (Hermes, OpenClaw, Claude Code)
+
 ## MCP-capable agents (Hermes, OpenClaw, Claude Code)
 
 FastMCP is mounted at `/mcp/` (trailing slash required). Tools exposed:
 
-- `speak(text, voice=None, cfg=2.0, steps=10)` → base64 WAV
+- `speak(text, voice=None, cfg=2.0, steps=10)` → `{audio_wav_b64, engine, bytes}` — inline WAV bytes, for callers that process audio locally
+- `speak_url(text, voice=None, cfg=2.0, steps=10)` → `{audio_url, engine, duration_s, bytes, format}` — short-lived OGG/Opus URL, **preferred for delivery to Telegram/Discord/HA/browser**
 - `list_voices_tool()` → list of saved voices
+
+Every tool response carries `engine: "voxcpm" | "elevenlabs"` so agents can detect when ElevenLabs fallback engaged.
 
 ### Hermes
 
@@ -55,7 +158,7 @@ Claude Code reads MCP servers from `~/.claude/settings.json` under `mcpServers`:
 }
 ```
 
-Restart Claude Code after editing. Tools show up namespaced as `vox:speak` and `vox:list_voices_tool`.
+Restart Claude Code after editing. Tools show up namespaced as `vox:speak`, `vox:speak_url`, and `vox:list_voices_tool`.
 
 ## Node-RED
 
