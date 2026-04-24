@@ -1,25 +1,16 @@
----
-name: expo-deployment
-description: Deploying Expo apps to iOS App Store, Android Play Store, web hosting, and API routes
-version: 1.0.0
-license: MIT
-pipeline-status:
-  - new
----
-
 # Deployment
 
-This skill covers deploying Expo applications across all platforms using EAS (Expo Application Services).
+Deploying Expo applications across iOS App Store, Android Play Store, web hosting, and API routes using EAS (Expo Application Services).
 
-## References
+## Nested References
 
-Consult these resources as needed:
+Consult these as needed:
 
-- ./references/workflows.md -- CI/CD workflows for automated deployments and PR previews
-- ./references/testflight.md -- Submitting iOS builds to TestFlight for beta testing
-- ./references/app-store-metadata.md -- Managing App Store metadata and ASO optimization
-- ./references/play-store.md -- Submitting Android builds to Google Play Store
-- ./references/ios-app-store.md -- iOS App Store submission and review process
+- `./deployment/workflows.md` — CI/CD workflows for automated deployments and PR previews
+- `./deployment/testflight.md` — Submitting iOS builds to TestFlight for beta testing
+- `./deployment/app-store-metadata.md` — Managing App Store metadata and ASO optimization
+- `./deployment/play-store.md` — Submitting Android builds to Google Play Store
+- `./deployment/ios-app-store.md` — iOS App Store submission and review process
 
 ## Quick Start
 
@@ -122,20 +113,20 @@ Standard `eas.json` for production deployments:
 
 - Use `npx testflight` for quick TestFlight submissions
 - Configure Apple credentials via `eas credentials`
-- See ./reference/testflight.md for credential setup
-- See ./reference/ios-app-store.md for App Store submission
+- See `./deployment/testflight.md` for credential setup
+- See `./deployment/ios-app-store.md` for App Store submission
 
 ### Android
 
 - Set up Google Play Console service account
 - Configure tracks: internal → closed → open → production
-- See ./reference/play-store.md for detailed setup
+- See `./deployment/play-store.md` for detailed setup
 
 ### Web
 
 - EAS Hosting provides preview URLs for PRs
 - Production deploys to your custom domain
-- See ./reference/workflows.md for CI/CD automation
+- See `./deployment/workflows.md` for CI/CD automation
 
 ## Automated Deployments
 
@@ -164,7 +155,7 @@ jobs:
       profile: production
 ```
 
-See ./reference/workflows.md for more workflow examples.
+See `./deployment/workflows.md` for more workflow examples and `./cicd-workflows.md` for authoring/validating workflow YAML.
 
 ## Version Management
 

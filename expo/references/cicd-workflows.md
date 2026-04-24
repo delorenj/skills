@@ -1,25 +1,17 @@
----
-name: expo-cicd-workflows
-description: Helps understand and write EAS workflow YAML files for Expo projects. Use this skill when the user asks about CI/CD or workflows in an Expo or EAS context, mentions .eas/workflows/, or wants help with EAS build pipelines or deployment automation.
-allowed-tools: Read,Write,Bash(node:*)
-version: 1.0.0
-license: MIT License
-pipeline-status:
-  - new
----
-
-# EAS Workflows Skill
+# EAS Workflows
 
 Help developers write and edit EAS CI/CD workflow YAML files.
 
 ## Reference Documentation
 
-Fetch these resources before generating or validating workflow files. Use the fetch script (implemented using Node.js) in this skill's `scripts/` directory; it caches responses using ETags for efficiency:
+Fetch these resources before generating or validating workflow files. Use the fetch script (implemented in Node.js) in this skill's `scripts/` directory; it caches responses using ETags for efficiency:
 
 ```bash
 # Fetch resources
 node {baseDir}/scripts/fetch.js <url>
 ```
+
+Where `{baseDir}` is the `expo/` skill root (one level up from this file).
 
 1. **JSON Schema** — https://api.expo.dev/v2/workflows/schema
    - It is NECESSARY to fetch this schema

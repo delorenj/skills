@@ -1,18 +1,15 @@
----
-name: upgrading-expo
-description: Guidelines for upgrading Expo SDK versions and fixing dependency issues
-version: 1.0.0
-license: MIT
----
+# Upgrading Expo
 
-## References
+Guidelines for upgrading Expo SDK versions and fixing dependency issues.
 
-- ./references/new-architecture.md -- SDK +53: New Architecture migration guide
-- ./references/react-19.md -- SDK +54: React 19 changes (useContext → use, Context.Provider → Context, forwardRef removal)
-- ./references/react-compiler.md -- SDK +54: React Compiler setup and migration guide
-- ./references/native-tabs.md -- SDK +55: Native tabs changes (Icon/Label/Badge now accessed via NativeTabs.Trigger.\*)
-- ./references/expo-av-to-audio.md -- Migrate audio playback and recording from expo-av to expo-audio
-- ./references/expo-av-to-video.md -- Migrate video playback from expo-av to expo-video
+## Nested References
+
+- `./upgrading/new-architecture.md` — SDK +53: New Architecture migration guide
+- `./upgrading/react-19.md` — SDK +54: React 19 changes (`useContext` → `use`, `Context.Provider` → `Context`, forwardRef removal)
+- `./upgrading/react-compiler.md` — SDK +54: React Compiler setup and migration guide
+- `./upgrading/native-tabs.md` — SDK +55: Native tabs changes (Icon/Label/Badge now accessed via `NativeTabs.Trigger.*`)
+- `./upgrading/expo-av-to-audio.md` — Migrate audio playback and recording from expo-av to expo-audio
+- `./upgrading/expo-av-to-video.md` — Migrate video playback from expo-av to expo-video
 
 ## Beta/Preview Releases
 
@@ -92,7 +89,7 @@ These steps only apply when `ios/` and/or `android/` directories exist in the pr
 | `expo-app-loading`   | `expo-splash-screen`                                 |
 | expo-linear-gradient | experimental_backgroundImage + CSS gradients in View |
 
-When migrating deprecated packages, update all code usage before removing the old package. For expo-av, consult the migration references to convert Audio.Sound to useAudioPlayer, Audio.Recording to useAudioRecorder, and Video components to VideoView with useVideoPlayer.
+When migrating deprecated packages, update all code usage before removing the old package. For expo-av, consult `./upgrading/expo-av-to-audio.md` and `./upgrading/expo-av-to-video.md` to convert `Audio.Sound` to `useAudioPlayer`, `Audio.Recording` to `useAudioRecorder`, and Video components to `VideoView` with `useVideoPlayer`.
 
 ## expo.install.exclude
 
@@ -105,6 +102,7 @@ Check if package.json has excluded packages:
 ```
 
 Exclusions are often workarounds that may no longer be needed after upgrading. Review each one.
+
 ## Removing patches
 
 Check if there are any outdated patches in the `patches/` directory. Remove them if they are no longer needed.
@@ -118,7 +116,7 @@ Check if there are any outdated patches in the `patches/` directory. Remove them
 
 Remove redundant metro config options:
 
-- resolver.unstable_enablePackageExports is enabled by default in SDK +53.
+- `resolver.unstable_enablePackageExports` is enabled by default in SDK +53.
 - `experimentalImportSupport` is enabled by default in SDK +54.
 - `EXPO_USE_FAST_RESOLVER=1` is removed in SDK +54.
 - cjs and mjs extensions are supported by default in SDK +50.
@@ -130,4 +128,4 @@ Since SDK 55, users can opt-in to use Hermes engine v1 for improved runtime perf
 
 ## New Architecture
 
-The new architecture is enabled by default, the app.json field `"newArchEnabled": true` is no longer needed as it's the default. Expo Go only supports the new architecture as of SDK +53.
+The new architecture is enabled by default; the `app.json` field `"newArchEnabled": true` is no longer needed as it's the default. Expo Go only supports the new architecture as of SDK +53.

@@ -1,12 +1,3 @@
----
-name: expo-module
-description: Guide for writing Expo native modules and views using the Expo Modules API (Swift, Kotlin, TypeScript). Covers module definition DSL, native views, shared objects, config plugins, lifecycle hooks, autolinking, and type system. Use when building or modifying native modules for Expo.
-version: 1.0.0
-license: MIT
-pipeline-status:
-  - new
----
-
 # Writing Expo Modules
 
 Complete reference for building native modules and views using the Expo Modules API. Covers Swift (iOS), Kotlin (Android), and TypeScript.
@@ -18,17 +9,16 @@ Complete reference for building native modules and views using the Expo Modules 
 - Wrapping platform SDKs for React Native consumption
 - Building config plugins that modify native project files
 
-## References
+## Nested References
 
-Consult these resources as needed:
+Consult these as needed:
 
 ```
-references/
-  native-module.md           Module definition DSL: Name, Function, AsyncFunction, Property, Constant, Events, type system, shared objects
-  native-view.md             Native view components: View, Prop, EventDispatcher, view lifecycle, ref-based functions
-  lifecycle.md               Lifecycle hooks: module, iOS app/AppDelegate, Android activity/application listeners
-  config-plugin.md           Config plugins: modifying Info.plist, AndroidManifest.xml, reading values in native code
-  module-config.md           expo-module.config.json fields and autolinking configuration
+module/native-module.md     Module definition DSL: Name, Function, AsyncFunction, Property, Constant, Events, type system, shared objects
+module/native-view.md       Native view components: View, Prop, EventDispatcher, view lifecycle, ref-based functions
+module/lifecycle.md         Lifecycle hooks: module, iOS app/AppDelegate, Android activity/application listeners
+module/config-plugin.md     Config plugins: modifying Info.plist, AndroidManifest.xml, reading values in native code
+module/module-config.md     expo-module.config.json fields and autolinking configuration
 ```
 
 ## Quick Start
@@ -124,4 +114,4 @@ export function hello(name: string): string {
 }
 ```
 
-Note: iOS uses just the class name; Android uses the fully-qualified class name (package + class). See `references/module-config.md` for all fields.
+Note: iOS uses just the class name; Android uses the fully-qualified class name (package + class). See `./module/module-config.md` for all fields.
