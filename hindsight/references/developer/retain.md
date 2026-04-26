@@ -1,5 +1,7 @@
 ---
 sidebar_position: 2
+pipeline-status:
+  - new
 ---
 
 # Retain: How Hindsight Stores Memories

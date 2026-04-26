@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 <claude-mem-context>
 # Recent Activity
 

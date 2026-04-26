@@ -1,5 +1,7 @@
 ---
 sidebar_position: 8
+pipeline-status:
+  - new
 ---
 
 # Hindsight AI SDK - Personal Chef

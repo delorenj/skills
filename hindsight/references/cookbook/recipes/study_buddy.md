@@ -1,5 +1,7 @@
 ---
 sidebar_position: 11
+pipeline-status:
+  - new
 ---
 
 # Study Buddy with Hindsight Memory

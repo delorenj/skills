@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Performance
 
 Hindsight is designed for high-performance semantic memory operations at scale. This page covers performance characteristics, optimization strategies, and best practices.

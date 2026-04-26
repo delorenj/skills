@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Installation
 
 Hindsight can be deployed in several ways depending on your infrastructure and requirements.

@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Tailscale Audio Forwarding (PulseAudio over Tailnet)
 
 ## Problem

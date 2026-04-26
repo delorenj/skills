@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Self-Improving Agent
 
 Structured learning loop for agent work. This skill does not rewrite prompts or mutate skills from raw experience. It records bounded observations, rolls them into episodes, extracts candidate lessons after repeated failures, and publishes the resulting `agent.learning.*` events to Bloodbank on a best-effort basis.

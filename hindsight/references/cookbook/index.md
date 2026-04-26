@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 
 
 <div className="cookbook-page">

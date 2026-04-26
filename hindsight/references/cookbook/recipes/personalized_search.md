@@ -1,5 +1,7 @@
 ---
 sidebar_position: 10
+pipeline-status:
+  - new
 ---
 
 # Personalized Search Agent with Hindsight Memory

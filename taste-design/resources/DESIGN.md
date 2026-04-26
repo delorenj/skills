@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Design System: Taste Standard
 **Skill:** stitch-design-taste
 

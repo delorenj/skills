@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Reference Documentation for Ecosystem Patterns
 
 This is a placeholder for detailed reference documentation.

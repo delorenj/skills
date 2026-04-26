@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Stitch-Remotion Video Walkthrough Skill
 
 Generate professional walkthrough videos from Stitch app designs using Remotion.

@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Remotion Composition Checklist
 
 Use this checklist to ensure your Remotion walkthrough video composition is complete and follows best practices.

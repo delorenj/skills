@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 ## Common failures and responses
 
 ### Login link does not work

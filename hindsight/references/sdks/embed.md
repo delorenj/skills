@@ -1,5 +1,7 @@
 ---
 sidebar_position: 4
+pipeline-status:
+  - new
 ---
 
 # Embedded SDK (hindsight-embed)

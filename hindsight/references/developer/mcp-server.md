@@ -1,5 +1,7 @@
 ---
 sidebar_position: 5
+pipeline-status:
+  - new
 ---
 
 # MCP Server

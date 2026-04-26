@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 ## Standard workflow
 
 1. Confirm AI provider and auth method with the user

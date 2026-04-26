@@ -2,9 +2,11 @@
 name: taste-design
 description: Semantic Design System Skill for Google Stitch. Generates agent-friendly DESIGN.md files that enforce premium, anti-generic UI standards — strict typography, calibrated color, asymmetric layouts, perpetual micro-motion, and hardware-accelerated performance.
 allowed-tools:
-  - "StitchMCP"
-  - "Read"
-  - "Write"
+  - StitchMCP
+  - Read
+  - Write
+pipeline-status:
+  - new
 ---
 
 # Stitch Design Taste — Semantic Design System Skill

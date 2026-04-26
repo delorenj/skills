@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Shell Configuration Patterns (zshyzsh)
 
 ## Philosophy

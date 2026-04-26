@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # AgentUI
 Source: https://docs.agno.com/agent-os/agent-ui
 

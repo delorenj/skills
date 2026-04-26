@@ -1,5 +1,7 @@
 ---
 sidebar_position: 3
+pipeline-status:
+  - new
 ---
 
 # Skills

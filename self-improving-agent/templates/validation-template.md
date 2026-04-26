@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Validation Template
 
 ## Date

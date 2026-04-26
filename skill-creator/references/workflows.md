@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Workflow Patterns
 
 ## Sequential Workflows

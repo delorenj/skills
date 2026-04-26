@@ -1,5 +1,7 @@
 ---
 sidebar_position: 1
+pipeline-status:
+  - new
 ---
 
 # Python Client

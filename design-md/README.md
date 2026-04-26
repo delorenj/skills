@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Stitch Design System Documentation Skill
 
 ## Install

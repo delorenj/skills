@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 ### Ask for provider
 Which AI provider do you want to use in Opencode?
 

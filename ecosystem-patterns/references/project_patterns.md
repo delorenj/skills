@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Project Structure & iMi Workflow Patterns
 
 ## iMi Philosophy

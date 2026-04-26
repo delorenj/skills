@@ -1,5 +1,7 @@
 ---
 sidebar_position: 8
+pipeline-status:
+  - new
 ---
 
 # Movie Recommendation Assistant with Hindsight Memory

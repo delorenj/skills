@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Appendix
 
 ## Event Family

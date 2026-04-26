@@ -1,6 +1,8 @@
 ---
 name: agno
 description: Agno AI agent framework. Use for building multi-agent systems, AgentOS runtime, MCP server integration, and agentic AI development.
+pipeline-status:
+  - new
 ---
 
 # Agno Skill

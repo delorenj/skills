@@ -2,6 +2,8 @@
 name: self-improving-agent
 description: Controlled self-referential learning loop with structured observations, external runtime state, Holyfields-defined learning events, and manual promotion/rollback of lessons.
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+pipeline-status:
+  - new
 ---
 
 # Self-Improving Agent

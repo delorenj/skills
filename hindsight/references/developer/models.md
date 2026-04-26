@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Models
 
 Hindsight uses several machine learning models for different tasks.
