@@ -1,14 +1,4 @@
----
-pipeline-status:
-  - new
----
-# Project Structure & iMi Workflow Patterns
-
-## iMi Philosophy
-
-**Opinionated Git Worktree Management:** A Rust-based tool designed for asynchronous, parallel multi-agent workflows with real-time visibility into worktree activities.
-
-**Core Principle:** Convention over configuration for simplified, productive development.
+# Project Structure & Vault Integration Patterns
 
 ## Universal Paths
 
@@ -19,23 +9,25 @@ pipeline-status:
 - `$CONTAINERS` = `~/docker` - DeLoContainers ecosystem
 - `$ZSHYZSH` = `~/.config/zshyzsh` - Shell configuration
 
-**Critical Pattern:** Every repo in `$CODE` has a matching folder in `$VAULT/Projects/` for non-tracked brainstorming and iteration documents.
+**Critical Convention:** `exported` paths are ALWAYS in caps. `aliases` and `functions` are ALWAYS lowercase. For every exported path, there should be an alias to navigate to it quickly.
 
-## Standard Project Structure
+```bash
+export CODE="$HOME/code"
+export VAULT="$HOME/code/DeLoDocs"
+export CONTAINERS="$HOME/docker"
 
-### Top-Level Organization
-
+alias code='cd $CODE'
+alias vault='cd $VAULT'
+alias containers='cd $CONTAINERS'
 ```
-$CODE/project-name/
-├── trunk-main/              # Main repository branch (always present)
-├── feature-{name}/          # Feature development branches
-├── pr-{number}-{name}/      # Pull request worktrees
-├── pr-review-{number}/      # PR review worktrees
-├── pr-suggestion-{number}/  # PR suggestion branches
-├── fix-{name}/              # Bug fix branches
-├── hotfix-{name}/           # Critical fix branches
-└── experiment-{name}/       # Experimental branches (not for merging)
-```
+
+## $CODE and $VAULT Relationship
+
+**Critical Pattern:** Every repo in `$CODE` (ideally) has a matching folder in `$VAULT/Projects/` for non-tracked brainstorming and iteration documents. There is a `helper.zsh` script function `syncDocs` that ensures this relationship is maintained.
+
+This works because I write code in the terminal but view docs in Obsidian.
+
+**Limitation:** There's no single source of truth since the docs are duplicated. Symlinking causes rendering issues in Obsidian and conflicts.
 
 ### Vault Documentation Structure
 
@@ -52,94 +44,24 @@ $VAULT/Projects/project-name/
     └── 001-tech-stack.md
 ```
 
-## iMi Workflow Commands
+## Standard Project Structure
 
-### Core Operations
-
-**Initialize Project:**
-
-```bash
-# Create project directory
-mkdir project-name && cd project-name
-
-# Clone trunk branch
-gh repo clone org/project-name trunk-main
-```
-
-**Add Worktrees:**
-
-```bash
-# Create a Feature branch
-iMi feat feature-name
-
-# Pull request worktree (no branch creation)
-iMi pr 123 [org/repo]
-
-# Bug fix
-iMi fix bug-name
+### Top-Level Organization
 
 ```
-
-### Naming Conventions
-
-**Prefixes:**
-
-- `trunk-` - Main branch (e.g., `trunk-main`, `trunk-master`)
-- `feat-` - Feature development
-- `pr-{number}` - Pull request worktrees
-- `fix-` - Bug fixes
-
-**Branch Names:**
-
-- Features: `feat/{descriptive-name}`
-- Fixes: `fix/{issue-description}`
-
-## Obsidian Vault Integration
-
-### Project Documentation Structure
-
-**Location:** `/home/delorenj/code/DeLoDocs/Projects/`
-
-```
-DeLoDocs/
-├── Projects/
-│   ├── SomeRepo/
-```
-
-## Development Workflow Patterns
-
-### Feature Development Flow
-
-```bash
-# 1. Create feature worktree
-iMi feat some-repo-name feature-new-endpoint
-
-# 2. Develop in worktree
-igo some-repo-name feature-new-endpoint #cd into dir
-# ... make changes ...
-
-# 3. Commit and push
-iMi sync
-# git add .
-# git commit -m "feat: add new endpoint"
-# git push -u origin feature/new-endpoint
-
-# 4. Create pull request
-iMi submit
-#gh pr create --title "Add new endpoint" --body "Description"
-
-# 5. Code review
-iMi pr 123 some-repo-name
-
-# 6. Merge and cleanup
-iMi merge
-#gh pr merge 123
-#git worktree remove feature-new-endpoint
+$CODE/project-name/
+├── trunk-main/              # Main repository branch (always present)
+├── feat-{name}/             # Feature development branches
+├── fix-{name}/              # Bug fix branches
+├── pr-{number}/             # Pull request worktrees
+└── experiment-{name}/       # Experimental branches (not for merging)
 ```
 
 ## Configuration Management
 
 ### Tool Version Management (mise.toml)
+
+Mise is the primary tooling and package versioning utility. EVERYTHING that CAN be managed with Mise should be managed with Mise. If you find something managed by another tool, migrate it to Mise and remove the old tooling.
 
 ```toml
 [tools]
@@ -152,7 +74,7 @@ _.file = ".env"
 
 [tasks.dev]
 description = "Start development server"
-run = "docker-compose up -d"
+run = "docker compose up -d"
 
 [tasks.test]
 description = "Run test suite"
@@ -179,38 +101,19 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/db
 REDIS_URL=redis://localhost:6379
 
 # External Services
-SUPABASE_URL=your-project-url
-SUPABASE_ANON_KEY=your-anon-key
 OPENAI_API_KEY=your-api-key
-
-# Feature Flags
-FEATURE_NEW_UI=true
-FEATURE_BETA_API=false
 ```
+
+## Document Pruning Rule
+
+After each large task, prune and refactor docs to keep them minimal and useful. Rule of thumb: If you created 10 docs in a session, delete 9 of them and keep only the best one.
+
+NEVER put documents randomly in the root of a repo. Use the vault for that.
 
 ## Best Practices
 
-### iMi Workflow
-
-1. **Always work in worktrees**, never directly in trunk
-2. **Keep trunk-main pristine** and always up to date
-3. **Name worktrees descriptively** for clarity
-4. **Remove worktrees** after merging PRs
-
-### Project Organization
-
 1. **Consistent structure** across all projects
-2. **Document everything** in Obsidian vault
-3. **Version all dependencies** explicitly
+2. **Document everything** in Obsidian vault (not in repo root)
+3. **Version all dependencies** explicitly via mise.toml
 4. **Keep secrets** out of version control
 5. **Automate setup** with `mise tasks`
-
-## Troubleshooting
-
-### Worktree Issues
-
-**First try `iMi repair`**
-
-```bash
-iMi repair
-```
