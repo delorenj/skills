@@ -16,8 +16,8 @@ to the v3 event bus, or when extending the existing `agent.*` payloads.
 Claude Code hook (PostToolUse / Stop / SessionStart / Notification / ...)
     → .claude/hooks/bloodbank-publisher.sh <event-type>   (stdin: hook JSON)
         → builds CloudEvents 1.0 envelope (cloudevent_base.v1.json)
-        → POST http://localhost:3502/v1.0/publish/bloodbank-v3-pubsub/event.agent.<type>
-            → daprd-heartbeat sidecar (host:3502 → container:3500)
+        → POST http://localhost:3503/v1.0/publish/bloodbank-v3-pubsub/event.agent.<type>
+            → daprd-heartbeat sidecar (host:3503 → container:3500)
                 → NATS JetStream stream BLOODBANK_V3_EVENTS
                     → subject event.agent.<entity>.<action>
 ```
@@ -25,8 +25,9 @@ Claude Code hook (PostToolUse / Stop / SessionStart / Notification / ...)
 Key invariants:
 
 - Publish target is a Dapr sidecar, not the v2 RabbitMQ HTTP API.
-- `daprd-heartbeat` does double duty for publish-only workloads (Dapr
-  publish API is generic, not bound to the sidecar's app-id).
+- `daprd-claude-events` (host:3503) is the canonical publish target.
+  The producer (Claude Code on the host) and consumer
+  (claude-events-recorder) are wired through the same sidecar.
 - Hook MUST be best-effort: silent no-op + size-rotated error log when
   the sidecar is unreachable. Never fail the hook (Claude Code surfaces
   stderr as an error).
@@ -133,11 +134,11 @@ Bring up the publish target if it's not already running:
 
 ```bash
 docker compose --project-name bloodbank-v3 \
-  --profile heartbeat \
+  --profile claude-events \
   -f bloodbank/compose/v3/docker-compose.yml \
-  up -d nats nats-init dapr-placement heartbeat-recorder daprd-heartbeat
+  up -d nats nats-init dapr-placement claude-events-recorder daprd-claude-events
 
-until curl -sf --max-time 2 http://localhost:3502/v1.0/healthz >/dev/null; do sleep 2; done
+until curl -sf --max-time 2 http://localhost:3503/v1.0/healthz >/dev/null; do sleep 2; done
 ```
 
 Fire the hook manually with a representative payload, then read it
@@ -192,7 +193,7 @@ Expected: `exit=0`, error log captures `http=000` line, no stderr noise.
   `BLOODBANK_PUBSUB` env is `bloodbank-v3-pubsub` and matches
   `compose/v3/components/pubsub.yaml`.
 - **HTTP 500 from Dapr**: NATS-side error. Check
-  `docker logs bloodbank-v3-daprd-heartbeat` for the actual reason
+  `docker logs bloodbank-v3-daprd-claude-events` for the actual reason
   (most often: stream not yet created, or subject doesn't match
   `BLOODBANK_V3_EVENTS` subjects pattern `event.>`).
 - **Envelope rejected by downstream consumer**: missing 33GOD
@@ -202,12 +203,10 @@ Expected: `exit=0`, error log captures `http=000` line, no stderr noise.
 
 ## Out of scope (for now)
 
-- Strict schema validation in CI (depends on the v3-schema authoring
-  follow-up).
-- Dedicated `claude-events` compose profile + recorder. Today the
-  publisher piggybacks on `daprd-heartbeat`. A dedicated profile is a
-  follow-up when query/inspection of the agent.* stream becomes a
-  recurring need.
+- Strict schema validation **at publish time** (the publisher emits
+  inline-built envelopes). The Holyfields CI gate validates schemas and
+  the heartbeat round-trip; agent.* schema gating shipped under V3-110
+  but is not invoked from the publisher itself.
 
 ## Reference
 
