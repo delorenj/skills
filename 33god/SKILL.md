@@ -34,6 +34,7 @@ Read exactly one target unless the task genuinely spans multiple concerns.
 - **Create/register services** → `references/service-development.md`
 - **Generate end-to-end workflows** → `references/workflow-generation.md`
 - **Add/change/prune events or commands** → `references/event-command-lifecycle.md`
+- **Add events Claude Code itself emits (agent.*)** → `references/claude-code-event-publishing.md`
 - **Cross-component/platform orchestration** → `references/platform-lifecycle.md`
 - **Infrastructure, deployment, external access** → `references/infrastructure-deployment.md`
 - **GOD-doc behavior + drift policy** → `references/god-doc-policy.md`
