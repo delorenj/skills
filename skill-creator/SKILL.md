@@ -1,358 +1,264 @@
 ---
 name: skill-creator
-description: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Claude's capabilities with specialized knowledge, workflows, or tool integrations.
-license: Complete terms in LICENSE.txt
-pipeline-status:
-  - new
+description: Create, restructure, compose, and migrate skills for agentic CLI tools (Claude Code, Codex, OpenCode, etc.). Use when authoring a new SKILL.md, deciding skill topology (standalone vs member vs hub), designing a references/ taxonomy, building routing mechanics (decision trees, triage tables, reading order tables), writing keyword-dense descriptions that trigger reliably, hoisting cross-cutting rules to a hub, authoring gotchas in the four-part structure, scaffolding with init_skill.py, packaging with package_skill.py for distribution, or migrating an existing skill between topologies (standalone-to-member, member-to-hub, flat-to-hub). Biases towards progressive disclosure, hub-and-spoke composition over monoliths, and concise SKILL.md bodies (target <250 lines) with deep content in references/.
+references:
+  - topology-decision
+  - taxonomy-templates
+  - routing-mechanics
+  - migration
+  - frontmatter-guide
+  - design-principles
+  - anatomy
+  - gotchas
+  - output-patterns
+  - workflows
 ---
 
 # Skill Creator
 
-This skill provides guidance for creating effective skills.
+Build skills that trigger reliably, route efficiently, and compose into larger systems. The workflow below produces skills ranging from 20-line standalones to 60-product reference-hubs. The shape of the output is determined by Phase 2 (topology decision); the rest of the workflow specializes accordingly.
 
-## About Skills
+## Operating Principles
 
-Skills are modular, self-contained packages that extend Claude's capabilities by providing
-specialized knowledge, workflows, and tools. Think of them as "onboarding guides" for specific
-domains or tasks—they transform Claude from a general-purpose agent into a specialized agent
-equipped with procedural knowledge that no model can fully possess.
+Internalize these before authoring or modifying any skill:
 
-### What Skills Provide
+- **Concise is canon.** The context window is a public good. Every paragraph must justify its tokens.
+- **The agent is already smart.** Add only what the agent does not already know.
+- **Progressive disclosure is structural, not aspirational.** Long content lives in `references/`, linked from SKILL.md with explicit loading conditions.
+- **Trigger logic lives in the description.** "When to use" sections in the body are unreachable; the body loads only after triggering.
+- **Topology is a deliberate choice, not an emergent property.** Decide standalone vs member vs hub in Phase 2, before writing any prose.
+- **Routing is a primitive, not prose.** Hub bodies are decision trees, triage tables, reading order tables, not tutorials.
+- **Test scripts by running them.** Reading code does not surface runtime errors.
 
-1. Specialized workflows - Multi-step procedures for specific domains
-2. Tool integrations - Instructions for working with specific file formats or APIs
-3. Domain expertise - Company-specific knowledge, schemas, business logic
-4. Bundled resources - Scripts, references, and assets for complex and repetitive tasks
+## Quick Navigation
 
-## Core Principles
+| Your situation | Read |
+|---|---|
+| New skill, starting from scratch | All phases below, in order |
+| Existing skill, restructuring | [Phase 9 (Migration)](#phase-9-migration-conditional) and [references/migration.md](./references/migration.md) |
+| Choosing topology (standalone/member/hub) | [Phase 2](#phase-2-decide-topology) and [references/topology-decision.md](./references/topology-decision.md) |
+| Designing the references/ taxonomy | [Phase 4](#phase-4-design-the-reference-taxonomy) and [references/taxonomy-templates.md](./references/taxonomy-templates.md) |
+| Building hub routing (decision trees, triage) | [Phase 6](#phase-6-build-routing-mechanics) and [references/routing-mechanics.md](./references/routing-mechanics.md) |
+| Fixing trigger reliability | [Phase 3](#phase-3-author-the-description) and [references/frontmatter-guide.md](./references/frontmatter-guide.md) |
+| Authoring gotchas | [routing-mechanics.md (Four-Part Structure)](./references/routing-mechanics.md) |
+| Producing structured output (reports, formatted text) | [references/output-patterns.md](./references/output-patterns.md) |
+| Designing multi-step procedures within a skill | [references/workflows.md](./references/workflows.md) |
+| Debugging skill-creation failures | [references/gotchas.md](./references/gotchas.md) |
 
-### Concise is Key
+## Topology Decision Tree
 
-The context window is a public good. Skills share the context window with everything else Claude needs: system prompt, conversation history, other Skills' metadata, and the actual user request.
-
-**Default assumption: Claude is already very smart.** Only add context Claude doesn't already have. Challenge each piece of information: "Does Claude really need this explanation?" and "Does this paragraph justify its token cost?"
-
-Prefer concise examples over verbose explanations.
-
-### Set Appropriate Degrees of Freedom
-
-Match the level of specificity to the task's fragility and variability:
-
-**High freedom (text-based instructions)**: Use when multiple approaches are valid, decisions depend on context, or heuristics guide the approach.
-
-**Medium freedom (pseudocode or scripts with parameters)**: Use when a preferred pattern exists, some variation is acceptable, or configuration affects behavior.
-
-**Low freedom (specific scripts, few parameters)**: Use when operations are fragile and error-prone, consistency is critical, or a specific sequence must be followed.
-
-Think of Claude as exploring a path: a narrow bridge with cliffs needs specific guardrails (low freedom), while an open field allows many routes (high freedom).
-
-### Anatomy of a Skill
-
-Every skill consists of a required SKILL.md file and optional bundled resources:
+Every skill is one of three topologies. The choice drives the rest of the workflow.
 
 ```
-skill-name/
-├── SKILL.md (required)
-│   ├── YAML frontmatter metadata (required)
-│   │   ├── name: (required)
-│   │   └── description: (required)
-│   └── Markdown instructions (required)
-└── Bundled Resources (optional)
-    ├── scripts/          - Executable code (Python/Bash/etc.)
-    ├── references/       - Documentation intended to be loaded into context as needed
-    └── assets/           - Files used in output (templates, icons, fonts, etc.)
+Does the skill cover one capability or many sub-capabilities?
+├─ One capability
+│  └─ Will it compose into 2+ skill-sets alongside related siblings?
+│     ├─ Yes → MEMBER (lives in all-skills/, designed for symlink composition, has scope contract)
+│     └─ No  → STANDALONE (lives in all-skills/, atomic capability)
+└─ Many sub-capabilities (4+)
+   └─ Are children tightly coupled to one platform, or independently composable?
+      ├─ Tightly coupled to one platform → REFERENCE-HUB (one skill, references/<topic>/ subdirs)
+      └─ Independently composable into other skill-sets → SKILL-SET HUB (skill-sets/<name>/, symlinked siblings)
 ```
 
-#### SKILL.md (required)
+For criteria, worked examples, and hub-flavor selection, read [references/topology-decision.md](./references/topology-decision.md).
 
-Every SKILL.md consists of:
+## Workflow
 
-- **Frontmatter** (YAML): Contains `name` and `description` fields. These are the only fields that Claude reads to determine when the skill gets used, thus it is very important to be clear and comprehensive in describing what the skill is, and when it should be used.
-- **Body** (Markdown): Instructions and guidance for using the skill. Only loaded AFTER the skill triggers (if at all).
+The eight phases below produce a new skill. Phase 9 handles migration of existing skills between topologies. Phases 1-2 are universal; Phases 3-8 specialize based on the topology chosen in Phase 2.
 
-#### Bundled Resources (optional)
+### Phase 1: Gather Examples and Scope Boundaries
 
-##### Scripts (`scripts/`)
+Skip only when usage patterns are already clearly understood.
 
-Executable code (Python/Bash/etc.) for tasks that require deterministic reliability or are repeatedly rewritten.
+Gather two artifacts:
+1. **Concrete usage examples**: 3-5 realistic prompts and the desired skill behavior for each.
+2. **Out-of-scope examples**: 3-5 prompts that look related but should NOT trigger this skill, with the alternative skill that should handle each.
 
-- **When to include**: When the same code is being rewritten repeatedly or deterministic reliability is needed
-- **Example**: `scripts/rotate_pdf.py` for PDF rotation tasks
-- **Benefits**: Token efficient, deterministic, may be executed without loading into context
-- **Note**: Scripts may still need to be read by Claude for patching or environment-specific adjustments
-
-##### References (`references/`)
-
-Documentation and reference material intended to be loaded as needed into context to inform Claude's process and thinking.
-
-- **When to include**: For documentation that Claude should reference while working
-- **Examples**: `references/finance.md` for financial schemas, `references/mnda.md` for company NDA template, `references/policies.md` for company policies, `references/api_docs.md` for API specifications
-- **Use cases**: Database schemas, API documentation, domain knowledge, company policies, detailed workflow guides
-- **Benefits**: Keeps SKILL.md lean, loaded only when Claude determines it's needed
-- **Best practice**: If files are large (>10k words), include grep search patterns in SKILL.md
-- **Avoid duplication**: Information should live in either SKILL.md or references files, not both. Prefer references files for detailed information unless it's truly core to the skill—this keeps SKILL.md lean while making information discoverable without hogging the context window. Keep only essential procedural instructions and workflow guidance in SKILL.md; move detailed reference material, schemas, and examples to references files.
-
-##### Assets (`assets/`)
-
-Files not intended to be loaded into context, but rather used within the output Claude produces.
-
-- **When to include**: When the skill needs files that will be used in the final output
-- **Examples**: `assets/logo.png` for brand assets, `assets/slides.pptx` for PowerPoint templates, `assets/frontend-template/` for HTML/React boilerplate, `assets/font.ttf` for typography
-- **Use cases**: Templates, images, icons, boilerplate code, fonts, sample documents that get copied or modified
-- **Benefits**: Separates output resources from documentation, enables Claude to use files without loading them into context
-
-#### What to Not Include in a Skill
-
-A skill should only contain essential files that directly support its functionality. Do NOT create extraneous documentation or auxiliary files, including:
-
-- README.md
-- INSTALLATION_GUIDE.md
-- QUICK_REFERENCE.md
-- CHANGELOG.md
-- etc.
-
-The skill should only contain the information needed for an AI agent to do the job at hand. It should not contain auxilary context about the process that went into creating it, setup and testing procedures, user-facing documentation, etc. Creating additional documentation files just adds clutter and confusion.
-
-### Progressive Disclosure Design Principle
-
-Skills use a three-level loading system to manage context efficiently:
-
-1. **Metadata (name + description)** - Always in context (~100 words)
-2. **SKILL.md body** - When skill triggers (<5k words)
-3. **Bundled resources** - As needed by Claude (Unlimited because scripts can be executed without reading into context window)
-
-#### Progressive Disclosure Patterns
-
-Keep SKILL.md body to the essentials and under 500 lines to minimize context bloat. Split content into separate files when approaching this limit. When splitting out content into other files, it is very important to reference them from SKILL.md and describe clearly when to read them, to ensure the reader of the skill knows they exist and when to use them.
-
-**Key principle:** When a skill supports multiple variations, frameworks, or options, keep only the core workflow and selection guidance in SKILL.md. Move variant-specific details (patterns, examples, configuration) into separate reference files.
-
-**Pattern 1: High-level guide with references**
-
-```markdown
-# PDF Processing
-
-## Quick start
-
-Extract text with pdfplumber:
-[code example]
-
-## Advanced features
-
-- **Form filling**: See [FORMS.md](FORMS.md) for complete guide
-- **API reference**: See [REFERENCE.md](REFERENCE.md) for all methods
-- **Examples**: See [EXAMPLES.md](EXAMPLES.md) for common patterns
-```
-
-Claude loads FORMS.md, REFERENCE.md, or EXAMPLES.md only when needed.
-
-**Pattern 2: Domain-specific organization**
-
-For Skills with multiple domains, organize content by domain to avoid loading irrelevant context:
-
-```
-bigquery-skill/
-├── SKILL.md (overview and navigation)
-└── reference/
-    ├── finance.md (revenue, billing metrics)
-    ├── sales.md (opportunities, pipeline)
-    ├── product.md (API usage, features)
-    └── marketing.md (campaigns, attribution)
-```
-
-When a user asks about sales metrics, Claude only reads sales.md.
-
-Similarly, for skills supporting multiple frameworks or variants, organize by variant:
-
-```
-cloud-deploy/
-├── SKILL.md (workflow + provider selection)
-└── references/
-    ├── aws.md (AWS deployment patterns)
-    ├── gcp.md (GCP deployment patterns)
-    └── azure.md (Azure deployment patterns)
-```
-
-When the user chooses AWS, Claude only reads aws.md.
-
-**Pattern 3: Conditional details**
-
-Show basic content, link to advanced content:
-
-```markdown
-# DOCX Processing
-
-## Creating documents
-
-Use docx-js for new documents. See [DOCX-JS.md](DOCX-JS.md).
-
-## Editing documents
-
-For simple edits, modify the XML directly.
-
-**For tracked changes**: See [REDLINING.md](REDLINING.md)
-**For OOXML details**: See [OOXML.md](OOXML.md)
-```
-
-Claude reads REDLINING.md or OOXML.md only when the user needs those features.
-
-**Important guidelines:**
-
-- **Avoid deeply nested references** - Keep references one level deep from SKILL.md. All reference files should link directly from SKILL.md.
-- **Structure longer reference files** - For files longer than 100 lines, include a table of contents at the top so Claude can see the full scope when previewing.
-
-## Skill Creation Process
-
-Skill creation involves these steps:
-
-1. Understand the skill with concrete examples
-2. Plan reusable skill contents (scripts, references, assets)
-3. Initialize the skill (run init_skill.py)
-4. Edit the skill (implement resources and write SKILL.md)
-5. Package the skill (run package_skill.py)
-6. Iterate based on real usage
-
-Follow these steps in order, skipping only if there is a clear reason why they are not applicable.
-
-### Step 1: Understanding the Skill with Concrete Examples
-
-Skip this step only when the skill's usage patterns are already clearly understood. It remains valuable even when working with an existing skill.
-
-To create an effective skill, clearly understand concrete examples of how the skill will be used. This understanding can come from either direct user examples or generated examples that are validated with user feedback.
-
-For example, when building an image-editor skill, relevant questions include:
-
-- "What functionality should the image-editor skill support? Editing, rotating, anything else?"
-- "Can you give some examples of how this skill would be used?"
-- "I can imagine users asking for things like 'Remove the red-eye from this image' or 'Rotate this image'. Are there other ways you imagine this skill being used?"
+Useful elicitation questions:
+- "What functionality should this skill support?"
 - "What would a user say that should trigger this skill?"
+- "What would a user say that looks similar but should trigger a different skill?"
 
-To avoid overwhelming users, avoid asking too many questions in a single message. Start with the most important questions and follow up as needed for better effectiveness.
+The out-of-scope examples seed Phase 6's Out-of-Scope section and prevent over-triggering.
 
-Conclude this step when there is a clear sense of the functionality the skill should support.
+### Phase 2: Decide Topology
 
-### Step 2: Planning the Reusable Skill Contents
+Apply the topology decision tree above. Output: one of `STANDALONE`, `MEMBER`, `REFERENCE-HUB`, `SKILL-SET HUB`.
 
-To turn concrete examples into an effective skill, analyze each example by:
+Decision criteria summarized:
+- **Standalone**: 1 capability, no anticipated composition into other skill-sets.
+- **Member**: 1 capability, 2+ skill-sets benefit from composing it. Requires explicit scope contract (Phase 6 Out-of-Scope).
+- **Reference-hub**: 4+ tightly-coupled sub-domains under one platform/vendor.
+- **Skill-set hub**: 4+ sub-domains as independently composable members.
 
-1. Considering how to execute on the example from scratch
-2. Identifying what scripts, references, and assets would be helpful when executing these workflows repeatedly
+Mixed flavor (reference-hub + skill-set hub for the same platform) is permitted; cloudflare uses both. Build the reference-hub first; add the skill-set hub when specific common compositions emerge.
 
-Example: When building a `pdf-editor` skill to handle queries like "Help me rotate this PDF," the analysis shows:
+For full criteria and worked examples, read [references/topology-decision.md](./references/topology-decision.md).
 
-1. Rotating a PDF requires re-writing the same code each time
-2. A `scripts/rotate_pdf.py` script would be helpful to store in the skill
+### Phase 3: Author the Description
 
-Example: When designing a `frontend-webapp-builder` skill for queries like "Build me a todo app" or "Build me a dashboard to track my steps," the analysis shows:
+The description is the routing key. The agent reads only `name` and `description` before deciding to load the body.
 
-1. Writing a frontend webapp requires the same boilerplate HTML/React each time
-2. An `assets/hello-world/` template containing the boilerplate HTML/React project files would be helpful to store in the skill
+Required components, regardless of topology:
+1. What the skill does (the outcome).
+2. Concrete trigger keywords: every artifact name, command, file format, library, and domain term.
+3. When-to-use signals (`Use when...`).
+4. Optional but valuable: when-to-skip signals (`Do NOT use for...`) and biases declaration (`Biases towards...`).
 
-Example: When building a `big-query` skill to handle queries like "How many users have logged in today?" the analysis shows:
+Topology-specific additions:
+- **Hub descriptions** name every child or major topic explicitly. List children's keywords with high density.
+- **Member descriptions** state composition affordance: "Composable into [skill-set X, skill-set Y]" or use scope-contract language.
 
-1. Querying BigQuery requires re-discovering the table schemas and relationships each time
-2. A `references/schema.md` file documenting the table schemas would be helpful to store in the skill
+Validate the description by drafting 5 sample prompts (real and adjacent) and checking that the description matches only the prompts that should trigger.
 
-To establish the skill's contents, analyze each concrete example to create a list of the reusable resources to include: scripts, references, and assets.
+For weak-vs-strong examples, hub-specific patterns, and the optional `references` frontmatter field, read [references/frontmatter-guide.md](./references/frontmatter-guide.md).
 
-### Step 3: Initializing the Skill
+### Phase 4: Design the Reference Taxonomy
 
-At this point, it is time to actually create the skill.
+Pick a taxonomy template by domain type:
 
-Skip this step only if the skill being developed already exists, and iteration or packaging is needed. In this case, continue to the next step.
+| Domain | Template | Files |
+|---|---|---|
+| API/SDK/product | API/Product | README, api, patterns, gotchas, configuration (per topic for hubs) |
+| Meta-skill (about authoring/reviewing) | Meta | anatomy, design-principles, frontmatter-guide, gotchas, output-patterns, workflows |
+| Workflow orchestration | Workflow | phases, decision-points, gotchas, output-templates |
+| Tool/CLI | Tool | commands, configuration, recipes, gotchas |
 
-When creating a new skill from scratch, always run the `init_skill.py` script. The script conveniently generates a new template skill directory that automatically includes everything a skill requires, making the skill creation process much more efficient and reliable.
+For hubs, apply the template per topic directory. For members and standalones, apply the template at the flat references/ level.
 
-Usage:
+Output of Phase 4: a populated rename map of files to create, with the chosen template applied. For hubs, also: the list of children (skill-set hub) or topic directories (reference-hub).
+
+For full templates, hybrid taxonomies, and topic naming conventions, read [references/taxonomy-templates.md](./references/taxonomy-templates.md).
+
+### Phase 5: Initialize and Implement Resources
+
+Skip if the skill already exists.
+
+For a new skill, run `init_skill.py`:
 
 ```bash
 scripts/init_skill.py <skill-name> --path <output-directory>
 ```
 
-The script:
+This creates the skill directory with template SKILL.md and example `scripts/`, `references/`, `assets/`.
 
-- Creates the skill directory at the specified path
-- Generates a SKILL.md template with proper frontmatter and TODO placeholders
-- Creates example resource directories: `scripts/`, `references/`, and `assets/`
-- Adds example files in each directory that can be customized or deleted
+Implementation order:
+1. Create the reference taxonomy from Phase 4. Populate file scoping per template; add reading order table to each README or longest reference file (see [routing-mechanics.md](./references/routing-mechanics.md)).
+2. Implement bundled resources: scripts (test by running, not by reading), assets (templates and static files).
+3. For hub topologies, scaffold child skills (skill-set hub) or topic directories (reference-hub) per Phase 4.
+4. Delete unused example files generated by `init_skill.py`.
 
-After initialization, customize or remove the generated SKILL.md and example files as needed.
+For structural reference on what goes in scripts/ vs references/ vs assets/, read [references/anatomy.md](./references/anatomy.md).
 
-### Step 4: Edit the Skill
+### Phase 6: Build Routing Mechanics in SKILL.md
 
-When editing the (newly-generated or existing) skill, remember that the skill is being created for another instance of Claude to use. Include information that would be beneficial and non-obvious to Claude. Consider what procedural knowledge, domain-specific details, or reusable assets would help another Claude instance execute these tasks more effectively.
+The body is a routing surface. Compose primitives by topology:
 
-#### Learn Proven Design Patterns
+| Primitive | Standalone | Member | Reference-Hub | Skill-Set Hub |
+|---|---|---|---|---|
+| Operating Principles | recommended | recommended | required | required |
+| Quick Navigation table | required | required | optional | optional |
+| Decision trees (multiple, by intent) | optional | optional | required | optional |
+| Triage table (signal → file) | n/a | n/a | optional | required |
+| Common Combinations table | n/a | n/a | optional | recommended |
+| Discovery Hints (code signals) | optional | optional | optional | recommended |
+| Cross-cutting rules | n/a | optional | required | required |
+| Out-of-Scope | required | required (scope contract) | required | required |
+| Gotchas (four-part structure) | recommended | recommended | recommended | recommended |
 
-Consult these helpful guides based on your skill's needs:
+Place primitives in this order in the body:
+1. Title and one-line framing
+2. Operating principles or biases declaration
+3. Quick Navigation OR Triage Table
+4. Decision trees (reference-hubs)
+5. Common Combinations (skill-set hubs)
+6. Discovery Hints (when ambiguous)
+7. Cross-cutting rules (when shared rules exist)
+8. Procedural steps or workflow (if applicable)
+9. Out of scope (always last)
 
-- **Multi-step processes**: See references/workflows.md for sequential workflows and conditional logic
-- **Specific output formats or quality standards**: See references/output-patterns.md for template and example patterns
+For exact templates, anti-patterns, and the four-part gotcha structure, read [references/routing-mechanics.md](./references/routing-mechanics.md).
 
-These files contain established best practices for effective skill design.
+### Phase 7: Validate Trigger and Disclosure
 
-#### Start with Reusable Skill Contents
+Run this checklist before packaging:
 
-To begin implementation, start with the reusable resources identified above: `scripts/`, `references/`, and `assets/` files. Note that this step may require user input. For example, when implementing a `brand-guidelines` skill, the user may need to provide brand assets or templates to store in `assets/`, or documentation to store in `references/`.
+- **Description completeness:** 5 sample prompts triggered, 5 negative prompts skipped.
+- **No trigger logic in body:** "When to Use This Skill" sections in the body are deleted (those instructions belong in the description).
+- **Frontmatter has only `name`, `description`, and optional `references`:** no `license`, `pipeline-status`, `version`, `author`, `tags`.
+- **Body length within budget:** standalone <200 lines, member <200, reference-hub <250, skill-set hub <250.
+- **References one level deep:** all reference files load directly from SKILL.md or from the first reference loaded. No nested chains.
+- **Reading order tables present:** every README.md (or top-level reference file) has a reading order table.
+- **Out-of-Scope section present** with explicit redirects.
+- **Cross-cutting rules at the right level:** rules applying to all children live in the hub, not duplicated.
+- **For hubs only:** every child or topic resolves from the triage table or decision tree to a real file path.
 
-Added scripts must be tested by actually running them to ensure there are no bugs and that the output matches what is expected. If there are many similar scripts, only a representative sample needs to be tested to ensure confidence that they all work while balancing time to completion.
+If any check fails, return to the relevant phase. Common failures and recovery patterns are catalogued in [references/gotchas.md](./references/gotchas.md).
 
-Any example files and directories not needed for the skill should be deleted. The initialization script creates example files in `scripts/`, `references/`, and `assets/` to demonstrate structure, but most skills won't need all of them.
+### Phase 8: Package and Iterate
 
-#### Update SKILL.md
-
-**Writing Guidelines:** Always use imperative/infinitive form.
-
-##### Frontmatter
-
-Write the YAML frontmatter with `name` and `description`:
-
-- `name`: The skill name
-- `description`: This is the primary triggering mechanism for your skill, and helps Claude understand when to use the skill.
-  - Include both what the Skill does and specific triggers/contexts for when to use it.
-  - Include all "when to use" information here - Not in the body. The body is only loaded after triggering, so "When to Use This Skill" sections in the body are not helpful to Claude.
-  - Example description for a `docx` skill: "Comprehensive document creation, editing, and analysis with support for tracked changes, comments, formatting preservation, and text extraction. Use when Claude needs to work with professional documents (.docx files) for: (1) Creating new documents, (2) Modifying or editing content, (3) Working with tracked changes, (4) Adding comments, or any other document tasks"
-
-Do not include any other fields in YAML frontmatter.
-
-##### Body
-
-Write instructions for using the skill and its bundled resources.
-
-### Step 5: Packaging a Skill
-
-Once development of the skill is complete, it must be packaged into a distributable .skill file that gets shared with the user. The packaging process automatically validates the skill first to ensure it meets all requirements:
+Once Phase 7 passes, package:
 
 ```bash
 scripts/package_skill.py <path/to/skill-folder>
 ```
 
-Optional output directory specification:
+The script validates frontmatter, naming, structure, and description quality, then produces a `.skill` file (zip with `.skill` extension) preserving directory structure.
 
-```bash
-scripts/package_skill.py <path/to/skill-folder> ./dist
-```
+Iteration loop after real-world use:
+1. Use the skill on real tasks.
+2. Capture failure modes (add to references/gotchas.md in four-part structure).
+3. Update SKILL.md or references.
+4. Re-validate (Phase 7) and re-package (Phase 8).
 
-The packaging script will:
+For common iteration patterns and signals that suggest a topology change, see [references/migration.md](./references/migration.md).
 
-1. **Validate** the skill automatically, checking:
+### Phase 9: Migration (Conditional)
 
-   - YAML frontmatter format and required fields
-   - Skill naming conventions and directory structure
-   - Description completeness and quality
-   - File organization and resource references
+Use this phase when modifying an existing skill, not creating one. Migration paths:
 
-2. **Package** the skill if validation passes, creating a .skill file named after the skill (e.g., `my-skill.skill`) that includes all files and maintains the proper directory structure for distribution. The .skill file is a zip file with a .skill extension.
+| Trigger | Migration | Effort |
+|---|---|---|
+| Standalone now wanted by 2+ skill-sets | Standalone → Member | Small |
+| Member body crossed 500 lines with 4+ themes | Member → Hub | Medium |
+| Single SKILL.md bloated past 500 lines | Flat → Hub or Better References | Medium-Large |
+| Hub has only 1-2 children always loaded together | Hub → Member | Small-Medium |
+| Reference-hub topics are wanted independently | Reference-Hub → Skill-Set Hub | Medium |
+| Member has 2-3 distinct capabilities under one name | Member → Multiple Members | Small-Medium |
 
-If validation fails, the script will report the errors and exit without creating a package. Fix any validation errors and run the packaging command again.
+Migration discipline:
+1. Take inventory: every file, every consuming skill-set.
+2. Plan a complete rename map before moving any file.
+3. Migrate in a single commit; partial migrations leave inconsistent state.
+4. Update consuming skill-sets in the same commit.
+5. Run Phase 7 validation against the new shape.
 
-### Step 6: Iterate
+For step-by-step procedures per migration type, read [references/migration.md](./references/migration.md).
 
-After testing the skill, users may request improvements. Often this happens right after using the skill, with fresh context of how the skill performed.
+## Cross-Cutting Rules
 
-**Iteration workflow:**
+These apply to every skill regardless of topology or domain:
 
-1. Use the skill on real tasks
-2. Notice struggles or inefficiencies
-3. Identify how SKILL.md or bundled resources should be updated
-4. Implement changes and test again
+- **Frontmatter has only `name`, `description`, and optional `references`.** No `license` (use LICENSE.txt), no `pipeline-status`, no `version` (versioning lives at the .skill distribution layer), no `author` (git history is authoritative), no `tags`.
+- **Description contains all trigger logic.** Body content loads only after triggering; trigger conditions in the body are unreachable.
+- **References load on demand.** Each reference linked from SKILL.md must include an explicit loading condition: "For X task, read references/Y.md" or via a reading order table.
+- **References are one level deep.** All reference files load directly from SKILL.md or from the first reference loaded. No deep chains.
+- **Imperative form throughout.** Write "Do X" not "This skill does X".
+- **Examples are concrete and complete.** Use real names and runnable code, not placeholders like `function foo()`.
+- **No README.md, INSTALLATION_GUIDE.md, or other auxiliary docs in the skill itself.** The skill contains only what an agent needs to act. Repo-level READMEs are fine; in-skill READMEs are not (the SKILL.md is the README).
+- **Skills exist once in `all-skills/` and are composed via symlinks.** No duplicate skill content across skill-sets. The single source of truth is `all-skills/<name>/`.
+- **Hubs do not duplicate child content.** A hub's references describe routing and shared rules, not the children's content. Children's content lives in children.
+
+## Out of Scope
+
+This skill covers SKILL.md packages for agentic CLI tools (Claude Code, Codex, OpenCode, and compatible harnesses). It does NOT cover:
+
+- **MCP tool definitions or the Claude API tool_use format.** Those describe tools to a model at the API level, not skills to an agent harness. Use a dedicated MCP skill or the API documentation directly.
+- **Raw system prompt engineering or persona configuration.** Those govern model behavior at the prompt level, below the skill abstraction.
+- **Anthropic plugin manifests or Claude.ai extensions.** Plugins use a different format and lifecycle than skills.
+- **n8n workflows, automation scripts, or CI/CD pipelines.** These are workflow tools, not agent skills, even when they orchestrate agent calls.
+- **CLAUDE.md or AGENTS.md project-level instruction files.** Those configure the harness or repo, not skill content.
+- **`.skill` file format internals or harness-specific loading behavior.** Those are platform concerns; this skill produces compliant artifacts but does not specify how harnesses consume them.
+
+For each excluded category, locate the dedicated skill, framework documentation, or harness manual rather than treating the topic as a skill-creation problem.
