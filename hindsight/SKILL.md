@@ -264,6 +264,20 @@ The plugin skips: messages < 24 chars, slash commands, system messages, heartbea
 | `maxItemsPerRun` | 3 | Max user messages captured per agent run |
 | `includeWriteBankInRecall` | true | Auto-include writeBank in recall list |
 
+## Claude Code Hook Integration
+
+The Claude Code analog of the OpenClaw plugin. Three hooks under `~/.claude/hooks/` auto-recall on every user prompt, auto-retain on every file edit, and emit a per-session journal at `~/.claude/.hindsight-journal/YYYY-mm-dd-h-m-s.md` that explains in plain English what was searched, what bank was resolved, how effective the recall was, and what was retained (with LLM-synthesized rationale for the subjective parts).
+
+| Hook (settings.json event) | Script | Behavior |
+|---|---|---|
+| `UserPromptSubmit` | `hindsight-recall.sh` | Resolve bank, recall context, inject into prompt, log `recall`/`recall_skipped` event |
+| `PostToolUse` (Write\|Edit\|MultiEdit) | `hindsight-retain.sh` | Retain edited file context, log `retain` event |
+| `Stop` | `hindsight-session-end.sh` | Daemonize journal writer (`setsid nohup`), legacy session-summary retain |
+
+The Stop hook **must** detach the journal writer with `setsid nohup … </dev/null >/dev/null 2>&1 &` — Claude Code reaps the hook's process group on return, killing any plain `&` background that's still waiting on the 30-second `hindsight memory reflect` call.
+
+Full reference (event schema, env knobs, manual ops, failure modes): `references/claude-code-journal.md`.
+
 ## Deterministic Governance (Single-Skill Canonical)
 
 This `hindsight` skill is the **single canonical memory package**. Keep governance here (do not split into a second memory-governance skill).
