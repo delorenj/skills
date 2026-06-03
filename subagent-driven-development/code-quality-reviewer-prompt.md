@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Code Quality Reviewer Prompt Template
 
 Use this template when dispatching a code quality reviewer subagent.

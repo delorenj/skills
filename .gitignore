@@ -3,3 +3,9 @@ __pycache__
 
 # Profile activation state is per-machine / per-session; do not track.
 _profiles/
+
+# Local SSoT rescue/quarantine state is operational scratch, not skill source.
+.quarantine/
+
+# Generated source-command shims are compatibility wrappers, not real skills.
+source-command-*/

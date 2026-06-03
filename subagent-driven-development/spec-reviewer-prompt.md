@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Spec Compliance Reviewer Prompt Template
 
 Use this template when dispatching a spec compliance reviewer subagent.

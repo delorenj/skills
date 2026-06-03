@@ -1,6 +1,8 @@
 ---
 name: subagent-driven-development
 description: Use when executing implementation plans with independent tasks in the current session
+pipeline-status:
+  - new
 ---
 
 # Subagent-Driven Development
@@ -36,6 +38,89 @@ digraph when_to_use {
 - Fresh subagent per task (no context pollution)
 - Two-stage review after each task: spec compliance first, then code quality
 - Faster iteration (no human-in-loop between tasks)
+
+## Kanban-Orchestrated Codex Execution (Default)
+
+### Default mode
+When this skill is invoked, run in **kanban-orchestrated codex mode** by default.
+
+### Kanban board contract
+Track all work using these statuses:
+- `backlog`
+- `ready`
+- `in_progress`
+- `review`
+- `blocked`
+- `done`
+
+Enforcement rules:
+1. **WIP limit = 1** for `in_progress`.
+2. A task may move to `review` only after implementer completion.
+3. A task may move to `done` only after both review gates pass.
+4. If a task is blocked >1 cycle, split/escalate and create follow-up cards.
+
+### Task decomposition standard
+From top-level goal:
+1. Decompose into smallest independent tasks (2–15 min each).
+2. Mark file-touching scope per task.
+3. Separate tasks into:
+   - **parallel-safe** (no overlapping files/resources)
+   - **serialized** (overlapping files/resources)
+4. Queue serialized tasks in dependency order.
+
+### Delegation default (Codex goal primitive)
+Each task is executed by delegated codex subagents using explicit `goal` + `context`.
+
+#### Implementer subagent template
+Goal:
+- `Implement Task <ID>: <task title>`
+
+Context must include:
+- Exact acceptance criteria
+- Exact files allowed to modify
+- Files forbidden to modify
+- Required tests/checks to run
+- Output contract (summary, changed files, test results, risks)
+
+#### Review gate 1: Spec compliance
+Goal:
+- `Review Task <ID> for strict spec compliance`
+
+Pass condition:
+- All acceptance criteria satisfied
+- No out-of-scope changes
+
+#### Review gate 2: Code quality
+Goal:
+- `Review Task <ID> for code quality and safety`
+
+Pass condition:
+- Conventions/style respected
+- Tests adequate
+- No obvious regressions/security concerns
+
+### Routing and concurrency rules
+1. Run **one** `in_progress` card at a time by default.
+2. Allow parallel delegation only for tasks marked parallel-safe.
+3. Never run parallel tasks that touch the same files.
+4. If collision risk appears, cancel/requeue to serialized lane.
+
+### Failure/retry policy
+If implementer fails/stalls:
+1. Move card to `blocked`.
+2. Spawn targeted retry subagent with narrowed scope.
+3. If second failure, split task and re-queue child tasks.
+4. If still blocked, escalate with explicit decision log.
+
+### Closeout contract
+At milestone completion, output:
+1. Final board snapshot (all card statuses)
+2. Decision log (scope cuts, retries, trade-offs)
+3. Validation summary (tests/checks run)
+4. Remaining backlog and next recommended card
+
+### Operating principle
+**Controller owns orchestration and quality gates; delegated codex agents own execution per-card.**
 
 ## The Process
 

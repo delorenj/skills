@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Docker & Container Patterns
 
 ## Cloudflare Tunnel + Traefik Architecture

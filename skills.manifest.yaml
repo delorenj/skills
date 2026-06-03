@@ -18,7 +18,6 @@ version: 1
 # the activator does not treat them specially.
 # ─────────────────────────────────────────────────────────────────────────────
 always_on:
-
   # Clerk authentication ecosystem (10 skills).
   clerk:
     - clerk
@@ -79,7 +78,7 @@ always_on:
   # Creative content generation: voice, image, video, books (7 skills).
   content_creation:
     - creating-coloring-books
-    - digipop-coloring-book-creation   # DEPRECATED: replaced by creating-coloring-books
+    - digipop-coloring-book-creation # DEPRECATED: replaced by creating-coloring-books
     - elevenlabs-remotion
     - elevenlabs-voices
     - fal-text-to-image
@@ -108,14 +107,13 @@ always_on:
     - monitoring-stack
     - oauth-helper
     - pm2
-    - rabbitmq-management
     - stacks-deploy
     - tailnet-multi-machine
 
   # Hindsight and memory/context persistence (3 skills).
   memory:
     - hindsight
-    - hindsight-memory-governance       # DEPRECATED: consolidated into hindsight
+    - hindsight-memory-governance # DEPRECATED: consolidated into hindsight
     - hindsight-self-hosted
 
   # 33GOD platform components and internal tooling (11 skills).
@@ -140,6 +138,7 @@ always_on:
     - code-reviewer
     - debugging-complex-multi-layer-systems
     - github-issue-creator
+    - mise-versioning
     - pr-address-comments
     - pr-creator
     - review-duplication
@@ -167,7 +166,6 @@ always_on:
     - coding-strategy
     - context-optimizer
     - context-self-heal
-    - creating-workflows-using-claude-flow
     - feedback-vector-loop
     - find-skills
     - installing-apps-tools-and-services
@@ -175,7 +173,7 @@ always_on:
     - mise-task-managing
     - mise-tasks
     - opencode-controller
-    - pirate-skill            # candidate for removal: novelty only
+    - pirate-skill # candidate for removal: novelty only
     - pjangler-dev
     - pricing-strategy
     - self-improving-agent
@@ -186,7 +184,6 @@ always_on:
 # Activate exactly one via: ~/.agents/skills/bin/activate-profile <name>
 # ─────────────────────────────────────────────────────────────────────────────
 profiles:
-
   bmad:
     description: "BMAD methodology: spec-driven, multi-persona agent workflow"
     source: plugin
@@ -234,9 +231,9 @@ profiles:
 # ─────────────────────────────────────────────────────────────────────────────
 cli_targets:
   claude_code: "~/.claude/skills"
-  opencode:    "~/.config/opencode/skills"
-  codex:       "~/.config/codex/skills"
-  gemini:      "~/.config/gemini/skills"
+  opencode: "~/.config/opencode/skills"
+  codex: "~/.config/codex/skills"
+  gemini: "~/.config/gemini/skills"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Audit notes (2026-04-14)

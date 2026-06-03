@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Claude Code Journal Pipeline
 
 A telemetry + reflection pipeline that produces a plain-English journal of how each Claude Code session interacted with Hindsight. Runs entirely via Claude Code hooks; no Claude action required.

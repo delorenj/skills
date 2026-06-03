@@ -1,0 +1,6 @@
+# Provenance for this skill. Managed by skill_ssot.py.
+origin:
+  type: adhoc
+  extracted_at: 2026-05-31T09:08:55+00:00
+  rescued_from: "/home/delorenj/code/skillex/skill-sets/global/chrome-extension-development"
+modified_locally: false

@@ -1,6 +1,8 @@
 ---
 name: delonet-conventions
 description: This skill defines system conventions such as file naming and paths, shell configuration, container hosting and other custom systems. Use this skill when working on a task that requires interacting with or configuring the filesystem, containers, or services in the DeLoNET home environment.
+pipeline-status:
+  - new
 ---
 
 # Standards And Conventions for DeLoNET Linux Workstations

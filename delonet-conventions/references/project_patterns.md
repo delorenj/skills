@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Project Structure & Vault Integration Patterns
 
 ## Universal Paths

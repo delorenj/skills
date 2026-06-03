@@ -1,0 +1,6 @@
+# Provenance for this skill. Managed by skill_ssot.py.
+origin:
+  type: adhoc
+  extracted_at: 2026-05-23T04:34:38+00:00
+  rescued_from: "/home/delorenj/code/skillex/skill-sets/global/bloodbank-sdk-generation"
+modified_locally: false

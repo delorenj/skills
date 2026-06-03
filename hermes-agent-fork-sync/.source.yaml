@@ -1,0 +1,6 @@
+# Provenance for this skill. Managed by skill_ssot.py.
+origin:
+  type: adhoc
+  extracted_at: 2026-05-23T15:19:12+00:00
+  rescued_from: "/home/delorenj/code/skillex/skill-sets/global/hermes-agent-fork-sync"
+modified_locally: false

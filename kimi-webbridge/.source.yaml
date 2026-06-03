@@ -1,0 +1,6 @@
+# Provenance for this skill. Managed by skill_ssot.py.
+origin:
+  type: adhoc
+  extracted_at: 2026-05-22T01:21:59+00:00
+  rescued_from: "/home/delorenj/code/skillex/skill-sets/global/kimi-webbridge"
+modified_locally: false

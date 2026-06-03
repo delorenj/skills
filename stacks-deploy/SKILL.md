@@ -19,6 +19,7 @@ Generates minimal deployment stack entries from containerized git repos. Separat
 - **No `build:` in stacks compose files.** Everything uses `image:`.
 - **Runtime data lives at `/home/delorenj/data/<service>/`**, not in stacks or git repos.
 - **`network_mode: host` services cannot join the proxy network.** Use a companion service for Traefik routing.
+- **Secrets resolve from 1Password at deploy time, never live in the repo.** Commit `.env.template` with `op://...` references; resolve via `~/docker/stacks/_lib/op-inject.sh` (see `references/secret-injection.md`). `.env` is always gitignored.
 
 ## Workflow
 
@@ -158,8 +159,16 @@ For services with custom images, add to the source repo's `mise.toml`:
 description = "Build the Docker image"
 run = "docker build -t <user>/<image>:latest -f <dockerfile> <context>/"
 
+[tasks.inject]
+description = "Resolve secrets from 1Password into <service>/.env"
+run = """
+cd ~/docker/stacks/<category>/<service>
+~/docker/stacks/_lib/op-inject.sh
+"""
+
 [tasks.deploy]
-description = "Pull and restart in stacks deployment"
+description = "Re-inject secrets, pull and restart in stacks deployment"
+depends = ["inject"]
 run = """
 cd ~/docker/stacks/<category>/<service>
 docker compose pull <service-name>
@@ -167,8 +176,13 @@ docker compose up -d <service-name>
 """
 ```
 
+The `inject` step is required whenever the stack uses `.env.template` with
+`op://...` references (preferred pattern — see `references/secret-injection.md`).
+Skip it only for stacks that legitimately have no secrets.
+
 ## Reference Files
 
 - `references/traefik-labels.md` - Label templates, middleware patterns, host-networking workaround
 - `references/stacks-layout.md` - Monorepo structure, aggregator format, naming conventions
 - `references/deployment-modes.md` - Mode comparison with real examples from existing stacks
+- `references/secret-injection.md` - 1Password + `op inject` pattern. Commit `.env.template`, resolve `.env` at deploy via `~/docker/stacks/_lib/op-inject.sh`. Migration recipe for existing stacks included.
