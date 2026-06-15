@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BMAD Workspace</title>
+  <style>
+    :root { font-family: Inter, system-ui, sans-serif; color-scheme: light dark; }
+    body { margin: 0; padding: 1rem; background: #0b1020; color: #e6e9f2; }
+    .grid { display:grid; gap: 1rem; grid-template-columns: repeat(12, 1fr); }
+    .card { background: #141a2d; border: 1px solid #2c3557; border-radius: 12px; padding: .9rem; }
+    .span-12{grid-column: span 12;} .span-6{grid-column: span 6;} .span-4{grid-column: span 4;}
+    h1,h2,h3 { margin: .2rem 0 .6rem; }
+    ul { margin: .3rem 0 .2rem 1rem; padding: 0; }
+    code { background: #1e2642; padding: .1rem .3rem; border-radius: 4px; }
+    pre { background: #0e1428; padding: .7rem; border-radius: 8px; overflow:auto; }
+    .pill { display:inline-block; padding:.15rem .5rem; border-radius:999px; background:#2a7fff33; border:1px solid #2a7fff88; }
+    textarea,input,select,button { width: 100%; padding: .5rem; border-radius: 8px; border: 1px solid #3a466f; background: #0f1630; color: inherit; }
+  </style>
+</head>
+<body>
+  <div class="grid" id="app"></div>
+
+  <script>
+    window.BMAD_STATE = window.BMAD_STATE || {
+      project: { name: "Demo Project", phase: "Scaffold", health: "green" },
+      summary: { northStar: "Consolidated HTML workspace", lastUpdated: "2026-05-09" },
+      timeline: [], todos: [], docs: [], decisions: [], risks: [], diffs: [],
+      feedback: { prompt: "What should change next?", fields: ["priority", "notes"] }
+    };
+
+    const s = window.BMAD_STATE;
+    const app = document.getElementById('app');
+    const card = (title, content, span='span-6') =>
+      `<section class="card ${span}"><h2>${title}</h2>${content}</section>`;
+
+    app.innerHTML = [
+      card('Project', `<h1>${s.project.name}</h1><p><span class="pill">${s.project.phase}</span> <span class="pill">health: ${s.project.health}</span></p><p>${s.summary.northStar}</p>`, 'span-12'),
+      card('Timeline', `<ul>${s.timeline.map(t=>`<li>${t.label} — ${t.status}</li>`).join('')}</ul>`, 'span-4'),
+      card('TODO Board', `<ul>${s.todos.map(t=>`<li><strong>${t.title}</strong> (${t.status}, ${t.priority})</li>`).join('')}</ul>`, 'span-4'),
+      card('Docs & Artifacts', `<ul>${s.docs.map(d=>`<li><code>${d.type}</code> ${d.title}: ${d.path}</li>`).join('')}</ul>`, 'span-4'),
+      card('Decisions', `<ul>${s.decisions.map(d=>`<li>${d.date} — <strong>${d.title}</strong><br/>${d.rationale}</li>`).join('')}</ul>`, 'span-6'),
+      card('Risks', `<ul>${s.risks.map(r=>`<li><strong>${r.title}</strong>: ${r.mitigation}</li>`).join('')}</ul>`, 'span-6'),
+      card('Code Diff Snapshot', `${s.diffs.map(d=>`<h3>${d.title}</h3><pre>- ${d.before}\n+ ${d.after}</pre>`).join('') || '<p>No diff snapshot yet.</p>'}`, 'span-12'),
+      card('Feedback', `<p>${s.feedback.prompt}</p><label>Priority</label><select><option>High</option><option>Medium</option><option>Low</option></select><label>Notes</label><textarea rows="4" placeholder="Your notes..."></textarea><button>Submit (wire to your workflow)</button>`, 'span-12')
+    ].join('');
+  </script>
+</body>
+</html>

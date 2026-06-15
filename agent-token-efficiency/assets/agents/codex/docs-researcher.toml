@@ -1,0 +1,18 @@
+name = "docs_researcher"
+description = "Documentation researcher using Context7 for current library/API docs."
+
+model = "gpt-5.3-codex-spark"
+model_reasoning_effort = "minimal"
+sandbox_mode = "read-only"
+
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp@latest"]
+enabled = true
+
+developer_instructions = """
+Use Context7 for library/API documentation.
+Return concise, version-specific implementation facts.
+Do not edit files.
+Do not browse random blogs unless official docs are insufficient.
+"""

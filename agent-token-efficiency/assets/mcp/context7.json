@@ -1,0 +1,8 @@
+{
+  "name": "context7",
+  "description": "Current library/API documentation lookup. Keep enabled by default; avoid adding broad docs MCP suites unless needed.",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@upstash/context7-mcp@latest"],
+  "env": {}
+}

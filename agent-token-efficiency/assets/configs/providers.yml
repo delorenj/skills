@@ -1,0 +1,59 @@
+# Provider quota assumptions for free/throttled rotation planning.
+# Keep this file honest: unknown or account-specific quotas should be null.
+# The CLI will calculate only from enabled entries with numeric rpm/daily_requests.
+
+providers:
+  - name: openrouter-free-low-credit
+    model: "*:free"
+    enabled: false
+    rpm: 20
+    daily_requests: 50
+    tpm: null
+    cost_tier: free
+    quality_tier: varies
+    notes: "OpenRouter free model variants ending in :free. Use this row when account has purchased < $10 credits. Failed attempts may count."
+    source_url: "https://openrouter.ai/docs/api/reference/limits"
+
+  - name: openrouter-free-funded
+    model: "*:free"
+    enabled: true
+    rpm: 20
+    daily_requests: 1000
+    tpm: null
+    cost_tier: free
+    quality_tier: varies
+    notes: "OpenRouter free model variants ending in :free after purchasing at least $10 credits. Best-effort provider availability still applies."
+    source_url: "https://openrouter.ai/docs/api/reference/limits"
+
+  - name: gemini-api-free
+    model: "gemini/free-tier-selected-models"
+    enabled: false
+    rpm: null
+    daily_requests: null
+    tpm: null
+    cost_tier: free
+    quality_tier: good
+    notes: "Gemini free-tier quotas are model/project/region/tier dependent. Fill in active quotas from Google AI Studio before enabling."
+    source_url: "https://ai.google.dev/gemini-api/docs/rate-limits"
+
+  - name: kimi-moonshot-tiered
+    model: "kimi-coding"
+    enabled: false
+    rpm: null
+    daily_requests: null
+    tpm: null
+    cost_tier: tiered
+    quality_tier: strong-coding
+    notes: "Moonshot/Kimi limits are tiered by recharge/usage. Fill in actual tier limits before enabling."
+    source_url: "https://platform.kimi.ai/docs/pricing/limits"
+
+  - name: hermes-openrouter-paid-overflow
+    model: "openrouter/auto or openrouter/pareto-code"
+    enabled: false
+    rpm: null
+    daily_requests: null
+    tpm: null
+    cost_tier: paid-overflow
+    quality_tier: variable
+    notes: "Use as paid overflow via Hermes/OpenRouter provider routing when free pools are exhausted or unreliable."
+    source_url: "https://openrouter.ai/docs/cookbook/coding-agents/hermes-integration"

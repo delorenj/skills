@@ -1,0 +1,18 @@
+[project]
+name = "agent-token-efficiency-skill"
+version = "0.1.0"
+description = "Skill and CLI for optimizing Claude, Codex, Kimi, and Hermes agent token usage."
+requires-python = ">=3.10"
+dependencies = [
+  "typer>=0.12.0",
+  "rich>=13.0.0",
+  "pyyaml>=6.0.0",
+  "requests>=2.31.0",
+]
+
+[project.scripts]
+aeff = "scripts.agent_efficiency:app"
+agent-efficiency = "scripts.agent_efficiency:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

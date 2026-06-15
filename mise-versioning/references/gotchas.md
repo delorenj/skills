@@ -14,6 +14,22 @@ the manifest with the right type, or — if no built-in type matches its layout 
 **Why it matters:** `current` and every bump derive from the manifest only; an untracked file is
 invisible and will silently fall out of parity.
 
+## `--version` reports an old number though every manifest is in parity
+
+**Symptom:** `mise run version` and all tracked files agree (e.g. 1.1.3), but the built CLI/server
+answers `--version` (or its MCP/server-info handshake) with a stale value like `1.0.0`.
+**Cause:** the program self-reports from a string literal in source — commander's
+`.version("1.0.0")`, an `McpServer({ version: "1.0.0" })`, a `__version__ = "1.0.0"` — which no
+manifest entry tracks and no built-in type can rewrite. Bumps move the manifests; the literal
+never moves.
+**Fix:** derive instead of duplicating — make the artifact read its version from the tracked
+manifest at runtime (or inject it at build time). Per-stack recipes and a verify ritual:
+[self-reported-version.md](./self-reported-version.md). Do **not** add the source file to the
+conf; regex-rewriting code is the brittleness this engine deliberately avoids.
+**Why it matters:** users trust `--version` over your manifests. Parity that stops at the file
+boundary ships artifacts that lie about themselves (this exact incident: pjangler 1.1.3 reporting
+1.0.0).
+
 ## A bump rewrote the wrong line in a TOML file
 
 **Symptom:** a dependency pin or a nested `version =` got changed instead of the package version.

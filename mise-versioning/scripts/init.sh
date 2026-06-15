@@ -147,4 +147,23 @@ else
   say "no mise [tasks.build] found — if this repo builds via npm/pnpm/make/etc., wrap it manually (see SKILL.md)"
 fi
 
+# --- 7. flag hardcoded self-reported versions in source ----------------------
+# A program that answers `--version` (or an MCP/server-info handshake) from a
+# string literal lies the moment a bump moves the manifests — no conf type
+# rewrites source, on purpose. Detection only; the fix is to derive the version
+# from a tracked manifest at runtime (see references/self-reported-version.md).
+SELFREP_PAT='(\.version\(|__version__[[:space:]]*=[[:space:]]*|[Vv]ersion[[:space:]]*[:=][[:space:]]*)["'"'"'][0-9]+\.[0-9]+\.[0-9]+["'"'"']'
+SELFREP="$( (git -C "$REPO_ROOT" ls-files -z -- \
+      '*.ts' '*.tsx' '*.js' '*.mjs' '*.cjs' '*.py' '*.go' '*.rs' '*.rb' '*.sh' '*.cs' '*.java' '*.kt' \
+      2>/dev/null || true) \
+  | xargs -0 -r grep -nE "$SELFREP_PAT" 2>/dev/null | head -10 || true)"
+if [[ -n "$SELFREP" ]]; then
+  say "WARNING: hardcoded self-reported version literal(s) found — bumps will NOT rewrite these;"
+  say "the built artifact will lie about its own version:"
+  printf '%s\n' "$SELFREP" | sed 's/^/    /'
+  say "fix: derive the version from the tracked manifest at runtime"
+  say "     (skill references/self-reported-version.md), then verify:"
+  say "     <artifact> --version  ==  mise run version"
+fi
+
 say "done. Try:  mise run version   |   mise run version:bump-patch"

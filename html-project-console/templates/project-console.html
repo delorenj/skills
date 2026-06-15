@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project Console</title>
+  <style>
+    :root { --bg:#0b1020; --panel:#111830; --text:#e6ecff; --muted:#9fb0dd; --accent:#7aa2ff; --ok:#46d19a; --warn:#ffcc66; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--text); }
+    header, section { padding:16px; }
+    header { border-bottom:1px solid #273256; position:sticky; top:0; background:rgba(11,16,32,.92); backdrop-filter: blur(4px); }
+    main { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); padding:12px; }
+    section { background:var(--panel); border:1px solid #273256; border-radius:10px; }
+    h1, h2 { margin:0 0 8px; }
+    .muted { color:var(--muted); }
+    ul { margin:8px 0 0; padding-left:18px; }
+    .badge { display:inline-block; border:1px solid #3b4e84; border-radius:999px; padding:2px 8px; margin-right:6px; }
+    .todo input { margin-right:8px; }
+    textarea { width:100%; min-height:90px; background:#0a0f1f; color:var(--text); border:1px solid #304274; border-radius:8px; padding:8px; }
+    button { margin-top:8px; background:var(--accent); color:#03153f; border:0; border-radius:8px; padding:8px 10px; font-weight:600; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 id="project-name">Project Console</h1>
+    <div class="muted" id="project-meta"></div>
+  </header>
+  <main>
+    <section id="vision"></section>
+    <section id="plan"></section>
+    <section id="todo"></section>
+    <section id="artifacts"></section>
+    <section id="changelog"></section>
+    <section id="feedback"></section>
+  </main>
+
+  <script>
+    window.PROJECT_CONSOLE_DATA = {
+      project: { name: "Example Repo", owner: "Team", updatedAt: "2026-05-09" },
+      vision: "Single-page control center for plans, status, and artifacts.",
+      plan: ["Scaffold app shell", "Map existing docs to structured JSON", "Iterate sections"],
+      todo: [
+        { text: "Wire BMAD plan output into this file", done: false },
+        { text: "Add diff viewer section", done: false }
+      ],
+      artifacts: [{ label: "Architecture", href: "./docs/architecture.md" }],
+      changelog: ["Initialized console scaffold"],
+      feedback: []
+    };
+
+    const data = window.PROJECT_CONSOLE_DATA;
+    const el = (id) => document.getElementById(id);
+    const li = (text) => `<li>${text}</li>`;
+
+    el("project-name").textContent = data.project.name;
+    el("project-meta").textContent = `Owner: ${data.project.owner} · Updated: ${data.project.updatedAt}`;
+
+    el("vision").innerHTML = `<h2>Vision</h2><p>${data.vision}</p>`;
+    el("plan").innerHTML = `<h2>Plan</h2><ul>${data.plan.map(li).join("")}</ul>`;
+    el("todo").innerHTML = `<h2>To-do</h2><div class='todo'>${data.todo.map(t => `<label><input type='checkbox' ${t.done ? "checked" : ""} disabled />${t.text}</label><br/>`).join("")}</div>`;
+    el("artifacts").innerHTML = `<h2>Artifacts</h2><ul>${data.artifacts.map(a => li(`<a href='${a.href}'>${a.label}</a>`)).join("")}</ul>`;
+    el("changelog").innerHTML = `<h2>Changelog</h2><ul>${data.changelog.map(li).join("")}</ul>`;
+
+    el("feedback").innerHTML = `
+      <h2>Feedback</h2>
+      <p class='muted'>Enter notes, then copy/paste to your agent chat.</p>
+      <textarea id='feedback-text' placeholder='What should change next?'></textarea>
+      <button id='feedback-export'>Export JSON</button>
+      <pre id='feedback-output' class='muted'></pre>
+    `;
+
+    document.getElementById("feedback-export").onclick = () => {
+      const note = document.getElementById("feedback-text").value.trim();
+      const payload = { at: new Date().toISOString(), note };
+      document.getElementById("feedback-output").textContent = JSON.stringify(payload, null, 2);
+    };
+  </script>
+</body>
+</html>

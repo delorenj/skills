@@ -1,0 +1,9 @@
+{
+  "name": "semantic-code-search",
+  "description": "Placeholder for exactly one semantic code search MCP. Replace command/args with chosen implementation such as Zilliz Claude Context or Ory Lumen after local evaluation.",
+  "transport": "stdio",
+  "command": "echo",
+  "args": ["Replace this placeholder with your chosen semantic code search MCP before enabling."],
+  "enabled_by_default": false,
+  "env": {}
+}

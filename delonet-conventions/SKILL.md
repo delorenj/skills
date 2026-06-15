@@ -43,6 +43,15 @@ This top-level domain is managed by my `ZSH Custom` repository `delorenj/zshyzsh
 
 ## Code Repository Organization
 
+All repos live in `$CODE` (`~/code`). New repos are not hand-rolled — they are created and
+wired by **pjangler** out of the CommonProject + hermes-agent-template copier templates.
+
+> For anything about CREATING a 33god/DeLoNET project — bootstrapping CommonProject,
+> provisioning a Hermes PM or Ticket Sentinel (scrum-master), the `.project.json` single
+> source of truth + one-board-per-repo model, the mise contract, BMAD install, and
+> hindsight/bloodbank agent hooks — use the **`33god-projects`** skill. Don't reinvent it here.
+> For developing pjangler itself (Commands/Recipes), see `pjangler-dev` in `~/code/pjangler/skills/`.
+
 ## Tooling and Package Management
 
 Mise is my tooling and package versioning utility of choice.
@@ -50,6 +59,9 @@ Mise is my tooling and package versioning utility of choice.
 - EVERYTHING that CAN be managed with Mise should be managed with Mise.
   - This is not yet the case.
   - If you find one, migrate it to Mise and remove the old tooling.
+- Every 33god repo carries the same mise contract (mise.toml + `.mise/scripts/`, AGENTS.md→
+  CLAUDE.md/GEMINI.md linking, `op inject .env.op` on enter). That contract is documented in
+  the **`33god-projects`** skill (mise-conventions); follow it for any new or edited repo.
 
 > [!IMPORTANT] **Critical Pattern:**
 > Every repo in `$CODE` (ideally) has a matching folder in `$VAULT/Projects/` for non-tracked brainstorming and iteration documents.
