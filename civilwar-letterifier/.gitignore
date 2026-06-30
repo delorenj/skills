@@ -1,0 +1,9 @@
+node_modules/
+out/
+remotion/props.json
+remotion/public/narration.mp3
+remotion/public/music.mp3
+remotion/public/.letter.txt
+assets/music/*
+!assets/music/.gitkeep
+.env.local
