@@ -3,7 +3,10 @@ out/
 remotion/props.json
 remotion/public/narration.mp3
 remotion/public/music.mp3
+remotion/public/ambient.mp3
 remotion/public/.letter.txt
 assets/music/*
 !assets/music/.gitkeep
+assets/sfx/*
+!assets/sfx/.gitkeep
 .env.local

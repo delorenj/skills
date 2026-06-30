@@ -1,0 +1,17 @@
+{
+  "name": "slowburns",
+  "version": "0.1.0",
+  "description": "Turn any text into a Ken Burns documentary dispatch video — period narration, script on parchment, music + field ambience, slow pan/zoom.",
+  "type": "module",
+  "bin": {
+    "slowburns": "bin/slowburns.mjs"
+  },
+  "scripts": {
+    "letterify": "node scripts/letterify.mjs",
+    "build": "node scripts/build.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "SEE LICENSE IN LICENSE"
+}

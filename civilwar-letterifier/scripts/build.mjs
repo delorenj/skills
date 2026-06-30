@@ -117,8 +117,10 @@ if (!letterText) {
 
 const musicPath = arg('music'); // explicit drop-in track
 const autoMusic = arg('auto-music', false);
+const noMusic = arg('no-music', false); // force voice-only (overrides drop-in/auto)
 const ambientPath = arg('ambient'); // explicit ambient track (else assets/sfx)
 const ambientVolume = parseFloat(arg('ambient-volume', '0.16'));
+const noAmbient = arg('no-ambient', false); // force-skip the ambient layer
 
 function pickRandomTrack(dir) {
   const files = fs.readdirSync(dir).filter((f) => /\.(mp3|wav|ogg|m4a|flac)$/i.test(f));
@@ -156,7 +158,9 @@ run('node', [
 // --- 2. Music bed ---------------------------------------------------------
 const musicDest = path.join(PUBLIC, 'music.mp3');
 let hasMusic = false;
-if (musicPath && musicPath !== true) {
+if (noMusic) {
+  console.log('\nMusic disabled (--no-music). Voice only.');
+} else if (musicPath && musicPath !== true) {
   fs.copyFileSync(path.resolve(musicPath), musicDest);
   hasMusic = true;
   console.log(`\nUsing drop-in music: ${musicPath}`);
@@ -184,7 +188,9 @@ if (musicPath && musicPath !== true) {
 // by default, from assets/sfx/.
 const ambientDest = path.join(PUBLIC, 'ambient.mp3');
 let hasAmbient = false;
-if (ambientPath && ambientPath !== true) {
+if (noAmbient) {
+  console.log('\nAmbient bed disabled (--no-ambient).');
+} else if (ambientPath && ambientPath !== true) {
   fs.copyFileSync(path.resolve(ambientPath), ambientDest);
   hasAmbient = true;
   console.log(`\nUsing drop-in ambient bed: ${ambientPath}`);
