@@ -63,10 +63,15 @@ user text
    ▼
 letter.json ──► scripts/build.mjs ──► out/letter.mp4
                    │  1. ElevenLabs narration  → remotion/public/narration.mp3
-                   │  2. music bed (drop-in or auto-generated)
+                   │  2. music bed (drop-in or auto-generated, optional)
+                   │  2b. ambient bed (assets/sfx, always-on atmosphere)
                    │  3. props.json
                    └─ 4. Remotion render (parchment + script + Ken Burns + audio)
 ```
+
+Three audio layers stack in the render: the **narration** (voice), the optional
+**music bed**, and an always-on **ambient bed** (field atmosphere) underneath
+both.
 
 ### Step 1 — Write the letter spec
 
@@ -116,6 +121,21 @@ Pick one; defaults to voice-only if you skip it:
 
 **Licensing matters:** the actual Ken Burns theme ("Ashokan Farewell") is copyrighted — do not bundle it. `references/voice-and-music.md` lists public-domain period tunes and royalty-free sources.
 
+### Ambient bed
+
+A separate, **always-on** atmosphere layer (crickets, wind, a distant camp) that
+plays beneath the voice and music for the entire film — it is not an alternative
+to the music bed; both stack. Drop an audio file in `assets/sfx/` (a file named
+`ambient.*` is preferred; otherwise the first/random track is used) and it is
+picked up automatically. Overrides:
+
+- `--ambient <file>` — use a specific ambient track.
+- `--ambient-volume <0..1>` — peak level of the bed (default `0.16`; it sits
+  below the music's `0.22` so it never competes with the narration).
+
+If `assets/sfx/` is empty and no `--ambient` is given, the layer is simply
+skipped.
+
 ### Tuning the look
 
 The composition lives in `remotion/src/CivilWarLetter.tsx`. Preview and tweak live with:
@@ -130,5 +150,6 @@ cd remotion && npm install && npm run studio
 
 ## Defaults this skill was built with
 - Music: drop-in track if present, else auto-generated bed (so the pipeline always finishes).
+- Ambient: always-on bed from `assets/sfx/` (skipped only if that folder is empty), layered under voice + music at `0.16`.
 - Voice: stock `Adam` by default; custom-designed period voice recommended.
 - Output: 1920×1080, 30fps, h264 MP4.

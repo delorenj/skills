@@ -73,3 +73,26 @@ Royalty-free / freely-licensed sources for solo-fiddle laments:
 
 A solo, sparse fiddle or fingerpicked banjo at low volume reads best; busy
 arrangements fight the narration.
+
+## Ambient bed
+
+The composition layers a third, **always-on** track — field atmosphere — beneath
+both the narration and the (optional) music. Unlike music it is not gated behind
+a flag: any audio file in `assets/sfx/` is picked up automatically and plays for
+the whole film, looped, fading in at the open and out under the closing fade.
+
+- Drop a file in `assets/sfx/`. A track named `ambient.*` is preferred; otherwise
+  the first (or a random) audio file is used.
+- Override the file with `--ambient <file>` and the level with
+  `--ambient-volume <0..1>` (default `0.16`, just under the music's `0.22`).
+- Empty folder + no `--ambient` → the layer is skipped and the render still
+  finishes (voice, plus music if selected).
+
+What reads well: low, continuous, non-melodic texture — distant crickets, night
+wind, a faint crackling fire, a far-off camp. Keep it quiet and unbusy so it
+deepens the scene without pulling against the voice. Anything with a recognizable
+tune belongs in the music bed, not here.
+
+**Licensing:** the same rules as music apply — use field-recording / ambience
+that you own or that is public-domain / CC-cleared; verify the specific
+recording's license before publishing.

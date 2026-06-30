@@ -5,13 +5,19 @@
  * Given a finished letter (already rewritten by Claude into period prose), this:
  *   1. narrates it with ElevenLabs            -> remotion/public/narration.mp3
  *   2. resolves a music bed (drop-in or auto) -> remotion/public/music.mp3
+ *   2b. resolves the ambient bed (assets/sfx) -> remotion/public/ambient.mp3
  *   3. writes render props                    -> remotion/props.json
  *   4. renders the Ken Burns documentary clip -> out/<name>.mp4
+ *
+ * The ambient bed (assets/sfx) is an always-on field-atmosphere layer that plays
+ * beneath everything for the whole film, independent of the optional music bed.
  *
  * Usage:
  *   node scripts/build.mjs --spec letter.json --voice Adam --out out/letter.mp4
  *   node scripts/build.mjs --spec letter.json --music assets/music/ashokan.mp3
  *   node scripts/build.mjs --spec letter.json --auto-music --out out/letter.mp4
+ *   node scripts/build.mjs --spec letter.json --ambient assets/sfx/ambient.mp3
+ *   node scripts/build.mjs --spec letter.json --ambient-volume 0.2
  *
  * letter.json shape (all but letterText optional):
  *   {
@@ -82,11 +88,23 @@ if (!spec.letterText) {
 const voice = arg('voice', process.env.CIVILWAR_VOICE || 'Adam');
 const musicPath = arg('music'); // explicit drop-in track
 const autoMusic = arg('auto-music', false);
+const ambientPath = arg('ambient'); // explicit ambient track (else assets/sfx)
+const ambientVolume = parseFloat(arg('ambient-volume', '0.16'));
 
 function pickRandomTrack(dir) {
   const files = fs.readdirSync(dir).filter((f) => /\.(mp3|wav|ogg|m4a|flac)$/i.test(f));
   if (files.length === 0) return null;
   return path.join(dir, files[Math.floor(Math.random() * files.length)]);
+}
+// The ambient bed lives in assets/sfx. Prefer a track literally named
+// "ambient.*"; otherwise fall back to any audio file (random if several).
+function pickAmbientTrack(dir) {
+  if (!fs.existsSync(dir)) return null;
+  const files = fs.readdirSync(dir).filter((f) => /\.(mp3|wav|ogg|m4a|flac)$/i.test(f));
+  if (files.length === 0) return null;
+  const named = files.find((f) => /^ambient\.(mp3|wav|ogg|m4a|flac)$/i.test(f));
+  const chosen = named || files[Math.floor(Math.random() * files.length)];
+  return path.join(dir, chosen);
 }
 const outFile = path.resolve(arg('out', path.join(ROOT, 'out', 'letter.mp4')));
 const introPad = parseFloat(arg('intro-pad', '3.5'));
@@ -131,6 +149,27 @@ if (musicPath && musicPath !== true) {
   }
 }
 
+// --- 2b. Ambient bed ------------------------------------------------------
+// Always-on field atmosphere, layered beneath everything for the whole film,
+// independent of whether a music bed was selected. Resolved from --ambient or,
+// by default, from assets/sfx/.
+const ambientDest = path.join(PUBLIC, 'ambient.mp3');
+let hasAmbient = false;
+if (ambientPath && ambientPath !== true) {
+  fs.copyFileSync(path.resolve(ambientPath), ambientDest);
+  hasAmbient = true;
+  console.log(`\nUsing drop-in ambient bed: ${ambientPath}`);
+} else {
+  const ambientTrack = pickAmbientTrack(path.join(ROOT, 'assets', 'sfx'));
+  if (ambientTrack) {
+    fs.copyFileSync(ambientTrack, ambientDest);
+    hasAmbient = true;
+    console.log(`\nUsing ambient bed: ${ambientTrack}`);
+  } else {
+    console.log('\nNo ambient bed found in assets/sfx (skipping ambient layer).');
+  }
+}
+
 // --- 3. Props -------------------------------------------------------------
 const props = {
   letterText: spec.letterText,
@@ -139,8 +178,11 @@ const props = {
   title: spec.title || 'A Letter from the Front',
   fontStyle,
   hasMusic,
+  hasAmbient,
   narrationFile: 'narration.mp3',
   musicFile: 'music.mp3',
+  ambientFile: 'ambient.mp3',
+  ambientVolume,
   introPad,
   outroPad,
   accentColor,

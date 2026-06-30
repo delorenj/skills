@@ -33,10 +33,16 @@ export type CivilWarLetterProps = {
   fontStyle: 'script' | 'dispatch';
   /** Whether a music bed exists at public/music.mp3. */
   hasMusic: boolean;
+  /** Whether an ambient bed exists at public/ambient.mp3 (layered independent of music). */
+  hasAmbient: boolean;
   /** Narration audio file in public/. */
   narrationFile: string;
   /** Music bed file in public/. */
   musicFile: string;
+  /** Ambient bed file in public/. */
+  ambientFile: string;
+  /** Peak volume of the ambient bed (0..1); it plays for the whole film. */
+  ambientVolume: number;
   /** Seconds of silent title card before narration begins. */
   introPad: number;
   /** Seconds of held image / fade-out after narration ends. */
@@ -54,8 +60,11 @@ export const CivilWarLetter: React.FC<CivilWarLetterProps> = ({
   title,
   fontStyle,
   hasMusic,
+  hasAmbient,
   narrationFile,
   musicFile,
+  ambientFile,
+  ambientVolume,
   introPad,
   outroPad,
   accentColor,
@@ -276,6 +285,26 @@ export const CivilWarLetter: React.FC<CivilWarLetterProps> = ({
 
       {/* Outro fade to black */}
       <AbsoluteFill style={{backgroundColor: '#000', opacity: outroFade}} />
+
+      {/* Ambient bed: the always-on field atmosphere (crickets, wind, distant
+          camp). Plays beneath everything for the whole film — independent of the
+          optional music bed — looped, ducked low, fading in at the open and out
+          under the closing fade-to-black. */}
+      {hasAmbient ? (
+        <Audio
+          src={staticFile(ambientFile)}
+          loop
+          loopVolumeCurveBehavior="extend"
+          volume={(f) =>
+            interpolate(
+              f,
+              [0, fps * 2, durationInFrames - fps * 2.5, durationInFrames],
+              [0, ambientVolume, ambientVolume, 0],
+              {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'},
+            )
+          }
+        />
+      ) : null}
 
       {/* Narration begins after the title card */}
       <Sequence from={readStart}>
