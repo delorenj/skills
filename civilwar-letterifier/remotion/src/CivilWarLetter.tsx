@@ -83,9 +83,11 @@ export const CivilWarLetter: React.FC<CivilWarLetterProps> = ({
     };
     // Wait for the script/dispatch webfonts so the measured height is correct,
     // otherwise the Ken Burns pan can over- or under-shoot the final line.
-    const fonts = (document as Document).fonts;
+    // The .catch is essential: if a font fails to load, we still measure and
+    // resolve the delayRender handle, so the render never hangs to timeout.
+    const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
     if (fonts && fonts.ready) {
-      fonts.ready.then(measure);
+      fonts.ready.then(measure).catch(measure);
     } else {
       measure();
     }
@@ -285,6 +287,10 @@ export const CivilWarLetter: React.FC<CivilWarLetterProps> = ({
         <Audio
           src={staticFile(musicFile)}
           loop
+          // "extend" keeps the frame counter running across loops, so the
+          // fade-in / fade-out below (keyed to absolute composition frames)
+          // works instead of resetting to 0 on every repeat.
+          loopVolumeCurveBehavior="extend"
           volume={(f) =>
             interpolate(
               f,

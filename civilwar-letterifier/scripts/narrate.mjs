@@ -11,15 +11,28 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 
+// Load .env.local from the current dir and the skill root, stripping any
+// surrounding quotes so KEY="sk_..." doesn't smuggle quotes into the API call.
 function loadEnvLocal() {
-  const p = path.join(process.cwd(), '.env.local');
-  if (!fs.existsSync(p)) return;
-  for (const line of fs.readFileSync(p, 'utf8').split('\n')) {
-    const i = line.indexOf('=');
-    if (i > 0 && !line.trim().startsWith('#')) {
-      const k = line.slice(0, i).trim();
-      if (!process.env[k]) process.env[k] = line.slice(i + 1).trim();
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    path.join(process.cwd(), '.env.local'),
+    path.join(here, '..', '.env.local'),
+  ];
+  for (const p of candidates) {
+    if (!fs.existsSync(p)) continue;
+    for (const line of fs.readFileSync(p, 'utf8').split('\n')) {
+      const i = line.indexOf('=');
+      if (i > 0 && !line.trim().startsWith('#')) {
+        const k = line.slice(0, i).trim();
+        let v = line.slice(i + 1).trim();
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+          v = v.slice(1, -1);
+        }
+        if (!process.env[k]) process.env[k] = v;
+      }
     }
   }
 }

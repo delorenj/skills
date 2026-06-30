@@ -34,6 +34,27 @@ const ROOT = path.resolve(__dirname, '..');
 const REMOTION = path.join(ROOT, 'remotion');
 const PUBLIC = path.join(REMOTION, 'public');
 
+// Load .env.local (cwd + skill root, quotes stripped) and propagate to the
+// child scripts via the inherited environment, so `--auto-music` and narration
+// authenticate even when the key lives only in .env.local.
+function loadEnvLocal() {
+  for (const p of [path.join(process.cwd(), '.env.local'), path.join(ROOT, '.env.local')]) {
+    if (!fs.existsSync(p)) continue;
+    for (const line of fs.readFileSync(p, 'utf8').split('\n')) {
+      const i = line.indexOf('=');
+      if (i > 0 && !line.trim().startsWith('#')) {
+        const k = line.slice(0, i).trim();
+        let v = line.slice(i + 1).trim();
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+          v = v.slice(1, -1);
+        }
+        if (!process.env[k]) process.env[k] = v;
+      }
+    }
+  }
+}
+loadEnvLocal();
+
 function arg(name, def) {
   const i = process.argv.indexOf(`--${name}`);
   if (i === -1) return def;
