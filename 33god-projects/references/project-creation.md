@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Project Creation via pjangler
 
 The deployer is **pjangler** (`~/code/pjangler`, installed as `pjangler` on PATH; engine at

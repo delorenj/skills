@@ -25,14 +25,37 @@ Three layers, all under the user's project root:
 
 Templates live in `references/` relative to this file. Read them when you need the exact format for raw files, articles, archive pages, or the index.
 
+### Open Knowledge Format alignment
+
+This skill is evolving toward Google Cloud's Open Knowledge Format (OKF):
+markdown concept files with YAML frontmatter, stable `type` metadata, markdown
+links as the graph, and optional `index.md`/`log.md` files for progressive
+disclosure and chronology.
+
+All generated wiki concept pages must be OKF-compatible. At minimum, every
+`wiki/<topic>/<article>.md` page has parseable YAML frontmatter with `type`,
+`title`, `description`, `tags`, and `timestamp`. This skill uses:
+
+- `type: Concept` for normal compiled wiki articles.
+- `type: Archive` for archived query answers.
+- `type: Source` for raw source captures.
+- `type: Index` and `type: Log` only for support files when explicit metadata
+  is useful.
+
+When the user asks about OKF, OKR details, schema alignment, or implementation
+planning for OKF compatibility, read `references/okf-alignment-plan.md` before
+changing templates or wiki behavior.
+
 ### Initialization
 
 Triggers only on the first Ingest. Check whether `raw/` and `wiki/` exist. Create only what is missing; never overwrite existing files:
 
 - `raw/` directory (with `.gitkeep`)
 - `wiki/` directory (with `.gitkeep`)
-- `wiki/index.md` — heading `# Knowledge Base Index`, empty body
-- `wiki/log.md` — heading `# Wiki Log`, empty body
+- `wiki/index.md` — OKF support page with `type: Index`, heading
+  `# Knowledge Base Index`, empty body
+- `wiki/log.md` — OKF support page with `type: Log`, heading `# Wiki Log`,
+  empty body
 
 If Query or Lint cannot find the wiki structure, tell the user: "Run an ingest first to initialize the wiki." Do not auto-create.
 
@@ -52,7 +75,9 @@ Fetch a source into raw/, then compile it into wiki/. Always both steps, no exce
    - Slug from source title, kebab-case, max 60 characters.
    - Published date unknown → omit the date prefix from the file name (e.g., `descriptive-slug.md`). The metadata Published field still appears; set it to `Unknown`.
    - If a file with the same name already exists, append a numeric suffix (e.g., `descriptive-slug-2.md`).
-   - Include metadata header: source URL, collected date, published date.
+   - Include OKF frontmatter with `type: Source`, `title`, `description`,
+     `tags`, `timestamp`, `source`, `collected`, and `published`.
+   - Keep the human-readable metadata header for scanability.
    - Preserve original text. Clean formatting noise. Do not rewrite opinions.
 
    See `references/raw-template.md` for the exact format.
@@ -68,9 +93,16 @@ Determine where the new content belongs:
 These are not mutually exclusive. A single source may warrant merging into one article while also creating a separate article for a distinct concept it introduces. In all cases, check for factual conflicts: if the new source contradicts existing content, annotate the disagreement with source attribution. When merging, note the conflict within the merged article. When the conflicting content lives in separate articles, note it in both and cross-link them.
 
 See `references/article-template.md` for article format. Key points:
-- Sources field: author, organization, or publication name + date, semicolon-separated.
-- Raw field: markdown links to raw/ files, semicolon-separated.
+- Frontmatter must be parseable YAML and include `type: Concept`.
+- `title` is the concept name, not the source title unless they are identical.
+- `description` is a one-sentence retrieval surface for the article.
+- `tags` are stable topic/entity terms useful for retrieval.
+- `timestamp` reflects when the article's knowledge content last changed.
+- `sources` is a YAML list of author, organization, or publication name + date.
+- `raw` is a YAML list of markdown links to raw/ files.
 - Relative paths from `wiki/<topic>/` use `../../raw/<topic>/<file>.md` (two levels up to project root).
+- Keep the human-readable `> Sources:` and `> Raw:` block only when useful for
+  scanability. If both frontmatter and prose provenance exist, they must agree.
 
 ### Cascade Updates
 
@@ -78,7 +110,7 @@ After the primary article, check for ripple effects:
 
 1. Scan articles in the same topic directory for content affected by the new source.
 2. Scan `wiki/index.md` entries in other topics for articles covering related concepts.
-3. Update every article whose content is materially affected. Each updated file gets its Updated date refreshed.
+3. Update every article whose content is materially affected. Each updated file gets its `timestamp` and index Updated date refreshed.
 
 Archive pages are never cascade-updated (they are point-in-time snapshots).
 
@@ -117,6 +149,8 @@ Search the wiki and answer questions. Examples of triggers:
 When the user explicitly asks to archive or save the answer to the wiki:
 
 1. Write the answer as a new wiki page. See `references/archive-template.md`. When converting conversation citations to the archive page, rewrite project-root-relative paths (e.g., `wiki/topic/article.md`) to file-relative paths (e.g., `../topic/article.md` or `article.md` for same-directory).
+   - Frontmatter must use `type: Archive`.
+   - `archived_from` records the user query or source conversation summary.
    - Sources: markdown links to the wiki articles cited in the answer.
    - No Raw field (content does not come from raw/).
    - File name reflects the query topic, e.g., `transformer-architectures-overview.md`.
@@ -138,6 +172,17 @@ Quality checks on the wiki. Two categories with different authority levels.
 
 Fix these automatically:
 
+**OKF frontmatter** — for every non-reserved `wiki/**/*.md` file:
+- Missing frontmatter → add safe frontmatter only when `type` and `title` can
+  be inferred mechanically; otherwise report it.
+- Missing `type` on a normal article → add `type: Concept`.
+- Missing `type` on an archived query page → add `type: Archive` only when the
+  page title or index summary clearly marks it archived.
+- Missing `title` → add the first H1 text.
+- Missing `timestamp` → use the article's existing Updated metadata if present;
+  otherwise use the file's last modified date.
+- Unparseable frontmatter → report it; do not guess.
+
 **Index consistency** — compare `wiki/index.md` against actual wiki/ files (excluding index.md and log.md):
 - File exists but missing from index → add entry with `(no summary)` placeholder. For Updated, use the article's metadata Updated date if present; otherwise fall back to file's last modified date.
 - Index entry points to nonexistent file → mark as `[MISSING]` in the index. Do not delete the entry; let the user decide.
@@ -151,6 +196,9 @@ Fix these automatically:
 - Target does not exist → search raw/ for a file with the same name elsewhere.
   - Exactly one match → fix the path.
   - Zero or multiple matches → report to the user.
+- If both frontmatter `raw` and prose `> Raw:` exist, they must reference the
+  same files. If one side is missing and the other side is parseable, mirror the
+  parseable side.
 
 **See Also** — within each topic directory:
 - Add obviously missing cross-references between related articles.
@@ -160,6 +208,8 @@ Fix these automatically:
 
 These rely on your judgment. Report findings without auto-fixing:
 
+- Missing or weak `description` fields
+- Missing or low-quality `tags`
 - Factual contradictions across articles
 - Outdated claims superseded by newer sources
 - Missing conflict annotations where sources disagree
@@ -182,6 +232,9 @@ Append to `wiki/log.md`:
 
 - Standard markdown with relative links throughout.
 - wiki/ supports one level of topic subdirectories only. No deeper nesting.
-- Today's date for log entries, Collected dates, and Archived dates. Updated dates reflect when the article's knowledge content last changed. Published dates come from the source (use `Unknown` when unavailable).
+- Today's date for log entries, Collected dates, and Archived dates. Updated dates and OKF `timestamp` values reflect when the article's knowledge content last changed. Published dates come from the source (use `Unknown` when unavailable).
 - Inside wiki/ files, all markdown links use paths relative to the current file. In conversation output, use project-root-relative paths (e.g., `wiki/topic/article.md`).
 - Ingest updates both `wiki/index.md` and `wiki/log.md`. Archive (from Query) updates both. Lint updates `wiki/log.md` (and `wiki/index.md` only when auto-fixing index entries). Plain queries do not write any files.
+- For legacy pages, migrate conservatively. Auto-add safe OKF fields only when
+  they can be inferred from the page itself. Report fields that require
+  interpretation instead of inventing metadata.

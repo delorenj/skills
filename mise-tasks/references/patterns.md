@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # mise Tasks Patterns
 
 ## Table of Contents

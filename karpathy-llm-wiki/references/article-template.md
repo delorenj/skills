@@ -1,3 +1,18 @@
+---
+type: Concept
+title: {Title}
+description: {One-sentence retrieval description of this concept.}
+tags:
+  - {topic}
+  - {entity-or-theme}
+timestamp: {YYYY-MM-DDTHH:MM:SSZ}
+sources:
+  - "{Author1 or Organization1, YYYY-MM-DD}"
+  - "{Author2 or Organization2, YYYY-MM-DD}"
+raw:
+  - "../../raw/{topic1}/{filename1}.md"
+  - "../../raw/{topic2}/{filename2}.md"
+---
 # {Title}
 
 > Sources: {Author1, YYYY-MM-DD; Author2, YYYY-MM-DD}

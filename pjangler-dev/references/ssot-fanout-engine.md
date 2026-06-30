@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # SSOT config fan-out — the engine pattern & how to build one
 
 Keep one hand-edited master file and **generate** every downstream config from it. The targets are

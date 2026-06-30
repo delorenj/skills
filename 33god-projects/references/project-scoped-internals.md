@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Project-scoped variant: per-dev agent hooks in a repo (internals)
 
 The deep dialect mechanics behind [project-scoped-hooks.md](project-scoped-hooks.md) (the

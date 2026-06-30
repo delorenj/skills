@@ -1,24 +1,8 @@
 ---
 name: pjangler-dev
-description: >-
-  Two build-tooling capabilities. (A) Develop pjangler itself — author Commands (atomic
-  file/dir operations) and Recipes (composed subsystem bootstrappers) and register them in the
-  CLI. (B) The SSOT config fan-out engine — keep ONE hand-edited master file (e.g.
-  hooks.master.json) and generate every downstream config from it for heterogeneous targets that
-  each speak their own dialect, with a lock file (hooks.mappings.lock.json) recording how
-  ambiguous/divergent mappings were resolved so re-syncs are seamless. Canonical instance:
-  bloodbank services/agent-hooks (hooks.master.json → sync.py → per-agent generated configs +
-  event_map.generated.json, gated by `mise run hooks:check` / `hooks:sync`). Use when: creating a
-  pjangler Command or Recipe, registering a recipe, adding subsystem bootstrapping; OR designing a
-  NEW master-config → multi-dialect propagation engine with ambiguity-resolution memory, adding a
-  new agent CLI/target to agent-hooks, editing hooks.master.json, fixing generated-config drift, or
-  resolving an ambiguous mapping. Keywords: pjangler command, pjangler recipe, add subsystem,
-  bootstrap, project scaffolding, SSOT, single source of truth, fan-out, master→dialect,
-  generated-config drift, lock file, ambiguity resolution. Do NOT use for: USING pjangler to create
-  a 33god project, or the project-scoped per-dev agent-hooks layer's adoption/mechanics (both →
-  33god-projects); bumping versions across files (mise-versioning); defining event schemas or the
-  naming contract (bloodbank docs); single-target config templating with no dialect/ambiguity
-  dimension (just template it).
+description: "Two build-tooling capabilities. (A) Develop pjangler itself — author Commands (atomic file/dir operations) and Recipes (composed subsystem bootstrappers) and register them in the CLI. (B) The SSOT config fan-out engine — keep ONE hand-edited master file (e.g. hooks.master.json) and generate every downstream config from it for heterogeneous targets that each speak their own dialect, with a lock file (hooks.mappings.lock.json) recording how ambiguous/divergent mappings were resolved so re-syncs are seamless. Canonical instance: bloodbank services/agent-hooks (hooks.master.json → sync.py → per-agent generated configs + event_map.generated.json, gated by `mise run hooks:check` / `hooks:sync`). Use when: creating a pjangler Command or Recipe, registering a recipe, adding subsystem bootstrapping; OR designing a NEW master-config → multi-dialect propagation engine with ambiguity-resolution memory, adding a new agent CLI/target to agent-hooks, editing hooks.master.json, fixing generated-config drift, or resolving an ambiguous mapping. Keywords: pjangler command, pjangler recipe, add subsystem, bootstrap, project scaffolding, SSOT, single source of truth, fan-out, master→dialect, generated-config drift, lock file, ambiguity resolution. Do NOT use for: USING pjangler to create a 33god project, or the project-scoped per-dev agent-hooks layer's adoption/mechanics (both → 33god-projects); bumping versions across files (mise-versioning); defining event schemas or the naming contract (bloodbank docs); single-target config templating with no dialect/ambiguity dimension (just template it)."
+pipeline-status:
+  - new
 ---
 
 # Pjangler Development & the SSOT config fan-out engine

@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Hermes Fleet Updates
 
 Use this workflow when updating Hermes itself, changing shared non-secret

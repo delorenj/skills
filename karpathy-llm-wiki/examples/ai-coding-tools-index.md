@@ -1,3 +1,12 @@
+---
+type: Index
+title: AI Coding Tools
+description: Topic index for AI coding tools, context management, agent orchestration, and human-AI interaction practices.
+tags:
+  - ai-coding-tools
+  - index
+timestamp: 2026-04-12T00:00:00Z
+---
 # AI Coding Tools
 
 Usage strategies, context management, multi-agent orchestration, and human-AI interaction best practices for AI coding tools.

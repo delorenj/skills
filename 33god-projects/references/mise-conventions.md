@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # mise Integration (every 33god repo)
 
 mise is the mandatory, uniform tooling/env layer. Every repo carries the same contract:

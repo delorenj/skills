@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # HTML Project Console Design Principles
 
 1. **One file first**: prefer a self-contained HTML file so any browser can open it.

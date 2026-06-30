@@ -1,3 +1,11 @@
+---
+type: Index
+title: Knowledge Base Index
+description: Global index of compiled LLM wiki concept pages and archived answers.
+tags:
+  - index
+timestamp: {YYYY-MM-DDTHH:MM:SSZ}
+---
 # Knowledge Base Index
 
 ## {topic-name}

@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Environment Integration
 
 How mise tasks interact with `[env]` section configuration.

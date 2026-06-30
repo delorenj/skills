@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Task Levels Reference
 
 # SSoT-OK

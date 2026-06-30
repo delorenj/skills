@@ -1,9 +1,9 @@
 ---
 name: html-project-console
-description: >
-  Scaffold and maintain a single-file HTML project console that replaces scattered
-  markdown status docs with one browser-renderable control center for planning,
-  progress tracking, artifacts, and human feedback.
+description: |
+  Scaffold and maintain a single-file HTML project console that replaces scattered markdown status docs with one browser-renderable control center for planning, progress tracking, artifacts, and human feedback.
+pipeline-status:
+  - new
 ---
 
 # html-project-console

@@ -1,3 +1,14 @@
+---
+type: Source
+title: {Title}
+description: Source capture for {Title}.
+tags:
+  - {topic}
+timestamp: {YYYY-MM-DDTHH:MM:SSZ}
+source: {URL or origin description}
+collected: {YYYY-MM-DD}
+published: {YYYY-MM-DD or Unknown}
+---
 # {Title}
 
 > Source: {URL or origin description}

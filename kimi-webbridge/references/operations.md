@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Operations: install, lifecycle, diagnose
 
 Read this file when the health check in SKILL.md indicates the daemon is missing, not running, or the extension isn't connected — or when the user explicitly asks to install, start, stop, restart, or troubleshoot kimi-webbridge.

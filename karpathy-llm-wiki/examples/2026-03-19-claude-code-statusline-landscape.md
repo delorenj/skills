@@ -1,3 +1,16 @@
+---
+type: Source
+title: Claude Code Statusline Market Scan
+description: Raw market research notes for the Claude Code statusline ecosystem.
+tags:
+  - ai-coding-tools
+  - claude-code
+  - statusline
+timestamp: 2026-03-19T00:00:00Z
+source: claude-pace project research
+collected: 2026-03-19
+published: Unknown
+---
 # Claude Code Statusline Market Scan
 
 > Source: claude-pace project research

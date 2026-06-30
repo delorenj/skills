@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Reference implementation: bloodbank `services/agent-hooks`
 
 The canonical instance of the pattern. Read this to operate or extend it; read it as a worked example

@@ -37,6 +37,21 @@ See [SKILL.md](SKILL.md) for the full skill specification.
 
 This skill is optimized for the wiki model: knowledge that improves over time instead of re-deriving relationships on every query.
 
+## Open Knowledge Format alignment
+
+Google Cloud's Open Knowledge Format (OKF) formalizes a closely related pattern:
+markdown concept files with YAML frontmatter, markdown links as the graph, and
+optional `index.md` and `log.md` support files.
+
+`karpathy-llm-wiki` is well-positioned for OKF because it already stores durable
+concept pages in `wiki/`, immutable sources in `raw/`, and global navigation in
+`wiki/index.md`. Generated wiki pages are now expected to be OKF-compatible by
+default with stable `type`, `title`, `description`, `tags`, and `timestamp`
+metadata.
+
+See [references/okf-alignment-plan.md](references/okf-alignment-plan.md) for
+the OKF alignment objective, key results, and implementation plan.
+
 ## Usage Stats
 
 Based on a production knowledge base maintained daily since April 2026:

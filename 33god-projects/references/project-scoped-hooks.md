@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Project-scoped agent hooks & skill fan-out (per-dev, committed)
 
 The layer that gives **every dev who clones the repo** — and each of their agent CLIs

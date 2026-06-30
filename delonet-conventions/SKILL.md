@@ -39,6 +39,12 @@ This top-level domain is managed by my `ZSH Custom` repository `delorenj/zshyzsh
 
 ## Docker Containers and Compose Stacks
 
+Use `references/docker_patterns.md` for the baseline Cloudflare Tunnel + Traefik topology.
+
+For higher-touch DeLoNET service operations, also use:
+- `references/docker-service-provisioning.md` for scaffolding new services, choosing Traefik-routed vs direct-port patterns, parent-compose wiring, firewall exposure, and RustDesk-specific provisioning gotchas.
+- `references/selfhosted-agent-infrastructure.md` for Honcho, Traefik migration, JWT admin tokens, and hosted-agent connectivity patterns.
+
 ## Obsidian Vault and Knowledge Base Artifact Organization
 
 ## Code Repository Organization

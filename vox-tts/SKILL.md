@@ -1,6 +1,8 @@
 ---
 name: vox-tts
 description: Generate speech using the self-hosted voxxy (vox) TTS service at https://vox.delo.sh. Use when the user asks to speak, say, narrate, synthesize speech, clone a voice, create a voice, add or register a voice, pipe TTS, or control voice qualities by description (e.g. "a young woman with a cheerful voice"). Handles HTTP API usage, voice profile management, description-based voice design, cloning, MCP registration, and integration patterns for new platforms.
+pipeline-status:
+  - new
 ---
 
 # vox-tts

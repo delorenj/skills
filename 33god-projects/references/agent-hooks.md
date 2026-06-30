@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Agent Hooks: Hindsight Memory + Bloodbank Events
 
 Every Hermes agent provisioned into a 33god repo is wired for two cross-cutting capabilities

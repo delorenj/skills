@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Gotchas
 
 Read a section only when the matching symptom appears.

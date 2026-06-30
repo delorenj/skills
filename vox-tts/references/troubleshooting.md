@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Troubleshooting
 
 Observed failure modes and their fixes, ordered by how often they bite.

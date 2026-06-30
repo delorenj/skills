@@ -1,3 +1,11 @@
+---
+type: Log
+title: Wiki Log
+description: Chronological operation log for LLM wiki ingest, update, lint, and query archive events.
+tags:
+  - log
+timestamp: 2026-04-12T00:00:00Z
+---
 # Wiki Log
 
 <!-- Format: ## [YYYY-MM-DD] Action | Topic. Cascading updates use - Updated: sub-items -->

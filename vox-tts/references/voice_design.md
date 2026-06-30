@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Voice design without cloning
 
 VoxCPM2 accepts an inline description at the **start** of the text, wrapped in parentheses. The model uses the description to pick vocal qualities (age, gender, pace, emotion, accent) without any reference audio. This is strictly more flexible than cloning for one-off or per-line voices.

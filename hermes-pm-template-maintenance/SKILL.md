@@ -1,6 +1,8 @@
 ---
 name: hermes-pm-template-maintenance
 description: Standard workflow for PM agents to capture new governance rules/workflows/skills into the hermes PM template and propagate to existing agents.
+pipeline-status:
+  - new
 ---
 
 # Hermes PM Template Maintenance
@@ -9,6 +11,8 @@ Use this when the operator says variants of:
 - "update the template to capture X"
 - "make this default for all PM agents"
 - "propagate this to existing/future PM agents"
+- "do a Hermes fleet self-check for this repo"
+- "all MCP servers failed in this repo but not in other CLIs"
 
 Do not use this skill for a plain Hermes core update or shared default config
 change. For those, use the `33god-projects` skill's
@@ -24,10 +28,30 @@ Interpret:
   2) existing PM agent backfill applied
   3) verification evidence (files + key lines)
 
+## Fleet self-check lane
+
+When the request is investigative rather than prescriptive, run the fleet self-check lane before proposing fixes.
+
+Trigger examples:
+- "self-check the Hermes fleet for this repo"
+- "these MCP servers fail here but not in other CLIs"
+- "understand the intended architecture first, then explain drift"
+
+Required outputs:
+1. baseline architecture from `.project.json`, inherited profiles, shared `~/.hermes/config.yaml`, and template/SSOT references
+2. live reproduction (`hermes mcp list`, role wrappers, systemd status, runtime logs)
+3. server-by-server ownership split (repo-local vs shared fleet/template vs external service)
+4. ordered remediation plan
+5. ticket routing by owning board
+
+Detailed checklist and acceptance criteria:
+- `references/fleet-self-check.md`
+
 ## Defaults
 
 - Canonical global skill root: `/home/delorenj/.agents/skills`
 - PM workflow skill path: `/home/delorenj/.agents/skills/subagent-driven-development/SKILL.md`
+- Fleet self-check reference: `/home/delorenj/.agents/skills/hermes-pm-template-maintenance/references/fleet-self-check.md`
 - Fleet registry source of truth: `/home/delorenj/.hermes/agents-registry.yaml`
 - Template repo: `/home/delorenj/code/hermes-agent-template` (also vendored as a pjangler submodule at `~/code/pjangler/templates/hermes-agent`; push the template repo, then bump the submodule pointer)
 - Provisioning/board model (how agents bind to the repo's one board via `.project.json`): see the `33god-projects` skill
@@ -47,6 +71,7 @@ Interpret:
 - script/bootstrap behavior
 - reusable skill content
 - PM orchestration workflow
+- fleet self-check / runtime drift investigation
 
 2. Update template source of truth
 - only do this for future-agent provisioning or PM behavior changes
@@ -79,6 +104,7 @@ Interpret:
 - What changed
 - Which agents were backfilled
 - Any follow-up (restart gateway/session)
+- For self-checks: which fixes belong to repo board vs Hermes Agent PM vs service-specific boards
 
 ## Safety rules
 

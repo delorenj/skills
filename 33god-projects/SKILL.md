@@ -1,19 +1,9 @@
 ---
 name: 33god-projects
-description: >
-  Create, wire, and maintain 33god/DeLoNET projects. Covers pjangler/CommonProject
-  bootstrap, Hermes PM and scrum-master/Ticket Sentinel provisioning with inherited
-  profile config, mandatory mise/.env.op wiring, BMAD, Hindsight/Bloodbank hooks,
-  and shared Hermes fleet updates. Use when running `pjangler init`, `pjangler
-  hermes-agent`, or `mise run init-project`; adding a PM or ticket sentinel;
-  updating Hermes for the fleet; changing the fleet default model/config; touching
-  hermes-agent-template or pjangler provisioning; wiring mise/op inject; installing
-  BMAD; configuring agent hooks; or wiring the per-dev, committed project-scoped
-  hook + skill fan-out so teammates and every agent CLI (Claude/Codex/Hermes/Kimi)
-  inherit the same hooks and skills. Keywords: pjangler, CommonProject,
-  hermes-agent-template, .project.json, Ticket Sentinel, inherited profile config,
-  Hermes update, BMAD, Hindsight, Bloodbank, project-scoped hooks, skill fan-out,
-  .agents/local.json, defer_to_global, hindsight-setup, hooks.master.json.
+description: |
+  Create, wire, and maintain 33god/DeLoNET projects. Covers pjangler/CommonProject bootstrap, Hermes PM and scrum-master/Ticket Sentinel provisioning with inherited profile config, mandatory mise/.env.op wiring, BMAD, Hindsight/Bloodbank hooks, and shared Hermes fleet updates. Use when running `pjangler init`, `pjangler hermes-agent`, or `mise run init-project`; adding a PM or ticket sentinel; updating Hermes for the fleet; changing the fleet default model/config; touching hermes-agent-template or pjangler provisioning; wiring mise/op inject; installing BMAD; configuring agent hooks; or wiring the per-dev, committed project-scoped hook + skill fan-out so teammates and every agent CLI (Claude/Codex/Hermes/Kimi) inherit the same hooks and skills. Keywords: pjangler, CommonProject, hermes-agent-template, .project.json, Ticket Sentinel, inherited profile config, Hermes update, BMAD, Hindsight, Bloodbank, project-scoped hooks, skill fan-out, .agents/local.json, defer_to_global, hindsight-setup, hooks.master.json.
+pipeline-status:
+  - new
 ---
 
 # 33god Project Creation & Wiring

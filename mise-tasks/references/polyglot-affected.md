@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Polyglot Monorepo Affected Detection
 
 Guide for choosing the right tool for affected detection in polyglot monorepos (Python + Rust + TypeScript).

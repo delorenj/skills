@@ -1,3 +1,19 @@
+---
+type: Concept
+title: Claude Code Statusline Tool Ecosystem
+description: Competitive landscape and user pain points for Claude Code statusline tools in March 2026.
+tags:
+  - ai-coding-tools
+  - claude-code
+  - statusline
+  - developer-tools
+timestamp: 2026-03-24T00:00:00Z
+sources:
+  - "claude-pace project research, 2026-03-19"
+  - "claude-pace project research, 2026-03-24"
+raw:
+  - "../../raw/ai-coding-tools/2026-03-19-claude-code-statusline-landscape.md"
+---
 # Claude Code Statusline Tool Ecosystem
 
 > Source: claude-pace project research, 2026-03-19; 2026-03-24

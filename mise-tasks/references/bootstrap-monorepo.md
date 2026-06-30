@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Meta-Prompt: Autonomous Polyglot Monorepo Bootstrap
 
 ## Table of Contents

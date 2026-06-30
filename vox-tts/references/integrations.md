@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Integrations
 
 One service, one contract, multiple consumers. All integrations speak to `https://vox.delo.sh`.

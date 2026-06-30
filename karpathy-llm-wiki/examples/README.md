@@ -8,6 +8,7 @@ This directory contains real files from a knowledge base maintained with `karpat
 |------|---------------|
 | `claude-code-statusline-landscape.md` | Compiled wiki article with structured data (tables, citations, cross-references) |
 | `2026-03-19-claude-code-statusline-landscape.md` | Raw source material before compilation |
+| `statusline-reliability-overview.md` | Archived query answer with `type: Archive` metadata |
 | `ai-coding-tools-index.md` | Topic index with one-line summaries |
 | `log-sample.md` | Sample entries from operation log |
 
@@ -20,9 +21,15 @@ This directory contains real files from a knowledge base maintained with `karpat
 
 **Compiled article** (`claude-code-statusline-landscape.md`):
 - Structured sections (Overview, Competitive Landscape, User Pain Points)
+- OKF metadata (`type: Concept`, `title`, `description`, `tags`, `timestamp`)
 - Tables synthesized from multiple sources
 - Cross-references to other wiki articles
 - Updated across multiple ingest operations
+
+**Archived answer** (`statusline-reliability-overview.md`):
+- Point-in-time synthesis of a query answer
+- OKF metadata with `type: Archive`
+- Citations back to wiki concept pages
 
 ## Operation Log
 

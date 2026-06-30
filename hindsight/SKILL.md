@@ -11,10 +11,10 @@ Persistent, structured memory via the official Hindsight CLI (`v0.4.14`). Store 
 
 ## Bank Detection
 
-Auto-detect bank from git repo name:
+Auto-detect bank from git repo name (worktree-safe — `--git-common-dir` makes every worktree of a repo resolve to ONE shared bank, not the worktree folder name):
 
 ```bash
-BANK=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "general")
+BANK=$( { d=$(git rev-parse --git-common-dir 2>/dev/null) && basename "$(dirname "$(readlink -f "$d")")"; } || echo "general" )
 ```
 
 Or use the helper: `BANK=$(./scripts/hs-bank-id.sh)`

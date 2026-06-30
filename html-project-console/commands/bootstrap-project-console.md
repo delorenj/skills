@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Bootstrap Project Console
 
 Use this command when a user wants to consolidate markdown planning artifacts into
