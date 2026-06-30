@@ -59,36 +59,32 @@ Goal: a documentary clip where the letter, in elegant script on candlelit parchm
 
 ```
 user text
-   │  Layer 1 (you write the prose)
+   │  Layer 1 — YOU write the period prose (the only creative/agentic step)
    ▼
-letter.json ──► scripts/build.mjs ──► out/letter.mp4
-                   │  1. ElevenLabs narration  → remotion/public/narration.mp3
-                   │  2. music bed (drop-in or auto-generated, optional)
-                   │  2b. ambient bed (assets/sfx, always-on atmosphere)
-                   │  3. props.json
-                   └─ 4. Remotion render (parchment + script + Ken Burns + audio)
+the note ──► scripts/build.mjs ──► out/letter.mp4
+               │  1. ElevenLabs narration (hardcoded voice) → remotion/public/narration.mp3
+               │  2. music bed (drop-in or auto-generated, optional)
+               │  2b. ambient bed (assets/sfx, always-on atmosphere)
+               │  3. props.json  (date auto-generated; signature/title fixed)
+               └─ 4. Remotion render (parchment + script + Ken Burns + audio)
 ```
 
 Three audio layers stack in the render: the **narration** (voice), the optional
 **music bed**, and an always-on **ambient bed** (field atmosphere) underneath
 both.
 
-### Step 1 — Write the letter spec
+**The only thing you produce is the note text.** Everything else — narrator
+voice, date line, signature, title, music, ambient, render — is deterministic
+and handled by `build.mjs`. Don't write a date or signature; the script supplies
+them (today's date as `"From the Encampment, this Nth day of <Month>"`, plus a
+fixed signature and title).
 
-Letterify the text (Layer 1), then save it as a small JSON file the renderer understands:
+### Step 1 — Write the note
 
-```json
-{
-  "letterText": "My dear colleagues,\n\nI regret to report that I shall be unable...\n\nPray proceed without me.",
-  "dateLine":   "Camp near the Sofa, this 30th day of June",
-  "signature":  "Your obedient & intestinally besieged servant, J.",
-  "title":      "A Letter from the Front",
-  "fontStyle":  "script"
-}
-```
-
-- `\n\n` separates paragraphs. Keep it to what fits a slow read (roughly ≤ 200 words for a tight clip).
-- `fontStyle`: `"script"` (Tangerine calligraphy — the default "fancy script") or `"dispatch"` (IM Fell English — a printed period typeface, better for longer text).
+Letterify the text (Layer 1). That period prose **is** the note — a salutation, a
+body, and a closing line (no signature; the script appends one). Pass it straight
+to the build as text, or save it to a `.txt` file. `\n\n` separates paragraphs;
+keep it to a slow read (roughly ≤ 200 words for a tight clip).
 
 ### Step 2 — Render
 
@@ -96,22 +92,31 @@ Letterify the text (Layer 1), then save it as a small JSON file the renderer und
 # Prereqs: Node 18+, ffmpeg, and ELEVENLABS_API_KEY in env or .env.local
 export ELEVENLABS_API_KEY=sk_...
 
-# Voice only:
-node scripts/build.mjs --spec letter.json --voice Adam --out out/letter.mp4
+# Pass the note inline (voice + music + ambient are all automatic):
+node scripts/build.mjs --text "My dear colleagues, ...the period prose... Pray proceed without me." --out out/letter.mp4
 
-# Auto-generate a mournful music bed:
-node scripts/build.mjs --spec letter.json --voice Adam --auto-music --out out/letter.mp4
+# Or from a file:
+node scripts/build.mjs --file note.txt --out out/letter.mp4
 
-# Use a real period track you dropped in:
-node scripts/build.mjs --spec letter.json --music assets/music/your-track.mp3 --out out/letter.mp4
+# Auto-generate a mournful music bed instead of using assets/music:
+node scripts/build.mjs --file note.txt --auto-music
+
+# Use a specific period track you dropped in:
+node scripts/build.mjs --file note.txt --music assets/music/your-track.mp3
+
+# Printed-dispatch typeface instead of script (config, not creative):
+node scripts/build.mjs --file note.txt --font dispatch
 ```
 
-First run installs the Remotion deps under `remotion/` automatically. The clip auto-lengths to the narration plus a title card and a fade-out.
+First run installs the Remotion deps under `remotion/` automatically. The clip auto-lengths to the narration plus a title card and a fade-out. (`--spec letter.json` is still accepted for back-compat, but only its `letterText` is read.)
 
 ### Voice
 
-- Default stock voice: **`Adam`** (documentary narrator). `George` (warm British storyteller) also fits. Override with `--voice <name|id>` or `CIVILWAR_VOICE`.
-- For the authentic weathered, solemn 19th-century reader, **design a custom voice** — see `references/voice-and-music.md`. Pass its voice id via `--voice`.
+The narrator is **hardcoded** — the custom **"Civil War Veteran"** voice
+(`HvjKMFO0rjuPaM2f997g`), set as `VOICE_ID` in `scripts/narrate.mjs`. There is no
+`--voice` flag and no env override: one note, one narrator. To change narrators,
+design a new voice (see `references/voice-and-music.md`) and replace that single
+constant.
 
 ### Music
 
@@ -151,5 +156,6 @@ cd remotion && npm install && npm run studio
 ## Defaults this skill was built with
 - Music: drop-in track if present, else auto-generated bed (so the pipeline always finishes).
 - Ambient: always-on bed from `assets/sfx/` (skipped only if that folder is empty), layered under voice + music at `0.16`.
-- Voice: stock `Adam` by default; custom-designed period voice recommended.
+- Voice: hardcoded custom "Civil War Veteran" (`HvjKMFO0rjuPaM2f997g` in `narrate.mjs`); not parameterized.
+- Date line / signature / title: deterministic (date from today; signature + title fixed). The note text is the only creative input.
 - Output: 1920×1080, 30fps, h264 MP4.

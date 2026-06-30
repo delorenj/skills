@@ -4,7 +4,10 @@
  * narration track via ElevenLabs. A letter is read in one solemn breath, so
  * (unlike the elevenlabs-remotion scene tool) no stitching is needed.
  *
- *   node narrate.mjs --file letter.txt --voice Adam --out ../remotion/public/narration.mp3
+ *   node narrate.mjs --file letter.txt --out ../remotion/public/narration.mp3
+ *
+ * The narrator is the hardcoded custom "Civil War Veteran" voice (VOICE_ID
+ * below). This is deliberately NOT parameterized — there is one narrator.
  *
  * Auth: ELEVENLABS_API_KEY (or ELEVEN_API_KEY) in the environment or in a
  * .env.local file in the current working directory.
@@ -56,34 +59,23 @@ if (!text) {
   process.exit(1);
 }
 const out = arg('out', 'narration.mp3');
-const voiceArg = arg('voice', 'Adam');
-const model = arg('model', 'eleven_multilingual_v2');
 
-// A mournful, deliberate field-dispatch delivery.
+// The one and only narrator: the custom "Civil War Veteran" voice, with its
+// fixed mournful, deliberate field-dispatch delivery. All of this is hardcoded
+// on purpose — the voice is never parameterized. To change narrators, design a
+// new voice (see references/voice-and-music.md) and replace these constants.
+const VOICE_ID = 'HvjKMFO0rjuPaM2f997g';
+const model = 'eleven_multilingual_v2';
 const voiceSettings = {
-  stability: parseFloat(arg('stability', '0.45')),
-  similarity_boost: parseFloat(arg('similarity', '0.8')),
-  style: parseFloat(arg('style', '0.4')),
+  stability: 0.45,
+  similarity_boost: 0.8,
+  style: 0.4,
   use_speaker_boost: true,
 };
 
-async function resolveVoiceId(name) {
-  // A raw ElevenLabs voice id is ~20 chars with no spaces.
-  if (/^[A-Za-z0-9]{20,}$/.test(name)) return name;
-  const res = await fetch('https://api.elevenlabs.io/v1/voices', {
-    headers: {'xi-api-key': KEY},
-  });
-  if (!res.ok) throw new Error(`voice lookup failed: ${res.status}`);
-  const {voices} = await res.json();
-  const v = voices.find((x) => x.name.toLowerCase() === name.toLowerCase());
-  if (!v) throw new Error(`voice "${name}" not found (try --list or a voice id)`);
-  return v.voice_id;
-}
-
 async function main() {
-  const voiceId = await resolveVoiceId(voiceArg);
-  console.log(`Narrating ${text.length} chars with "${voiceArg}" (${model})…`);
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+  console.log(`Narrating ${text.length} chars with the Civil War Veteran voice (${model})…`);
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
     method: 'POST',
     headers: {
       'xi-api-key': KEY,

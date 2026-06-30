@@ -2,31 +2,31 @@
 /**
  * build.mjs — the multimodal pipeline for the Civil War Letterifier.
  *
- * Given a finished letter (already rewritten by Claude into period prose), this:
+ * The ONLY creative/agentic input is the note text itself (the period prose
+ * Claude wrote by translating the source message). Everything else — the date
+ * line, signature, title, narrator voice, music, ambient bed, and render — is
+ * deterministic and handled here. Given that note text, this:
  *   1. narrates it with ElevenLabs            -> remotion/public/narration.mp3
  *   2. resolves a music bed (drop-in or auto) -> remotion/public/music.mp3
  *   2b. resolves the ambient bed (assets/sfx) -> remotion/public/ambient.mp3
  *   3. writes render props                    -> remotion/props.json
  *   4. renders the Ken Burns documentary clip -> out/<name>.mp4
  *
- * The ambient bed (assets/sfx) is an always-on field-atmosphere layer that plays
- * beneath everything for the whole film, independent of the optional music bed.
+ * The narrator voice is hardcoded (the custom "Civil War Veteran"); it is not
+ * parameterized — see scripts/narrate.mjs. The ambient bed (assets/sfx) is an
+ * always-on field-atmosphere layer beneath everything for the whole film,
+ * independent of the optional music bed.
  *
- * Usage:
- *   node scripts/build.mjs --spec letter.json --voice Adam --out out/letter.mp4
- *   node scripts/build.mjs --spec letter.json --music assets/music/ashokan.mp3
- *   node scripts/build.mjs --spec letter.json --auto-music --out out/letter.mp4
- *   node scripts/build.mjs --spec letter.json --ambient assets/sfx/ambient.mp3
- *   node scripts/build.mjs --spec letter.json --ambient-volume 0.2
+ * Usage — pass the note as text, a text file, or a spec's letterText:
+ *   node scripts/build.mjs --text "My dear colleagues, ..." --out out/letter.mp4
+ *   node scripts/build.mjs --file note.txt
+ *   node scripts/build.mjs --spec letter.json            (uses only .letterText)
+ *   node scripts/build.mjs --text "..." --auto-music
+ *   node scripts/build.mjs --text "..." --music assets/music/ashokan.mp3
+ *   node scripts/build.mjs --text "..." --font dispatch  (script is the default)
  *
- * letter.json shape (all but letterText optional):
- *   {
- *     "letterText": "My dear colleagues,\n\n...",
- *     "dateLine":   "Camp near Antietam, September 1862",
- *     "signature":  "Your obedient servant, J.",
- *     "title":      "A Letter from the Front",
- *     "fontStyle":  "script"          // "script" | "dispatch"
- *   }
+ * The date line ("From the Encampment, this Nth day of <Month>") is generated
+ * from today's date; the signature and title are fixed constants below.
  *
  * Auth: ELEVENLABS_API_KEY (or ELEVEN_API_KEY). Requires Node 18+ (fetch) and,
  * for rendering, the remotion/ project deps (auto-installed on first run).
@@ -73,19 +73,48 @@ function run(cmd, args, cwd) {
   execFileSync(cmd, args, {cwd: cwd || ROOT, stdio: 'inherit'});
 }
 
-// --- Inputs ---------------------------------------------------------------
-const specPath = arg('spec');
-if (!specPath) {
-  console.error('Error: --spec <letter.json> is required.');
-  process.exit(1);
+// --- Deterministic scaffolding --------------------------------------------
+// These never come from the agent: the note is the only creative input.
+const TITLE = 'A Letter from the Front';
+const SIGNATURE = 'Your most obedient & humble servant, J.';
+
+// "From the Encampment, this 30th day of June" — derived from today's date.
+function periodDateLine() {
+  const d = new Date();
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+  const day = d.getDate();
+  const j = day % 10;
+  const k = day % 100;
+  const suffix =
+    j === 1 && k !== 11 ? 'st' :
+    j === 2 && k !== 12 ? 'nd' :
+    j === 3 && k !== 13 ? 'rd' : 'th';
+  return `From the Encampment, this ${day}${suffix} day of ${months[d.getMonth()]}`;
 }
-const spec = JSON.parse(fs.readFileSync(specPath, 'utf8'));
-if (!spec.letterText) {
-  console.error('Error: letter.json must contain "letterText".');
+
+// --- Inputs (the note is the ONLY creative input) -------------------------
+// Accept the period prose as --text, --file <txt>, or --spec <json>.letterText.
+function readNoteText() {
+  const t = arg('text');
+  if (t && t !== true) return t;
+  const f = arg('file');
+  if (f && f !== true) return fs.readFileSync(path.resolve(f), 'utf8').trim();
+  const s = arg('spec');
+  if (s && s !== true) {
+    const spec = JSON.parse(fs.readFileSync(path.resolve(s), 'utf8'));
+    if (spec.letterText) return String(spec.letterText).trim();
+  }
+  return null;
+}
+const letterText = readNoteText();
+if (!letterText) {
+  console.error('Error: provide the note via --text "...", --file <txt>, or --spec <letter.json> (with letterText).');
   process.exit(1);
 }
 
-const voice = arg('voice', process.env.CIVILWAR_VOICE || 'Adam');
 const musicPath = arg('music'); // explicit drop-in track
 const autoMusic = arg('auto-music', false);
 const ambientPath = arg('ambient'); // explicit ambient track (else assets/sfx)
@@ -110,17 +139,17 @@ const outFile = path.resolve(arg('out', path.join(ROOT, 'out', 'letter.mp4')));
 const introPad = parseFloat(arg('intro-pad', '3.5'));
 const outroPad = parseFloat(arg('outro-pad', '4'));
 const accentColor = arg('accent', '#5a2a16');
-const fontStyle = spec.fontStyle === 'dispatch' ? 'dispatch' : 'script';
+const fontStyle = arg('font') === 'dispatch' ? 'dispatch' : 'script';
 
 fs.mkdirSync(PUBLIC, {recursive: true});
 
 // --- 1. Narration ---------------------------------------------------------
+// narrate.mjs uses the hardcoded "Civil War Veteran" voice; no voice argument.
 const letterTxt = path.join(PUBLIC, '.letter.txt');
-fs.writeFileSync(letterTxt, spec.letterText);
+fs.writeFileSync(letterTxt, letterText);
 run('node', [
   path.join(ROOT, 'scripts', 'narrate.mjs'),
   '--file', letterTxt,
-  '--voice', voice,
   '--out', path.join(PUBLIC, 'narration.mp3'),
 ]);
 
@@ -172,10 +201,10 @@ if (ambientPath && ambientPath !== true) {
 
 // --- 3. Props -------------------------------------------------------------
 const props = {
-  letterText: spec.letterText,
-  dateLine: spec.dateLine || '',
-  signature: spec.signature || '',
-  title: spec.title || 'A Letter from the Front',
+  letterText,
+  dateLine: periodDateLine(),
+  signature: SIGNATURE,
+  title: TITLE,
   fontStyle,
   hasMusic,
   hasAmbient,

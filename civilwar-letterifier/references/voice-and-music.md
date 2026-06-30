@@ -2,17 +2,21 @@
 
 ## Voice
 
-### Custom Period Voice
+### The narrator (hardcoded — not parameterized)
 
-**Civil War Veteran Narrator** — a 19th-century American male reading a somber
-letter by candlelight.
+There is exactly **one** narrator: the custom **"Civil War Veteran"** voice — a
+19th-century American male reading a somber letter by candlelight.
 
-ElevenLabs Voice ID: HvjKMFO0rjuPaM2f997g
+ElevenLabs Voice ID: **`HvjKMFO0rjuPaM2f997g`**
 
-### For More Custom period Voices
+It is hardcoded as `VOICE_ID` in `scripts/narrate.mjs`. There is no `--voice`
+flag and no `CIVILWAR_VOICE` env var — the voice is deliberately fixed so every
+dispatch sounds like the same weathered reader.
 
-For a weathered, candle-lit 19th-century reader, design a voice once and reuse
-its id. This repo's **`elevenlabs-voices`** skill has the tool:
+### Changing the narrator
+
+To swap narrators, design a new voice and replace that one `VOICE_ID` constant in
+`scripts/narrate.mjs`. This repo's **`elevenlabs-voices`** skill has the tool:
 
 ```bash
 python3 ../elevenlabs-voices/scripts/voice-design.py \
@@ -21,14 +25,9 @@ python3 ../elevenlabs-voices/scripts/voice-design.py \
   --style storytelling --save "CivilWarNarrator"
 ```
 
-It prints a `voice_id`. Then:
-
-```bash
-node scripts/build.mjs --spec letter.json --voice <that_voice_id> --out out/letter.mp4
-```
-
-Tips: keep `--age old`, `--accent american`, strength ~1.0–1.2. The description
-carries most of the character — emphasize _weathered, slow, mournful, dignified_.
+It prints a `voice_id`; paste it into `VOICE_ID`. Tips: keep `--age old`,
+`--accent american`, strength ~1.0–1.2. The description carries most of the
+character — emphasize _weathered, slow, mournful, dignified_.
 
 ## Music
 
