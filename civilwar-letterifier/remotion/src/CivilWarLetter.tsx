@@ -225,17 +225,23 @@ export const CivilWarLetter: React.FC<CivilWarLetterProps> = ({
                 {letterText}
               </div>
 
-              <div
-                style={{
-                  fontFamily: scriptFamily,
-                  fontSize: 92,
-                  color: accentColor,
-                  marginTop: 40,
-                  paddingLeft: '8%',
-                }}
-              >
-                {signature}
-              </div>
+              {/* Legacy standalone signature. The letterified note now carries
+                  its own cohesive sign-off inside letterText, so build.mjs passes
+                  an empty string and this renders nothing. Kept for back-compat
+                  with any caller that still supplies a separate signature. */}
+              {signature ? (
+                <div
+                  style={{
+                    fontFamily: scriptFamily,
+                    fontSize: 92,
+                    color: accentColor,
+                    marginTop: 40,
+                    paddingLeft: '8%',
+                  }}
+                >
+                  {signature}
+                </div>
+              ) : null}
             </div>
           </div>
         </AbsoluteFill>

@@ -37,9 +37,13 @@ scripts use bare `node`); the Remotion render deps auto-install on first run.
 - **`SLOWBURNS_OPENROUTER_API_KEY`** — the letterify step, via
   [OpenRouter](https://openrouter.ai) (falls back to `OPENROUTER_API_KEY`).
   Default model `anthropic/claude-sonnet-5`; override with `--model <slug>` or
-  `$SLOWBURNS_MODEL`.
+  `$SLOWBURNS_MODEL`. The value may be a literal key **or** a 1Password reference
+  (`op://DeLoSecrets/OpenRouter/SLOWBURNS_OPENROUTER_API_KEY`), resolved at
+  runtime via `op read` — so no plaintext key need live on disk.
 
-Put both in a project `.env.local` (gitignored) or the environment.
+Put both in a project `.env.local` (gitignored) or the environment. The letter's
+sign-off is written by the model (cohesive with the content); set the name with
+`--signer` (default `J.`).
 
 ## Two layers
 

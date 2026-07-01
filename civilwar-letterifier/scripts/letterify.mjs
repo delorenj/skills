@@ -5,9 +5,10 @@
  *
  * This is the one creative step of the SlowBurns pipeline that used to be done
  * by hand. Given raw text, it asks an LLM (via OpenRouter) to rewrite the *tone*
- * into a mournful period dispatch while preserving every fact, then returns just
- * the letter prose — a salutation, a body, and a closing line (NO signature;
- * build.mjs appends one).
+ * into a mournful period dispatch while preserving every fact, then returns the
+ * complete letter — salutation, body, and the model's own cohesive closing
+ * sign-off + signature (the signature is part of the writing, not appended, so
+ * it matches the letter's content). Sign as --signer (default "J.").
  *
  * Usable two ways:
  *   import { letterify } from './letterify.mjs'
@@ -21,8 +22,10 @@
  *
  * Auth: SLOWBURNS_OPENROUTER_API_KEY (the app's dedicated key) — falls back to
  * OPENROUTER_API_KEY. Read from the environment or a .env.local file in the
- * current dir or the skill root. The dedicated key lives in .env.local so the
- * generic global OPENROUTER_API_KEY can't shadow it.
+ * current dir or the skill root, using an app-specific var so the generic global
+ * OPENROUTER_API_KEY can't shadow it. The value may be a literal key OR a
+ * 1Password reference ("op://DeLoSecrets/OpenRouter/SLOWBURNS_OPENROUTER_API_KEY"),
+ * which is resolved at runtime via `op read` — so no plaintext need live on disk.
  *
  * Model: anthropic/claude-sonnet-5 by default; override with --model or
  * $SLOWBURNS_MODEL (any OpenRouter slug, e.g. anthropic/claude-opus-4.8,
@@ -31,9 +34,23 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {execFileSync} from 'node:child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
+
+// Resolve a secret that may be a 1Password reference ("op://vault/item/field").
+// Plain values pass through unchanged, so a literal key still works.
+function resolveSecret(value) {
+  if (!value || !value.startsWith('op://')) return value;
+  try {
+    return execFileSync('op', ['read', value], {encoding: 'utf8'}).trim();
+  } catch (e) {
+    throw new Error(
+      `Could not resolve ${value} via 1Password. Is the op CLI installed and signed in? (${e.message})`
+    );
+  }
+}
 
 // Load .env.local (cwd + skill root), stripping surrounding quotes, so a key in
 // KEY="sk-or-..." doesn't smuggle quotes into the request.
@@ -69,12 +86,16 @@ INVIOLABLE RULES:
   metaphor is welcome; new commitments are not.
 - Keep it usable: after the theatrics the reader must still know the status, the
   blocker, and the ask.
-- Address a recipient (e.g. "My dear colleagues,") and end on a closing line. Do
-  NOT add a signature, a name, or a sign-off line like "Your obedient servant" —
-  that is appended automatically afterward.
+- Address a recipient (e.g. "My dear colleagues,").
+- Close the letter yourself: a mournful sign-off line ("Your obedient and
+  [affliction]'d servant,") followed by the signature on its own line. Make the
+  closing cohesive with the dispatch — the affliction or sentiment in the
+  sign-off should echo the letter's content. Do NOT write a date line; one is
+  placed separately.
 
-OUTPUT: respond with ONLY the letter text — salutation, body, closing line.
-No preamble, no explanation, no commentary, no markdown, no code fences, no title.`;
+OUTPUT: respond with ONLY the complete letter — salutation, body, closing
+sign-off, and signature. No preamble, no explanation, no commentary, no
+markdown, no code fences, no title.`;
 
 const MODE_GUIDANCE = {
   standard: 'Write one or two sepia paragraphs. Tasteful tragedy.',
@@ -98,8 +119,11 @@ export async function letterify(text, opts = {}) {
 
   const mode = MODE_GUIDANCE[opts.mode] ? opts.mode : 'standard';
   const model = opts.model || process.env.SLOWBURNS_MODEL || DEFAULT_MODEL;
+  const signer = (opts.signer || 'J.').trim();
 
-  const key = process.env.SLOWBURNS_OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY;
+  const key = resolveSecret(
+    process.env.SLOWBURNS_OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY
+  );
   if (!key) {
     throw new Error(
       'Set SLOWBURNS_OPENROUTER_API_KEY (or OPENROUTER_API_KEY) in the environment or .env.local.'
@@ -108,6 +132,7 @@ export async function letterify(text, opts = {}) {
 
   const userMessage =
     `Mode: ${mode}. ${MODE_GUIDANCE[mode]}\n\n` +
+    `Sign the letter as: ${signer}\n\n` +
     `Rewrite the following text as the dispatch:\n\n---\n${input}\n---`;
 
   const res = await fetch(ENDPOINT, {
@@ -165,12 +190,17 @@ if (isMain()) {
   const file = arg('file');
   const text = file && file !== true ? fs.readFileSync(path.resolve(file), 'utf8') : arg('text');
   if (!text || text === true) {
-    console.error('Usage: node scripts/letterify.mjs (--file <txt> | --text "...") [--mode standard|field-note|full|executive] [--model <slug>]');
+    console.error('Usage: node scripts/letterify.mjs (--file <txt> | --text "...") [--mode standard|field-note|full|executive] [--model <slug>] [--signer "J."]');
     process.exit(1);
   }
   const mode = arg('mode', 'standard');
   const model = arg('model');
-  letterify(text, {mode: mode === true ? 'standard' : mode, model: model === true ? undefined : model})
+  const signer = arg('signer');
+  letterify(text, {
+    mode: mode === true ? 'standard' : mode,
+    model: model === true ? undefined : model,
+    signer: signer === true ? undefined : signer,
+  })
     .then((prose) => {
       process.stdout.write(prose + '\n');
     })

@@ -22,6 +22,8 @@
  *   --raw               Skip letterify; treat the input as finished period prose
  *   --mode <m>          Letterify register: standard | field-note | full | executive
  *   --model <slug>      OpenRouter model for letterify (default anthropic/claude-sonnet-5)
+ *   --signer <name>     How the letter is signed (default "J."); the model writes
+ *                       a cohesive sign-off around it
  *   --no-music          Disable the music bed
  *   --no-ambient        Disable the field-ambience bed
  *   --music <file>      Use a specific music track
@@ -57,6 +59,7 @@ Options:
   --raw             Skip letterify; treat input as finished period prose
   --mode <m>        standard | field-note | full | executive  (default standard)
   --model <slug>    OpenRouter model for letterify (default anthropic/claude-sonnet-5)
+  --signer <name>   How the letter is signed (default "J.")
   --no-music        Disable the music bed
   --no-ambient      Disable the field-ambience bed
   --music <file>    Use a specific music track
@@ -89,7 +92,7 @@ function loadEnvLocal() {
 function parseArgs(argv) {
   const o = {mode: 'standard', font: 'script'};
   const positional = [];
-  const takesValue = new Set(['--text', '--mode', '--model', '--music', '--ambient', '--font', '--out']);
+  const takesValue = new Set(['--text', '--mode', '--model', '--signer', '--music', '--ambient', '--font', '--out']);
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '-h' || a === '--help') o.help = true;
@@ -203,7 +206,7 @@ async function main() {
     console.log('\n— Using input verbatim (--raw) —');
   } else {
     console.log(`\n✒️  Letterifying (${o.mode})…`);
-    note = await letterify(sourceText, {mode: o.mode, model: o.model});
+    note = await letterify(sourceText, {mode: o.mode, model: o.model, signer: o.signer});
   }
   console.log('\n┌─ The dispatch ───────────────────────────────────────────────');
   console.log(note.split('\n').map((l) => '│ ' + l).join('\n'));

@@ -2,10 +2,11 @@
 /**
  * build.mjs — the multimodal pipeline for the Civil War Letterifier.
  *
- * The ONLY creative/agentic input is the note text itself (the period prose
- * Claude wrote by translating the source message). Everything else — the date
- * line, signature, title, narrator voice, music, ambient bed, and render — is
- * deterministic and handled here. Given that note text, this:
+ * The ONLY creative/agentic input is the note text itself — the period prose
+ * (including its own cohesive closing sign-off and signature) written by
+ * translating the source message. Everything else — the date line, title,
+ * narrator voice, music, ambient bed, and render — is deterministic and handled
+ * here. Given that note text, this:
  *   1. narrates it with ElevenLabs            -> remotion/public/narration.mp3
  *   2. resolves a music bed (drop-in or auto) -> remotion/public/music.mp3
  *   2b. resolves the ambient bed (assets/sfx) -> remotion/public/ambient.mp3
@@ -26,7 +27,8 @@
  *   node scripts/build.mjs --text "..." --font dispatch  (script is the default)
  *
  * The date line ("From the Encampment, this Nth day of <Month>") is generated
- * from today's date; the signature and title are fixed constants below.
+ * from today's date; the title is a fixed constant below. The signature is NOT
+ * added here — it is part of the letterified note (the model writes its own).
  *
  * Auth: ELEVENLABS_API_KEY (or ELEVEN_API_KEY). Requires Node 18+ (fetch) and,
  * for rendering, the remotion/ project deps (auto-installed on first run).
@@ -74,9 +76,10 @@ function run(cmd, args, cwd) {
 }
 
 // --- Deterministic scaffolding --------------------------------------------
-// These never come from the agent: the note is the only creative input.
+// The title card + date line never come from the agent. The signature is NOT
+// here — it's part of the letterified note (the model writes its own cohesive
+// sign-off), so it matches the letter's content instead of being a fixed string.
 const TITLE = 'A Letter from the Front';
-const SIGNATURE = 'Your most obedient & humble servant, J.';
 
 // "From the Encampment, this 30th day of June" — derived from today's date.
 function periodDateLine() {
@@ -209,7 +212,7 @@ if (noAmbient) {
 const props = {
   letterText,
   dateLine: periodDateLine(),
-  signature: SIGNATURE,
+  signature: '', // the sign-off is written into letterText by letterify
   title: TITLE,
   fontStyle,
   hasMusic,
