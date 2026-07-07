@@ -87,11 +87,12 @@ INVIOLABLE RULES:
 - Keep it usable: after the theatrics the reader must still know the status, the
   blocker, and the ask.
 - Address a recipient (e.g. "My dear colleagues,").
-- Close the letter yourself: a mournful sign-off line ("Your obedient and
-  [affliction]'d servant,") followed by the signature on its own line. Make the
-  closing cohesive with the dispatch — the affliction or sentiment in the
-  sign-off should echo the letter's content. Do NOT write a date line; one is
-  placed separately.
+- Close the letter yourself with a mournful sign-off line, then the signature on
+  its own line. Weave the letter's affliction or sentiment naturally into the
+  sign-off using ordinary period phrasing — e.g. "Your obedient and much-delayed
+  servant,", "Your faithful and fever-worn servant,", "Yours in weary devotion,".
+  Use only real, well-formed words; never bolt a literal "'d" onto a word that
+  does not take it. Do NOT write a date line; one is placed separately.
 
 OUTPUT: respond with ONLY the complete letter — salutation, body, closing
 sign-off, and signature. No preamble, no explanation, no commentary, no
