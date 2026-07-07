@@ -1,21 +1,16 @@
----
-pipeline-status:
-  - new
----
 ## Plan mode
 
-- Thinking only
-- Planning
-- Asking questions
-- Revising approach
-- No code generation
+- Use for analysis, planning, clarification, and approach revision.
+- Start here for non-trivial work.
+- Do not generate or edit code in Plan.
 
 ## Build mode
 
-- Code implementation
-- Execution of approved plan
+- Use for implementation of an accepted plan.
+- Use direct Build only for tiny, well-scoped tasks.
+- If Build raises a question, return to Plan before answering.
 
-### Mode switching
+## Mode switching
 
-- Use the Tab key to toggle modes
-- Always start in Plan mode
+- Use `/agents` to select Plan or Build.
+- Use Plan -> Build -> verification as the default loop.

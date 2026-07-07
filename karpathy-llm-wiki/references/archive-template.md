@@ -1,14 +1,20 @@
 ---
 type: Archive
-title: {Title}
-description: {One-sentence summary of the archived answer.}
+title:
+  Title:
+description:
+  One-sentence summary of the archived answer.:
 tags:
-  - {topic}
-timestamp: {YYYY-MM-DDTHH:MM:SSZ}
-archived_from: {Original user query or source conversation summary}
+  - topic:
+timestamp:
+  YYYY-MM-DDTHH:MM:SSZ:
+archived_from:
+  Original user query or source conversation summary:
 sources:
-  - "article1.md"
-  - "../other-topic/article2.md"
+  - article1.md
+  - ../other-topic/article2.md
+pipeline-status:
+  - new
 ---
 # {Title}
 

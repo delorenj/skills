@@ -14,9 +14,10 @@ their machine. It is **committed to the repo** and driven by `mise enter/leave`.
 > checklist below. The deep per-CLI dialect mechanics (guard wrapper, `mise enter/leave`,
 > `defer_to_global`, the Codex/Hermes/Kimi specifics) live alongside this file in
 > [project-scoped-internals.md](project-scoped-internals.md). The generic master→dialect fan-out
-> engine these are built on — and templatizing this layer into CommonProject/pjangler — lives in
-> the **`pjangler-dev`** skill (`references/ssot-fanout-engine.md`, the `AgentHooksRecipe`
-> follow-up).
+> engine these are built on lives in the **`agent-config-fanout`** skill
+> (`references/ssot-fanout-engine.md`, `references/ssot-fanout-reference.md`,
+> `references/ssot-fanout-gotchas.md`). Templatizing this layer into CommonProject/pjangler stays
+> in **`pjangler-dev`** only when the task requires editing pjangler implementation code.
 
 This is the per-dev, committed *fan-out* of the same Hindsight hooks described in
 [agent-hooks.md](agent-hooks.md) — that file covers the harness/global Hindsight+Bloodbank

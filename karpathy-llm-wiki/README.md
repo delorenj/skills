@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # karpathy-llm-wiki
 
 **A reusable skill for building Karpathy-style LLM wikis with Claude Code, Cursor, Codex, and other Agent Skills tools.**

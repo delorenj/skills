@@ -8,7 +8,7 @@ Each gotcha is structured as: **Symptom**, **Cause**, **Fix**, **Prevention**.
 
 **Cause.** Either (a) a stale generated file wasn't deleted before regeneration, or (b) the generator's deterministic output changed (rare, signals a generator-tools bump worth flagging in an ADR).
 
-**Fix.** `git clean -fdx holyfields/packages/*/src/generated/` then `mise run generate:all`. Commit the result.
+**Fix.** `git clean -fdx bloodbank/packages/*/src/generated/` then `mise run generate:all`. Commit the result.
 
 **Prevention.** Run `mise run ci` (which chains validate → generate → drift → tests) before pushing; don't run just `generate:all`.
 
@@ -44,7 +44,7 @@ Each gotcha is structured as: **Symptom**, **Cause**, **Fix**, **Prevention**.
 
 ## 5. Schema file isn't picked up by the generator
 
-**Symptom.** New `holyfields/schemas/<domain>/foo.bar.v1.json` exists but no Python/TS class is generated.
+**Symptom.** New `bloodbank/schemas/<domain>/foo.bar.v1.json` exists but no Python/TS class is generated.
 
 **Cause.** Either (a) the file is in a directory the generator doesn't traverse, or (b) the `$id` is malformed and the generator skipped it with a warning.
 

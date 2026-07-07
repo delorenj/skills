@@ -1,6 +1,8 @@
 ---
 name: karpathy-llm-wiki
 description: "Use when building or maintaining a personal LLM-powered knowledge base. Triggers: ingesting sources into a wiki, querying wiki knowledge, linting wiki quality, 'add to wiki', 'what do I know about', or any mention of 'LLM wiki' or 'Karpathy wiki'."
+pipeline-status:
+  - new
 ---
 
 # Karpathy LLM Wiki

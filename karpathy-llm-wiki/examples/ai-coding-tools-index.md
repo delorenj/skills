@@ -6,6 +6,8 @@ tags:
   - ai-coding-tools
   - index
 timestamp: 2026-04-12T00:00:00Z
+pipeline-status:
+  - new
 ---
 # AI Coding Tools
 

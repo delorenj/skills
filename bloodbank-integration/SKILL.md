@@ -1,6 +1,6 @@
 ---
 name: bloodbank-integration
-description: "Integrate services or agent harnesses into the 33GOD bloodbank event bus. Covers event schemas via holyfields, producing events (NATS direct recommended; Dapr, HTTP /publish, hookd_bridge as alternatives), consuming events (NATS subscribe; Dapr, FastStream, event-toaster catch-all), and wiring agentic coder hooks (Claude Code via hookd, GitHub Copilot CLI via copilot-hooks). Use for adding event publish/consume to a 33GOD service, authoring a schema, integrating a new harness (OpenCode, Cursor, Aider, Codex CLI), or debugging missing envelopes. Triggers include bloodbank, event bus, fire/publish/subscribe bloodbank, NATS subject event., holyfields, CloudEvents, hookd, event-toaster, ntfy.delo.sh/bloodbank, copilot-hooks, agent.session.started, agent.tool.invoked, command.{agent}.{action}. Skip for generic RabbitMQ/NATS/Kafka, n8n (workflow-router), hindsight memory (hindsight), or non-event-bus 33GOD (33god). Biases NATS+holyfields, against hand-edited envelopes or bypassing the bus."
+description: "Integrate services or agent harnesses with the 33GOD Bloodbank event bus. Covers schemas in Bloodbank schemas/ and docs/event-naming.md, producing events (NATS preferred; Dapr, HTTP /publish, hookd_bridge alternatives), consuming events (NATS, Dapr, FastStream, event-toaster), and agent hook wiring. Use for event publish/consume, authoring schemas, integrating harnesses (Claude Code, Copilot CLI, OpenCode, Cursor, Aider, Codex CLI), or debugging missing envelopes. Triggers: bloodbank, event bus, publish, subscribe, NATS subject, holyfields legacy, CloudEvents, hookd, event-toaster, ntfy.delo.sh/bloodbank, agent.session.started, agent.tool.invoked, command.{agent}.{action}. Skip for generic brokers, n8n, hindsight memory, or non-event-bus 33GOD."
 ---
 
 # Bloodbank Integration
@@ -10,7 +10,7 @@ Route here when a service or harness needs to **emit** or **consume** events on 
 ## Operating Principles
 
 - **Bus is canon.** All inter-service traffic flows through bloodbank. Direct service-to-service calls are an anti-pattern enforced repo-wide.
-- **Schema first.** Every event has a JSON Schema under `holyfields/schemas/`. Generate Pydantic/Zod from it; never hand-craft envelopes.
+- **Schema first.** Every event has a JSON Schema under `bloodbank/schemas/`. Generate Pydantic/Zod from it; never hand-craft envelopes.
 - **NATS is the current bus.** v3 (Dapr + NATS JetStream + CloudEvents 1.0) is the live target. v2 (RabbitMQ topic exchange) still runs but is migration-only territory.
 - **Subject convention is load-bearing.** `event.<domain>.<entity>.<action>` for events, `command.<target>.<verb>` for commands, `reply.<target>.<verb>` for replies. The catch-all `event-toaster` listens on `event.>`.
 - **Fail open at the boundary.** Hooks must never block the host agent. Producer libs should swallow publish failures by default.
@@ -21,7 +21,7 @@ Match the user's intent against the signals on the left; load the cited file fir
 
 | Signal in the request | Load |
 |---|---|
-| "define / author / version / change an event schema", `.json` under `holyfields/schemas/`, "pydantic model", "Zod schema", "generated types" | `references/schemas/README.md` |
+| "define / author / version / change an event schema", `.json` under `bloodbank/schemas/`, "pydantic model", "Zod schema", "generated types" | `references/schemas/README.md` |
 | "what should I name this event / subject", "dotted convention", "event_type", "routing key" | `references/schemas/naming.md` |
 | "how do I publish / fire / emit", "send an event", "publish to bloodbank", "from <language>" | `references/producers/README.md` |
 | "Dapr publish", "HTTP /publish", "hookd_bridge", "from a bash hook" | `references/producers/methods.md` |
@@ -69,10 +69,10 @@ Do you own a 33GOD service container with a Dapr sidecar?
 
 These apply regardless of producer/consumer path or language:
 
-- **Envelope shape is fixed.** CloudEvents 1.0 + 33GOD extension fields (`producer`, `service`, `domain`, `schemaref`, `correlationid`, `causationid`). The canonical base lives at `holyfields/schemas/_common/cloudevent_base.v1.json`; every event schema `allOf`-extends it.
+- **Envelope shape is fixed.** CloudEvents 1.0 + 33GOD extension fields (`producer`, `service`, `domain`, `schemaref`, `correlationid`, `causationid`). The canonical base lives at `bloodbank/schemas/_common/cloudevent_base.v1.json`; every event schema `allOf`-extends it.
 - **`type` and NATS subject are bound.** The Dapr topic / NATS subject for an event is always `event.<type>` where `<type>` is the envelope's dotted `type` field. Never publish to a subject that doesn't match the envelope type.
 - **Schema versioning is in the filename.** `schemas/agent/session.started.v1.json` is v1; a breaking change becomes `.v2.json` with a new `dataschema` URI.
-- **Never hand-edit generated artifacts** under `holyfields/packages/*/generated`. Edit the JSON Schema, regenerate, commit both.
+- **Never hand-edit generated artifacts** under `bloodbank/packages/*/generated`. Edit the JSON Schema, regenerate, commit both.
 - **Use Hindsight memory bank `bloodbank` for integration notes** — broker-level decisions, subject-naming surprises, consumer wiring gotchas live there, not in the code.
 - **Test producers with the toaster.** `bloodbank-event-toaster` subscribes to `event.>` and forwards every envelope to `https://ntfy.delo.sh/bloodbank`. If you don't see your event there, it didn't make it to NATS.
 
@@ -95,6 +95,6 @@ This skill does NOT cover:
 - **Generic RabbitMQ / NATS / Kafka setup or tuning** unrelated to bloodbank's topology. Use the broker vendor's documentation; this skill assumes the v3 stack (`compose/v3/docker-compose.yml`) is already running.
 - **n8n workflow authoring or routing decisions.** Use `workflow-router` to choose between n8n, bloodbank, and other automation tools.
 - **Hindsight memory recall/retain.** Use the `hindsight` skill for memory-bank operations even when wiring bloodbank events that *carry* memory references.
-- **Non-event-bus parts of 33GOD** (Candystore persistence internals, Candybar UI work, holyfields generator implementation). Use the `33god` master skill for those, or the project's own AGENTS.md.
-- **Generating Pydantic/Zod code from schemas.** Run holyfields' own `mise run generate:all`; this skill points at the workflow but does not re-document the generator internals.
+- **Non-event-bus parts of 33GOD** (Candystore persistence internals, Candybar UI work, Bloodbank generator implementation). Use the `33god-ecosystem` hub for routing, or the project's own AGENTS.md.
+- **Generating Pydantic/Zod code from schemas.** Run Bloodbank's own `mise run generate:all`; this skill points at the workflow but does not re-document the generator internals.
 - **Claude Code / Copilot CLI hook semantics themselves** (timeout flags, OS-specific behavior). Use the vendor docs; this skill covers the *wiring* layer between those hooks and bloodbank.

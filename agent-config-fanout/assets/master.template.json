@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "$comment": "SSOT TEMPLATE for the config fan-out pattern. Copy, rename to <thing>.master.json, and replace the example domain (a 'notify' fan-out to two dialects) with yours. This is the ONLY hand-edited artifact; sync.py regenerates everything else. See pjangler-dev/references/ssot-fanout-engine.md.",
+  "$comment": "SSOT TEMPLATE for the config fan-out pattern. Copy, rename to <thing>.master.json, and replace the example domain (a 'notify' fan-out to two dialects) with yours. This is the ONLY hand-edited artifact; sync.py regenerates everything else. See agent-config-fanout/references/ssot-fanout-engine.md.",
   "meta": {
     "service_dir_placeholder": "{service_dir}",
     "lock": "mappings.lock.json"

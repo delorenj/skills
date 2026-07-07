@@ -5,6 +5,8 @@ description: Chronological operation log for LLM wiki ingest, update, lint, and 
 tags:
   - log
 timestamp: 2026-04-12T00:00:00Z
+pipeline-status:
+  - new
 ---
 # Wiki Log
 

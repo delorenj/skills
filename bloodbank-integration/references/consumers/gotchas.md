@@ -54,11 +54,11 @@ Each gotcha: **Symptom**, **Cause**, **Fix**, **Prevention**.
 
 ## 6. "Consumer crashes on schema-validation error"
 
-**Symptom.** A new field was added upstream; consumer crashes parsing it against an older holyfields version.
+**Symptom.** A new field was added upstream; consumer crashes parsing it against an older Bloodbank schemas version.
 
-**Cause.** Producer regenerated and published with a newer schema; consumer's pinned holyfields version doesn't know about the field. With `additionalProperties: false`, Pydantic rejects.
+**Cause.** Producer regenerated and published with a newer schema; consumer's pinned Bloodbank schemas version doesn't know about the field. With `additionalProperties: false`, Pydantic rejects.
 
-**Fix.** Update the consumer's holyfields dependency to a version that includes the new field. Restart.
+**Fix.** Update the consumer's Bloodbank schemas dependency to a version that includes the new field. Restart.
 
 **Prevention.** Schemas in `_common/cloudevent_base.v1.json` and per-event schemas should keep `additionalProperties: false` only at the envelope level (where 33GOD knows the field set). At the `data` level, consider permitting unknowns or use Pydantic `model_config = ConfigDict(extra="ignore")` in consumers.
 

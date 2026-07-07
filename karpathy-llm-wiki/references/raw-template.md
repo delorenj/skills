@@ -1,13 +1,20 @@
 ---
 type: Source
-title: {Title}
+title:
+  Title:
 description: Source capture for {Title}.
 tags:
-  - {topic}
-timestamp: {YYYY-MM-DDTHH:MM:SSZ}
-source: {URL or origin description}
-collected: {YYYY-MM-DD}
-published: {YYYY-MM-DD or Unknown}
+  - topic:
+timestamp:
+  YYYY-MM-DDTHH:MM:SSZ:
+source:
+  URL or origin description:
+collected:
+  YYYY-MM-DD:
+published:
+  YYYY-MM-DD or Unknown:
+pipeline-status:
+  - new
 ---
 # {Title}
 

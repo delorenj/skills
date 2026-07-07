@@ -1,6 +1,6 @@
 # Producers
 
-How to publish an event onto the bloodbank bus. The recommended path is **NATS direct** with a holyfields-generated envelope; reach for an alternative only when the recommended path doesn't fit your runtime.
+How to publish an event onto the bloodbank bus. The recommended path is **NATS direct** with a Bloodbank schemas-generated envelope; reach for an alternative only when the recommended path doesn't fit your runtime.
 
 ## Reading Order
 
@@ -23,11 +23,11 @@ How to publish an event onto the bloodbank bus. The recommended path is **NATS d
 
 ## The default
 
-For new producers, default to **NATS direct** on subject `event.<type>` using a holyfields-generated envelope:
+For new producers, default to **NATS direct** on subject `event.<type>` using a Bloodbank schemas-generated envelope:
 
 ```python
 import nats, json
-from holyfields.generated.agent.session_started_v1 import AgentSessionStartedV1, AgentSessionStartedV1Data
+from bloodbank.generated.agent.session_started_v1 import AgentSessionStartedV1, AgentSessionStartedV1Data
 
 env = AgentSessionStartedV1(
     specversion="1.0", id=str(uuid.uuid4()),

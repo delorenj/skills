@@ -10,6 +10,8 @@ timestamp: 2026-03-24T00:00:00Z
 archived_from: What do I know about Claude Code statusline reliability?
 sources:
   - claude-code-statusline-landscape.md
+pipeline-status:
+  - new
 ---
 # Statusline Reliability Overview
 

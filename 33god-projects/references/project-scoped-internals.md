@@ -7,7 +7,7 @@ pipeline-status:
 The deep dialect mechanics behind [project-scoped-hooks.md](project-scoped-hooks.md) (the
 adoption guide). This is a **lean** (no lock file) instance of the SSOT config fan-out engine;
 that generic engine and its full **bloodbank `services/agent-hooks` reference** live in the
-**`pjangler-dev`** skill (`references/ssot-fanout-engine.md`, `references/ssot-fanout-reference.md`).
+**`agent-config-fanout`** skill (`references/ssot-fanout-engine.md`, `references/ssot-fanout-reference.md`).
 
 The problem this variant solves differs from the bloodbank reference: install the *same* agent
 hooks for **every dev who clones a repo**, fanned out to each agent CLI's native config, with a

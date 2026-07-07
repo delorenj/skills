@@ -116,16 +116,22 @@ always_on:
     - hindsight-memory-governance # DEPRECATED: consolidated into hindsight
     - hindsight-self-hosted
 
-  # 33GOD platform components and internal tooling (11 skills).
+  # 33GOD platform components and internal tooling (16 skills).
   33god_ecosystem:
-    - 33god
+    - 33god-ecosystem
+    - 33god-projects
     - 33god-task-triage
+    - agent-config-fanout
     - agent-factory
     - agent-team-kit
+    - bloodbank-integration
     - bub-email-triage
     - god-docs
+    - hermes-fleet-operations
+    - hermes-pm-template-maintenance # DEPRECATED: compatibility shim for hermes-fleet-operations
     - openclaw-runtime-git
     - openclaw-upgrade
+    - pjangler-dev
     - project-crank-engine
     - security-monitor
     - svgme-status-handoff
@@ -174,7 +180,6 @@ always_on:
     - mise-tasks
     - opencode-controller
     - pirate-skill # candidate for removal: novelty only
-    - pjangler-dev
     - pricing-strategy
     - self-improving-agent
     - skill-creator
@@ -236,13 +241,24 @@ cli_targets:
   gemini: "~/.config/gemini/skills"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Audit notes (2026-04-14)
+# Audit notes (2026-07-01)
 # ─────────────────────────────────────────────────────────────────────────────
-# Total skills categorized: 120 (118 always-on + 2 in ralph-wiggum profile)
+# Total skills categorized: 124 (122 always-on + 2 in ralph-wiggum profile)
+#
+# 33GOD ecosystem boundary migration completed:
+#   - Added 33god-ecosystem (router hub), 33god-projects (project bootstrap),
+#     agent-config-fanout (agent hook/skill SSOT fan-out),
+#     hermes-fleet-operations (Hermes fleet/template/runtime).
+#   - Replaced legacy 33god entry with 33god-ecosystem.
+#   - Moved pjangler-dev into 33god_ecosystem bucket.
+#   - Added bloodbank-integration to 33god_ecosystem bucket.
+#   - hermes-pm-template-maintenance retained as compatibility shim; content
+#     canonicalized under hermes-fleet-operations.
 #
 # Deprecated skills flagged for review/removal:
 #   - digipop-coloring-book-creation (superseded by creating-coloring-books)
 #   - hindsight-memory-governance    (consolidated into hindsight)
+#   - hermes-pm-template-maintenance (compatibility shim for hermes-fleet-operations)
 #
 # Skills that could be profile-gated if unused frequently:
 #   - clerk.*              (10 skills; only needed on Clerk-using projects)
@@ -254,5 +270,5 @@ cli_targets:
 # above four buckets into filesystem profiles keyed by project type (e.g.
 # profile: react-native-app activates clerk + expo + react_ecosystem).
 #
-# Context cost note: ~120 skills at ~30 tokens/metadata entry ≈ 3.6K tokens
+# Context cost note: ~122 skills at ~30 tokens/metadata entry ≈ 3.7K tokens
 # ALWAYS present in Claude Code context. That's the baseline.

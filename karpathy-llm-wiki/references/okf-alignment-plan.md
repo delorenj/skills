@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # OKF alignment OKR and implementation plan
 
 This note captures the target state for aligning `karpathy-llm-wiki` with

@@ -61,6 +61,18 @@ Multiple containers in unrelated compose projects exiting with **code 0 at the s
 
 A watchdog/guardian script kills the process → a restart policy revives it → forever. Symptom: **perfectly periodic kills** in an actions.log or the journal (memory_guardian SIGKILLed a whisper container ~5,500 times this way). Always answer BOTH questions: **what kills it** AND **what revives it**. Fixing only one side leaves a half-loop that re-arms later.
 
+### `docker stop` is not enough — the health-monitor is a second reviver (2026-07-04)
+
+A flapping container on this box can have **TWO** revivers: (1) its own `unless-stopped`/`on-failure` policy, and (2) the **`docker-health-monitor` container**, which recreates any exited container via `docker compose -p <proj> up -d <svc>` (script line ~399). So a plain `docker stop` is silently undone within one monitor interval.
+
+- **The tell:** after your stop, the container is `running` again with **RestartCount RESET to a small number** (e.g. 3047 → 7). RestartCount only resets on **recreate** (compose up), never on a policy restart or `docker start` — so a reset proves an external actor recreated it. (See "Who restarted this container?" for the RestartCount semantics.)
+- **Definitive fix:** `docker rm -f` **every** container in the stack (not just the flapping one) so neither reviver has an `exited` target to act on. Confirm non-recurrence across ≥2 monitor intervals (~2 min). Reversible via `docker compose up -d`.
+- First seen: transcription-lb (vexa) — nginx emerg-looping on a dead upstream while both workers were `Exited(255)`; `docker stop` kept getting reversed until the whole stack was `rm -f`'d.
+
+### Enabled hermes runtime unit whose provisioning download failed = instant crash loop (2026-07-04)
+
+A `hermes-<repo>-<role>-consumer`/`-checkpoint` unit that exits `status=2` every `RestartSec` and racks up thousands of `NRestarts` is usually **not** a code bug — the runtime was never fully provisioned. Check `~/code/<repo>/agents/hermes/<role>/runtime/` for a **`.tirith-install-failed`** marker (`cat` it — `download_failed` means the consumer script/`.env` were never fetched) and confirm the `ExecStart` target file is missing (`can't open file … No such file or directory`). Missing script + `Restart=on-failure` = guaranteed infinite loop. Fix: stop+disable the crash-looping unit and any failing sibling timer; leave a `-gateway` that is genuinely `running` alone; re-provision via pjangler/tirith before re-enabling.
+
 ## OOM vs stale swap
 
 - Check: `dmesg -T | grep -i oom` and `journalctl -k`.

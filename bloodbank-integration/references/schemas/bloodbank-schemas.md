@@ -1,13 +1,13 @@
-# Authoring a schema in holyfields
+# Authoring a Bloodbank event schema
 
-Holyfields owns the wire-level shape of every bloodbank event. Treat it like an API contract: a breaking change is a `.v2` file, never an edit-in-place.
+Bloodbank `schemas/` owns the wire-level shape of every bloodbank event. Treat it like an API contract: a breaking change is a `.v2` file, never an edit-in-place.
 
 ## The two-layer schema model
 
 Every event schema is the **base envelope** + a **per-event extension**:
 
 ```
-holyfields/schemas/
+bloodbank/schemas/
 ├── _common/
 │   ├── cloudevent_base.v1.json    # CloudEvents 1.0 + 33GOD extension fields
 │   └── types.v1.json              # shared $defs (uuid, timestamp, …)
@@ -53,7 +53,7 @@ Key rules:
 
 ## Workflow
 
-From the holyfields checkout (`~/code/33GOD/holyfields/`):
+From the Bloodbank repo checkout (`~/code/33GOD/bloodbank`):
 
 ```bash
 mise run validate:schemas   # JSON Schema + 33GOD-specific structural rules
@@ -69,7 +69,7 @@ Generated artifacts are committed; CI fails on drift. Re-run `generate:all` when
 Python producer/consumer:
 
 ```python
-from holyfields.generated.agent.session_started_v1 import AgentSessionStartedV1, AgentSessionStartedV1Data
+from bloodbank.generated.agent.session_started_v1 import AgentSessionStartedV1, AgentSessionStartedV1Data
 
 envelope = AgentSessionStartedV1(
     id="...", source="urn:33god:service:my-svc", type="agent.session.started",
@@ -81,7 +81,7 @@ envelope = AgentSessionStartedV1(
 TypeScript consumer:
 
 ```typescript
-import { AgentSessionStartedV1Schema } from "@33god/holyfields";
+import { AgentSessionStartedV1Schema } from "@33god/bloodbank";
 
 const parsed = AgentSessionStartedV1Schema.safeParse(rawEnvelope);
 if (!parsed.success) throw new Error(`schema mismatch: ${parsed.error}`);

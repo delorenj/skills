@@ -9,10 +9,12 @@ tags:
   - developer-tools
 timestamp: 2026-03-24T00:00:00Z
 sources:
-  - "claude-pace project research, 2026-03-19"
-  - "claude-pace project research, 2026-03-24"
+  - claude-pace project research, 2026-03-19
+  - claude-pace project research, 2026-03-24
 raw:
-  - "../../raw/ai-coding-tools/2026-03-19-claude-code-statusline-landscape.md"
+  - ../../raw/ai-coding-tools/2026-03-19-claude-code-statusline-landscape.md
+pipeline-status:
+  - new
 ---
 # Claude Code Statusline Tool Ecosystem
 

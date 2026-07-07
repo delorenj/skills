@@ -1,17 +1,19 @@
----
-pipeline-status:
-  - new
----
-## Core Opencode commands
+## Core OpenCode commands
 
-- Start Opencode:
-  opencode
+- Start OpenCode:
+  `opencode`
+
+- Verify the local OpenRouter-only model list:
+  `opencode models openrouter --pure`
+
+- Run one-shot work with an approved alias:
+  `opencode run --model openrouter/fusion "<prompt>"`
 
 - Session selection:
-  /sessions
+  `/sessions`
 
-- Agent (mode) selection:
-  /agents
+- Agent selection:
+  `/agents`
 
 - Model selection:
-  /models
+  `/models`

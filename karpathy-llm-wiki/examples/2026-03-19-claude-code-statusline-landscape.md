@@ -10,6 +10,8 @@ timestamp: 2026-03-19T00:00:00Z
 source: claude-pace project research
 collected: 2026-03-19
 published: Unknown
+pipeline-status:
+  - new
 ---
 # Claude Code Statusline Market Scan
 

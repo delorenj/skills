@@ -14,7 +14,7 @@ action  — what happened, past tense: started, ended, invoked, requested, compl
 
 Lowercase, dot-separated, `^[a-z0-9]+(\.[a-z0-9]+)+$`. No camelCase, no underscores, no hyphens.
 
-Examples already in the wild (confirmed by reading `holyfields/schemas/` + live `event-toaster` logs):
+Examples already in the wild (confirmed by reading `bloodbank/schemas/` + live `event-toaster` logs):
 
 | Schema file | `type` (CloudEvents) | NATS subject |
 |---|---|---|

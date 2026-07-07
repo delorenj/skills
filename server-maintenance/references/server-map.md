@@ -1,6 +1,6 @@
 # big-chungus System Map
 
-**Last verified: 2026-06-10** (post de-rookification sweep). This file is the baseline for Phase 1 triage. If a sweep contradicts it, the sweep wins — fix the system or fix this map (Phase 6), never leave them divergent.
+**Last verified: 2026-07-04** (CPU-runaway + crash-loop sweep). This file is the baseline for Phase 1 triage. If a sweep contradicts it, the sweep wins — fix the system or fix this map (Phase 6), never leave them divergent.
 
 ## Host
 
@@ -45,7 +45,7 @@ Check ALL of these when hunting an actor; `bgls` covers them in one shot.
 
 ### Monitoring stack
 
-`~/docker/stacks/monitoring/compose.yml`: prometheus, grafana, loki, node-exporter, process-exporter, cadvisor, uptime-kuma, dockge, **docker-health-monitor**. The last one auto-restarts exited containers via `~/docker/scripts/docker-health-monitor.sh`; **its log answers "who restarted X"** for containers that came back without a restart policy.
+`~/docker/stacks/monitoring/compose.yml`: prometheus, grafana, loki, node-exporter, process-exporter, cadvisor, uptime-kuma, dockge, **docker-health-monitor**. The last one runs as a **live container** (`docker-health-monitor`) executing `~/docker/scripts/docker-health-monitor.sh`; it auto-restarts exited containers — and at script line ~399 will **recreate** one via `docker compose -p <proj> up -d <svc>`, which **resets its RestartCount**. This makes it a **second reviver**: a plain `docker stop` on a flapping container is undone within one monitor interval (the tell is RestartCount dropping to a low number). To kill a loop for good, `docker rm -f` the whole stack so nothing is left in `exited` state. (No `.log` file on disk as of 2026-07-04 — read its output via `docker logs docker-health-monitor` for "who restarted X".)
 
 ## Attic convention (retired automation)
 
@@ -71,6 +71,12 @@ If these files are missing or values differ, that is an anomaly.
 - **hermes-delodocs-pm-checkpoint** + delodocs wiki curator timers: the delodocs PM was never fully provisioned — fix via pjangler re-provision, not by poking the units.
 - **intelliforia-demo-snapshot**: its mise task is gone.
 - **whisper-server stack**: stopped (idle since Feb). Compose kept at `~/docker/core/whisper-server`, models at `~/whisper-models`.
+- **keepy-money PM (hermes)**: consumer + checkpoint.timer **disabled 2026-07-04**. Provisioning left `.tirith-install-failed` (`download_failed`) in `~/code/tiller/agents/hermes/pm/runtime/` — `bloodbank-consumer.py`/`.env` were never downloaded, so the enabled `-consumer` unit crash-looped 14k× (`status=2`). `hermes-keepy-money-pm-gateway.service` left **running** (not churning). Re-provision via pjangler/tirith, then re-enable — don't just re-enable the units.
+- **vexa transcription-service stack**: **removed 2026-07-04** (`docker rm -f transcription-lb/-worker-1/-worker-2`). Workers were `Exited(255)` for 2 days; the nginx LB flap-looped 3047× on unresolvable upstream. Compose at `~/code/vexa/services/transcription-service/docker-compose.yml`; `docker compose up -d` to revive when vexa is worked on again.
+
+## Known recurring issues (band-aided, need real fixes)
+
+- **scout-api CPU runaway**: `ghcr.io/delorenj/scout` (uvicorn `app.main:app` :8000, `~/docker/stacks/ai/scout`) wedges at 100% CPU (full core) after ~1-2 days uptime. Restarted 2026-07-01 AND 2026-07-04 for this. `docker restart scout-api` clears it (→0.1%) but it recurs — a hot-loop/busy-wait bug in scout needs a code fix. **First suspect for "one core pinned."**
 
 ## Healthy baselines (2026-06-10)
 

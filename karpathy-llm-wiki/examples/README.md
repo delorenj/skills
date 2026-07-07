@@ -1,3 +1,7 @@
+---
+pipeline-status:
+  - new
+---
 # Examples from Real Wiki
 
 This directory contains real files from a knowledge base maintained with `karpathy-llm-wiki` since April 2026.
