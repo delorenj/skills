@@ -1,7 +1,8 @@
 import React from 'react';
-import {Composition, staticFile} from 'remotion';
+import {Composition} from 'remotion';
 import {getAudioDurationInSeconds} from '@remotion/media-utils';
 import {CivilWarLetter, CivilWarLetterProps} from './CivilWarLetter';
+import {resolveSrc} from './resolveSrc';
 
 const FPS = 30;
 
@@ -41,7 +42,7 @@ export const RemotionRoot: React.FC = () => {
         // Length the video to the narration (plus the title + outro pads).
         let narration = 18;
         try {
-          narration = await getAudioDurationInSeconds(staticFile(props.narrationFile));
+          narration = await getAudioDurationInSeconds(resolveSrc(props.narrationFile));
         } catch (e) {
           // No narration rendered yet (e.g. in the Studio preview) — fall back.
         }

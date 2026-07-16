@@ -7,12 +7,12 @@ import {
   continueRender,
   delayRender,
   interpolate,
-  staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from 'remotion';
 import {loadFont as loadScript} from '@remotion/google-fonts/Tangerine';
 import {loadFont as loadDispatch} from '@remotion/google-fonts/IMFellEnglish';
+import {resolveSrc} from './resolveSrc';
 
 // Two period-appropriate looks:
 //  - "script"   -> Tangerine: an elegant 19th-century calligraphic hand (the default "fancy script")
@@ -298,7 +298,7 @@ export const CivilWarLetter: React.FC<CivilWarLetterProps> = ({
           under the closing fade-to-black. */}
       {hasAmbient ? (
         <Audio
-          src={staticFile(ambientFile)}
+          src={resolveSrc(ambientFile)}
           loop
           loopVolumeCurveBehavior="extend"
           volume={(f) =>
@@ -314,13 +314,13 @@ export const CivilWarLetter: React.FC<CivilWarLetterProps> = ({
 
       {/* Narration begins after the title card */}
       <Sequence from={readStart}>
-        <Audio src={staticFile(narrationFile)} />
+        <Audio src={resolveSrc(narrationFile)} />
       </Sequence>
 
       {/* Music bed: looped, ducked under the voice, fading in and out */}
       {hasMusic ? (
         <Audio
-          src={staticFile(musicFile)}
+          src={resolveSrc(musicFile)}
           loop
           // "extend" keeps the frame counter running across loops, so the
           // fade-in / fade-out below (keyed to absolute composition frames)
