@@ -20,6 +20,8 @@
  * Options:
  *   --text "..."        Inline text instead of a file
  *   --raw               Skip letterify; treat the input as finished period prose
+ *   --letterfile <path> Use the finished letter in <path> verbatim; skip letterify
+ *   --letter "..."      Use this finished letter verbatim; skip letterify
  *   --mode <m>          Letterify register: standard | field-note | full | executive
  *   --model <slug>      OpenRouter model for letterify (default anthropic/claude-sonnet-5)
  *   --signer <name>     How the letter is signed (default "J."); the model writes
@@ -57,6 +59,8 @@ Usage:
 Options:
   --text "..."      Inline text instead of a file
   --raw             Skip letterify; treat input as finished period prose
+  --letterfile <p>  Use the finished letter in file <p> verbatim; skip letterify
+  --letter "..."    Use this finished letter verbatim; skip letterify
   --mode <m>        standard | field-note | full | executive  (default standard)
   --model <slug>    OpenRouter model for letterify (default anthropic/claude-sonnet-5)
   --signer <name>   How the letter is signed (default "J.")
@@ -92,7 +96,9 @@ function loadEnvLocal() {
 function parseArgs(argv) {
   const o = {mode: 'standard', font: 'script'};
   const positional = [];
-  const takesValue = new Set(['--text', '--mode', '--model', '--signer', '--music', '--ambient', '--font', '--out']);
+  const takesValue = new Set([
+    '--text', '--letterfile', '--letter', '--mode', '--model', '--signer', '--music', '--ambient', '--font', '--out',
+  ]);
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '-h' || a === '--help') o.help = true;
@@ -178,6 +184,22 @@ async function main() {
   }
   loadEnvLocal();
 
+  // 0. A finished letter supplied directly (--letterfile / --letter) is used
+  //    VERBATIM: it skips letterify entirely and makes the source text optional
+  //    (there is nothing left to letterify). This is how the web pipeline threads
+  //    the letter the page already generated into the render, so the video letter
+  //    matches the page and no second OpenRouter call is spent. A blank/empty
+  //    letter is ignored, falling back to the normal text -> letterify path.
+  let providedLetter;
+  if (o.letterfile) {
+    const lf = path.resolve(o.letterfile);
+    if (!fs.existsSync(lf)) fail(`No such letter file: ${o.letterfile}`);
+    const raw = fs.readFileSync(lf, 'utf8');
+    if (raw.trim()) providedLetter = raw;
+  } else if (o.letter !== undefined && o.letter.trim()) {
+    providedLetter = o.letter;
+  }
+
   // 1. Resolve the source text + a slug for the filename.
   let sourceText;
   let slug;
@@ -189,19 +211,27 @@ async function main() {
     if (!fs.existsSync(file)) fail(`No such file: ${o.input}`);
     sourceText = fs.readFileSync(file, 'utf8');
     slug = slugify(path.basename(o.input)) || 'dispatch';
+  } else if (providedLetter !== undefined) {
+    // A finished letter was supplied directly — no source text is required.
+    slug = 'dispatch';
   } else {
     console.error(HELP);
     process.exit(1);
   }
-  if (!sourceText.trim()) fail('Input text is empty.');
+  if (sourceText !== undefined && !sourceText.trim()) fail('Input text is empty.');
 
   if (!['standard', 'field-note', 'full', 'executive'].includes(o.mode)) {
     fail(`Unknown --mode "${o.mode}" (use standard | field-note | full | executive).`);
   }
 
-  // 2. Letterify (the only creative step) unless --raw.
+  // 2. Produce the dispatch. A directly-supplied letter is used verbatim
+  //    (letterify SKIPPED); otherwise letterify the source (the only creative
+  //    step) unless --raw.
   let note;
-  if (o.raw) {
+  if (providedLetter !== undefined) {
+    note = providedLetter.trim();
+    console.log('\n— Using the supplied letter verbatim (skipping letterify) —');
+  } else if (o.raw) {
     note = sourceText.trim();
     console.log('\n— Using input verbatim (--raw) —');
   } else {
