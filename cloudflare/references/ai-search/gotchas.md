@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # AI Search Gotchas
 
 ## Type Safety

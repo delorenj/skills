@@ -1,5 +1,6 @@
 ---
 description: Edit an existing design screen using Stitch MCP.
+pipeline-status: new
 ---
 
 # Workflow: Edit-Design

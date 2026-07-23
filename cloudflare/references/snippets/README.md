@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Snippets Skill Reference
 
 ## Description

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Pages Functions
 
 Serverless functions on Cloudflare Pages using Workers runtime. Full-stack dev with file-based routing.

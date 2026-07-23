@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Zaraz
 
 Expert guidance for Cloudflare Zaraz - server-side tag manager for loading third-party tools at the edge.

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Integration Patterns
 
 ## Enable Argo + Tiered Cache

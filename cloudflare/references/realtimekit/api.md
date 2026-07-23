@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # RealtimeKit API Reference
 
 Complete API reference for Meeting object, REST endpoints, and SDK methods.

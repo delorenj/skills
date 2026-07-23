@@ -93,7 +93,7 @@ always_on:
     - follow-up-boss
     - google
     - just-fucking-cancel
-    - managing-tickets-and-tasks-in-plane
+    - project-lifecycle
     - notebooklm
     - obsidian-vault-management
     - openrouter-transcribe
@@ -127,11 +127,11 @@ always_on:
     - bloodbank-integration
     - bub-email-triage
     - god-docs
-    - hermes-fleet-operations
-    - hermes-pm-template-maintenance # DEPRECATED: compatibility shim for hermes-fleet-operations
+    - agent-fleet-operations
+    - hermes-pm-template-maintenance # DEPRECATED: compatibility shim for agent-fleet-operations
     - openclaw-runtime-git
     - openclaw-upgrade
-    - pjangler-dev
+    - project-jangler
     - project-crank-engine
     - security-monitor
     - svgme-status-handoff
@@ -180,6 +180,7 @@ always_on:
     - mise-tasks
     - opencode-controller
     - pirate-skill # candidate for removal: novelty only
+    - brule-method # novelty persona: Dr. Denny Grubbs / Brule Method
     - pricing-strategy
     - self-improving-agent
     - skill-creator
@@ -198,6 +199,7 @@ profiles:
       - google
       - agent-skills-lifecycle
       - ralph-wiggum
+      - product-manager
 
   google:
     description: "Google agent skills lifecycle (~/code/google-agent-skills)"
@@ -208,6 +210,7 @@ profiles:
       - bmad
       - agent-skills-lifecycle
       - ralph-wiggum
+      - product-manager
 
   agent-skills-lifecycle:
     description: "addy-agent-skills plugin lifecycle (idea-refine -> ship)"
@@ -218,6 +221,7 @@ profiles:
       - bmad
       - google
       - ralph-wiggum
+      - product-manager
 
   ralph-wiggum:
     description: "Autonomous TDD swarm loop with parallel agent evolution"
@@ -229,6 +233,22 @@ profiles:
       - bmad
       - google
       - agent-skills-lifecycle
+      - product-manager
+
+  product-manager:
+    description: "ProductManager feature-candidate discovery: research, mock use, visual inspection, brainstorming, feature docs, and final reports"
+    source: filesystem
+    skills:
+      - product-manager-agent
+      - product-manager-research-phase
+      - product-manager-brainstorm-phase
+      - product-manager-feature-doc-phase
+      - product-manager-report-phase
+    conflicts_with:
+      - bmad
+      - google
+      - agent-skills-lifecycle
+      - ralph-wiggum
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CLI-specific integration hints.
@@ -238,27 +258,29 @@ cli_targets:
   claude_code: "~/.claude/skills"
   opencode: "~/.config/opencode/skills"
   codex: "~/.config/codex/skills"
-  gemini: "~/.config/gemini/skills"
+  gemini: "~/.gemini/config/skills"
+  kimi: "~/.kimi-code/skills"
+  hermes: "~/.hermes/skills"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Audit notes (2026-07-01)
 # ─────────────────────────────────────────────────────────────────────────────
-# Total skills categorized: 124 (122 always-on + 2 in ralph-wiggum profile)
+# Total skills categorized: 129 (122 always-on + 2 in ralph-wiggum profile + 5 in product-manager profile)
 #
 # 33GOD ecosystem boundary migration completed:
 #   - Added 33god-ecosystem (router hub), 33god-projects (project bootstrap),
 #     agent-config-fanout (agent hook/skill SSOT fan-out),
-#     hermes-fleet-operations (Hermes fleet/template/runtime).
+#     agent-fleet-operations (Hermes fleet/template/runtime).
 #   - Replaced legacy 33god entry with 33god-ecosystem.
-#   - Moved pjangler-dev into 33god_ecosystem bucket.
+#   - Moved project-jangler into 33god_ecosystem bucket.
 #   - Added bloodbank-integration to 33god_ecosystem bucket.
 #   - hermes-pm-template-maintenance retained as compatibility shim; content
-#     canonicalized under hermes-fleet-operations.
+#     canonicalized under agent-fleet-operations.
 #
 # Deprecated skills flagged for review/removal:
 #   - digipop-coloring-book-creation (superseded by creating-coloring-books)
 #   - hindsight-memory-governance    (consolidated into hindsight)
-#   - hermes-pm-template-maintenance (compatibility shim for hermes-fleet-operations)
+#   - hermes-pm-template-maintenance (compatibility shim for agent-fleet-operations)
 #
 # Skills that could be profile-gated if unused frequently:
 #   - clerk.*              (10 skills; only needed on Clerk-using projects)

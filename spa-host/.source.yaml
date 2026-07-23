@@ -1,0 +1,6 @@
+# Provenance for this skill. Managed by skill_ssot.py.
+origin:
+  type: adhoc
+  extracted_at: 2026-07-18T11:24:07+00:00
+  rescued_from: "/home/delorenj/code/skillex/skill-sets/global/spa-host"
+modified_locally: false

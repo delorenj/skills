@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Durable Objects Patterns
 
 ## When to Use Which Pattern

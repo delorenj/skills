@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Dynamic Caption Techniques
 
 You are here because SKILL.md told you to read this file before writing animation code. Pick your technique combination from the table below based on the energy level you detected from the transcript, then implement using standard GSAP patterns.

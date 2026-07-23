@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Bot Management API
 
 ## Workers: BotManagement Interface

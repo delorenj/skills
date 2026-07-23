@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Realtime SFU Reference
 
 Expert guidance for building real-time audio/video/data applications using Cloudflare Realtime SFU (Selective Forwarding Unit).

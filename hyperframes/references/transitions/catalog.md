@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Transition Catalog
 
 Hard rules, scene template, and routing to implementation code. Read the reference file for the transition type you need — don't load all of them.

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare AI Search Reference
 
 Expert guidance for implementing Cloudflare AI Search (formerly AutoRAG), Cloudflare's managed semantic search and RAG service.

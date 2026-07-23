@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Provider Rotation Notes
 
 A rotation strategy is only as good as the quota facts provided.

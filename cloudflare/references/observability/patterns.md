@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Observability Patterns
 
 ## Usage-Based Billing

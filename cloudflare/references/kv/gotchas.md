@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # KV Gotchas & Troubleshooting
 
 ## Common Errors

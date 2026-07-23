@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Workerd Runtime
 
 V8-based JS/Wasm runtime powering Cloudflare Workers. Use as app server, dev tool, or HTTP proxy.

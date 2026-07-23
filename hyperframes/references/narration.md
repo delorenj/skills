@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Narration & Script
 
 How to write narration scripts for video compositions. Read when the composition includes voiceover or TTS.

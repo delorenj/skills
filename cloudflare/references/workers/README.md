@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Workers
 
 Expert guidance for building, deploying, and optimizing Cloudflare Workers applications.

@@ -1,17 +1,8 @@
----
-pipeline-status:
-  - new
----
 # Agent Hooks: Hindsight Memory + Bloodbank Events
 
 Every Hermes agent provisioned into a 33god repo is wired for two cross-cutting capabilities
 by default: **Hindsight** (persistent memory) and **Bloodbank** (the NATS event bus). Both are
 part of provisioning, not bolted on later.
-
-> This file covers the **harness/global** layer (how an agent gets Hindsight recall/retain +
-> Bloodbank emit/consume). For the **per-dev, committed fan-out** that ships these same hooks —
-> plus skills — to every teammate and every agent CLI (Claude/Codex/Hermes/Kimi) from a repo
-> SSOT, see [project-scoped-hooks.md](project-scoped-hooks.md).
 
 ## Hindsight memory (recall + retain)
 

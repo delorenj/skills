@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Cache Reserve
 
 **Persistent cache storage built on R2 for long-term content retention**

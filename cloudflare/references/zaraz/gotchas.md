@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Zaraz Gotchas
 
 ## Events Not Firing

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Stream Configuration
 
 Setup, environment variables, and wrangler configuration.

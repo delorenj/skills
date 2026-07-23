@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Nature / Earth
 
 Sustainability, outdoor, organic, wellness content.

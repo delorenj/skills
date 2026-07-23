@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Smart Placement Configuration
 
 ## wrangler.jsonc Setup

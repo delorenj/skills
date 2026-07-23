@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Audio-Reactive Animation
 
 Drive visuals from music, voice, or sound. Any GSAP-animatable property can respond to pre-extracted audio data.

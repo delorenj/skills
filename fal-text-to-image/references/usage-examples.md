@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Usage Examples
 
 Real-world examples for common image generation tasks.

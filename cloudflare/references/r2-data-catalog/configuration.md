@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Configuration
 
 How to enable R2 Data Catalog and configure authentication.

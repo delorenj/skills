@@ -1,0 +1,3 @@
+interface:
+  display_name: "Frontmatter Enrichment"
+  short_description: "Apply a base frontmatter schema and fill memory-aware values (pipeline link #3)"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project Lifecycle"
+  short_description: "Run BMAD-first project planning and Plane mirror workflows."
+  default_prompt: "Use project-lifecycle to inspect BMAD and Plane, choose the next work item, keep BMAD authoritative, and mirror execution status into Plane."

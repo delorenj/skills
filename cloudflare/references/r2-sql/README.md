@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare R2 SQL Skill Reference
 
 Expert guidance for Cloudflare R2 SQL - serverless distributed query engine for Apache Iceberg tables.

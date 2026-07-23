@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Snippets API Reference
 
 ## Request Object

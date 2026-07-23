@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Terraform Patterns & Use Cases
 
 Architecture patterns, multi-environment setups, and real-world use cases.

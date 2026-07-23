@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Agent Token Efficiency Workflows
 
 ## Workflow 1: Unsupported agent optimizer

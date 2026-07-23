@@ -2,6 +2,7 @@
 name: agent-config-fanout
 description: |
   Keep one hand-edited master config and generate per-agent CLI configs from it. Covers SSOT fan-out for agent hooks and skills: master-to-dialect propagation, ambiguity lock files, drift checks, and the Bloodbank services/agent-hooks reference implementation. Use for hooks.master.json, hooks.mappings.lock.json, generated-config drift, fan-out, SSOT, agent hooks, defer_to_global, .agents/local.json, sync.py, project-scoped hooks, skill fan-out, and new agent CLI dialects. Do NOT use for using pjangler to create projects or adoption checklists (33god-projects), event schemas or Bloodbank topology (bloodbank-integration), versioning (mise-versioning), or single-target config.
+pipeline-status: new
 ---
 
 # Agent Config Fan-out
@@ -14,6 +15,7 @@ Route here when the job is to propagate **one hand-edited master config** into t
 - **Ambiguity is detected, resolved once, and remembered.** Divergent mappings across targets become lock-file entries (`hooks.mappings.lock.json`). Re-syncs apply them automatically.
 - **Generated output is deterministic and idempotent.** A `--check` gate must return zero changed bytes when the master is unchanged.
 - **Consumers fall back to an embedded default.** A generated map going missing must not break the consumer; generated values merge over a small embedded fallback.
+- **Publishers stay normalized.** In the Bloodbank reference, every agent CLI invokes one canonical entrypoint (`~/.agents/hooks/bloodbank/publish.py --client <agent> --hook <event>`). Per-client code belongs behind adapters; legacy per-client `publish.py` files are wrappers, not new implementation homes.
 - **`check` gates CI; `sync`/`apply` writes; `--resolve` records decisions.** Never hand-edit a generated file.
 
 ## Triage Table
@@ -39,4 +41,4 @@ Route here when the job is to propagate **one hand-edited master config** into t
 - **Event schemas or Bloodbank topology** the hooks emit/consume → `bloodbank-integration`.
 - **Versioning many files in parity** → `mise-versioning`.
 - **Single-target config** with no dialect/ambiguity dimension → template directly; the master/lock machinery is overkill.
-- **Raw hook script bodies** that shape/publish individual events → owned by the publisher script, not this propagation skill.
+- **Raw hook script bodies** that shape/publish individual events → owned by the canonical publisher and client adapters, not this propagation skill.

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Binding Gotchas and Troubleshooting
 
 ## Critical: Global Scope Mutation

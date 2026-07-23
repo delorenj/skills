@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Email Workers Configuration
 
 ## wrangler.jsonc

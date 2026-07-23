@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Common Patterns
 
 ## Deploy Managed Rulesets

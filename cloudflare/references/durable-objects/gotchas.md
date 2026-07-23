@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Durable Objects Gotchas
 
 ## Common Errors

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Network Interconnect (CNI)
 
 Private, high-performance connectivity to Cloudflare's network. **Enterprise-only**.

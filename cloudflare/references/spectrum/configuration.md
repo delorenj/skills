@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ## Origin Types
 
 ### Direct IP Origin

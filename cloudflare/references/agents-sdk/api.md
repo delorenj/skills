@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # API Reference
 
 ## Agent Classes

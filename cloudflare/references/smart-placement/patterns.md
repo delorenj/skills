@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Smart Placement Patterns
 
 ## Backend Worker with Database Access

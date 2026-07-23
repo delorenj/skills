@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Stream Patterns
 
 Common workflows, full-stack flows, and best practices.

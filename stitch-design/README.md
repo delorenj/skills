@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Stitch Design Skill
 
 Teaches agents to generate high-fidelity, consistent UI designs and maintain project-level design systems using Stitch.

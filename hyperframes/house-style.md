@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # House Style
 
 Creative direction for compositions when no `design.md` is provided. These are starting points — override anything that doesn't serve the content. When a `design.md` exists, its brand values take precedence; house-style fills gaps.

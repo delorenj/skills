@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Gotchas & Troubleshooting
 
 ## Rate Limits & 429 Errors

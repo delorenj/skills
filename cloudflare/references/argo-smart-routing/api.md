@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ## API Reference
 
 **Note on Smart Shield:** Argo Smart Routing is being integrated into Cloudflare's Smart Shield product. API endpoints remain stable; existing integrations continue to work without changes.

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # API Reference
 
 ## Client-Side JavaScript API

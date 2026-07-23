@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Testing Patterns
 
 ## Choosing a Testing Approach

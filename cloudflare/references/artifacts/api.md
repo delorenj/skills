@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Artifacts API Reference
 
 Use Artifacts through the **Workers binding**, the **REST control plane**, and **Git-compatible remotes**.

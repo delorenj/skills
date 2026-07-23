@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ## Configuration Patterns
 
 ### Enable Workers Logs

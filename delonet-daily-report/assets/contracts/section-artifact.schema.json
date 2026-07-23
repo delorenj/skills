@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://delonet.local/ddr/section-artifact.schema.json", "title": "SectionArtifact", "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "run_id", "topic_id", "generated_at", "fresh_until", "status", "summary", "findings", "sources", "caveats"],
+  "properties": {
+    "schema_version": {"const": 1}, "run_id": {"type": "string", "minLength": 1}, "topic_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "generated_at": {"type": "string", "minLength": 1, "format": "date-time"}, "fresh_until": {"type": "string", "minLength": 1, "format": "date-time"}, "status": {"enum": ["complete", "partial", "stale", "failed"]}, "summary": {"type": "string", "minLength": 1},
+    "findings": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["claim", "significance", "source_urls"], "properties": {"claim": {"type": "string", "minLength": 1}, "significance": {"type": "string", "minLength": 1}, "source_urls": {"type": "array", "items": {"type": "string", "minLength": 1, "format": "uri", "pattern": "^https://(?![^/?#]*@)[^?]+$"}}}}},
+    "sources": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["url", "retrieved_at"], "properties": {"url": {"type": "string", "minLength": 1, "format": "uri", "pattern": "^https://(?![^/?#]*@)[^?]+$"}, "title": {"type": "string", "minLength": 1}, "publisher": {"type": "string", "minLength": 1}, "published_at": {"type": ["string", "null"], "format": "date-time"}, "retrieved_at": {"type": "string", "minLength": 1, "format": "date-time"}}}},
+    "caveats": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  }
+}

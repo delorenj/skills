@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # R2 API Reference
 
 ## PUT (Upload)

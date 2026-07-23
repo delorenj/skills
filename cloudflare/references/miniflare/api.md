@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Programmatic API
 
 ## Miniflare Class

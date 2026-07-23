@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Common Patterns
 
 ## List All with Auto-Pagination

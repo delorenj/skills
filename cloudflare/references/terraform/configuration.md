@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Terraform Configuration Reference
 
 Complete resource configurations for Cloudflare infrastructure.

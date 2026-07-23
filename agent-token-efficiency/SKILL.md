@@ -2,6 +2,7 @@
 name: agent-token-efficiency
 version: 0.1.0
 description: Optimize multi-agent coding CLI stacks for lower token burn across Claude Code, Codex, Kimi Code CLI, and Hermes; includes workflows for unknown agents, cross-agent updates, MCP/profile propagation, and usage/provider rotation analysis.
+pipeline-status: new
 ---
 
 # Agent Token Efficiency Skill

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # GraphQL Analytics API Gotchas & Troubleshooting
 
 ## Rate Limits

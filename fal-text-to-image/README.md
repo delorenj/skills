@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # fal.ai Image Generation & Editing Skill
 
 Professional AI-powered image workflows: generate, remix, and edit using fal.ai's state-of-the-art models.

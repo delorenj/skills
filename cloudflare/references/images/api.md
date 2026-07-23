@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # API Reference
 
 ## Workers Binding API

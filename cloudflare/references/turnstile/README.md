@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Turnstile Implementation Skill Reference
 
 Expert guidance for implementing Cloudflare Turnstile - a smart CAPTCHA alternative that protects websites from bots without showing traditional CAPTCHA puzzles.

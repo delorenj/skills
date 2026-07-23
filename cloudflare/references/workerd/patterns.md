@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Workerd Patterns
 
 ## Multi-Service Architecture

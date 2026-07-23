@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # C3 (create-cloudflare)
 
 Official CLI for scaffolding Cloudflare Workers and Pages projects with templates, TypeScript, and instant deployment.

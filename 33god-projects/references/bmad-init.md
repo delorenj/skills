@@ -1,7 +1,3 @@
----
-pipeline-status:
-  - new
----
 # BMAD Initialization (default for every project)
 
 Every 33god project ships with BMAD installed. CommonProject's `init-project.sh` installs it

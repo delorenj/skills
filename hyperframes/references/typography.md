@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Typography
 
 The compiler embeds supported fonts — just write `font-family` in CSS.

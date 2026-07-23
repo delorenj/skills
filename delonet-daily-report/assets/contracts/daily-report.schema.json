@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://delonet.local/ddr/daily-report.schema.json", "title": "DailyReport", "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "run_id", "report_date", "title", "generated_at", "sections", "coverage", "markdown_path"],
+  "properties": {
+    "schema_version": {"const": 1}, "run_id": {"type": "string", "minLength": 1}, "report_date": {"type": "string", "minLength": 1, "format": "date"}, "title": {"type": "string", "minLength": 1}, "generated_at": {"type": "string", "minLength": 1, "format": "date-time"},
+    "sections": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["id", "title", "body"], "properties": {"id": {"type": "string", "minLength": 1}, "title": {"type": "string", "minLength": 1}, "body": {"type": "string", "minLength": 1}, "source_urls": {"type": "array", "items": {"type": "string", "minLength": 1, "format": "uri", "pattern": "^https://(?![^/?#]*@)[^?]+$"}}}}},
+    "coverage": {"type": "object", "additionalProperties": false, "required": ["complete", "degraded"], "properties": {"complete": {"type": "array", "items": {"type": "string", "minLength": 1}}, "degraded": {"type": "array", "items": {"type": "string", "minLength": 1}}}}, "markdown_path": {"type": "string", "minLength": 1}
+  }
+}

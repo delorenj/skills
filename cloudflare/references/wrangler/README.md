@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Wrangler
 
 Official CLI for Cloudflare Workers - develop, manage, and deploy Workers from the command line.

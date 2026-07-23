@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Workflow Configuration
 
 ## wrangler.jsonc Setup

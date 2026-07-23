@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare R2 Data Catalog Skill Reference
 
 Expert guidance for Cloudflare R2 Data Catalog - Apache Iceberg catalog built into R2 buckets.

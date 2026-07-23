@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # CNI Patterns
 
 See [README.md](README.md) for overview.

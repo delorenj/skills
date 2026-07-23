@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Dynamic Routing
 
 Configure complex routing in dashboard without code changes. Use route names instead of model names.

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # AI Gateway SDK Integration
 
 ## Vercel AI SDK (Recommended)

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Example Articles
 
 Canonical specimens of the voice. Read the relevant one before drafting in that register. Local paths are in Jarad's vault (`~/d/Ideas/AI/Blog/`); the live versions are on [delorenj.com](https://delorenj.com).

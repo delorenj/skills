@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ## REST API Endpoints
 
 ```

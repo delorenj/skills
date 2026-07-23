@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Visual Style Library
 
 Named visual identities for HyperFrames videos. Each style is grounded in a real graphic design tradition and expressed as a DESIGN.md-compatible token block. Use them as starters — copy the YAML into your project's `design.md` front matter, then customize.

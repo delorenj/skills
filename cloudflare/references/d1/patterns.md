@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # D1 Patterns & Best Practices
 
 ## Pagination

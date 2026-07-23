@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Bold / Energetic
 
 Product launches, social media, announcements, high-energy content.

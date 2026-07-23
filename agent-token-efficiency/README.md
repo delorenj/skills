@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Agent Token Efficiency Skill
 
 A Codex/Claude-compatible skill plus Typer CLI for optimizing a four-agent coding stack:

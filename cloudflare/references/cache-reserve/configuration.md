@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cache Reserve Configuration
 
 ## Dashboard Setup

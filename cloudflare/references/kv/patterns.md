@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # KV Patterns & Best Practices
 
 ## Multi-Tier Caching

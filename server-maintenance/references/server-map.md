@@ -71,12 +71,12 @@ If these files are missing or values differ, that is an anomaly.
 - **hermes-delodocs-pm-checkpoint** + delodocs wiki curator timers: the delodocs PM was never fully provisioned — fix via pjangler re-provision, not by poking the units.
 - **intelliforia-demo-snapshot**: its mise task is gone.
 - **whisper-server stack**: stopped (idle since Feb). Compose kept at `~/docker/core/whisper-server`, models at `~/whisper-models`.
-- **keepy-money PM (hermes)**: consumer + checkpoint.timer **disabled 2026-07-04**. Provisioning left `.tirith-install-failed` (`download_failed`) in `~/code/tiller/agents/hermes/pm/runtime/` — `bloodbank-consumer.py`/`.env` were never downloaded, so the enabled `-consumer` unit crash-looped 14k× (`status=2`). `hermes-keepy-money-pm-gateway.service` left **running** (not churning). Re-provision via pjangler/tirith, then re-enable — don't just re-enable the units.
+- **keepy-money PM (hermes)**: **MIGRATED tiller→KeepyMoney 2026-07-07** (out-of-band). The repo moved `~/code/tiller` → `~/code/KeepyMoney`; on 07-07 the unit files, profile symlink, and registry `project_path` were repointed to KeepyMoney (`.bak-tiller-*` backups kept), and `bloodbank-consumer.py` + `.env` are now present there. Gateway healthy. **Consumer + checkpoint.timer remain `disabled`** from the 07-04 emergency stop (consumer had crash-looped 14k× on the old tiller path because the download failed). Consumer verified to run clean now; completing the migration = re-enable those two units. `~/code/tiller` is the abandoned husk.
 - **vexa transcription-service stack**: **removed 2026-07-04** (`docker rm -f transcription-lb/-worker-1/-worker-2`). Workers were `Exited(255)` for 2 days; the nginx LB flap-looped 3047× on unresolvable upstream. Compose at `~/code/vexa/services/transcription-service/docker-compose.yml`; `docker compose up -d` to revive when vexa is worked on again.
 
 ## Known recurring issues (band-aided, need real fixes)
 
-- **scout-api CPU runaway**: `ghcr.io/delorenj/scout` (uvicorn `app.main:app` :8000, `~/docker/stacks/ai/scout`) wedges at 100% CPU (full core) after ~1-2 days uptime. Restarted 2026-07-01 AND 2026-07-04 for this. `docker restart scout-api` clears it (→0.1%) but it recurs — a hot-loop/busy-wait bug in scout needs a code fix. **First suspect for "one core pinned."**
+- **scout-api CPU runaway**: `ghcr.io/delorenj/scout` (uvicorn `app.main:app` :8000, `~/docker/stacks/ai/scout`) wedged at 100% CPU (full core) after ~1-2 days uptime. Restarted 07-01 and 07-04; **KILLED FOR GOOD 2026-07-08** (`compose down`, scout-api + scout-db removed, volumes preserved, no systemd unit). Stays down until `compose up`. Do NOT revive without fixing the hot-loop/busy-wait bug in scout's code first. If a container is found running scout again with a pinned core, the bug is still unfixed.
 
 ## Healthy baselines (2026-06-10)
 

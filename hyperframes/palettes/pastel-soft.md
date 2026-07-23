@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Pastel / Soft
 
 Fashion, beauty, lifestyle, wellness content.

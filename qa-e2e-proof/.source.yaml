@@ -1,0 +1,6 @@
+# Provenance for this skill. Managed by skill_ssot.py.
+origin:
+  type: adhoc
+  extracted_at: 2026-07-21T14:33:18+00:00
+  rescued_from: "/home/delorenj/code/intelliforia-mobile/.agents/skills/qa-e2e-proof"
+modified_locally: false

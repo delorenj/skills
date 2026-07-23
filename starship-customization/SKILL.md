@@ -72,6 +72,52 @@ unsafe_no_escape = false # leave false unless you're emitting prompt escapes del
 
 To register the module in a custom top-level prompt order, reference it as `${custom.<name>}` in the global `format =` string. Without that, starship appends all custom modules in declaration order at the `$custom` placeholder.
 
+## Example: BMAD version and update indicator
+
+Shows the installed BMAD core version when you're inside a BMAD project (it walks up the directory tree looking for `_bmad/`). Compares the installed version against the latest `bmad-method` release on npm, cached for one hour.
+
+```toml
+[custom.bmad]
+command = '''
+  dir="$PWD"
+  while [ "$dir" != "/" ]; do
+    [ -d "$dir/_bmad" ] && break
+    dir=$(dirname "$dir")
+  done
+  [ "$dir" = "/" ] && exit 0
+
+  installed=$(sed -n 's/^# Version: *//p' "$dir/_bmad/core/config.yaml" 2>/dev/null | head -n1)
+  [ -z "$installed" ] && installed=$(sed -n 's/^version: *//p' "$dir/_bmad/config.yaml" 2>/dev/null | head -n1)
+  [ -z "$installed" ] && exit 0
+
+  cache="$HOME/.cache/starship-bmad-latest"
+  mkdir -p "$(dirname "$cache")"
+  if [ ! -f "$cache" ] || [ "$(find "$cache" -mmin +60)" ]; then
+    tmp=$(mktemp) && npm view bmad-method version 2>/dev/null > "$tmp" && mv "$tmp" "$cache" || rm -f "$tmp"
+  fi
+
+  latest=$(cat "$cache" 2>/dev/null)
+  if [ -z "$latest" ]; then
+    echo "v$installed"
+  else
+    highest=$(printf '%s\n%s\n' "$installed" "$latest" | sort -V | tail -n1)
+    if [ "$installed" = "$latest" ] || [ "$installed" = "$highest" ]; then
+      echo "v$installed ✓"
+    else
+      echo "v$installed ↑$latest"
+    fi
+  fi
+'''
+when = true
+shell = ['sh']
+description = 'BMAD version and update indicator'
+symbol = '🧠'
+style = 'bold cyan'
+format = ' [$symbol $output]($style)'
+```
+
+`shell = ['sh']` keeps the multi-line command readable by feeding it to `sh` on stdin; `when = true` lets the command itself decide whether `_bmad` is present. To keep the segment on the same line as your directory/git info, place `${custom.bmad}` *before* `$all` in your global `format` (e.g. `format = "$directory$git_branch$git_status ${custom.bmad}$all$character"`). See [references/recipes.md](./references/recipes.md#bmad-version-and-update-indicator) for more adaptation notes.
+
 ## Verification
 
 After writing or editing a `[custom.<name>]` block:

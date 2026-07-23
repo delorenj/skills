@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # DO Storage Testing
 
 Testing Durable Objects with storage using `vitest-pool-workers`.

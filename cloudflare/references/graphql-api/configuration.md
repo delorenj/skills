@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # GraphQL Analytics API Configuration
 
 ## Authentication

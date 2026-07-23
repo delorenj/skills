@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Gotchas & Troubleshooting
 
 Common problems → causes → solutions.

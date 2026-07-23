@@ -1092,7 +1092,7 @@
 │   ├── evals
 │   │   └── evals.json
 │   └── SKILL.md
-├── managing-tickets-and-tasks-in-plane
+├── project-lifecycle
 │   ├── assets
 │   │   ├── changelog-email.md
 │   │   └── ticket-template.md
@@ -1344,7 +1344,7 @@
 │   │   │   └── text.md
 │   │   └── ticker.md
 │   └── SKILL.md
-├── pjangler-dev
+├── project-jangler
 │   ├── references
 │   │   ├── command-interface.md
 │   │   └── recipe-interface.md

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Email Workers
 
 Process incoming emails programmatically using Cloudflare Workers runtime.

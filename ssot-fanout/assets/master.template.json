@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "$comment": "SSOT TEMPLATE for the ssot-fanout pattern. Copy, rename to <thing>.master.json, and replace the example domain (a 'notify' fan-out to two dialects) with yours. This is the ONLY hand-edited artifact; sync.py regenerates everything else. See ssot-fanout/references/engine-design.md.",
+  "meta": {
+    "service_dir_placeholder": "{service_dir}",
+    "lock": "mappings.lock.json"
+  },
+  "catalog": {
+    "$comment": "Canonical model, keyed by stable id. Each entry has a `role` (the cross-target normalization unit that drives divergence detection) plus whatever your domain needs.",
+    "message.sent": {
+      "role": "send",
+      "channel": "ops",
+      "kind": "event",
+      "description": "Example canonical entry. Replace `channel`/`kind` with your domain fields."
+    },
+    "message.failed": {
+      "role": "fail",
+      "channel": "ops",
+      "kind": "event"
+    }
+  },
+  "targets": {
+    "$comment": "Per downstream target. `dialect` selects the renderer in sync.py. `config_target`/`map_target` are repo-relative outputs (null = none). `runner` is a command template; {service_dir} resolves to the abs path of the engine's dir.",
+    "slack": {
+      "dialect": "dialect_a",
+      "config_target": "slack/hooks.json",
+      "map_target": "slack/event_map.generated.json",
+      "runner": "python3 {service_dir}/slack/publish.py",
+      "default_timeout_sec": 5,
+      "identity": { "channel": "#ops" },
+      "bindings": [
+        { "native": "onSend", "role": "send", "ref": "message.sent", "arg": "onSend", "payload": "stdin" },
+        { "native": "onFail", "role": "fail", "ref": "message.failed", "arg": "onFail", "payload": "stdin" }
+      ]
+    },
+    "webhook": {
+      "dialect": "dialect_b",
+      "config_target": "webhook/hooks.json",
+      "map_target": "webhook/event_map.generated.json",
+      "runner": "python3 {service_dir}/webhook/publish.py",
+      "default_timeout": 3000,
+      "identity": { "url_env": "WEBHOOK_URL" },
+      "bindings": [
+        { "native": "Send", "role": "send", "ref": "message.sent", "arg": "Send", "payload": "empty", "matcher": ".*" },
+        { "native": "Fail", "role": "fail", "ref": "message.failed", "arg": "Fail", "payload": "empty", "extra_args": ["hard_fail"] }
+      ]
+    },
+    "tailer": {
+      "$comment": "An inert target: no config to generate (like agent-hooks' openclaw watcher). Bindings document intended coverage only; sync skips generation for dialect 'watcher'.",
+      "dialect": "watcher",
+      "config_target": null,
+      "map_target": null,
+      "bindings": [
+        { "native": "log.sent", "role": "send", "ref": "message.sent", "payload": "synthetic" }
+      ]
+    }
+  }
+}

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Patterns
 
 See [README.md](./README.md), [configuration.md](./configuration.md), [api.md](./api.md).

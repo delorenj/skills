@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Video Composition
 
 Video frames are not web pages. These rules apply to every composition regardless of brand, style, or design.md.

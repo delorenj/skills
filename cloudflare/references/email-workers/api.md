@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Email Workers API Reference
 
 Complete API reference for Cloudflare Email Workers runtime.

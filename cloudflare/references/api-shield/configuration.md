@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Configuration
 
 ## Schema Validation 2.0 Setup

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Design Picker
 
 Two-phase visual picker: mood boards first (pick a complete direction), then fine-tune individual categories.

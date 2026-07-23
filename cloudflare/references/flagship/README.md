@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Flagship
 
 Feature flag service for controlling feature visibility without redeploying code. Define flags with targeting rules and percentage-based rollouts, then evaluate them in Workers via a native binding or from any JavaScript runtime via the OpenFeature SDK.

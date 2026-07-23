@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # GraphQL Analytics API Patterns & Best Practices
 
 ## Time-Series Queries

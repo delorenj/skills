@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # CNI Gotchas & Troubleshooting
 
 ## Common Errors

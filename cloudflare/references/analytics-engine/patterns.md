@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Analytics Engine Patterns
 
 ## Use Cases

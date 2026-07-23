@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Stream Live Streaming API
 
 Live input creation, status checking, simulcast, and WebRTC streaming.

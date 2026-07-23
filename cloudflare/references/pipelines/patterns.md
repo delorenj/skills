@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Pipelines Patterns
 
 ## Fire-and-Forget

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # DO Storage Patterns & Best Practices
 
 ## Schema Migration

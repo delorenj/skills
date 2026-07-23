@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Common Patterns
 
 Practical patterns for R2 Data Catalog with PyIceberg.

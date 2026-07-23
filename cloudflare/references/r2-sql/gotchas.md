@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # R2 SQL Gotchas
 
 Limitations, troubleshooting, and common pitfalls for R2 SQL.

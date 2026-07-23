@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Agents SDK
 
 Cloudflare Agents SDK enables building AI-powered agents on Durable Objects with state, WebSockets, SQL, scheduling, and AI integration.

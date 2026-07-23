@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Native Controls
 
 Native iOS controls provide built-in haptics, accessibility, and platform-appropriate styling.

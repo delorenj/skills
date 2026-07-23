@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Workers Patterns
 
 ## Error Handling

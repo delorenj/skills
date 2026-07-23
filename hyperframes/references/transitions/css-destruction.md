@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ## Destruction
 
 ### Page Burn

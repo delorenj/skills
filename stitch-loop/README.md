@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Stitch Build Loop Skill
 
 Teaches agents to iteratively build websites using Stitch with an autonomous baton-passing loop pattern.

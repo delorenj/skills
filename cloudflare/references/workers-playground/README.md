@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Workers Playground Skill Reference
 
 ## Overview

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Gotchas
 
 See [README.md](./README.md), [configuration.md](./configuration.md), [api.md](./api.md), [patterns.md](./patterns.md).

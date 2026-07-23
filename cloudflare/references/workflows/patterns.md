@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Workflow Patterns
 
 ## Image Processing Pipeline

@@ -1,6 +1,7 @@
 ---
 name: blog-writing
 description: Codifies Jarad DeLorenzo's voice, snark, humor, moral compass, ideals, preferred structure, and human idiosyncracies into a set of workflows and tools. Use when asked to write a blog post, or when you're just looking for a way to express yourself.
+pipeline-status: new
 ---
 
 # Blog Writing

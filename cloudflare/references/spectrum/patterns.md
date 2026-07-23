@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ## Common Use Cases
 
 ### 1. SSH Server Protection

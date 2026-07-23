@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Agent Token Efficiency Rules
 
 Premium models make decisions. Cheap agents gather evidence.

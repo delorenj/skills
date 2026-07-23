@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Gotchas
 
 ## Functions Not Running

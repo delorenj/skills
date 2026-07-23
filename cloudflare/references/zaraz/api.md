@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Zaraz Web API
 
 Client-side JavaScript API for tracking events, setting properties, and managing consent.

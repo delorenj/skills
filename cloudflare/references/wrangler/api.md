@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Wrangler Programmatic API
 
 Node.js APIs for testing and development.

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Artifacts
 
 Store versioned file trees behind a repo-style interface that works from Workers, the REST API, and Git-compatible tooling.

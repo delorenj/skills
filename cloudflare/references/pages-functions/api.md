@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Function API
 
 ## EventContext

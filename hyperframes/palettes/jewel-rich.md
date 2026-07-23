@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Jewel / Rich
 
 Luxury, events, sophisticated, high-end content.

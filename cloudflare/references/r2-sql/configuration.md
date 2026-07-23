@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # R2 SQL Configuration
 
 Setup and configuration for R2 SQL queries.

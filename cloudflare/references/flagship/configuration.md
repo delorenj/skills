@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Flagship Configuration
 
 ## Wrangler Binding Setup

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ## Critical Gotchas
 
 ### ⚠️ WebSocket: fetch() vs containerFetch()

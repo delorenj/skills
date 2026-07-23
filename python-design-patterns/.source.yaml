@@ -1,0 +1,6 @@
+# Provenance for this skill. Managed by skill_ssot.py.
+origin:
+  type: local
+  extracted_at: 2026-07-13T00:00:00+00:00
+  promoted_from: "intelliforia .claude/skills (repo-only; promoted to global master 2026-07-13)"
+modified_locally: false

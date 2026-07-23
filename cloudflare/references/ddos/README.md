@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare DDoS Protection
 
 Autonomous, always-on protection against DDoS attacks across L3/4 and L7.

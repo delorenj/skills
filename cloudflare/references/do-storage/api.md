@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # DO Storage API Reference
 
 ## SQL API

@@ -11,10 +11,10 @@ Repo: `~/code/33GOD/bloodbank`. All paths below are under `services/agent-hooks/
 
 ## What it does
 
-Several agent CLIs (Claude Code, GitHub Copilot CLI, Codex CLI, OpenClaw) each have their own hook-config
-format and their own native hook names, but they all publish the **same** v1 CloudEvents lifecycle to the
-Bloodbank NATS bus. The mapping from "this CLI's hook X" → "this canonical event type" lives in exactly one
-place and fans out to each CLI's native config + each publisher's runtime map.
+Several agent CLIs (Claude Code, GitHub Copilot CLI, Codex CLI, Hermes, OpenClaw) each have their own
+hook-config format and native hook names, but they all publish the **same** v1 CloudEvents lifecycle to
+the Bloodbank NATS bus. The mapping from "this CLI's hook X" → "this canonical event type" lives in
+exactly one place and fans out to each CLI's native config + each adapter's runtime map.
 
 ## The artifacts
 
@@ -23,10 +23,13 @@ place and fans out to each CLI's native config + each publisher's runtime map.
 | `hooks.master.json` | **SSOT.** `lifecycle` catalog (canonical key → v1 `type`, `kind`, `ordering_bucket`, `role`) + `agents.<cli>` with `dialect`, `runner`, `config_target`, `event_map_target`, `actor`, and `bindings` (native hook → role + lifecycle + matcher/payload/extra_args). |
 | `hooks.mappings.lock.json` | **Resolution memory.** `resolutions` keyed `role:<role>` / `type:<type>` → `{resolution, strategy, diverged, rationale, decided_at, decided_by}`. |
 | `sync.py` | **Engine.** `--check` (gate), `--apply` (write), `--resolve` (interactive). |
+| `publish.py` | **Canonical runtime entrypoint.** `python3 publish.py --client <agent> --hook <native-event> [args...]`; selects a client adapter and runs the shared pipeline. |
+| `clients/<agent>.py` | **Client adapters.** Payload parsing, native hook quirks, data shaping, actor defaults, session paths. |
+| `<agent>/publish.py` | **Compatibility wrapper only.** Preserves old direct invocation and exports fallback maps/constants for health tooling; do not add new logic here. |
 | `core/event_map.py` | `resolve_map(agent_dir, _DEFAULT_MAP)` — generated map merged OVER an embedded fallback. |
 
 Generated per agent (NEVER hand-edit): `claude/settings.hooks.json` (merge fragment), `copilot/hooks.json`,
-`codex/hooks.json`, and `<agent>/event_map.generated.json`.
+`codex/hooks.json`, `hermes/hooks.config.json`, and `<agent>/event_map.generated.json`.
 
 ## Dialects in play
 
@@ -39,7 +42,10 @@ Generated per agent (NEVER hand-edit): `claude/settings.hooks.json` (merge fragm
 - **`hermes_config`** — hermes-agent shell hooks: a `hooks:` block (event → `[{command, timeout, matcher?}]`) YAML-merged into the agent's `config.yaml`, plus pre-approved entries seeded into `shell-hooks-allowlist.json` (commands run `shell=False`, payload on stdin). **Fleet fan-out**: instead of a single `live_target`, the install reads a **registry** (`~/.hermes/agents-registry.yaml`) and deploys into *every* agent's `<role_dir>/runtime/` (skip uninitialized, create missing config.yaml). This is the "one master → N dynamically-discovered targets" shape — the target set is data, not hardcoded.
 - **`watcher`** (openclaw) — no config generated; bindings document intended coverage only. `runtime` is similarly inert.
 
-`runner` may contain `{service_dir}`, which sync resolves to the absolute path of `services/agent-hooks`.
+`runner` may contain `{service_dir}` (repo source path) or `{hooks_dir}` (operator-facing hook mount,
+normally `~/.agents/hooks`). Generated live configs should prefer
+`{hooks_dir}/bloodbank/publish.py --client <agent> --hook`, backed by the install-time symlink
+`~/.agents/hooks/bloodbank -> ~/code/33GOD/bloodbank/services/agent-hooks`.
 
 ## Resolved decisions (in the lock, 2026-06-07)
 
@@ -53,22 +59,24 @@ Generated per agent (NEVER hand-edit): `claude/settings.hooks.json` (merge fragm
 
 - `mise run hooks:check` → `sync.py --check` (CI/drift gate; nonzero on stale artifacts or unresolved ambiguity).
 - `mise run hooks:sync` → `sync.py --apply` (regenerate repo artifacts; idempotent).
-- `mise run deploy` → `sync.py --apply --install` (regenerate + install into live `~/.claude/settings.json` merge, `~/.copilot` symlink, `~/.codex/hooks.json` merge; surgical, preserves foreign hooks, idempotent). `hermes`/`openclaw` are inert (`runtime`/`watcher`).
+- `mise run deploy` → `sync.py --apply --install` (regenerate + install into live `~/.claude/settings.json` merge, `~/.copilot` symlink, `~/.codex/hooks.json` merge, and every Hermes runtime discovered in `~/.hermes/agents-registry.yaml`; surgical, preserves foreign hooks, idempotent). `openclaw` is inert (`watcher`).
 - `mise run smoketest:agent-hooks-ssot` → `sync --check` green **and** every binding builds a
   contract+schema-valid envelope (reuses each publisher's real actor identity). Folded into `mise run smoketest:schemas`.
 
 ## Procedure: add a new agent CLI
 
 1. Add an `agents.<cli>` block to `hooks.master.json`: pick a `dialect`, set `runner`
-   (use `{service_dir}` for an absolute publisher path), `actor`, `config_target`/`event_map_target`, and
+   (prefer `{hooks_dir}/bloodbank/publish.py --client <cli> --hook` for generated live configs), `actor`, `config_target`/`event_map_target`, and
    `bindings` mapping each native hook name → a `role` + canonical `lifecycle` key.
 2. `mise run hooks:check`. Roles already decided in the lock (e.g. `post_tool`) resolve automatically;
    any *new* ambiguity is surfaced — `python3 sync.py --apply --resolve` to record the decision.
 3. `mise run hooks:sync` to generate `<cli>/hooks.json` (or settings fragment) + `<cli>/event_map.generated.json`.
-4. Write `<cli>/publish.py`: import `core.envelope.build_envelope`, `core.nats_publish.publish`,
-   `core.session.SessionState`, `core.event_map.resolve_map`; source the map via
-   `resolve_map(Path(__file__).parent, _DEFAULT_MAP)`; declare the same `actor` as the master entry.
-5. Document the hook table in `services/agent-hooks/README.md`. `smoketest:agent-hooks-ssot` validates it.
+4. Write `clients/<cli>.py`: subclass/implement the adapter boundary for payload reading, hook name
+   resolution, data shaping, actor/model extraction, session path, and any reset/archive rules. Add it to
+   `clients/__init__.py`'s registry. Add a tiny `<cli>/publish.py` wrapper only for compatibility if old
+   commands may still exist.
+5. Document the hook table in `services/agent-hooks/README.md`. `smoketest:agent-hooks-ssot` and
+   `health/hook_healthcheck.py --check` validate it.
 
 ## Why this exists (the bugs it kills)
 

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # DDoS Configuration
 
 ## Dashboard Setup

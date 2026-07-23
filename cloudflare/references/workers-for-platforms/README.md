@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Workers for Platforms
 
 Multi-tenant platform with isolated customer code execution at scale.

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Web Analytics
 
 Privacy-first web analytics providing Core Web Vitals, traffic metrics, and user insights without compromising visitor privacy.

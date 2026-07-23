@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare D1 Database
 
 Expert guidance for Cloudflare D1, a serverless SQLite database designed for horizontal scale-out across multiple databases.

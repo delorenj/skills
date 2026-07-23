@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Apple Zoom Transitions
 
 Fluid zoom transitions for navigating between screens. iOS 18+, Expo SDK 55+, Stack navigator only.

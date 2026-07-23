@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cron Triggers Gotchas
 
 ## Common Errors

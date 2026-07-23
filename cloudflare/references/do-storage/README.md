@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Durable Objects Storage
 
 Persistent storage API for Durable Objects with SQLite and KV backends, PITR, and automatic concurrency control.

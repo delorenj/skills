@@ -1,0 +1,26 @@
+# Paste into a folder-curator `<domain-dir>/.curator/taxonomy.yaml` (top level, alongside
+# purpose/frontmatter/categories). The folder-curator ENGINE ignores this block; the domain-triage
+# agent reads it. Keep it in sync with the Hindsight bank of the same name.
+
+domain:
+  name: <domain>                 # e.g. jobhunting, automaticai — matches the Hindsight bank
+  memory_bank: <domain>
+  routing:
+    mode: entity-folder          # entity-folder | label-only
+    entity_key: company          # frontmatter label carrying the entity: company | client | repo | ...
+    new_entity: create-folder    # first contact with an unknown entity -> open a new <Entity>/ folder
+    label_only_fallback: true    # if the domain flattens folders, set the label instead of moving
+    # sub_rule_subtree: "Recruiters/<Agency>/"   # OPTIONAL: where a sub-typed entity routes instead
+
+  entities:                      # the registry — known entities and where they live
+    - {name: <Entity1>, folder: <Folder1>, status: <status>}
+    - {name: <Entity2>, folder: <Folder2>, status: <status>, notes: "<optional>"}
+
+  contacts:                      # person/sender/attendee -> entity + sub-type (grows over time)
+    - {name: <Contact>, company: <Entity1>, type: <sub-type>}          # e.g. type: in-house-hr
+    - {name: <Contact>, company: <Entity2>, type: <sub-type>, agency: <Agency>}
+
+  heuristics:                    # plain-language rules the agent applies
+    - "Entity detection order: (1) exact match to a known folder/alias; (2) sender/attendee via contacts; (3) LLM read of content; (4) unknown -> park in _triage/ at low confidence — never guess."
+    - "Sub-rule: <how to distinguish the sub-types, e.g. recruiter vs in-house>."
+    - "Recency: <a burst of captures tied to one entity means ...; bias detection accordingly>."

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Queues Patterns & Best Practices
 
 ## Async Task Processing

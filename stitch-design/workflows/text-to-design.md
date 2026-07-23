@@ -1,5 +1,6 @@
 ---
 description: Generate new screens from a text prompt using Stitch MCP.
+pipeline-status: new
 ---
 
 # Workflow: Text-to-Design

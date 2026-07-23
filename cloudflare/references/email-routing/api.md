@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Email Routing API Reference
 
 ## Worker Runtime API

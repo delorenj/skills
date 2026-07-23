@@ -1,0 +1,185 @@
+# folder-curator — taxonomy contract (DEFAULT / rules-as-data SSOT)
+#
+# This is the single source of truth for how files are classified, named, and
+# enriched. Every executor reads THIS file:
+#   - the agent (via SKILL.md),
+#   - the CLI  (~/.local/bin/folder-curator),
+#   - the promoted n8n node (n8n-nodes-folder-curator, codegen'd from this file).
+# Per-client overrides deep-merge from <client-root>/.curator/taxonomy.yaml.
+# Keep rules DECLARATIVE so the Python and TypeScript interpreters cannot drift;
+# genuine judgment (ambiguous files) escalates to the agent or the review queue.
+
+version: 1
+
+# The overarching PURPOSE this directory's curator serves. The agent reads this to
+# judge files the rules can't decide deterministically — which category, or whether a
+# file belongs here at all. This default is the Automatic AI client/prospect profile;
+# override it (and the categories below) per directory in <dir>/.curator/taxonomy.yaml.
+purpose: >-
+  Maintain an Automatic AI client/prospect dossier: file durable evidence (multi-person
+  communications, single-author work products) and raw client uploads so the newest,
+  most relevant context is always on top, provenance is preserved, and secrets never
+  land in the repo.
+
+# ─────────────────────────────── Discovery scope ───────────────────────────────
+# Directory names (any depth) never scanned, routed into, or indexed.
+ignore_dirs:
+  - .git
+  - _bmad
+  - _bmad-output
+  - _skf
+  - _skf-learn
+  - node_modules
+  - worktrees          # git worktrees living inside the repo (would double-process)
+  - .curator
+  - agents             # in-repo agent runtimes/scaffolds (Hermes PM, etc.) — not client evidence
+# Ignore any path segment beginning with "." (dotfiles / agent dot-dirs).
+ignore_hidden: true
+
+# Files that are never standalone intake items.
+sidecar_suffixes: [".meta.json"]     # travels with its same-basename partner
+generated_files: ["_context-stack.md"]
+
+# ─────────────────────────────── Canonical naming ──────────────────────────────
+naming:
+  date_prefix: "%Y-%m-%d"            # -> YYYY-MM-DD-<slug>.<ext>
+  datetime_prefix: "%Y-%m-%d-%H%M%S" # timestamped items (dropbox); avoids same-minute collisions
+  slug_max_words: 12
+  # Substrings stripped from the human slug (case-insensitive).
+  strip_substrings:
+    - "Automatic AI LLC Mail - "
+    - "_otter_ai_transcript"
+    - "otter_ai_transcript"
+    - "Personal Meeting Room"
+    - "'s "
+  # Prefix repairs applied to the raw filename BEFORE date parsing (regex).
+  repairs:
+    - match: '^(\d{4})(\d{2})(\d{2})0(email|xscript|note|mail|slack)[-_ ]'
+      replace: '\1\2\3-\4-'          # 202607130email-  ->  20260713-email-
+  # Legacy medium token that appears as the 2nd filename segment -> frontmatter `kind`
+  # (the token is removed from the slug).
+  medium_tokens:
+    xscript: transcript
+    transcript: transcript
+    email: email
+    mail: email
+    slack: slack
+    note: note
+    voice: voice-note
+
+# ───────────────────────────── Frontmatter schema ──────────────────────────────
+# `audience` (optional; deliberately NOT in defaults, so files are implicitly internal): one of
+# internal | client | shared. Only client/shared files are exported to a client-facing view
+# (`folder-curator export --audience client --to <dir>` + sync-jim-client-view.sh); internal
+# material (profile.md, qualification, hypotheses) never leaves. Label files as you see fit.
+frontmatter:
+  # Key write-order.
+  order: [category, kind, title, source, captured, updated, pipeline-status, confidence, audience, owner, tags, attendees]
+  required: [category, kind, title, captured, updated, pipeline-status]
+  defaults:
+    pipeline-status: [new]
+    confidence: medium
+  # Legacy key -> canonical key (value carried over, old key dropped).
+  aliases:
+    labels: tags
+    last_enriched: updated
+    last-verified: updated
+    modified: updated
+    created: captured
+    date: captured
+    prospect-name: person
+    Category: category
+  lowercase_value_keys: [category, kind]
+  date_only_keys: [captured]
+  datetime_keys: [updated]
+  # pipeline-status state machine (exactly one active at a time).
+  pipeline_status_values: [new, processing, processed, blocked]
+
+# ─────────────────────────── Categories (flat, label-first) ────────────────────
+# First matching rule wins. No match -> `review` (stays in ingest, low confidence).
+# A rule matches on ANY present predicate: name_regex | ext | has_frontmatter_key
+# | meta_json_true | meta_json_min. Optional per-rule `kind` overrides the medium token.
+categories:
+  threads:
+    description: "Communications involving more than one person (transcripts, email, Slack, meetings)."
+    default_kind: communication
+    rules:
+      - name_regex: '(?i)(transcript|xscript|otter|meeting|call|standup|interview|email|e-mail|\bmail\b|slack|thread|\bdm\b)'
+      - has_frontmatter_key: attendees
+      - meta_json_true: diarized
+      - meta_json_min: {speaker_count: 2}
+    ext_hint: [".vtt", ".srt"]
+
+  workshop:
+    description: "Single-author work products: strategy, pricing, plans, proposals, research, analysis, updates."
+    default_kind: work-product
+    rules:
+      - name_regex: '(?i)(strateg|pricing|\bprice|quote|\bplan|proposal|vision|approach|research|analysis|\bbrief|memo|update|roadmap|\bspec|estimate|scope|deck)'
+      - ext: [".pptx", ".ppt", ".key", ".odp"]   # presentations/decks are work-products, not comms threads
+        kind: presentation
+
+  client_dropbox:
+    description: "Raw client uploads not yet reclassified (voice notes, misc)."
+    is_ingest: true                   # the landing zone; low-confidence items stay here
+    rules:
+      - ext: [".ogg", ".m4a", ".mp3", ".wav", ".webm", ".aac"]
+        kind: voice-note
+      - meta_json_key: model          # a transcription pair (has model/backend/duration)
+        kind: transcription
+    ingest_default_kind: raw-upload
+
+# Fallback when nothing matches — item is parked for human/agent review.
+review:
+  category: client_dropbox
+  pipeline-status: new
+  confidence: low
+
+# ─────────────────────────── Secrets (quarantine only) ─────────────────────────
+# Never enrich, commit, or sync. Move to quarantine_dir and mark blocked.
+secrets:
+  name_regex: '(?i)(^|[-_./ ])(cred|credential|password|passwd|secret|api[-_]?key|apikey|token|private[-_]?key)($|[-_./ ])|\.env($|\.)'
+  content_regex:
+    - '(?i)\bapi[_-]?key\b\s*[:=]'
+    - '(?i)\bpassword\b\s*[:=]\s*\S'
+    - '(?i)\bsecret\b\s*[:=]\s*\S'
+    - '-----BEGIN [A-Z ]*PRIVATE KEY-----'
+    - '(?i)aws_secret_access_key'
+  content_scan_max_bytes: 262144
+  quarantine_dir: ".curator/quarantine"
+  pipeline-status: blocked
+
+# ─────────────────────────────── Transforms ────────────────────────────────────
+# Derive a canonical form of a file while preserving the original off-site. Shared by
+# `triage` (CLI/agent) and the n8n "PDF -> Markdown (archived)" subworkflow — one
+# convert primitive (pdf2md, pymupdf4llm), one safety invariant: back up + verify BEFORE
+# deleting any local original. OFF by default; enable per directory in .curator/taxonomy.yaml.
+transforms:
+  pdf_to_markdown:
+    enabled: false
+    via: event            # event -> emit curator.file.received; the n8n subworkflow converts+archives+deletes.
+                          # inline -> convert+archive+delete in-process (standalone; no n8n needed).
+    converter: pdf2md     # host primitive on PATH
+    backup:
+      dest: null          # mc target "<alias>/<bucket>/<prefix>", e.g. "delo/james-brennan/originals"
+      verify: true        # confirm with `mc stat` before the local delete is allowed
+    delete_original_after: true
+
+# ─────────────────────────────── Triage scope ──────────────────────────────────
+# `triage` walks the WHOLE client root (not just index_dirs) so a file dropped anywhere
+# — or in the wrong folder — gets reconciled. Pin the front-door docs so they're never routed.
+triage:
+  skip_dirs: [docs]       # in addition to ignore_dirs (already covers _bmad*, .curator, .git, …)
+  # Front-door + scaffolding files that must never be routed as evidence.
+  protect_files: [profile.md, TASKS.md, AGENTS.md, CLAUDE.md, GEMINI.md, README.md, _context-stack.md, mise.toml]
+
+# ─────────────────────────── Recency / context stack ───────────────────────────
+recency:
+  updated_key: updated
+  index_file: "_context-stack.md"
+  restore_mtime: true                 # os.utime each file to its `updated` after intake/sync
+  index_dirs: [threads, workshop, client_dropbox]
+  index_root_files: [profile.md, TASKS.md]
+
+# ───────────────────────────────── State ───────────────────────────────────────
+state:
+  ledger_file: ".curator/ledger.json"  # content-hash -> {path, updated, ...} for idempotency

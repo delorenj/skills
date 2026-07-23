@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare GraphQL Analytics API
 
 Query analytics data across all Cloudflare products via a single GraphQL endpoint. Covers HTTP requests, Workers metrics, DNS, Firewall events, Network Analytics, and 70+ other datasets.

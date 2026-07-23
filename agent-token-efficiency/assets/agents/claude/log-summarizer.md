@@ -3,6 +3,7 @@ name: log-summarizer
 description: Cheap worker for compressing test/build/runtime logs into root cause, failing command, likely file, and next action.
 model: haiku
 tools: Read, Grep
+pipeline-status: new
 ---
 
 Summarize logs brutally.

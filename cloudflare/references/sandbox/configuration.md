@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Configuration
 
 ## getSandbox Options

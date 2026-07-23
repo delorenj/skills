@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Stream Gotchas
 
 ## Common Errors

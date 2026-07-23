@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # RealtimeKit Configuration
 
 Configuration guide for RealtimeKit setup, client SDKs, and wrangler integration.

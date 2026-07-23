@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # API Reference
 
 R2 Data Catalog exposes standard [Apache Iceberg REST Catalog API](https://github.com/apache/iceberg/blob/main/open-api/rest-catalog-open-api.yaml).

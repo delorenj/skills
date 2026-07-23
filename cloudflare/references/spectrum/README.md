@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Spectrum Skill Reference
 
 ## Overview

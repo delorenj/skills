@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Email Routing Skill Reference
 
 ## Overview

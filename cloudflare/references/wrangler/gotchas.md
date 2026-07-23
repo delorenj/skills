@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Wrangler Common Issues
 
 ## Common Errors

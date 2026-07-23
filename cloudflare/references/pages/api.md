@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Functions API
 
 ## File-Based Routing

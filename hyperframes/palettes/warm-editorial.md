@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Warm / Editorial
 
 Storytelling, documentaries, case studies, narrative content.

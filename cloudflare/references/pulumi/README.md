@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Pulumi Provider
 
 Expert guidance for Cloudflare Pulumi Provider (@pulumi/cloudflare).

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Terraform Troubleshooting & Best Practices
 
 Common issues, security considerations, and best practices.

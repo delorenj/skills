@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Vectorize API Reference
 
 ## Types

@@ -1,5 +1,6 @@
 ---
 description: Analyze a Stitch project and synthesize its design system into a .stitch/DESIGN.md file.
+pipeline-status: new
 ---
 
 # Workflow: Generate .stitch/DESIGN.md

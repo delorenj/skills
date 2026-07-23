@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Tail Workers Common Patterns
 
 ## Community Libraries

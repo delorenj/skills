@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Terraform Provider
 
 **Expert guidance for Cloudflare Terraform Provider - infrastructure as code for Cloudflare resources.**

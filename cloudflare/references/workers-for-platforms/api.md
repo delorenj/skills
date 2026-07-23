@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # API Operations
 
 ## Deploy User Worker

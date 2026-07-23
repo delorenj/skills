@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Stream
 
 Serverless live and on-demand video streaming platform with one API.

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ## Blur
 
 All blur transitions scale with energy. See SKILL.md "Blur Intensity by Energy" for the full table.

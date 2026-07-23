@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Workers AI Gotchas
 
 ## Critical: @cloudflare/ai is DEPRECATED

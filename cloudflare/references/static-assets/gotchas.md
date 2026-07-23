@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ## Best Practices
 
 ### 1. Use Selective Worker-First Routing

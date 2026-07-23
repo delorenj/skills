@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # R2 Patterns & Best Practices
 
 ## Streaming Large Files

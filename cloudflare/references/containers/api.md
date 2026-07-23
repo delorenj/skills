@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ## Container Class API
 
 ```typescript

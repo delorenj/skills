@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Workers KV
 
 Globally-distributed, eventually-consistent key-value store optimized for high read volume and low latency.

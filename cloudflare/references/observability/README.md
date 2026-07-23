@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Observability Skill Reference
 
 **Purpose**: Comprehensive guidance for implementing observability in Cloudflare Workers, covering traces, logs, metrics, and analytics.

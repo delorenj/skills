@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Multi-Tenant Patterns
 
 ## Billing by Plan

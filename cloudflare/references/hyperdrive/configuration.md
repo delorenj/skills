@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Configuration
 
 See [README.md](./README.md) for overview.

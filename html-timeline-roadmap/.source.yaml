@@ -1,0 +1,6 @@
+# Provenance for this skill. Managed by skill_ssot.py.
+origin:
+  type: adhoc
+  extracted_at: 2026-07-23T16:00:16+00:00
+  rescued_from: "/home/delorenj/code/skillex/skill-sets/global/html-timeline-roadmap"
+modified_locally: false

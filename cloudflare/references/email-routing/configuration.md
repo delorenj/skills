@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Email Routing Configuration
 
 ## Wrangler Configuration

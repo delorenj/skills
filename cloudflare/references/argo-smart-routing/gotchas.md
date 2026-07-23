@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ## Best Practices Summary
 
 **Smart Shield Note:** Argo Smart Routing evolving into Smart Shield. Best practices below remain applicable; monitor Cloudflare changelog for Smart Shield updates.

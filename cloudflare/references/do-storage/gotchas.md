@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # DO Storage Gotchas & Troubleshooting
 
 ## Concurrency Model (CRITICAL)

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Architecture Patterns
 
 ## Component Resources

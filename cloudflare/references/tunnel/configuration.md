@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Tunnel Configuration
 
 ## Config Source

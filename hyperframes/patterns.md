@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Composition Patterns
 
 ## Picture-in-Picture (Video in a Frame)

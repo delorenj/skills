@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # AI Search Patterns
 
 ## search() vs aiSearch()

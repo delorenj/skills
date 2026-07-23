@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Bot Management
 
 Enterprise-grade bot detection, protection, and mitigation using ML/heuristics, bot scores, JavaScript detections, and verified bot handling.

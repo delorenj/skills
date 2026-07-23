@@ -9,7 +9,7 @@ Pick a recipe by intent:
 | Show context only when relevant tool is in use | [Kubernetes context in helm dirs](#kubernetes-context-in-helm-dirs), [Terraform workspace](#terraform-workspace), [Docker compose project](#docker-compose-project) |
 | Surface env state | [AWS profile + region](#aws-profile-and-region), [GCP project](#gcp-project), [Active Tailscale node](#active-tailscale-node), [Deployment env (dev/staging/prod)](#deployment-environment-marker) |
 | Make the prompt feel alive | [Now-playing track](#now-playing-track), [Weather glyph](#weather-glyph), [Pomodoro timer](#pomodoro-timer), [Unread mail count](#unread-mail-count) |
-| Surface project metadata | [package.json scripts present](#packagejson-scripts-present), [pyproject venv name](#pyproject-venv-name), [Mise tasks present](#mise-tasks-present), [Branch staleness](#branch-staleness-vs-main) |
+| Surface project metadata | [package.json scripts present](#packagejson-scripts-present), [pyproject venv name](#pyproject-venv-name), [Mise tasks present](#mise-tasks-present), [Branch staleness](#branch-staleness-vs-main), [BMAD version and update indicator](#bmad-version-and-update-indicator) |
 | Surface system or AI state | [AI usage cost today](#ai-usage-cost-today), [GPU temp / VRAM](#gpu-temp-and-vram), [Battery low warning](#battery-low-warning) |
 | Build / CI signal | [Last build status](#last-build-status), [Pending PR count](#pending-pr-count), [Failing tests counter](#failing-tests-counter) |
 | Just for fun | [Random kaomoji](#random-kaomoji), [Cat fact rotator](#cat-fact-rotator) |
@@ -459,6 +459,59 @@ symbol = '🐈 '
 style = 'dimmed italic'
 format = ' [$symbol$output]($style)'
 ```
+
+---
+
+## BMAD version and update indicator
+
+Shows the installed BMAD core version when you're inside a BMAD project (it walks up the directory tree looking for `_bmad/`). Compares the installed version against the latest `bmad-method` release on npm, cached for one hour so the prompt stays fast.
+
+```toml
+[custom.bmad]
+command = '''
+  dir="$PWD"
+  while [ "$dir" != "/" ]; do
+    [ -d "$dir/_bmad" ] && break
+    dir=$(dirname "$dir")
+  done
+  [ "$dir" = "/" ] && exit 0
+
+  installed=$(sed -n 's/^# Version: *//p' "$dir/_bmad/core/config.yaml" 2>/dev/null | head -n1)
+  [ -z "$installed" ] && installed=$(sed -n 's/^version: *//p' "$dir/_bmad/config.yaml" 2>/dev/null | head -n1)
+  [ -z "$installed" ] && exit 0
+
+  cache="$HOME/.cache/starship-bmad-latest"
+  mkdir -p "$(dirname "$cache")"
+  if [ ! -f "$cache" ] || [ "$(find "$cache" -mmin +60)" ]; then
+    tmp=$(mktemp) && npm view bmad-method version 2>/dev/null > "$tmp" && mv "$tmp" "$cache" || rm -f "$tmp"
+  fi
+
+  latest=$(cat "$cache" 2>/dev/null)
+  if [ -z "$latest" ]; then
+    echo "v$installed"
+  else
+    highest=$(printf '%s\n%s\n' "$installed" "$latest" | sort -V | tail -n1)
+    if [ "$installed" = "$latest" ] || [ "$installed" = "$highest" ]; then
+      echo "v$installed ✓"
+    else
+      echo "v$installed ↑$latest"
+    fi
+  fi
+'''
+when = true
+shell = ['sh']
+description = 'BMAD version and update indicator'
+symbol = '🧠'
+style = 'bold cyan'
+format = ' [$symbol $output]($style)'
+```
+
+**Notes:**
+- `shell = ['sh']` feeds the multi-line command to `sh` on stdin; if your starship build requires `-c`, switch to `shell = ['sh', '-c']` and add `use_stdin = false`.
+- The version is read from `_bmad/core/config.yaml` first (the installer-managed BMAD core version), then falls back to `version:` in `_bmad/config.yaml`.
+- `sort -V` is used for a best-effort semver comparison. If your `sort` doesn't support `-V`, the fallback string comparison still shows an arrow when the strings differ.
+- To keep the segment on the same line as directory/git info, place `${custom.bmad}` *before* `$all` in your global `format` (e.g. `format = "$directory$git_branch$git_status ${custom.bmad}$all$character"`). `$all` includes `$line_break`, so anything after it renders on the prompt's second line.
+- To show the segment only when `_bmad` is in the current directory (not a parent), replace the walk-up loop with `detect_folders = ['_bmad']` and remove the early `exit 0` guard (you can also drop `when = true` and let `detect_folders` gate the module).
 
 ---
 

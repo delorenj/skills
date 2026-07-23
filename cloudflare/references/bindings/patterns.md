@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Binding Patterns and Best Practices
 
 ## Service Binding Patterns

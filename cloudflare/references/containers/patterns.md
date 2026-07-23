@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ## Routing Patterns
 
 ### Session Affinity (Stateful)

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Gotchas & Best Practices
 
 ## Common Errors

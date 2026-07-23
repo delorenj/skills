@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Web Analytics Gotchas
 
 ## Critical Issues

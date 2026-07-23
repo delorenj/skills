@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # DO Storage Configuration
 
 ## SQLite-backed (Recommended)

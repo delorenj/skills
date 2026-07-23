@@ -1,0 +1,3 @@
+interface:
+  display_name: "Taxonomy Steward"
+  short_description: "Design balanced schemas & keep the vault's tags/schemas healthy (measure-first)"

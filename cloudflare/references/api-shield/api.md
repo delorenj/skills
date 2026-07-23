@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # API Reference
 
 Base: `/zones/{zone_id}/api_gateway`

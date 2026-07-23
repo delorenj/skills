@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Bindings API Reference
 
 ## TypeScript Types

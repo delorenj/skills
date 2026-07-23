@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Example: Prompt Enhancement
 
 ## User Input (Vague)

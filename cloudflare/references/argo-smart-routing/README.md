@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Argo Smart Routing Skill Reference
 
 ## Overview

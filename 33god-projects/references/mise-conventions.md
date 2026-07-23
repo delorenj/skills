@@ -1,7 +1,3 @@
----
-pipeline-status:
-  - new
----
 # mise Integration (every 33god repo)
 
 mise is the mandatory, uniform tooling/env layer. Every repo carries the same contract:
@@ -65,42 +61,8 @@ Runs on `enter` and whenever `AGENTS.md` changes (the `watch_files` trigger). Ed
 - **Never commit `.env`.** Ensure `.gitignore` excludes `.env`, `.env.*` (but keep `.env.op`).
   See [[shell-snapshot-secret-leak-recurrence]] for the burn procedure if a secret leaks.
 
-## Agent-hooks / skill fan-out additions (adopted layer, not yet in base template)
-
-A repo that adopts the project-scoped agent layer (see
-[project-scoped-hooks.md](project-scoped-hooks.md)) extends the mise contract — these are
-**additive** to the standard block above, currently hand-adopted from CAF (not yet rendered by
-CommonProject):
-
-```toml
-[hooks]
-enter = [
-  "{{config_root}}/.mise/scripts/link-agentfiles.sh",
-  "{{config_root}}/.mise/scripts/link-skills.sh",                  # ./skills/* -> .agents/skills/
-  "{{config_root}}/.mise/scripts/link-project-skills-to-clis.sh",  # .agents/skills/* -> each CLI
-  "{{config_root}}/.agents/hooks/sync.py --install --quiet",       # hooks SSOT -> claude/codex/hermes
-]
-leave = [
-  "{{config_root}}/.mise/scripts/unlink-project-skills-from-clis.sh",
-  "{{config_root}}/.agents/hooks/sync.py --uninstall --quiet",
-]
-
-[[watch_files]]
-patterns = [".agents/hooks/hooks.master.json"]   # re-fan-out on SSOT change
-task = "hooks-sync"
-
-# tasks: hooks-sync, hooks-check (CI drift gate), hooks-uninstall,
-#        skills-relink, hindsight-setup (op-inject the shared Hindsight key into .env)
-```
-
-`enter`/`leave` hook commands must never hard-fail the shell (the engine exits 0 on internal
-error); only `hooks-check` returns nonzero, for CI. `.gitignore` must add `.agents/local.json`
-(per-dev opt-out) and `.kimi-code/` (generated mirror) alongside `.env`.
-
 ## Common tasks
 
 - `mise trust` — trust the repo's mise config (required once per repo/clone).
 - `mise tasks` — list tasks. `mise run <task>` — run one.
 - `mise run init-project` — (CommonProject) bootstrap a new project (see project-creation.md).
-- `mise run hooks-sync` / `hooks-check` / `skills-relink` / `hindsight-setup` — (adopted layer)
-  fan out the hooks SSOT + skills; gate drift; provision the Hindsight key.

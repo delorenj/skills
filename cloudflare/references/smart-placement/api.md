@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Smart Placement API
 
 ## Placement Status API

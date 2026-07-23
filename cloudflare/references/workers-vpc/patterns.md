@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Common Patterns
 
 Real-world patterns and examples for TCP Sockets in Cloudflare Workers.

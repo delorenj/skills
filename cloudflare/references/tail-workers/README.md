@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Tail Workers
 
 Specialized Workers that consume execution events from producer Workers for logging, debugging, analytics, and observability.

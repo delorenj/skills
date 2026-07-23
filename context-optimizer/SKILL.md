@@ -4,15 +4,18 @@ description: Advanced context management with auto-compaction and dynamic contex
 homepage: https://github.com/clawdbot/clawdbot
 metadata:
   clawdbot:
-    emoji: "🧠"
+    emoji: 🧠
     requires:
       bins: []
-      npm: ["tiktoken", "@xenova/transformers"]
+      npm:
+        - tiktoken
+        - "@xenova/transformers"
     install:
       - id: npm
         kind: npm
         label: Install Context Pruner dependencies
-        command: "cd ~/.clawdbot/skills/context-pruner && npm install"
+        command: cd ~/.clawdbot/skills/context-pruner && npm install
+pipeline-status: new
 ---
 
 # Context Pruner

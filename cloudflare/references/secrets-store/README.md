@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Secrets Store
 
 Account-level encrypted secret management for Workers and AI Gateway.

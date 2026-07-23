@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # TCP Sockets API Reference
 
 Complete API reference for the Cloudflare Workers TCP Sockets API (`cloudflare:sockets`).

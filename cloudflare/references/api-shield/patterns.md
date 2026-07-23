@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Patterns & Use Cases
 
 ## Protect API with Schema + JWT

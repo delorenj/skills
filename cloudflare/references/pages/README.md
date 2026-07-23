@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Pages
 
 JAMstack platform for full-stack apps on Cloudflare's global network.

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Durable Objects
 
 Expert guidance for building stateful applications with Cloudflare Durable Objects.

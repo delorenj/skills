@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # DDoS Gotchas
 
 ## Common Errors

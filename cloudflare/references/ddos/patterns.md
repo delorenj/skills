@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # DDoS Protection Patterns
 
 ## Allowlist Trusted IPs

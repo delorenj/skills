@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Framework Integration
 
 **Web Analytics is dashboard-only** - no programmatic API. This covers beacon integration.

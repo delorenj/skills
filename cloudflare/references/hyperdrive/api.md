@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # API Reference
 
 See [README.md](./README.md) for overview, [configuration.md](./configuration.md) for setup.

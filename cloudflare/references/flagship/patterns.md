@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Flagship Patterns & Best Practices
 
 ## Evaluating Flags in Workers (Binding)

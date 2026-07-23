@@ -6,7 +6,7 @@ pipeline-status:
 
 **A reusable skill for building Karpathy-style LLM wikis with Claude Code, Cursor, Codex, and other Agent Skills tools.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](Projects/33GOD/docs/2026-02-02/perth/LICENSE.md)
 [![GitHub stars](https://img.shields.io/github/stars/Astro-Han/karpathy-llm-wiki?style=social)](https://github.com/Astro-Han/karpathy-llm-wiki)
 [![GitHub forks](https://img.shields.io/github/forks/Astro-Han/karpathy-llm-wiki?style=social)](https://github.com/Astro-Han/karpathy-llm-wiki)
 [![Agent Skills](https://img.shields.io/badge/Agent_Skills-compatible-blue)](https://agentskills.io)
@@ -148,4 +148,4 @@ See also: [lucasastorian/llmwiki](https://github.com/lucasastorian/llmwiki), [at
 
 ## License
 
-[MIT](LICENSE)
+[MIT](Projects/33GOD/docs/2026-02-02/perth/LICENSE.md)

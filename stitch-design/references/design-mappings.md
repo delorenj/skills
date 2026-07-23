@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Design Mappings & Descriptors
 
 Use these mappings to transform vague user requests into precise, high-fidelity design instructions.

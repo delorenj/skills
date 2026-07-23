@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Gotchas and Troubleshooting
 
 Common pitfalls, limitations, and solutions for TCP Sockets in Cloudflare Workers.

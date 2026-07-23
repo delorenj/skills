@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Latest stable release: {{version}}
 
 Released: {{release_date_month_dd_yyyy}}

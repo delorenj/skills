@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Patterns & Use Cases
 
 ## AI Chat w/Tools

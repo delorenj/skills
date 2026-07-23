@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ## Common Errors
 
 ### "Logs not appearing"

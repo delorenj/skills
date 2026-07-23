@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Workers Smart Placement
 
 Automatic workload placement optimization to minimize latency by running Workers closer to backend infrastructure rather than end users.

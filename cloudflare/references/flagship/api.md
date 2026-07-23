@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Flagship API Reference
 
 ## Binding API (Workers)

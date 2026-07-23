@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Flagship Gotchas & Troubleshooting
 
 ## Common Errors

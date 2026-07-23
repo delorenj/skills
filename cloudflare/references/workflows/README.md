@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Workflows
 
 Durable multi-step applications with automatic retries, state persistence, and long-running execution.

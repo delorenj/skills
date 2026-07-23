@@ -1,7 +1,7 @@
 ---
 name: event-driven-architecture
-description: >-
-  Kafka, RabbitMQ, SQS/SNS, event sourcing, CQRS, saga patterns, dead letter queues, and idempotency. Use when designing asynchronous systems, implementing message-driven workflows, or building event streaming pipelines.
+description: Kafka, RabbitMQ, SQS/SNS, event sourcing, CQRS, saga patterns, dead letter queues, and idempotency. Use when designing asynchronous systems, implementing message-driven workflows, or building event streaming pipelines.
+pipeline-status: new
 ---
 
 # Event-Driven Architecture

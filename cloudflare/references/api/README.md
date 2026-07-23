@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare API Integration
 
 Guide for working with Cloudflare's REST API - authentication, SDK usage, common patterns, and troubleshooting.

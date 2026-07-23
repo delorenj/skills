@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Smart Placement Gotchas
 
 ## Common Errors

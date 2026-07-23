@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Context Pruner
 
 Advanced context management optimized for DeepSeek's 64k context window. Provides intelligent pruning, compression, and token optimization to prevent context overflow while preserving important information.

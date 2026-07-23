@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Pipelines
 
 ETL streaming platform for ingesting, transforming, and loading data into R2 with SQL transformations.

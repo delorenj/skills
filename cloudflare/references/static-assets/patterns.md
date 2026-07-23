@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ### Common Patterns
 
 **1. Forward request to assets:**

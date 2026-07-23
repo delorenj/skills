@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Native Tabs
 
 Always prefer NativeTabs from 'expo-router/unstable-native-tabs' for the best iOS experience.

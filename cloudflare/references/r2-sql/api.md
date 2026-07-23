@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # R2 SQL API Reference
 
 SQL syntax, functions, operators, and data types for R2 SQL queries.

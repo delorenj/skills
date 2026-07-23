@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Queues Configuration
 
 ## Create Queue

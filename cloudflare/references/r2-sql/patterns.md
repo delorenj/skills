@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # R2 SQL Patterns
 
 Common patterns, use cases, and integration examples for R2 SQL.

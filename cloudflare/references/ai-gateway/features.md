@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Features & Capabilities
 
 ## Caching

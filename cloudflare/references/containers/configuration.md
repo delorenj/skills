@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ## Wrangler Configuration
 
 ### Basic Container Config

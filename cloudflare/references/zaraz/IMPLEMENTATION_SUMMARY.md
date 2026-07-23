@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Zaraz Reference Implementation Summary
 
 ## Files Created

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Monochrome
 
 Dramatic, typography-focused, serious content.

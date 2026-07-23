@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Zaraz Patterns
 
 ## SPA Tracking

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # CNI API Reference
 
 See [README.md](README.md) for overview.

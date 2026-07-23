@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Bot Management Patterns
 
 ## E-commerce Protection

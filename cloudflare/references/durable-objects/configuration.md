@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Durable Objects Configuration
 
 ## Basic Setup

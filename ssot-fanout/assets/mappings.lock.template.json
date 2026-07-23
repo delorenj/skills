@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "$comment": "RESOLUTION-MEMORY TEMPLATE. sync.py consults this BEFORE prompting: any ambiguity whose id is recorded here is auto-applied (seamless re-sync). Keys are the EXACT ids the detector emits — 'role:<role>' for cross-target divergence, 'type:<value>' for a contract-illegal catalog value. Add entries only via `--resolve` or a reviewed seed; copy the id verbatim from `sync.py --check --json`.",
+  "policy": {
+    "on_unresolved": "prompt",
+    "on_recorded": "apply",
+    "auto_apply_strategies": ["unify-to", "rename", "drop", "keep"]
+  },
+  "resolutions": {
+    "$comment": "Example entry — delete it. Recorded the day two targets diverged on the `send` role; `unify-to` forces both onto one canonical value via effective(binding).",
+    "role:send": {
+      "resolution": "message.sent",
+      "strategy": "unify-to",
+      "diverged": {
+        "slack": "message.sent",
+        "webhook": "message.delivered"
+      },
+      "rationale": "Replace with the real reason the decision was made — future-you re-reads this instead of re-litigating.",
+      "decided_at": "YYYY-MM-DD",
+      "decided_by": "interactive"
+    }
+  }
+}

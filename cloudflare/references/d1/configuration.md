@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # D1 Configuration
 
 ## wrangler.jsonc Setup

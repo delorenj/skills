@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare WAF Expert Skill Reference
 
 **Expertise**: Cloudflare Web Application Firewall (WAF) configuration, custom rules, managed rulesets, rate limiting, attack detection, and API integration

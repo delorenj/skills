@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Browser Rendering Patterns
 
 ## Basic Worker

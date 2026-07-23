@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Hyperdrive
 
 Accelerates database queries from Workers via connection pooling, edge setup, query caching.

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Pipelines Gotchas
 
 ## Critical Issues

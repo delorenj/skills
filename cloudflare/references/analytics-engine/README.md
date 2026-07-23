@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Workers Analytics Engine Reference
 
 Expert guidance for implementing unlimited-cardinality analytics at scale using Cloudflare Workers Analytics Engine.

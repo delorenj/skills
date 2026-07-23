@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Bindings Skill Reference
 
 Expert guidance on Cloudflare Workers Bindings - the runtime APIs that connect Workers to Cloudflare platform resources.

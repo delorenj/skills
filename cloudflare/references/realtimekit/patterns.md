@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # RealtimeKit Patterns
 
 ## UI Kit (Minimal Code)

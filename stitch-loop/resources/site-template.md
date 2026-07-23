@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Site Template
 
 Use these templates when setting up a new project for the build loop.

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Tail Workers Configuration
 
 ## Setup Steps

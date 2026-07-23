@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Transcript Guide
 
 ## How Transcripts Are Generated

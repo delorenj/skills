@@ -1,0 +1,6 @@
+[
+  {"id": "executive-brief", "title": "Executive Brief", "required": true},
+  {"id": "key-changes", "title": "Key Changes", "required": true},
+  {"id": "risks-watchlist", "title": "Risks and Watchlist", "required": true},
+  {"id": "coverage-freshness", "title": "Coverage and Freshness", "required": true}
+]

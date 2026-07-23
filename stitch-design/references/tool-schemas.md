@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Stitch MCP Tool Schemas
 
 Use these examples to format your tool calls to the Stitch MCP server correctly.

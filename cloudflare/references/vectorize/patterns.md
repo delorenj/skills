@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Vectorize Patterns
 
 ## Workers AI Integration

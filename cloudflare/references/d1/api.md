@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # D1 API Reference
 
 ## Prepared Statements (Required for Security)

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Tail Workers Gotchas & Debugging
 
 ## Critical Pitfalls

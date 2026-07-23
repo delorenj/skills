@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Configuration
 
 Setup and configuration for TCP Sockets in Cloudflare Workers.

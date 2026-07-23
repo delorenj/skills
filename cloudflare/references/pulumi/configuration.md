@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Resource Configuration
 
 ## Workers (cloudflare.WorkerScript)

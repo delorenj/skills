@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Installation Guide
 
 ## Installation

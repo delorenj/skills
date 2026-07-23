@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # C3 Generated Configuration
 
 ## Output Structure

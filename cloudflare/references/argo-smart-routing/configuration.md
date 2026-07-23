@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ## Configuration Management
 
 **Note on Smart Shield Evolution:** Argo Smart Routing is being integrated into Smart Shield. Configuration methods below remain valid; Terraform and IaC patterns unchanged.

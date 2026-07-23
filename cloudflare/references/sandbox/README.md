@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Sandbox SDK
 
 Secure isolated code execution in containers on Cloudflare's edge. Run untrusted code, manage files, expose services, integrate with AI agents.

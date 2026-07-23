@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # KV API Reference
 
 ## Read Operations

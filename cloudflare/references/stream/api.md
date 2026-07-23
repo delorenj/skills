@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Stream API Reference
 
 Upload, playback, live streaming, and management APIs.

@@ -143,3 +143,20 @@ If absent for an event, append your generated group. Detect change semantically
 in a shared group — group-level logic looks correct in the common case and silently eats neighbors in
 the nested one. Always diff the live file against its backup after the first install to prove siblings
 survived.
+
+## Canonical publisher migration matched the wrong hook
+
+**Symptom:** after normalizing many per-client publishers into one root `publish.py`, install starts
+classifying unrelated commands as "ours" or fails to replace old `claude/publish.py` entries.
+
+**Cause:** the merge marker was a broad substring like `publish.py`. Once every agent calls
+`bloodbank/publish.py`, that marker is no longer specific enough, and old per-client command paths still
+need one migration pass.
+
+**Fix:** use a narrow canonical marker plus explicit legacy markers. In the Bloodbank reference,
+`publisher` is `bloodbank/publish.py` and each agent carries `legacy_publishers`
+(`claude/publish.py`, `codex/publish.py`, etc.). The installer treats any of those as this system's hook,
+updates the entry in place, and leaves foreign hooks alone.
+
+**Why it matters:** a normalized runtime surface should simplify maintenance, not make the installer
+guess. Marker specificity is the difference between a safe migration and a spooky global-config bite.

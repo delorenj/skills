@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # AI Gateway Troubleshooting
 
 ## Common Errors

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare RealtimeKit
 
 Expert guidance for building real-time video and audio applications using **Cloudflare RealtimeKit** - a comprehensive SDK suite for adding customizable live video and voice to web or mobile applications.

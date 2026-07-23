@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Workers VPC Connectivity
 
 Connect Cloudflare Workers to private networks and internal infrastructure using TCP Sockets.

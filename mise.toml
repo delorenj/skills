@@ -1,4 +1,0 @@
-[tasks.skilltree]
-description = "Update the skill-tree.md"
-run = "tree > skill-tree.md"
-

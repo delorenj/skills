@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Tunnel
 
 Secure outbound-only connections between infrastructure and Cloudflare's global network.

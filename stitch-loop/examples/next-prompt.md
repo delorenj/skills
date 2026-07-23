@@ -1,5 +1,6 @@
 ---
 page: contact
+pipeline-status: new
 ---
 A warm, inviting contact page for Oakwood Furniture Co.
 

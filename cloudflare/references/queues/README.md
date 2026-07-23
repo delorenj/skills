@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Queues
 
 Flexible message queuing for async task processing with guaranteed at-least-once delivery and configurable batching.

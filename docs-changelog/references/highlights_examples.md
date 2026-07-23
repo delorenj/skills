@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ## Highlights example 1
 
 - **Plan Mode Enhancements**: Significant updates to Plan Mode, including new

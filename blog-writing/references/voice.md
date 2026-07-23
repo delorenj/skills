@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Authorial Voice
 
 How Jarad's sentences actually move. The single biggest failure mode is writing *clean*. His voice isn't clean — it's a sharp mind talking out loud, hedging, swerving, and cussing under its breath. When a paragraph reads like it could go on a motivational poster, you've drifted into the synthetic zone. Rough it back up.

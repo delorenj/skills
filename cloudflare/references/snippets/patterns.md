@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Snippets Patterns
 
 ## Security Headers

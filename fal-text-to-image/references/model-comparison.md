@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # fal.ai Text-to-Image Model Comparison
 
 Detailed comparison of available text-to-image models on fal.ai platform.

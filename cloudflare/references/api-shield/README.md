@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare API Shield Reference
 
 Expert guidance for API Shield - comprehensive API security suite for discovery, protection, and monitoring.

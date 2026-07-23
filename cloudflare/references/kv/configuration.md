@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # KV Configuration
 
 ## Create Namespace

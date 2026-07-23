@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Bot Management Gotchas
 
 ## Common Errors

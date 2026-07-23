@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # UI/UX Keywords Reference
 
 Progressive disclosure reference for common UI terminology and adjective palettes.

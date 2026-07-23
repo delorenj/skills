@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Workers AI
 
 Expert guidance for Cloudflare Workers AI - serverless GPU-powered AI inference at the edge.

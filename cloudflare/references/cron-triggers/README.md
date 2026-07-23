@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Cron Triggers
 
 Schedule Workers execution using cron expressions. Runs on Cloudflare's global network during underutilized periods.

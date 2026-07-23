@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Terraform Data Sources Reference
 
 Query existing Cloudflare resources to reference in your configurations.

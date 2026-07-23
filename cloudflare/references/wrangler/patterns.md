@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Wrangler Development Patterns
 
 Common workflows and best practices.

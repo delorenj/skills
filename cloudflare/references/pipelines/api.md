@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Pipelines API Reference
 
 ## Pipeline Binding Interface

@@ -1,8 +1,7 @@
 ---
 name: delonet-conventions
 description: This skill defines system conventions such as file naming and paths, shell configuration, container hosting and other custom systems. Use this skill when working on a task that requires interacting with or configuring the filesystem, containers, or services in the DeLoNET home environment.
-pipeline-status:
-  - new
+pipeline-status: new
 ---
 
 # Standards And Conventions for DeLoNET Linux Workstations
@@ -57,6 +56,9 @@ wired by **pjangler** out of the CommonProject + hermes-agent-template copier te
 > source of truth + one-board-per-repo model, the mise contract, BMAD install, and
 > hindsight/bloodbank agent hooks — use the **`33god-projects`** skill. Don't reinvent it here.
 > For developing pjangler itself (Commands/Recipes), see `pjangler-dev` in `~/code/pjangler/skills/`.
+> Canonical machine-global agent hooks live under `~/.agents/hooks/`: Hindsight under
+> `~/.agents/hooks/hindsight/` and Bloodbank under `~/.agents/hooks/bloodbank/`.
+> Per-agent configs may differ, but they should invoke those shared entrypoints.
 
 ## Tooling and Package Management
 

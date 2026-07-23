@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 ## Announcements: {{version}} - {{release_date_yyyy_mm_dd}}
 
 {{announcement_content}}

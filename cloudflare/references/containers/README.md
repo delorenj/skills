@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Cloudflare Containers Skill Reference
 
 **APPLIES TO: Cloudflare Containers ONLY - NOT general Cloudflare Workers**

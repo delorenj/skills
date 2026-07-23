@@ -7,6 +7,7 @@ references:
   - d1
   - durable-objects
   - workers-ai
+pipeline-status: new
 ---
 
 # Cloudflare Platform Skill

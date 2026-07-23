@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Text-to-Speech
 
 Generate speech audio locally using Kokoro-82M (no API key, runs on CPU).

@@ -1,3 +1,6 @@
+---
+pipeline-status: new
+---
 # Miniflare
 
 Local simulator for Cloudflare Workers development/testing. Runs Workers in workerd sandbox implementing runtime APIs - no internet required.
