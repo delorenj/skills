@@ -158,4 +158,5 @@ cd remotion && npm install && npm run studio
 - Ambient: always-on bed from `assets/sfx/` (skipped only if that folder is empty), layered under voice + music at `0.16`.
 - Voice: hardcoded custom "Civil War Veteran" (`HvjKMFO0rjuPaM2f997g` in `narrate.mjs`); not parameterized.
 - Date line / signature / title: deterministic (date from today; signature + title fixed). The note text is the only creative input.
-- Output: 1920×1080, 30fps, h264 MP4.
+- Output: 1280×720, 60fps, browser-safe BT.709 h264 MP4. The composition
+  retains a 1920×1080 design canvas and downsamples during rendering.

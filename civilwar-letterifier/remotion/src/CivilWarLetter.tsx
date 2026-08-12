@@ -71,6 +71,7 @@ export const CivilWarLetter: React.FC<CivilWarLetterProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const {fps, durationInFrames, width, height} = useVideoConfig();
+  const seconds = frame / fps;
 
   const bodyFamily = fontStyle === 'dispatch' ? dispatchFamily : scriptFamily;
   const isScript = fontStyle !== 'dispatch';
@@ -126,12 +127,16 @@ export const CivilWarLetter: React.FC<CivilWarLetterProps> = ({
   const translateY = topMargin - eased * panDistance;
   const scale = interpolate(eased, [0, 1], [1.03, 1.12]);
 
-  // --- Candlelight flicker: a few detuned sines so it never looks periodic. ---
+  // --- Candlelight drift: keep it slow and subtle. The old implementation
+  //     advanced its phases directly from the frame number, producing large
+  //     2.6/8.1/14.2Hz luminance swings at 30fps. That read as video stutter
+  //     even though the encoded frame timestamps were correct. Frequencies are
+  //     expressed in cycles per second so the look is stable at every fps. ---
   const flicker =
-    0.78 +
-    0.07 * Math.sin(frame * 0.55) +
-    0.05 * Math.sin(frame * 1.7 + 1.1) +
-    0.035 * Math.sin(frame * 3.3 + 2.2);
+    0.88 +
+    0.012 * Math.sin(2 * Math.PI * 0.17 * seconds) +
+    0.008 * Math.sin(2 * Math.PI * 0.31 * seconds + 1.1) +
+    0.005 * Math.sin(2 * Math.PI * 0.53 * seconds + 2.2);
 
   // Opening title + closing fades.
   const titleOpacity = interpolate(
@@ -185,6 +190,8 @@ export const CivilWarLetter: React.FC<CivilWarLetterProps> = ({
             opacity: letterFadeIn,
             transform: `scale(${scale})`,
             transformOrigin: '50% 38%',
+            willChange: 'transform',
+            backfaceVisibility: 'hidden',
           }}
         >
           <div
@@ -193,7 +200,9 @@ export const CivilWarLetter: React.FC<CivilWarLetterProps> = ({
               top: 0,
               left: '50%',
               width: letterColumnWidth,
-              transform: `translate(-50%, ${translateY}px)`,
+              transform: `translate3d(-50%, ${translateY}px, 0)`,
+              willChange: 'transform',
+              backfaceVisibility: 'hidden',
             }}
           >
             <div ref={letterRef}>

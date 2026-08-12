@@ -18,8 +18,8 @@ and scrub frames. `node scripts/build.mjs` regenerates `props.json` and renders.
    *measured* letter height (via `delayRender` + `useLayoutEffect`), so the last
    line always lands on screen no matter how the text wraps. Short letters just
    drift; long ones scroll like a documentary.
-4. **Candlelight** — a warm radial glow whose opacity flickers via three detuned
-   sines (never periodic).
+4. **Candlelight** — a warm radial glow whose opacity drifts subtly via three
+   low-frequency, detuned sines (never periodic).
 5. **Archival grade + vignette** — `sepia/contrast/brightness/saturate` over the
    scene, plus a burnt-edge vignette on top.
 6. **Title card** (during `introPad`) and **fade-to-black** (during `outroPad`).
@@ -49,7 +49,8 @@ So you never set a length by hand — record the voice, and the video fits it.
 In `CivilWarLetter.tsx`:
 - `scale` range — zoom intensity.
 - `topMargin` / `bottomMargin` — where text rests; affects pan distance.
-- `flicker` coefficients — candle liveliness.
+- `flicker` coefficients — candle liveliness. Frequencies are cycles per second,
+  not per-frame phases; keep them below 1Hz to avoid visible luminance beating.
 - body `fontSize` (76 script / 46 dispatch) and `lineHeight`.
 - `letterColumnWidth` — text measure / wrap width.
 - music `volume` interpolation — duck level and fade lengths.
@@ -61,5 +62,7 @@ fetched at build. To use a real scanned handwriting font, drop a `.woff2` in
 the repo's `remotion/references/fonts.md`.
 
 ## Aspect ratio
-Default 1920×1080. For vertical (Reels/TikTok) set `width: 1080, height: 1920`
-in `Root.tsx` and reduce `letterColumnWidth` to ~`width * 0.82`.
+The design canvas is 1920×1080 and the default delivery render is 1280×720 at
+60fps (`Config.setScale(2 / 3)`). For vertical (Reels/TikTok), set
+`width: 1080, height: 1920` in `Root.tsx`, reduce `letterColumnWidth` to roughly
+`width * 0.82`, and revisit the output scale in `remotion.config.ts`.

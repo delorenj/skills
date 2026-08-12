@@ -4,7 +4,9 @@ import {getAudioDurationInSeconds} from '@remotion/media-utils';
 import {CivilWarLetter, CivilWarLetterProps} from './CivilWarLetter';
 import {resolveSrc} from './resolveSrc';
 
-const FPS = 30;
+// Slow, high-contrast type drifting over paper exposes 30fps judder very easily.
+// Render at the display-native 60fps cadence so subpixel motion stays fluid.
+const FPS = 60;
 
 const defaultProps: CivilWarLetterProps = {
   letterText:
