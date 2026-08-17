@@ -86,15 +86,29 @@ Response includes `based_on.memories`, `based_on.mental_models`, `based_on.direc
 
 Mental models are curated summaries checked first during reflect. Faster, more consistent answers for recurring topics. Top of the retrieval hierarchy.
 
+Name and source-query are **positional**, not flags (`--name` / `--source-query`
+do not exist and error out):
+
 ```bash
-hindsight mental-model create $BANK \
-  --name "Project Architecture" \
-  --source-query "What is the overall system architecture?"
+hindsight mental-model create $BANK "Project Architecture" \
+  "What is the overall system architecture?" --id project-architecture
 
 hindsight mental-model list $BANK
-hindsight mental-model refresh $BANK <mental_model_id>
-hindsight mental-model delete $BANK <mental_model_id>
+hindsight mental-model get $BANK <id>
+hindsight mental-model refresh $BANK <id>     # re-runs the source query
+hindsight mental-model history $BANK <id>
+hindsight mental-model delete $BANK <id>
 ```
+
+Content generates asynchronously — a fresh model shows `Generating content...`
+for a few seconds. Pass `--id` so the model has a stable, memorable handle.
+
+**When to create one.** A mental model earns its place when a question recurs
+*and* its answer is assembled from many scattered facts — "how does X work
+here", "where do I add Y", "what fails silently". Retain the underlying facts
+first; the model is computed *from* the bank, so an empty bank yields an empty
+model. `refresh` after retaining new facts on that topic, or the model quietly
+serves a stale answer with full confidence — the one real failure mode here.
 
 ## Directives (hard rules for reflect)
 
@@ -158,7 +172,9 @@ For multi-agent or multi-project setups, use domain-first routing to prevent cro
 
 ### Strategy
 
-- **Primary bank = domain/product** (source of truth). Example: `wean`, `chorescore`, `33god-core`
+- **Primary bank = domain/product** (source of truth). Example: `wean`, `chorescore`, `33GOD`
+  (exact case — `33god`/`33god-core`/`33god-infra` were consolidated into `33GOD`
+  and deleted 2026-08-17; naming one silently creates a NEW empty bank)
 - **Secondary bank(s) = role/hierarchy overlay**. Example: `exec-office` for leadership decisions
 - **Global fallback bank**. Example: `33GOD` for org-wide context
 
