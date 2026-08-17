@@ -162,7 +162,32 @@ For multi-agent or multi-project setups, use domain-first routing to prevent cro
 - **Secondary bank(s) = role/hierarchy overlay**. Example: `exec-office` for leadership decisions
 - **Global fallback bank**. Example: `33GOD` for org-wide context
 
-Avoid agent-only banks as canonical memory. They drift when agents switch projects.
+Never make an agent-named bank the **canonical** store for project facts — a
+repo's truth must stay readable by every agent that works it, and an agent bank
+would hide it. That is a rule about *canonical project memory*, and it is not a
+ban on agent banks.
+
+### The two namespaces (identity vs. project)
+
+Agent banks have their own distinct job, and the two namespaces are disjoint by
+design — they answer opposite questions and must not be collapsed:
+
+| | `agent-<profile>` | `<repo>` |
+| --- | --- | --- |
+| Anchored to | agent identity | repository |
+| Path-dependent | **no** — follows the agent everywhere | yes |
+| Written | automatically, by the Hermes memory provider | explicitly, via this CLI |
+| Audience | that agent alone | every agent on the repo |
+| Answers | "which projects has this agent worked on?" | "which agent experienced this fact?" |
+
+Hermes wires the identity bank through `memory.bank_id_template:
+agent-{profile}` in `~/.hermes/config.yaml`; `{profile}` resolves to the agent's
+identity, never to `cwd`. Project banks are resolved per-repo by **Bank
+Detection** above.
+
+Routing test when retaining: *would another agent on this repo need this?*
+Yes → repo bank (and name yourself in the content, so provenance survives).
+Only true of you → identity bank.
 
 ### Routing Pattern
 
