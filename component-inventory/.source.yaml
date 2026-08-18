@@ -1,0 +1,6 @@
+# Provenance for this skill. Managed by skill_ssot.py.
+origin:
+  type: adhoc
+  extracted_at: 2026-08-18T04:48:34+00:00
+  rescued_from: "/home/delorenj/code/skillex/skill-sets/global/component-inventory"
+modified_locally: false
