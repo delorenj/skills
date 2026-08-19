@@ -1,0 +1,6 @@
+interface:
+  display_name: "Project Notebook"
+  short_description: "Operate Git-grounded project memory safely"
+  default_prompt: "Use $project-notebook to inspect this repository's notebook status and take the safest scoped next action."
+policy:
+  allow_implicit_invocation: true

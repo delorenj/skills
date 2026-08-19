@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PJ_HOOK_OWNER=project-notebook.v1 \"$HOME/.agents/skills/project-notebook/hooks/session-start.sh\"",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PJ_HOOK_OWNER=project-notebook.v1 \"$HOME/.agents/skills/project-notebook/hooks/session-end.sh\"",
+            "timeout": 1
+          }
+        ]
+      }
+    ]
+  }
+}

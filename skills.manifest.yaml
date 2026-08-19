@@ -132,6 +132,7 @@ always_on:
     - openclaw-runtime-git
     - openclaw-upgrade
     - project-jangler
+    - project-notebook
     - project-crank-engine
     - security-monitor
     - svgme-status-handoff
