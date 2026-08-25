@@ -1,0 +1,62 @@
+# mise configuration for all-skills
+# https://mise.jdx.dev/configuration.html
+
+[env]
+_.path = [".mise/scripts", "agents/hermes/pm"]
+_.file = [".env"]
+
+#
+# NOTE: every managed script is handed config_root EXPLICITLY. A mise enter
+# hook runs with cwd set to the directory you cd'd into -- including a PARENT
+# config's hook -- so a script that reads its subject from cwd reshapes
+# whichever nested repo you entered. config_root locates the file; the
+# argument locates the subject. The scripts refuse to run without it.
+#
+# NOTE: hooks are an array of [[hooks.enter]] tables (NOT enter = [ ... ]) and
+# every {{config_root}} path is single-quoted so it survives a space in the
+# project path — mise runs each `script` via `sh -c`.
+
+# This block will handle the linking of
+# agent files to the main AGENTS.md file.
+#
+# TODO: Ensure this works for all levels of nesting.
+# i.e. All linked agent files MUST be siblings at
+# any given level of nesting.
+[[hooks.enter]]
+script = "'{{config_root}}/.mise/scripts/link-agentfiles.sh' '{{config_root}}'"
+[[hooks.enter]]
+script = "python3 '{{config_root}}/.mise/scripts/provision-packs.py' --root '{{config_root}}'"
+[[hooks.enter]]
+script = "python3 '{{config_root}}/.mise/scripts/sync-skills.py' --scope project --root '{{config_root}}'"
+[[hooks.enter]]
+# Atomic (PJAN-24/PJAN-57): shell complexity lives in the managed script so
+# mise never interpolates temporary variables. The script uses mktemp, traps
+# cleanup, and replaces .env only after op inject succeeds.
+script = "'{{config_root}}/.mise/scripts/materialize-env.sh'"
+[[hooks.enter]]
+script = "[ -f '{{config_root}}/.mise/scripts/codegraph.sh' ] && '{{config_root}}/.mise/scripts/codegraph.sh' || true"
+
+[tasks."hindsight:setup"]
+description = "Provision this dev's shared project Hindsight key from 1Password into .env (op read; upserts those two keys, leaves the rest of .env intact)"
+run = "'{{config_root}}/.mise/scripts/hindsight-setup.sh'"
+
+[[watch_files]]
+patterns = ["AGENTS.md"]
+task = "link:agentfiles"
+
+[[watch_files]]
+patterns = [".agents/skills.json"]
+task = "skills:sync"
+
+[tasks."link:agentfiles"]
+description = "Symlink all agent files to AGENTS.md"
+run = "'{{config_root}}/.mise/scripts/link-agentfiles.sh' '{{config_root}}'"
+
+[tasks."skills:sync"]
+description = "Sync skills from manifest to local CLI dirs"
+depends = ["skills:provision:packs"]
+run = "python3 '{{config_root}}/.mise/scripts/sync-skills.py' --scope project --root '{{config_root}}'"
+
+[tasks."skills:provision:packs"]
+description = "Provision every Skillex pack declared in .agents/skills.json"
+run = "python3 '{{config_root}}/.mise/scripts/provision-packs.py' --root '{{config_root}}'"
