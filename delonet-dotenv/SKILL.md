@@ -1,8 +1,6 @@
 ---
 name: delonet-dotenv
-description: Fill .env and .env.op for Docker Compose stacks on big-chungus (delonet, *.delo.sh). Splits non-secret literals into .env and 1Password references into .env.op (resolved via `op run`). Covers Postgres host selection (stack-internal vs host.docker.internal:5432), Traefik routing on the proxy network with Host(`<svc>.delo.sh`) labels, port-collision avoidance (avoid 3000, pick 13000-25000), default creds from op://DeLoSecrets/PostgresLocal, MinIO S3 at drive.delo.sh, Cloudflare-first DNS/Turnstile, Resend SMTP, service-themed from-addresses (notifications@<svc>.delo.sh). Use when populating env vars for a new docker-compose stack on big-chungus, deciding where a secret lives (op vault vs shell vs literal), wiring traefik for a *.delo.sh subdomain, or authoring .env.op 1Password references. Do NOT use for Vercel/Render/Fly/cloud-only deploys, GitHub Actions secrets, Kubernetes manifests, or non-delonet hosts.
-pipeline-status:
-  - new
+description: Fill .env and .env.op for Docker Compose stacks on DeLoNET hosts. Separates nonsecret literals from 1Password references resolved with `op run`; covers Postgres addressing, Traefik and delo.sh routing, port collisions, MinIO, Cloudflare, and SMTP. Use when populating stack environment variables, deciding whether a value belongs in 1Password, wiring a delo.sh subdomain, or authoring .env.op references. Do NOT use for cloud-only deploys, CI secrets, Kubernetes, or non-DeLoNET hosts.
 ---
 
 # delonet-dotenv
