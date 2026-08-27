@@ -82,6 +82,11 @@ repository or any nested repository merely to make provisioning easier.
 - Hold one project-scoped lock across manifest read, validation, live Plane
   check-or-create, and write. Replace `.project.json` atomically; never expose a
   truncated or partially updated manifest.
+- Profile config writers follow the separate shared lock/order and exact
+  replacement contract in
+  [config-mutation-safety.md](config-mutation-safety.md). Initial deployment is
+  a writer: its existence check and empty-delta seed must occur under that same
+  profile lock.
 
 ## Required skill core
 
@@ -159,6 +164,12 @@ Do not migrate or display a live secret as an incidental part of a deployment.
 That is a separate, approval-gated operation. The 1Password authentication
 credential itself must likewise come from the existing secret manager/runtime
 injection path, never a newly written plaintext file.
+
+For leak eradication or history cleanup, follow
+[secret-migration.md](secret-migration.md). Current files, a clean branch tip,
+or a normal `git log` scan do not cover databases/caches, the index, reflogs,
+unreachable local objects, or pushed reachable history. Rotation/retirement and
+private-remote force rewriting require explicit authorization.
 
 Secret **values** may enter a validation command only through a pipe, anonymous
 file descriptor, or the validating process's memory. Never put one in curl

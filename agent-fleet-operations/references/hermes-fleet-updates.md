@@ -106,6 +106,12 @@ Do not patch repo-local runtime config or hand-edit a named profile's generated
 `config.yaml`. Local overrides belong in each real
 `~/.hermes/profiles/<name>/config.delta.yaml`.
 
+All seed, render, absorb, voice, channel, recovery, and backfill writers share
+one per-profile transaction lock. The lock must be held before reading state
+that will later be written back; channel work orders registry before profile.
+Use [config-mutation-safety.md](config-mutation-safety.md) when changing any of
+these paths, including their real-caller concurrency regressions.
+
 ## Update future-agent provisioning
 
 pjangler runs the vendored template submodule at
@@ -225,6 +231,10 @@ scripts/run_tests.sh tests/hermes_cli/test_config.py tests/hermes_cli/test_profi
   validating process's memory, never curl argv or unrelated child
   environments. A transient 1Password validation failure preserves the last
   valid reference and marker so a healthy rerun can recover.
+- A clean tip is not secret-eradication proof. Use
+  [secret-migration.md](secret-migration.md) for current files/databases/caches,
+  index and local-object coverage, pushed-history proof, and the separate
+  authorization gates around rotation and private-remote rewriting.
 - Normal Git and release transactions must execute repository and global hooks;
   never use `--no-verify`, `GIT_GUARD_OFF`, or an equivalent bypass.
 - For tracked backups, match `*.bak`, `*.bak-*`, `*.orig`, `*~`, and

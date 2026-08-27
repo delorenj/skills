@@ -1,7 +1,7 @@
 ---
 name: agent-fleet-operations
 description: |
-  Operate and maintain the Hermes fleet: shared config/registry/install, PM template and deploy contract, real named profiles with generated base-plus-delta config, ignored local runtime, systemd units, fleet self-checks/backfills, and TTS defaults. Use for Hermes fleet updates, `~/.hermes/*`, `hermes-agent-template`, PM deployment verification, generated profiles, gateway/heartbeat state, fleet audits, MCP drift, template propagation, or voice changes. Do NOT use for project bootstrap/identity requests (→ 33god-projects), Plane ticket operations (→ project-lifecycle), Bloodbank event schemas (→ bloodbank-integration), or generic config fan-out (→ agent-config-fanout).
+  Operate and maintain the Hermes fleet: shared config/registry/install, PM template and deploy contract, real named profiles with generated base-plus-delta config, ignored local runtime, systemd units, fleet self-checks/backfills, credential migration, transactional config recovery, and TTS defaults. Use for Hermes fleet updates, `~/.hermes/*`, `hermes-agent-template`, PM deployment verification, generated profiles, gateway/heartbeat state, fleet audits, MCP drift, template propagation, or voice changes. Do NOT use for project bootstrap/identity requests (→ 33god-projects), Plane ticket operations (→ project-lifecycle), Bloodbank event schemas (→ bloodbank-integration), or generic config fan-out (→ agent-config-fanout).
 ---
 
 # Hermes Fleet Operations
@@ -65,6 +65,8 @@ does not prove a target is routable: eligibility is default-deny and requires
 |---|---|---|
 | Add an MCP server / hook / skill so **every** agent client gets it (incl. project-scoped) | [references/extension-points.md](references/extension-points.md) | the matching plane; MCP has no SSOT yet |
 | Update Hermes core, shared config, or future-agent provisioning | [references/hermes-fleet-updates.md](references/hermes-fleet-updates.md) | the matching lane inside it |
+| Change, backfill, validate, or recover profile config writers | [references/config-mutation-safety.md](references/config-mutation-safety.md) | inventory every writer and prove the real caller interleavings |
+| Migrate a fleet credential or eradicate leaked history | [references/secret-migration.md](references/secret-migration.md) | separate containment from any approval-gated history rewrite |
 | Run a fleet self-check or debug MCP failures that differ across repo-backed daemons | [references/fleet-self-check.md](references/fleet-self-check.md) | hermes-fleet-updates for remediation lanes |
 | Trace or debug a Bloodbank command from producer through Hermes lifecycle events | this skill's full command journey | `bloodbank-integration` → `references/event-journey.md` for the transport contract |
 | Capture a governance rule/workflow in the PM template and propagate to existing PM agents | [references/pm-template-maintenance.md](references/pm-template-maintenance.md) | hermes-fleet-updates for backfill vs shared-config classification |
@@ -83,6 +85,12 @@ does not prove a target is routable: eligibility is default-deny and requires
   `hermes-profile-config.py render`. `check` is the drift gate. If Hermes itself
   wrote to a generated config (`/model`, onboarding), `absorb` folds it back
   before the next render, so an in-agent change is never silently lost.
+- Every initial seed, channel, voice, render, absorb, recovery, and backfill path
+  that can rewrite `config.delta.yaml` or generated `config.yaml` uses the same
+  symlink-safe, crash-releasing per-profile lock. Registry transactions acquire
+  registry then profile, and acquire both before snapshotting any durable
+  reference or identity they may later write. See
+  [references/config-mutation-safety.md](references/config-mutation-safety.md).
 - A `profile.yaml` `config:` block is inert — Hermes reads `profile.yaml` only for
   `description` / `role`. Do not add config there and do not trust one you find.
 - Never duplicate fleet `mcp_servers` into a delta; the base owns them.
@@ -119,6 +127,12 @@ does not prove a target is routable: eligibility is default-deny and requires
   `secrets.onepassword.env` `op://` references. See
   [references/pm-deployment.md](references/pm-deployment.md) for the migration
   and process-verification boundary.
+- A clean working tree or rewritten branch tip does not prove a leaked secret is
+  gone. Fleet secret eradication must cover live text/database/cache state, the
+  Git index and reachable refs, local reflogs/unreachable objects, and fetched
+  remote-reachable history without printing the value. Rotation, retirement,
+  and private-remote history rewriting each require explicit authorization; see
+  [references/secret-migration.md](references/secret-migration.md).
 - For Bloodbank lifecycle events emitted by hooks, use v1 names (`bloodbank.v1.agent.*`).
 - Bloodbank hook install is owned by Bloodbank's fan-out (`~/code/33GOD/bloodbank/services/agent-hooks/sync.py --install`). Generated Hermes configs should call `~/.agents/hooks/bloodbank/publish.py --client hermes --hook <event>`, not a Hermes-local publisher.
 - Before a live command proof, audit the current target's Bloodbank registry

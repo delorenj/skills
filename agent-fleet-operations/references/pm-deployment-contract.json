@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "deploy_command": [
     "pj",
     "hermes-agent",
@@ -79,6 +79,68 @@
       ]
     }
   },
+  "profile_config_transactions": {
+    "writers": [
+      "initial_seed",
+      "channel_adoption",
+      "channel_rotation",
+      "voice_reconcile",
+      "render",
+      "absorb",
+      "recovery",
+      "fleet_backfill"
+    ],
+    "profile_root_must_be_real": true,
+    "profile_lock": {
+      "shared_by_all_writers": true,
+      "symlink_safe": true,
+      "kernel_owned_crash_release": true,
+      "finite_timeout": true,
+      "nonfinite_timeout_rejected": true
+    },
+    "registry_lock_order": [
+      "registry",
+      "profile"
+    ],
+    "lock_before_snapshot": [
+      "durable_secret_references",
+      "channel_identity",
+      "registry_claim",
+      "role_metadata",
+      "config_delta",
+      "generated_config"
+    ],
+    "optimistic_snapshot_requires_locked_compare": true,
+    "required_regressions": [
+      "real_caller_voice_then_channel",
+      "real_caller_channel_then_voice",
+      "tokenless_adoption_and_rotation_both_orders",
+      "initial_seed_and_backfill_contention",
+      "truthful_timeout",
+      "process_crash_release"
+    ]
+  },
+  "validated_config_replacement": {
+    "serializes": [
+      "stale_recovery",
+      "snapshot",
+      "install",
+      "validation",
+      "commit_or_restore",
+      "cleanup"
+    ],
+    "same_directory_protected_recovery": true,
+    "backup_like_recovery_names_forbidden": true,
+    "restore_before_optional_post_restore_validation": true,
+    "exact_restore": [
+      "device_and_inode",
+      "bytes",
+      "mode",
+      "mtime_ns"
+    ],
+    "candidate_install": "atomic",
+    "recovery_and_candidate_fsync_required": true
+  },
   "channels": {
     "unverified_profile_delta": {
       "platforms.telegram.enabled": false,
@@ -100,7 +162,27 @@
       "preserve_previous_valid_reference_on_failure": true,
       "preserve_previous_valid_marker_on_failure": true,
       "healthy_rerun_must_recover": true
-    }
+    },
+    "eradication_scan_surfaces": [
+      "current_text_database_cache_state",
+      "git_index_and_staged_blobs",
+      "local_reachable_refs",
+      "local_reflogs",
+      "local_unreachable_objects",
+      "fetched_remote_reachable_refs"
+    ],
+    "authorization_required": [
+      "rotation",
+      "retirement",
+      "private_remote_force_rewrite"
+    ],
+    "private_remote_rewrite_requires": [
+      "named_remote_and_ref_scope",
+      "protected_rollback_refs",
+      "clean_clone_scan",
+      "consumer_health",
+      "old_clone_invalidation"
+    ]
   },
   "service_stabilization": {
     "bounded_window_required": true,
