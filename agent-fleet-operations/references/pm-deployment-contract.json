@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "deploy_command": [
+    "pj",
+    "hermes-agent",
+    "--yes"
+  ],
+  "required_skill_core": [
+    "33god-projects",
+    "delonet-conventions",
+    "delonet-dotenv",
+    "hermes-pm-template-maintenance",
+    "hindsight",
+    "subagent-driven-development"
+  ],
+  "skill_policy": {
+    "core_is_immutable": true,
+    "configuration_may_add_optional_skills": true,
+    "configuration_may_remove_core_skills": false
+  },
+  "preflight": {
+    "reject_legacy_profile_symlink_before_mutation": true,
+    "malformed_project_json": {
+      "action": "abort",
+      "project_json_byte_unchanged": true,
+      "other_state_unchanged": true
+    },
+    "state_seal": {
+      "before_and_after_required": true,
+      "dirty_tracked_content_hashes_required": true,
+      "untracked_content_hashes_required": true,
+      "nested_git_required": [
+        "HEAD",
+        "index",
+        "status",
+        "dirty_content_hashes",
+        "untracked_content_hashes"
+      ]
+    }
+  },
+  "runtime_exclusion": {
+    "path": "agents/hermes/pm/runtime/",
+    "required_checks": [
+      {
+        "argv": [
+          "git",
+          "check-ignore",
+          "-q",
+          "--",
+          "agents/hermes/pm/runtime/"
+        ],
+        "expect": "exit_0"
+      },
+      {
+        "argv": [
+          "git",
+          "ls-files",
+          "--",
+          "agents/hermes/pm/runtime/"
+        ],
+        "expect": "empty_stdout"
+      }
+    ]
+  },
+  "project_manifest": {
+    "transaction_lock_covers": [
+      "read",
+      "validate",
+      "board_check_or_create",
+      "write"
+    ],
+    "replacement": "atomic",
+    "plane_binding": {
+      "required_state": "linked",
+      "live_identifier_required": true,
+      "live_board_id_required": true,
+      "forbidden_persisted_keys": [
+        "board_url"
+      ]
+    }
+  },
+  "channels": {
+    "unverified_profile_delta": {
+      "platforms.telegram.enabled": false,
+      "platforms.slack.enabled": false
+    },
+    "enable_only_after_verified_credential_ownership": true
+  },
+  "secrets": {
+    "allowed_value_transport": [
+      "pipe",
+      "anonymous_fd",
+      "process_memory"
+    ],
+    "forbidden_value_transport": [
+      "curl_argv",
+      "unrelated_child_environment"
+    ],
+    "transient_validation": {
+      "preserve_previous_valid_reference_on_failure": true,
+      "preserve_previous_valid_marker_on_failure": true,
+      "healthy_rerun_must_recover": true
+    }
+  },
+  "service_stabilization": {
+    "bounded_window_required": true,
+    "single_is_active_sample_is_sufficient": false,
+    "required_observations": [
+      "Result",
+      "ExecMainStatus",
+      "NRestarts",
+      "latest_heartbeat_service_result"
+    ]
+  },
+  "registry_rerun": {
+    "preserve_fields": [
+      "provisioned_at"
+    ],
+    "preserve_extension_metadata": true,
+    "preserve_unknown_fields": true,
+    "byte_identical_when_inputs_unchanged": true
+  },
+  "git_transactions": {
+    "repository_hooks_required": true,
+    "global_hooks_required": true,
+    "hook_bypass_forbidden": true,
+    "tracked_backup_cleanup": {
+      "required_globs": [
+        "*.bak",
+        "*.bak-*",
+        "*.orig",
+        "*~",
+        "*-backup.*"
+      ],
+      "untrack_with_git_rm_cached": true,
+      "remote_tree_verification_required": true,
+      "preserve_unrelated_dirty_runtime_state": true
+    }
+  }
+}

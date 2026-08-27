@@ -46,6 +46,8 @@ Required outputs:
 
 Detailed checklist and acceptance criteria:
 - `references/fleet-self-check.md`
+- Any deploy/backfill transaction: `references/pm-deployment.md` and its
+  machine-readable `references/pm-deployment-contract.json`
 
 ## Defaults
 
@@ -60,6 +62,9 @@ Detailed checklist and acceptance criteria:
   through `~/.hermes/fleet.env`
 - Shared config base: `~/.hermes/config.yaml`; each real named profile owns an
   override-only `config.delta.yaml` and a generated `config.yaml`
+- Immutable PM skill core: `33god-projects`, `delonet-conventions`,
+  `delonet-dotenv`, `hermes-pm-template-maintenance`, `hindsight`, and
+  `subagent-driven-development`; template options may only add skills
 
 ## Procedure
 
@@ -86,6 +91,7 @@ Detailed checklist and acceptance criteria:
 - Update each real named profile's `config.delta.yaml` only for local overrides,
   then render its generated `config.yaml`.
 - Confirm profile state:
+  - a legacy profile symlink aborts the transaction before mutation
   - `~/.hermes/profiles/<repo>-pm/` is a real directory
   - `config.delta.yaml` is a real override-only file and `config.yaml` passes
     renderer drift checks
@@ -96,6 +102,8 @@ Detailed checklist and acceptance criteria:
 - Confirm launch/runtime integration:
   - repo-local runtime is ignored/untracked local state, not the profile or a
     nested repository
+  - `git check-ignore` succeeds for runtime and `git ls-files` returns no
+    runtime paths
   - systemd units set `HERMES_HOME` to the named profile path
 
 4. Verify
@@ -105,6 +113,10 @@ Detailed checklist and acceptance criteria:
 - Confirm `hermes -p <repo>-pm config get model.default` resolves from the
   shared default when no local override exists
 - Confirm skill content includes requested `<X>` behavior
+- Observe `Result`, `ExecMainStatus`, `NRestarts`, and the latest heartbeat
+  service result through a bounded stabilization window
+- Confirm unchanged registry reruns are byte-identical and preserve
+  `provisioned_at` plus extension metadata
 
 5. Report
 - What changed
@@ -116,6 +128,8 @@ Detailed checklist and acceptance criteria:
 
 - Never invent event naming contracts; follow repo specs.
 - Keep one canonical source for each workflow/skill to prevent drift.
+- Run repository and global Git hooks for normal commits, releases, and pushes;
+  never bypass them.
 - If existing agent scripts differ, patch them to template parity.
 - Do not copy `.env`, `auth.json`, sessions, memories, gateway state, or other
   runtime-local state between profiles. Generated base-plus-delta config is
@@ -123,6 +137,12 @@ Detailed checklist and acceptance criteria:
 - Do not run plain `uv sync` during Hermes core updates unless you have checked
   dependency changes and preserved any installed optional extras.
 - For presence/work-state streams, use Bloodbank v1 event names (e.g. `bloodbank.v1.system.heartbeat.received`, `bloodbank.v1.agent.invocation.started|completed|failed`) rather than legacy short names.
+- Pass secret values only by pipe, anonymous FD, or process memory. Never put
+  them in curl argv or unrelated child environments; a failed transient
+  1Password validation preserves the last valid reference/marker for recovery.
+- Tracked backup cleanup needs correct globs, scoped untracking, a committed and
+  pushed removal verified against the remote tree, and preservation of
+  unrelated dirty runtime state. See `references/pm-deployment.md` for details.
 
 ## Experiential findings (important)
 

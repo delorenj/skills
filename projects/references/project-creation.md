@@ -22,11 +22,18 @@ The resulting `.project.json` owns:
 
 - `project_name`, `project_slug`, description, and absolute `repo_path`;
 - the single `ticket_provider` binding (provider, workspace, identifier,
-  board id, URL, and state);
+  board id, and state);
 - the `agents` map populated by later provisioning.
 
 There is no separate `.plane.json`, no role-suffixed PM board, and no board
-identity inferred from a summary line. Read `.project.json` itself.
+identity inferred from a summary line. A valid Plane binding has `state:
+linked` and a live-resolved identifier/board id. Never persist
+`ticket_provider.board_url`; construct a URL transiently when presenting it.
+
+Read and parse the raw manifest before mutation. Malformed JSON aborts with the
+manifest and all other state byte-unchanged. Hold one project lock across
+read/validation, the live Plane check-or-create, and atomic manifest
+replacement so concurrent deploys cannot create or publish split identity.
 
 ## 2. Deploy the unified PM
 
@@ -48,15 +55,22 @@ rewrite, or convert repo-local runtime into a tracked submodule. The detailed
 before/after and rerun contract is in **agent-fleet-operations**
 `references/pm-deployment.md`.
 
+The seal always includes content hashes for every dirty and untracked path and
+HEAD/index/status plus dirty/untracked hashes for every nested Git repository;
+it is not optional just because a working tree was already known to be dirty.
+
 PJangler renders `agents/hermes/pm/`, binds it to the board already recorded in
 `.project.json`, adds one agent entry to `.project.json`, and reconciles the
 matching fleet registry record. It must not create a second board or duplicate
-an existing agent entry.
+an existing agent entry. The linked Plane identifier and board id are checked
+live before the atomic manifest write.
 
 ## 3. Profile and local runtime contract
 
 The deployment creates a real named profile such as
 `~/.hermes/profiles/<repo>-pm/`. It is not a symlink to repo-local runtime.
+If that path is a legacy symlink, abort before any write; migration is a
+separate explicitly scoped action.
 
 - `<profile>/config.yaml` is generated from the fleet base
   `~/.hermes/config.yaml` plus `<profile>/config.delta.yaml`.
@@ -69,6 +83,13 @@ The deployment creates a real named profile such as
 - `agents/hermes/pm/runtime/` is ignored, untracked local state. It is not a
   profile, submodule, or nested repository; only explicit owned-state links may
   connect it to the named profile.
+
+Prove both halves of runtime exclusion:
+
+```bash
+git check-ignore -q -- agents/hermes/pm/runtime/
+git ls-files -- agents/hermes/pm/runtime/  # stdout must be empty
+```
 
 Never hand-edit generated `config.yaml`. Change the delta and use the canonical
 profile renderer. Never place literal credentials in shared or profile `.env`;
@@ -90,6 +111,11 @@ gateway left disabled and inactive; missing credentials must never create a
 crash loop. The heartbeat timer remains independently enabled/healthy, while
 its oneshot service can be inactive between successful ticks.
 
+Deferred means the profile delta explicitly sets
+`platforms.telegram.enabled: false` and `platforms.slack.enabled: false`, even
+when the fleet base enables a channel. Only verified ownership of the PM's
+dedicated channel credential may set its platform true.
+
 Bloodbank command ingress belongs to the existing fleet-shared
 `hermes-fleet-bloodbank-gateway.service`. A repo deploy must leave that shared
 unit/config/state untouched. It creates no per-agent consumer, checkpoint
@@ -107,15 +133,26 @@ proof. Directly compare:
 - pre/post target and nested-repository status;
 - pre/post shared gateway identity and state.
 
+Observe services through a bounded stabilization window. Check `Result`,
+`ExecMainStatus`, restart-count stability, and the latest heartbeat service
+result; a single `is-active` sample cannot establish success.
+
 Run the relevant read-only `pj audit` and profile-renderer `check`, then rerun
 `pj hermes-agent --yes`. The rerun must be convergent: no duplicate identity,
 new tracked runtime, retired units, credential-less crash loop, shared-gateway
 change, or unexplained stable-file drift.
 
-Required runtime skills must resolve to regular
-`~/.agents/skills/<canonical-name>/SKILL.md` files before deployment is marked
-complete. Repair Skillex projection when one is absent; never create a
-placeholder merely to silence validation.
+The registry itself must be byte-identical on an unchanged rerun, preserving
+the original `provisioned_at` and extension/unknown metadata rather than
+reconstructing the row.
+
+The immutable required core is `33god-projects`, `delonet-conventions`,
+`delonet-dotenv`, `hermes-pm-template-maintenance`, `hindsight`, and
+`subagent-driven-development`. Each must resolve to a regular
+`~/.agents/skills/<canonical-name>/SKILL.md` before deployment is marked
+complete. Configuration may add optional skills but never subtract the core.
+Repair Skillex projection when one is absent; never create a placeholder merely
+to silence validation.
 
 ## Template resolution
 

@@ -15,7 +15,10 @@ Every 33god/DeLoNET repo is assembled by **pjangler** out of two copier template
 
 ## Operating Principles
 
-- **`.project.json` is canonical.** Board binding (`ticket_provider` block), `repo_path`, `project_slug`, and the `agents` map live there. Never reintroduce a separate `.plane.json`.
+- **`.project.json` is canonical.** Board binding (`ticket_provider` block),
+  `repo_path`, `project_slug`, and the `agents` map live there. Plane bindings
+  require `state: linked` plus a live identifier/board id; never persist
+  `ticket_provider.board_url` or reintroduce a separate `.plane.json`.
 - **One board per repo.** The PM owns it; the sentinel pass on the PM's heartbeat watches the same board. Board name = the project name (no role suffix); identifier = `slug[:4]` uppercased.
 - **Agent config uses generated base-plus-delta state.** PJangler creates a real
   `~/.hermes/profiles/<repo>-pm/` directory. Its generated `config.yaml` merges
@@ -56,6 +59,9 @@ Every 33god/DeLoNET repo is assembled by **pjangler** out of two copier template
 - Secrets live in `.env.op` (1Password references); `mise enter` runs `op inject -i .env.op > .env`. Never commit `.env`.
 - No code changes in a hermes-managed repo without an active ticket on the repo board (`ALLOW_NO_TICKET=1` is the emergency bypass).
 - Board creation is outward-facing — confirm before running provisioning that hits a live workspace.
+- Manifest mutation is transactional: malformed `.project.json` aborts
+  byte-unchanged, and one lock spans read/validate/live board check-or-create
+  through atomic replacement.
 - Seal target/nested-repo, fleet-registry, profile, and systemd state before a
   PM deploy; verify them directly afterward and require the rerun to converge.
   The full evidence contract is in **agent-fleet-operations**

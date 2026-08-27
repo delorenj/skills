@@ -76,6 +76,8 @@ does not prove a target is routable: eligibility is default-deny and requires
 - `~/.hermes/profiles/<repo>-<role>` must be a real named directory. Repo-local
   `agents/hermes/<role>/runtime/` is ignored local state, not the profile and not
   a nested Git repository; only explicit owned-state links may connect them.
+  Reject a legacy profile symlink before any mutation rather than silently
+  replacing or following it.
 - **Never hand-edit `~/.hermes/profiles/<p>/config.yaml` — it is GENERATED.** Edit
   `config.delta.yaml` (override-only, usually 0–10 lines) then
   `hermes-profile-config.py render`. `check` is the drift gate. If Hermes itself
@@ -98,8 +100,17 @@ does not prove a target is routable: eligibility is default-deny and requires
 - systemd units set `HERMES_HOME` to the named profile path, not the raw runtime path.
 - Gateway and heartbeat health are separate. Without a per-agent channel
   credential, the gateway must be explicitly deferred, disabled, and inactive
-  while the heartbeat timer can remain enabled and healthy; never accept an
-  enabled credential-error crash loop.
+  while the heartbeat timer can remain enabled and healthy. The profile delta
+  must set `platforms.telegram.enabled: false` and
+  `platforms.slack.enabled: false` so a fleet-base enable cannot leak through;
+  only verified credential ownership may flip one true.
+- Service proof uses a bounded stabilization window over `Result`,
+  `ExecMainStatus`, `NRestarts`, and the latest heartbeat service result; one
+  `is-active` sample is not success.
+- The immutable PM skill core is `33god-projects`, `delonet-conventions`,
+  `delonet-dotenv`, `hermes-pm-template-maintenance`, `hindsight`, and
+  `subagent-driven-development`. Configuration may add skills, never subtract
+  or replace these six.
 - Fleet summaries and `pj audit` are aggregate claims. Verify their result
   against `.project.json`, the registry row, real profile files, and exact
   systemd enabled/active/restart state before declaring success.

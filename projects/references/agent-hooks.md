@@ -103,7 +103,9 @@ Skipping (e.g. local-only provisioning): `SKIP_BLOODBANK=1` makes `60-bloodbank.
 ## Wiring checklist when adding/repairing an agent
 
 1. Repo-root `.project.json` has the canonical `project_slug`,
-   `ticket_provider.{type,workspace,identifier,board_id,state}`, and agent entry.
+   `ticket_provider.{type,workspace,identifier,board_id,state}`, and agent entry;
+   state is `linked`, identifier/board id resolve against live Plane, and no
+   `ticket_provider.board_url` is persisted.
 2. The shared fleet registry record has the correct `profile_name` and explicit
    `bloodbank.{enabled,gateway_scope,target_agent_id}`. There is no per-agent
    consumer file or service.

@@ -8,7 +8,9 @@ When a 33god project asks for a Hermes agent, the project side owns only the req
 
 ## What the project side provides
 
-- A repo with a valid `.project.json` including the `ticket_provider` block.
+- A repo with valid `.project.json` bytes and a Plane `ticket_provider` whose
+  state is `linked` and whose identifier/board id resolve live. Do not persist
+  `ticket_provider.board_url`.
 - A target role: `pm` (the unified single-PM model — the retired scrum-master's
   sentinel duties run on the PM heartbeat, so there is no companion to request).
 - A request that the agent bind to the repo's **one** board — no role-suffixed boards.
@@ -24,7 +26,17 @@ When a 33god project asks for a Hermes agent, the project side owns only the req
   the only bridge to the named profile.
 - The gateway unit plus heartbeat timer/service. If no channel credential is
   supplied, the gateway is explicitly deferred, disabled, and inactive; the
-  independently healthy heartbeat remains enabled.
+  independently healthy heartbeat remains enabled. The profile delta must
+  explicitly set both `platforms.telegram.enabled` and
+  `platforms.slack.enabled` false until ownership of the corresponding
+  dedicated credential is verified.
+- The immutable required skill core: `33god-projects`, `delonet-conventions`,
+  `delonet-dotenv`, `hermes-pm-template-maintenance`, `hindsight`, and
+  `subagent-driven-development`. Optional configuration may only add skills.
+
+If the expected named profile is a legacy symlink, or `.project.json` is
+malformed, provisioning aborts before any mutation. The fleet runbook owns the
+sealing and migration procedure.
 
 ## What the project side does NOT do
 

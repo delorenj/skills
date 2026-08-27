@@ -28,10 +28,13 @@ Do not stop at "MCP failed". Identify which layer owns each failure and route fo
 1. Repo board binding
 - Read the repo root `.project.json`
 - Treat `ticket_provider` as the board source of truth
+- Confirm `ticket_provider.state: linked`, resolve the stored identifier and
+  board id against live Plane, and reject persisted `ticket_provider.board_url`
 - Confirm the PM binds to that board (one PM per repo; no scrum-master role)
 
 2. Generated profile contract
 - Confirm `~/.hermes/profiles/<repo>-pm/` is a real directory, not a symlink
+- A legacy profile symlink is a pre-mutation hard stop, not a healthy alias
 - Expect a generated `config.yaml`, real override-only `config.delta.yaml`,
   identity-only `profile.yaml`, and an explicit Hindsight bank pin in
   `hindsight/config.json`
@@ -44,6 +47,8 @@ Do not stop at "MCP failed". Identify which layer owns each failure and route fo
 - Explicit owned-state links may target the real profile; generated fleet config
   must not be duplicated into repo-local runtime
 - Hooks may point to shared Bloodbank publishers; that is normal
+- Run `git check-ignore -q -- agents/hermes/pm/runtime/` and separately require
+  `git ls-files -- agents/hermes/pm/runtime/` to return empty stdout
 
 4. Shared fleet config
 - Inspect `~/.hermes/config.yaml`
@@ -78,6 +83,12 @@ Do not stop at "MCP failed". Identify which layer owns each failure and route fo
   intentionally deferred for lack of a channel credential must be disabled and
   inactive, not classified as broken or left in a crash loop. Heartbeat health
   is independent; its oneshot service may be inactive between successful ticks.
+- Use a bounded stabilization window over `Result`, `ExecMainStatus`,
+  `NRestarts`, and the latest heartbeat service result. Never close from one
+  `is-active` sample.
+- For each unverified/deferred channel, confirm the profile delta explicitly
+  sets `platforms.<telegram|slack>.enabled: false`; fleet-base true is otherwise
+  inherited and unsafe.
 
 4. Pull runtime evidence
 - Search PM gateway and heartbeat logs for:
@@ -198,8 +209,13 @@ Every self-check report should end with:
 Minimum acceptance checks for closure:
 
 - Repo board and real profile base-plus-delta state verified from live files
+- Immutable skill core verified: `33god-projects`, `delonet-conventions`,
+  `delonet-dotenv`, `hermes-pm-template-maintenance`, `hindsight`, and
+  `subagent-driven-development`; optional configuration only adds members
 - Shared `mcp_servers` entries inspected from `~/.hermes/config.yaml`
 - Gateway / heartbeat timer / fleet-bloodbank-gateway status checked from systemd
+- Bounded service window proves successful `Result`, zero `ExecMainStatus`,
+  stable restart count, and successful latest heartbeat result
 - Credential-less gateway classified as explicitly deferred (disabled/inactive),
   never an enabled restart loop
 - Shared `.env` inspected only for secret *names/patterns*; any literal
