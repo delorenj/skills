@@ -121,6 +121,12 @@
     ]
   },
   "validated_config_replacement": {
+    "canonical_mutation_lock": {
+      "scope": "whole_window",
+      "named_profile_config": "per_profile_lock",
+      "distributable_parent_config": "canonical_config_lock",
+      "recovery_snapshot_install_share_lock": true
+    },
     "serializes": [
       "stale_recovery",
       "snapshot",
@@ -176,6 +182,21 @@
       "retirement",
       "private_remote_force_rewrite"
     ],
+    "zero_downtime_rotation_order": [
+      "inventory_consumers_and_reload_behavior",
+      "create_distinct_replacement_while_old_remains_valid",
+      "store_replacement_in_approved_vault",
+      "update_and_reload_consumers_one_by_one",
+      "verify_each_consumer_on_replacement",
+      "revoke_old_credential_after_all_consumers_are_healthy",
+      "verify_old_authentication_fails"
+    ],
+    "revoke_first": {
+      "normal_rotation": false,
+      "explicit_emergency_authorization_required": true,
+      "outage_risk_acknowledgement_required": true,
+      "recovery_plan_required": true
+    },
     "private_remote_rewrite_requires": [
       "named_remote_and_ref_scope",
       "protected_rollback_refs",

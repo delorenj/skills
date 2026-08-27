@@ -1,22 +1,33 @@
-# Profile config mutation safety
+# Config mutation safety
 
-Use this contract whenever a Hermes path can read and then rewrite a named
-profile's `config.delta.yaml` or generated `config.yaml`. It applies to initial
-seeding, channel adoption and rotation, voice reconciliation, render, absorb,
-recovery, and fleet backfill. A helper is not safe if a real caller snapshots
-state before reaching it.
+Use this contract whenever a Hermes path reads and then rewrites either of two
+mutation surfaces:
 
-## One lock domain
+- a named profile's `config.delta.yaml` and generated `config.yaml`, including
+  initial seed, channel adoption and rotation, voice reconciliation, render,
+  absorb, recovery, and fleet backfill; or
+- a distributable/template parent config that is installed and validated as a
+  whole file.
 
-- Require a real profile directory; reject legacy profile symlinks before any
-  read or mutation. Derive one stable lock identity for the profile without
-  following a caller-controlled symlink.
-- Open the adjacent lock with no-follow semantics, verify the opened inode is a
-  regular file, restrict it to mode `0600`, mark its descriptor close-on-exec,
-  and use an exclusive kernel lock. Revalidate the profile through a trusted
-  directory descriptor after locking. The lock file may persist, but ownership
-  must release on normal exit, exception, signal, and process death; children
-  must not inherit the descriptor.
+A named profile uses the shared per-profile lock. A distributable parent config
+is not a named profile; it uses that config surface's canonical whole-window
+mutation lock. A helper is not safe if a real caller snapshots state before
+reaching the applicable lock.
+
+## One canonical mutation lock per surface
+
+- Choose the lock from the mutation surface before any read or mutation. For a
+  profile, require a real profile directory, reject legacy profile symlinks, and
+  derive one stable per-profile lock identity without following a
+  caller-controlled symlink. For a distributable parent config, every updater
+  and recovery path must share its one canonical config lock rather than
+  borrowing a profile lock or inventing a caller-local lock.
+- Open the surface's canonical lock with no-follow semantics, verify the opened
+  inode is a regular file, restrict it to mode `0600`, mark its descriptor
+  close-on-exec, and use an exclusive kernel lock. Revalidate the protected
+  target through a trusted directory descriptor after locking. The lock file
+  may persist, but ownership must release on normal exit, exception, signal,
+  and process death; children must not inherit the descriptor.
 - Use a finite configurable timeout and report timeout as failure. Invalid or
   non-finite timeout values fail closed rather than silently waiting forever.
 - Inventory every writer. Initial seed, channel, voice, renderer, absorb,
@@ -45,8 +56,10 @@ the locks and retry or abort on change; never commit the earlier snapshot.
 
 When a candidate config is installed and then validated, keep a protected
 same-directory recovery name that does not resemble a source backup (`*.bak`,
-`*.orig`, `*~`, or `*-backup.*`). Serialize stale recovery, snapshot, install,
-validation, commit, and cleanup under the profile lock.
+`*.orig`, `*~`, or `*-backup.*`). Serialize stale recovery, snapshot, candidate
+install, validation, commit or restore, and cleanup under the surface's one
+canonical mutation lock. Recovery, snapshot, and install must never use
+different locks or occur outside that whole-window lock.
 
 Preserve the operator's original inode, not merely equivalent content. One
 portable shape is a same-filesystem hard-link recovery entry followed by an

@@ -32,20 +32,32 @@ synthetic matching fixture without exposing it.
 ## Contain and migrate current consumers
 
 Rotation or retirement changes external security state and always needs
-explicit authorization. Once authorized:
+explicit authorization. For a still-valid credential with active consumers
+that must remain available, use this zero-downtime rotation order:
 
-1. Revoke or rotate the exposed credential first; history cleanup cannot make
-   a still-valid value safe.
-2. Inventory every consumer and its reload/restart behavior.
+1. Inventory every consumer and its reload/restart behavior.
+2. Create a distinct replacement while the old credential remains valid.
 3. Store the replacement in the approved vault and persist only its `op://`
    reference in configuration.
-4. Remove current plaintext copies transactionally, then validate consumers
-   through their real health paths without displaying either value.
-5. Preserve a transiently unavailable vault's last known-good reference and
-   completion state; a healthy rerun must revalidate and converge.
+4. Update and reload consumers one at a time. Verify each consumer through its
+   real health path on the replacement before continuing; stop or roll back the
+   current consumer if that proof fails.
+5. After every required consumer is healthy on the replacement, revoke the old
+   credential.
+6. Verify old-value authentication fails where safe to test, then remove any
+   remaining plaintext copies transactionally and rescan current state.
 
-Do not declare retirement complete until old-value authentication fails where
-safe to test and every required consumer is healthy on the replacement.
+Revoking first is an emergency-containment tradeoff, not the normal rotation
+sequence. Do it only with explicit emergency authorization that acknowledges
+the outage risk and names a recovery plan. History cleanup cannot make a
+still-valid exposed value safe, but that fact does not justify silently
+interrupting healthy consumers.
+
+Preserve a transiently unavailable vault's last known-good reference and
+completion state; a healthy rerun must revalidate and converge. Do not declare
+retirement complete until old-value authentication fails and every required
+consumer is either healthy on the replacement or intentionally retired under
+the authorization.
 
 ## Rewrite private remote history only with authorization
 
