@@ -2,7 +2,9 @@
 # https://mise.jdx.dev/configuration.html
 
 [env]
-_.path = [".mise/scripts", "agents/hermes/pm"]
+# `.mise/scripts` off PATH, as in the parent -- and here it is unambiguous: that
+# directory contains NOTHING BUT the two retired scripts.
+_.path = ["agents/hermes/pm"]
 _.file = [".env"]
 
 #
@@ -24,10 +26,22 @@ _.file = [".env"]
 # any given level of nesting.
 [[hooks.enter]]
 script = "'{{config_root}}/.mise/scripts/link-agentfiles.sh' '{{config_root}}'"
-[[hooks.enter]]
-script = "python3 '{{config_root}}/.mise/scripts/provision-packs.py' --root '{{config_root}}'"
-[[hooks.enter]]
-script = "python3 '{{config_root}}/.mise/scripts/sync-skills.py' --scope project --root '{{config_root}}'"
+# NOTE: there is deliberately no skills enter hook -- retired here for the same
+# reason as in the parent config (~/code/skillex/mise.toml).
+#
+# mise loads BOTH configs when cwd is under this directory (`mise config ls`
+# confirms it), so retiring the hooks in the parent did not retire them here:
+# `cd all-skills` still ran provision-packs.py and then sync-skills.py against
+# this tree on every entry. That is the worst place left on the machine for them
+# to run unattended -- this directory IS the skills SSoT (skillex.toml
+# [skillex].skills_root), so a projector rebuilding it is rewriting the catalog
+# every other surface resolves through.
+#
+# sync-skills.py also has no full dry-run: its only preview, --reconcile-dry-run,
+# "Suppresses deletions only: links are still created and relinked." There was no
+# way to observe what an entry hook had just done to this tree.
+#
+# `skillex sync` is a command you run, not a thing that happens to you.
 [[hooks.enter]]
 # Atomic (PJAN-24/PJAN-57): shell complexity lives in the managed script so
 # mise never interpolates temporary variables. The script uses mktemp, traps
@@ -44,19 +58,27 @@ run = "'{{config_root}}/.mise/scripts/hindsight-setup.sh'"
 patterns = ["AGENTS.md"]
 task = "link:agentfiles"
 
-[[watch_files]]
-patterns = [".agents/skills.json"]
-task = "skills:sync"
-
 [tasks."link:agentfiles"]
 description = "Symlink all agent files to AGENTS.md"
 run = "'{{config_root}}/.mise/scripts/link-agentfiles.sh' '{{config_root}}'"
 
-[tasks."skills:sync"]
-description = "Sync skills from manifest to local CLI dirs"
-depends = ["skills:provision:packs"]
-run = "python3 '{{config_root}}/.mise/scripts/sync-skills.py' --scope project --root '{{config_root}}'"
-
-[tasks."skills:provision:packs"]
-description = "Provision every Skillex pack declared in .agents/skills.json"
-run = "python3 '{{config_root}}/.mise/scripts/provision-packs.py' --root '{{config_root}}'"
+# NOTE: there is deliberately no skills task here AT ALL -- not even a repointed
+# one -- and the reason is stronger than "the engine was retired".
+#
+# This directory IS the catalog. An activation root inside it is a thing skillex
+# structurally refuses; `skillex sync --scope project --project <all-skills>`
+# answers:
+#
+#   error E_ROOT_INSIDE_REGISTRY: .../all-skills/.agents/skills lies inside the
+#   registry's all-skills/
+#       The registry is a source, never an activation target.
+#
+# So the two tasks that used to live here could not be migrated, only removed.
+# What they had been doing was worse than a no-op: `[[watch_files]]` fired
+# skills:sync on every save of .agents/skills.json, which ran sync-skills.py --
+# an engine with no sets[] support -- against the SSoT catalog, unattended.
+# Retiring the parent's [[hooks.enter]] did not stop it, because a watch_files
+# trigger is a separate surface from an enter hook.
+#
+# all-skills/.agents/skills.json is kept because it is tracked and harmless, but
+# nothing reads it: it can never be projected from here.
