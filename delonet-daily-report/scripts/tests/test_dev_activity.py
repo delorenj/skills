@@ -5,6 +5,14 @@ success it did not achieve. Happy path, dead source, and partial source each
 get an assertion on the *status* as well as the data.
 """
 
+#: RETIRED-SHAPE FIXTURES ARE DELIBERATE HERE. Every `bloodbank.v1.*` literal
+#: below is test DATA, not a producer: it pins the dual-shape read in
+#: collectors/dev_activity.py:175 (`canonical_type`) and the query widening in
+#: collectors/report_delivery.py, which exist because ~713k Candystore rows
+#: predate the version-drop and still carry the five-token spelling. Rewriting
+#: these to the four-token grammar would delete the only coverage proving the
+#: old rows still read. Grammar sweeps: stop here, this is not a violation.
+
 from __future__ import annotations
 
 import json
@@ -62,7 +70,7 @@ def make_repo(path: Path, messages: list[str], when: str = IN_WINDOW) -> Path:
 
 
 def event(
-    event_type: str = "bloodbank.v1.agent.tool.completed",
+    event_type: str = "bloodbank.v1.agent.tool.completed",  # retired shape on purpose: backward-compat fixture, see file header
     *,
     project: str = "widget",
     cli: str = "claude",
@@ -161,12 +169,12 @@ class HappyPathTests(CollectorTestCase):
                 event(correlationid="corr-1"),
                 event(correlationid="corr-2", cli="codex"),
                 event(
-                    "bloodbank.v1.repo.decision.recorded",
+                    "bloodbank.v1.repo.decision.recorded",  # retired shape on purpose: backward-compat fixture, see file header
                     correlationid="corr-2",  # same session: sessions are de-duplicated
                     data={"issue": "WID-1", "repo": "widget", "title": "Ship it\nsecond line"},
                 ),
                 event(
-                    "bloodbank.v1.agent.session.ended",
+                    "bloodbank.v1.agent.session.ended",  # retired shape on purpose: backward-compat fixture, see file header
                     correlationid="corr-3",
                     data={"git_commits": ["abc123", "def456"], "total_turns": 12},
                 ),
@@ -513,7 +521,7 @@ class TruncationTests(CollectorTestCase):
     def test_decision_truncation_states_both_numbers(self) -> None:
         decisions = [
             event(
-                "bloodbank.v1.repo.decision.recorded",
+                "bloodbank.v1.repo.decision.recorded",  # retired shape on purpose: backward-compat fixture, see file header
                 data={"issue": f"WID-{index}", "repo": "widget", "title": f"Decision {index}"},
             )
             for index in range(43)
@@ -528,6 +536,7 @@ class TruncationTests(CollectorTestCase):
 
     def test_operational_note_truncation_states_both_numbers(self) -> None:
         notes = [
+            # retired shape on purpose: backward-compat fixture, see file header
             event("bloodbank.v1.system.process.exited", data={"error": f"exit {index}"})
             for index in range(25)
         ]
@@ -540,7 +549,7 @@ class TruncationTests(CollectorTestCase):
     def test_commit_session_truncation_states_both_numbers(self) -> None:
         sessions = [
             event(
-                "bloodbank.v1.agent.session.ended",
+                "bloodbank.v1.agent.session.ended",  # retired shape on purpose: backward-compat fixture, see file header
                 correlationid=f"c{index}",
                 data={"git_commits": ["abc"], "total_turns": index},
             )
@@ -720,7 +729,7 @@ class EventNameEraTests(CollectorTestCase):
         store = FakeCandystore(
             [
                 event(
-                    "bloodbank.v1.agent.session.ended",
+                    "bloodbank.v1.agent.session.ended",  # retired shape on purpose: backward-compat fixture, see file header
                     correlationid="corr-old",
                     data={"git_commits": ["abc123"], "total_turns": 4},
                 ),

@@ -25,7 +25,9 @@ bloodbank HTTP ingress for pipeline events.**
   deterministic `correlationid` from `data.transcription_id`. From n8n: an
   `Execute Command` node piping the base64-decoded `data` into
   `bb-emit --type bloodbank.<domain>.<entity>.<action>`. bb-emit **rejects** a
-  5-token `bloodbank.v1.*` type and exits 1 — it is not rewritten for you.
+  5-token `bloodbank.v1.*` type and exits 1 — it is not rewritten for you, and
+  it now runs the finished envelope through `core/validate.assert_contract`
+  before publishing, so a contract violation exits 1 instead of reaching NATS.
 - **Do NOT use HTTP `/publish` or `/event` for pipeline events.** Those hit the
   **v2 RabbitMQ exchange**, and the v3 NATS catch-all (`event-toaster` → ntfy) does
   **not** see RabbitMQ-only events. HTTP is only for genuine v2 fan-out or when
@@ -66,6 +68,14 @@ audio events without adding the schema first.
 
 CloudEvents 1.0 + the 33GOD extension fields. For `audio.transcription.completed`:
 
+`kind`, `actor` and `ordering_key` are not optional garnish — `assert_contract`
+lists them in `REQUIRED_EVENT_FIELDS`, and `actor` needs a non-empty `type` and
+`agent_id`. NATS core PUB validates nothing, so an envelope missing `actor` is
+accepted by the bus and lands in Candystore with `actor IS NULL`, invisible to
+every `actor->>'cli'` / `actor->>'agent_id'` read side. bb-emit fills it in for
+you (`--actor-type` / `--actor-id` / `--actor`); a hand-built envelope must not
+forget it.
+
 ```json
 {
   "specversion": "1.0",
@@ -80,6 +90,15 @@ CloudEvents 1.0 + the 33GOD extension fields. For `audio.transcription.completed
   "domain": "audio",
   "schemaref": "bloodbank.audio.transcription.completed.v1",
   "correlationid": "{{ $json.sourcePath }}",
+  "kind": "event",
+  "actor": {
+    "type": "service",
+    "agent_id": "bloodbank.service.inbox-transcribe",
+    "cli": null,
+    "provider": null,
+    "model": null
+  },
+  "ordering_key": "transcription:{{ $json.sourcePath }}",
   "data": {
     "sourcePath": "{{ $json.sourcePath }}",
     "s3Uri": "{{ $json.s3Uri }}",

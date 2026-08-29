@@ -14,6 +14,14 @@ scope of the number is stated. A count whose scope the reader cannot see is a
 coverage claim the collector did not earn.
 """
 
+#: RETIRED-SHAPE FIXTURES ARE DELIBERATE HERE. Every `bloodbank.v1.*` literal
+#: below is test DATA, not a producer: it pins the dual-shape read in
+#: collectors/dev_activity.py:175 (`canonical_type`) and the query widening in
+#: collectors/report_delivery.py, which exist because ~713k Candystore rows
+#: predate the version-drop and still carry the five-token spelling. Rewriting
+#: these to the four-token grammar would delete the only coverage proving the
+#: old rows still read. Grammar sweeps: stop here, this is not a violation.
+
 from __future__ import annotations
 
 import os
@@ -66,7 +74,7 @@ def make_repo(path: Path, messages: list[str], when: str = IN_WINDOW) -> Path:
 def event(project: str = "widget") -> dict:
     return {
         "id": "evt-1",
-        "type": "bloodbank.v1.agent.tool.completed",
+        "type": "bloodbank.v1.agent.tool.completed",  # retired shape on purpose: backward-compat fixture, see file header
         "time": "2026-08-17T15:30:00Z",
         "cli": "claude",
         "project": project,

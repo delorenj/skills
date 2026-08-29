@@ -18,6 +18,14 @@ pipeline into a permanent failure, and ``test_status_semantics.py`` holds that
 latch open.
 """
 
+#: RETIRED-SHAPE FIXTURES ARE DELIBERATE HERE. Every `bloodbank.v1.*` literal
+#: below is test DATA, not a producer: it pins the dual-shape read in
+#: collectors/dev_activity.py:175 (`canonical_type`) and the query widening in
+#: collectors/report_delivery.py, which exist because ~713k Candystore rows
+#: predate the version-drop and still carry the five-token spelling. Rewriting
+#: these to the four-token grammar would delete the only coverage proving the
+#: old rows still read. Grammar sweeps: stop here, this is not a violation.
+
 from __future__ import annotations
 
 import copy
@@ -236,7 +244,7 @@ class HappyPathTests(CollectorTestCase):
         # the other era's days into fabricated delivery gaps.
         self.assertIn(
             "type=bloodbank.reporting.report.completed"
-            "%2Cbloodbank.v1.reporting.report.completed",
+            "%2Cbloodbank.v1.reporting.report.completed",  # retired shape on purpose: backward-compat fixture, see file header
             url,
         )
         self.assertIn("from=2026-08-10T00%3A00%3A00Z", url)
@@ -250,12 +258,12 @@ class HappyPathTests(CollectorTestCase):
         """
         self.assertEqual(
             "bloodbank.reporting.report.completed"
-            ",bloodbank.v1.reporting.report.completed",
-            report_delivery.query_types("bloodbank.v1.reporting.report.completed"),
+            ",bloodbank.v1.reporting.report.completed",  # retired shape on purpose: backward-compat fixture, see file header
+            report_delivery.query_types("bloodbank.v1.reporting.report.completed"),  # retired shape on purpose: backward-compat fixture, see file header
         )
         self.assertEqual(
             report_delivery.query_types("bloodbank.reporting.report.completed"),
-            report_delivery.query_types("bloodbank.v1.reporting.report.completed"),
+            report_delivery.query_types("bloodbank.v1.reporting.report.completed"),  # retired shape on purpose: backward-compat fixture, see file header
         )
 
     def test_history_written_under_the_retired_shape_still_agrees_with_the_archive(
@@ -270,7 +278,7 @@ class HappyPathTests(CollectorTestCase):
         """
         legacy = [event(day) for day in window()]
         for envelope in legacy:
-            envelope["type"] = "bloodbank.v1.reporting.report.completed"
+            envelope["type"] = "bloodbank.v1.reporting.report.completed"  # retired shape on purpose: backward-compat fixture, see file header
         for day in window():
             self.publish(day)
         with self.serve(legacy):

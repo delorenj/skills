@@ -31,6 +31,14 @@ MIGRATION
     section has to be shouted, not filed in a notes array.
 """
 
+#: RETIRED-SHAPE FIXTURES ARE DELIBERATE HERE. Every `bloodbank.v1.*` literal
+#: below is test DATA, not a producer: it pins the dual-shape read in
+#: collectors/dev_activity.py:175 (`canonical_type`) and the query widening in
+#: collectors/report_delivery.py, which exist because ~713k Candystore rows
+#: predate the version-drop and still carry the five-token spelling. Rewriting
+#: these to the four-token grammar would delete the only coverage proving the
+#: old rows still read. Grammar sweeps: stop here, this is not a violation.
+
 from __future__ import annotations
 
 import copy
@@ -64,6 +72,7 @@ SCRIPTS = Path(runner.__file__).resolve().parent
 #: is the hand-committed developer journal that sits beside the report pair.
 FOREIGN = {
     "journal.txt": "hand-written journal for the day; not ours to delete\n",
+    # retired shape on purpose: backward-compat fixture, see file header
     "report_event.json": json.dumps({"type": "bloodbank.v1.reporting.report.completed"}) + "\n",
 }
 

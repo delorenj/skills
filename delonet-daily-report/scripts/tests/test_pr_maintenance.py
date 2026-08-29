@@ -5,6 +5,14 @@ completeness it did not achieve, and must keep "did not run", "ran and found
 nothing", and "state unreadable" as three distinguishable facts.
 """
 
+#: RETIRED-SHAPE FIXTURES ARE DELIBERATE HERE. Every `bloodbank.v1.*` literal
+#: below is test DATA, not a producer: it pins the dual-shape read in
+#: collectors/dev_activity.py:175 (`canonical_type`) and the query widening in
+#: collectors/report_delivery.py, which exist because ~713k Candystore rows
+#: predate the version-drop and still carry the five-token spelling. Rewriting
+#: these to the four-token grammar would delete the only coverage proving the
+#: old rows still read. Grammar sweeps: stop here, this is not a violation.
+
 from __future__ import annotations
 
 import json
@@ -66,7 +74,7 @@ def tick_doc(
         if lifecycle is not None
         else [
             {
-                "type": "bloodbank.v1.repo.maintenance.completed",
+                "type": "bloodbank.v1.repo.maintenance.completed",  # retired shape on purpose: backward-compat fixture, see file header
                 "event_id": "0dbcc4f6-7f15-596e-b6bf-754221910645",
                 "publish_status": "skipped",
                 "detail": "publisher disabled",
