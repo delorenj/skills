@@ -136,7 +136,7 @@ Detailed checklist and acceptance criteria:
   maintenance machinery, not a reason to share local state.
 - Do not run plain `uv sync` during Hermes core updates unless you have checked
   dependency changes and preserved any installed optional extras.
-- For presence/work-state streams, use Bloodbank v1 event names (e.g. `bloodbank.v1.system.heartbeat.received`, `bloodbank.v1.agent.invocation.started|completed|failed`) rather than legacy short names.
+- For presence/work-state streams, use canonical 4-token Bloodbank event types (e.g. `bloodbank.system.heartbeat.received`, `bloodbank.agent.invocation.started|completed|failed`) rather than legacy short names. Their NATS subjects add the kind marker: `bloodbank.evt.system.heartbeat.received`. No version token belongs in either.
 - Pass secret values only by pipe, anonymous FD, or process memory. Never put
   them in curl argv or unrelated child environments; a failed transient
   1Password validation preserves the last valid reference/marker for recovery.

@@ -39,11 +39,18 @@ Generated per agent (NEVER hand-edit): `claude/settings.hooks.json` (merge fragm
 
 ## Resolved decisions (in the lock, 2026-06-07)
 
+Types below are **4 tokens** — `bloodbank.<domain>.<entity>.<action>`, no
+contract-version segment. Subjects are the same triple with the kind marker
+inserted: `bloodbank.<evt|cmd|rpy>.<domain>.<entity>.<action>`. A
+`bloodbank.v1.*` type is the retired shape and `core/validate.py` raises
+`ContractViolation` on it; the `.v<n>` that survives is the schema revision in
+`schemaref`, a separate axis (bloodbank `docs/event-naming.md` §3.1, §13).
+
 | Lock key | Resolution | Why |
 |---|---|---|
-| `role:session_start` / `role:session_end` | `bloodbank.v1.agent.session.started` / `.ended` | Session events live under the `agent` domain — a legal 5-token type using allowlisted tokens. Superseded `cli.session.*`; bucket `cli_session`→`session`. New schemas at `schemas/bloodbank/v1/agent/session.{started,ended}.v1.json`. |
-| `role:post_tool` | `bloodbank.v1.agent.tool.completed` | The single post-tool hook fires after execution and carries `outcome`; Claude moved off `agent.tool.invoked`. |
-| `role:subagent_stop` | `bloodbank.v1.agent.invocation.completed` | Sub-agent runs are nested invocations; `agent.delegation.completed` was contract-illegal (no `delegation` entity). |
+| `role:session_start` / `role:session_end` | `bloodbank.agent.session.started` / `.ended` | Session events live under the `agent` domain — a legal 4-token type using allowlisted tokens. Superseded `cli.session.*`; bucket `cli_session`→`session`. Schemas at `schemas/bloodbank/agent/session.{started,ended}.json`. |
+| `role:post_tool` | `bloodbank.agent.tool.completed` | The single post-tool hook fires after execution and carries `outcome`; Claude moved off `agent.tool.invoked`. |
+| `role:subagent_stop` | `bloodbank.agent.invocation.completed` | Sub-agent runs are nested invocations; `agent.delegation.completed` was contract-illegal (no `delegation` entity). |
 
 ## mise tasks
 

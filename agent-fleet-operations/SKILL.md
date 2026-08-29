@@ -18,13 +18,13 @@ One PM per repo, and exactly TWO per-agent systemd user units:
 
 Bloodbank command ingress is **fleet-shared**: `hermes-fleet-bloodbank-gateway.service`
 (profile `fleet-bloodbank-gateway`, adapter `bloodbank/services/hermes-gateway`)
-subscribes once to `bloodbank.cmd.v1.agent.invocation.start` and routes
+subscribes once to `bloodbank.cmd.agent.invocation.start` and routes
 `data.target_agent_id` → Hermes profile via the registry's `profile_name`.
 There is **no per-agent consumer unit, no checkpoint timer, no filesystem
 inbox** — any of those is drift, not an alternative deployment style. Every
 registry entry advertises `bloodbank: {gateway_scope: fleet, target_agent_id: <id>}`.
 Canonical command envelopes need an `actor` object and
-`schemaref: bloodbank.v1.agent.invocation.start.v1` or the gateway terminally
+`schemaref: bloodbank.agent.invocation.start.v1` or the gateway terminally
 rejects them. Enforcement: pjangler `pj audit` / `pj migrate hermes.registry-parity`
 detects and converges violations. Canon: `hermes-agent-template/docs/architecture.md`
 § "Bloodbank wiring". The retired scrum-master role's duties folded into the PM
@@ -33,7 +33,7 @@ heartbeat (see Krebs lifecycle: `~/code/33GOD/krebs/spec/lifecycle.v1.yaml`).
 ### Full command journey
 
 ```text
-producer → bloodbank.cmd.v1.agent.invocation.start
+producer → bloodbank.cmd.agent.invocation.start
   → BLOODBANK_COMMANDS work-queue stream
   → fleet-shared durable pull consumer
   → validate envelope + prompt + actor + schema
@@ -133,7 +133,11 @@ does not prove a target is routable: eligibility is default-deny and requires
   remote-reachable history without printing the value. Rotation, retirement,
   and private-remote history rewriting each require explicit authorization; see
   [references/secret-migration.md](references/secret-migration.md).
-- For Bloodbank lifecycle events emitted by hooks, use v1 names (`bloodbank.v1.agent.*`).
+- Bloodbank lifecycle events emitted by hooks are 4-token types
+  (`bloodbank.<domain>.<entity>.<action>`, e.g. `bloodbank.agent.invocation.started`)
+  published on 5-token subjects (`bloodbank.evt.agent.invocation.started`). There is
+  no version token in the name — the only version left is the schema revision in
+  `dataschema` / `schemaref` (§13 of `bloodbank/docs/event-naming.md`).
 - Bloodbank hook install is owned by Bloodbank's fan-out (`~/code/33GOD/bloodbank/services/agent-hooks/sync.py --install`). Generated Hermes configs should call `~/.agents/hooks/bloodbank/publish.py --client hermes --hook <event>`, not a Hermes-local publisher.
 - Before a live command proof, audit the current target's Bloodbank registry
   eligibility. Never enable a target merely to make a smoke test pass; command

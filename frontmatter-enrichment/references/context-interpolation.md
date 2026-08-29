@@ -27,7 +27,7 @@ can't ground a value, omit it or use `unconfirmed`.
    `runtime/decisions/*.md` (why calls were made).
 3. **Recency compass** — `llr` (mtime-sorted) around the file's siblings; a cluster of same-topic files
    just created implies this one shares that plan context.
-4. **Repo event stream** (if wired) — Bloodbank repo-scoped events (`bloodbank.evt.v1.repo.<repo>.>`)
+4. **Repo event stream** (if wired) — Bloodbank repo-scoped events (`bloodbank.evt.repo.>`, filtered on `data.repo`)
    the PM already consumes; recent ticket/decision events explain *why now*.
 
 ## Deriving "why / role in the plan"
