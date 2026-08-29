@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "torrent-search": {
+      "command": "uvx",
+      "args": [
+        "torrent-search-mcp"
+      ]
+    }
+  }
+}

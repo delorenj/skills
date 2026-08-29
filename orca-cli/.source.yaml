@@ -1,0 +1,6 @@
+# Provenance for this skill. Managed by skill_ssot.py.
+origin:
+  type: adhoc
+  extracted_at: 2026-08-11T16:07:12+00:00
+  rescued_from: "/home/delorenj/code/skillex/skill-sets/global/orca-cli"
+modified_locally: false

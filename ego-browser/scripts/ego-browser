@@ -1,0 +1,304 @@
+#!/usr/bin/env bash
+# ego-browser — canonical agent browser bridge.
+#
+# ego lite is a macOS-only application. This shim makes it callable from any
+# host in the fleet: agents invoke `ego-browser` exactly as upstream documents
+# it, and the script transparently executes it on the Mac that owns the
+# browser profile.
+#
+#   ego-browser nodejs <<'EOF'      # normal use — heredoc runs on the Mac
+#   ego-browser doctor              # staged diagnostics of the whole path
+#   ego-browser install             # install/upgrade ego lite on the Mac
+#   ego-browser audit [n]           # show recently forwarded scripts
+#
+# If run ON a Mac that already has ego lite, it execs the local binary and
+# never touches ssh — so the same command works everywhere.
+
+set -euo pipefail
+
+VERSION="1.0.2"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/ego-browser"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/ego-browser"
+CONFIG_FILE="$CONFIG_DIR/config.env"
+AUDIT_LOG="$STATE_DIR/audit.log"
+
+# ---------------------------------------------------------------- defaults ---
+# The Mac that owns the browser profile. Override in config.env or the env.
+DEFAULT_HOST="carries-macbook-air.burro-salmon.ts.net"
+
+# Precedence: environment > config.env > remote.env (discovery cache) > default.
+# Sourcing a file assigns unconditionally, so stash the environment's values
+# first and re-apply them afterwards - otherwise a config file silently wins
+# over an explicit `EGO_BROWSER_HOST=... ego-browser ...`.
+_env_host="${EGO_BROWSER_HOST-}"
+_env_bin="${EGO_BROWSER_REMOTE_BIN-}"
+_env_opts="${EGO_BROWSER_SSH_OPTS-}"
+
+[ -f "$CONFIG_DIR/remote.env" ] && . "$CONFIG_DIR/remote.env"
+[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+
+[ -n "$_env_host" ] && EGO_BROWSER_HOST="$_env_host"
+[ -n "$_env_bin" ]  && EGO_BROWSER_REMOTE_BIN="$_env_bin"
+[ -n "$_env_opts" ] && EGO_BROWSER_SSH_OPTS="$_env_opts"
+
+EGO_BROWSER_HOST="${EGO_BROWSER_HOST:-${DEFAULT_HOST}}"
+EGO_BROWSER_SSH_OPTS="${EGO_BROWSER_SSH_OPTS:--o ConnectTimeout=10 -o BatchMode=yes}"
+EGO_BROWSER_REMOTE_BIN="${EGO_BROWSER_REMOTE_BIN:-}"
+EGO_BROWSER_WAIT="${EGO_BROWSER_WAIT:-0}"       # seconds to wait for a sleeping Mac
+EGO_BROWSER_DISABLE="${EGO_BROWSER_DISABLE:-0}" # kill switch
+
+mkdir -p "$CONFIG_DIR" "$STATE_DIR"
+
+log()  { printf '[ego-browser] %s\n' "$*" >&2; }
+die()  { printf '[ego-browser] error: %s\n' "$*" >&2; exit "${2:-1}"; }
+
+# Single-quote a string for safe interpolation into a remote shell command.
+shq() { local s=${1-}; printf "'%s'" "${s//\'/\'\\\'\'}"; }
+
+# ------------------------------------------------------------ local bypass ---
+# On a Mac with ego lite present, skip the network entirely.
+local_ego_bin() {
+  [ "$(uname -s 2>/dev/null)" = "Darwin" ] || return 1
+  local c
+  # A shim named ego-browser is on PATH too; make sure we don't exec ourselves.
+  for c in "$HOME/.local/bin/ego-browser" /usr/local/bin/ego-browser \
+           /opt/homebrew/bin/ego-browser; do
+    [ -x "$c" ] && [ "$(readlink -f "$c" 2>/dev/null)" != "$(readlink -f "$0" 2>/dev/null)" ] \
+      && { printf '%s' "$c"; return 0; }
+  done
+  return 1
+}
+
+# ----------------------------------------------------- remote bin discovery ---
+# Runs on the Mac. Prints the absolute path to the real ego-browser binary.
+# ego lite registers its CLI during GUI onboarding, and a non-interactive ssh
+# session does not source an interactive shell rc — so PATH alone is unreliable
+# and we search the known install locations plus the app bundle itself.
+read -r -d '' REMOTE_RESOLVE <<'RESOLVE' || true
+for c in "$HOME/.local/bin/ego-browser" /usr/local/bin/ego-browser /opt/homebrew/bin/ego-browser; do
+  [ -x "$c" ] && { printf '%s' "$c"; exit 0; }
+done
+p=$(command -v ego-browser 2>/dev/null || true)
+[ -n "$p" ] && { printf '%s' "$p"; exit 0; }
+for app in "/Applications/ego lite.app" "$HOME/Applications/ego lite.app" \
+           "/Applications/egolite.app" "$HOME/Applications/egolite.app" \
+           "/Applications/ego.app" "$HOME/Applications/ego.app"; do
+  [ -d "$app" ] || continue
+  f=$(find "$app/Contents" -name ego-browser -type f 2>/dev/null | head -1)
+  [ -n "$f" ] && { printf '%s' "$f"; exit 0; }
+done
+exit 1
+RESOLVE
+
+# ssh_ctl: control/probe calls. -n is mandatory here - without it ssh reads
+# and discards the caller's stdin, silently eating the agent's heredoc before
+# it can be forwarded. ssh_pipe is the only form allowed to touch stdin.
+ssh_ctl()  { ssh $EGO_BROWSER_SSH_OPTS -n -T "$EGO_BROWSER_HOST" "$@"; }
+ssh_pipe() { ssh $EGO_BROWSER_SSH_OPTS -T "$EGO_BROWSER_HOST" "$@"; }
+
+host_up() { ssh $EGO_BROWSER_SSH_OPTS -n -T "$EGO_BROWSER_HOST" true >/dev/null 2>&1; }
+
+wait_for_host() {
+  local waited=0
+  host_up && return 0
+  [ "$EGO_BROWSER_WAIT" -gt 0 ] || return 1
+  log "Mac unreachable; waiting up to ${EGO_BROWSER_WAIT}s for it to wake..."
+  while [ "$waited" -lt "$EGO_BROWSER_WAIT" ]; do
+    sleep 5; waited=$((waited + 5))
+    host_up && { log "Mac is up after ${waited}s."; return 0; }
+  done
+  return 1
+}
+
+unreachable_msg() {
+  cat >&2 <<MSG
+[ego-browser] error: cannot reach the browser host '$EGO_BROWSER_HOST'.
+
+The canonical agent browser (ego lite) is macOS-only and lives on that Mac.
+Nothing else on this box can serve the request, so this is a hard stop.
+
+Things worth checking, in order:
+  1. Is the Mac awake and on the tailnet?   tailscale status | grep -i macbook
+  2. Does plain ssh work?                   ssh $EGO_BROWSER_HOST true
+  3. Is it just asleep? Retry with a wait:  EGO_BROWSER_WAIT=120 ego-browser ...
+
+Do NOT fall back to curl, WebFetch, or a headless browser for a task that
+needs the authenticated profile — those sessions live only on the Mac.
+MSG
+}
+
+resolve_remote_bin() {
+  # A cache entry only counts if it was written for the host we're targeting.
+  if [ -n "$EGO_BROWSER_REMOTE_BIN" ] \
+     && { [ -z "${EGO_BROWSER_CACHED_HOST-}" ] \
+          || [ "${EGO_BROWSER_CACHED_HOST-}" = "$EGO_BROWSER_HOST" ]; }; then
+    printf '%s' "$EGO_BROWSER_REMOTE_BIN"; return 0
+  fi
+  local found
+  found=$(ssh_ctl "$REMOTE_RESOLVE" 2>/dev/null) || return 1
+  [ -n "$found" ] || return 1
+  # Cache it so later invocations skip the search.
+  {
+    printf '# written by ego-browser %s for host %s\n' "$VERSION" "$EGO_BROWSER_HOST"
+    printf 'EGO_BROWSER_CACHED_HOST=%s\n' "$(shq "$EGO_BROWSER_HOST")"
+    printf 'EGO_BROWSER_REMOTE_BIN=%s\n' "$(shq "$found")"
+  } > "$CONFIG_DIR/remote.env"
+  printf '%s' "$found"
+}
+
+# --------------------------------------------------------------- audit log ---
+audit() {
+  local mode=$1 script=$2
+  {
+    printf '=== %s | host=%s | mode=%s | pid=%s | cwd=%s\n' \
+      "$(date -Is)" "$EGO_BROWSER_HOST" "$mode" "$$" "$PWD"
+    cat "$script"
+    printf '\n'
+  } >> "$AUDIT_LOG" 2>/dev/null || true
+}
+
+# ------------------------------------------------------------- subcommands ---
+cmd_doctor() {
+  local rc=0 bin=""
+  echo "ego-browser bridge v$VERSION"
+  echo "  browser host : $EGO_BROWSER_HOST"
+  echo "  audit log    : $AUDIT_LOG"
+  echo
+
+  if local_ego_bin >/dev/null; then
+    echo "[local] running on macOS with ego lite present — bridge not needed."
+    return 0
+  fi
+
+  printf '1. ssh reachable ......... '
+  if host_up; then echo "OK"; else
+    echo "FAIL"; unreachable_msg; return 1
+  fi
+
+  printf '2. host is macOS ......... '
+  local os; os=$(ssh_ctl 'uname -s' 2>/dev/null || true)
+  if [ "$os" = "Darwin" ]; then echo "OK ($(ssh_ctl 'sw_vers -productVersion' 2>/dev/null))"
+  else echo "FAIL (got '${os:-nothing}') — ego lite requires macOS"; return 1; fi
+
+  printf '3. ego-browser binary .... '
+  if bin=$(resolve_remote_bin); then echo "OK ($bin)"
+  else
+    echo "NOT FOUND"
+    echo "   -> run: ego-browser install"
+    rc=1
+  fi
+
+  printf '4. ego lite app running .. '
+  if ssh_ctl 'pgrep -f -i "ego ?lite" >/dev/null 2>&1'; then echo "OK"
+  else
+    echo "NOT RUNNING"
+    echo "   -> the CLI is a client to the GUI app; open ego lite on the Mac."
+    echo "   -> try: ssh $EGO_BROWSER_HOST 'open -a \"ego lite\"'"
+    rc=1
+  fi
+
+  [ -n "$bin" ] || return "$rc"
+
+  printf '5. node runtime probe .... '
+  local out
+  if out=$(printf 'cliLog("probe-ok");\n' | ssh_pipe "exec $(shq "$bin") nodejs" 2>&1) \
+     && printf '%s' "$out" | grep -q 'probe-ok'; then
+    echo "OK"
+  else
+    echo "FAIL"
+    printf '   -> %s\n' "$(printf '%s' "$out" | head -3 | tr '\n' ' ')"
+    rc=1
+  fi
+
+  printf '6. browser reachable ..... '
+  # listTabs requires a selected task space, so the probe must create one -
+  # calling it bare returns "Task space not selected", which is the app
+  # answering, not a broken connection.
+  if out=$(printf 'const t = await useOrCreateTaskSpace("ego-doctor");\nconst tabs = await listTabs();\ncliLog("tabs-ok:"+tabs.length);\n' \
+           | ssh_pipe "exec $(shq "$bin") nodejs" 2>&1) \
+     && printf '%s' "$out" | grep -q 'tabs-ok'; then
+    echo "OK — $(printf '%s' "$out" | grep -o 'tabs-ok:[0-9]*')"
+    # Don't leave the probe's space behind.
+    printf 'await completeTaskSpace("ego-doctor", { keep: false });\n' \
+      | ssh_pipe "exec $(shq "$bin") nodejs" >/dev/null 2>&1 || true
+  else
+    echo "FAIL"
+    printf '   -> %s\n' "$(printf '%s' "$out" | head -3 | tr '\n' ' ')"
+    # Only point at launchd when the runtime itself could not be reached.
+    if printf '%s' "$out" | grep -qiE 'connect|refused|socket|not running|econn|timeout'; then
+      cat <<'HINT'
+   -> Looks like a connection failure, not an app error. If check 5 passed,
+      the ssh session may not be able to reach the GUI app's services
+      (launchd bootstrap namespace). Confirm by running the same script in
+      Terminal.app ON the Mac; if it works there but not over ssh, see
+      references/remote-architecture.md.
+HINT
+    else
+      echo "   -> This is an application-level error; the bridge itself is fine."
+    fi
+    rc=1
+  fi
+
+  echo
+  [ "$rc" -eq 0 ] && echo "All checks passed — the bridge is live." \
+                  || echo "Bridge is NOT fully operational (see above)."
+  return "$rc"
+}
+
+cmd_install() {
+  host_up || { unreachable_msg; exit 1; }
+  local os; os=$(ssh_ctl 'uname -s' 2>/dev/null || true)
+  [ "$os" = "Darwin" ] || die "host '$EGO_BROWSER_HOST' is not macOS (got '${os:-nothing}')"
+
+  log "Installing/upgrading ego lite on $EGO_BROWSER_HOST ..."
+  # Upstream's installer is macOS-native; run it there verbatim.
+  ssh_pipe 'sh -s' < "$(dirname "$(readlink -f "$0")")/../assets/upstream-install.sh"
+
+  log "Install step finished. ego lite onboarding is a GUI flow:"
+  log "  on the Mac, open ego lite, import Chrome data, and register the CLI."
+  log "Then verify end to end with:  ego-browser doctor"
+}
+
+cmd_audit() {
+  local n=${1:-5}
+  [ -f "$AUDIT_LOG" ] || { echo "no audit log yet at $AUDIT_LOG"; return 0; }
+  awk -v n="$n" 'BEGIN{RS="=== "} NF{c++; a[c]=$0} END{for(i=c-n+1;i<=c;i++) if(i>0) print "=== " a[i]}' \
+    "$AUDIT_LOG"
+}
+
+usage() {
+  sed -n '2,20p' "$(readlink -f "$0")" | sed 's/^# \{0,1\}//'
+}
+
+# ------------------------------------------------------------------- main ---
+case "${1:-}" in
+  doctor)          shift; cmd_doctor "$@"; exit $? ;;
+  install)         shift; cmd_install "$@"; exit $? ;;
+  audit)           shift; cmd_audit "$@"; exit $? ;;
+  -h|--help|help)  usage; exit 0 ;;
+  --version)       echo "$VERSION"; exit 0 ;;
+esac
+
+[ "$EGO_BROWSER_DISABLE" = "1" ] && die "disabled by EGO_BROWSER_DISABLE=1"
+
+# Local Mac? Just exec the real thing.
+if LOCAL_BIN=$(local_ego_bin); then exec "$LOCAL_BIN" "$@"; fi
+
+[ $# -gt 0 ] || die "no subcommand. Try: ego-browser nodejs <<'EOF' ... EOF   (or: ego-browser doctor)"
+
+# Buffer stdin FIRST. Every ssh below is stdin-safe (-n), but capturing the
+# agent's script before any of them run means no future probe can eat it.
+STDIN_FILE=$(mktemp "${TMPDIR:-/tmp}/ego-browser.XXXXXX")
+trap 'rm -f "$STDIN_FILE"' EXIT
+[ -t 0 ] || cat > "$STDIN_FILE"
+audit "$*" "$STDIN_FILE"
+
+host_up || wait_for_host || { unreachable_msg; exit 1; }
+
+REMOTE_BIN=$(resolve_remote_bin) || die "ego lite is not installed on $EGO_BROWSER_HOST — run: ego-browser install"
+
+# Rebuild the argument vector safely for the remote shell.
+REMOTE_CMD="exec $(shq "$REMOTE_BIN")"
+for a in "$@"; do REMOTE_CMD="$REMOTE_CMD $(shq "$a")"; done
+
+ssh_pipe "$REMOTE_CMD" < "$STDIN_FILE"

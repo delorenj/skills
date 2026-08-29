@@ -10,7 +10,7 @@
 
 ## Background-task surfaces (where things can run from)
 
-Check ALL of these when hunting an actor; `bgls` covers them in one shot.
+Check ALL of these when hunting an actor; `srvls` covers them in one shot.
 
 1. **User crontab** (`crontab -l`).
 2. **Root crontab** (`sudo crontab -l`) — **cleared 2026-06-10. ANY entry reappearing here is suspect.**
@@ -20,19 +20,19 @@ Check ALL of these when hunting an actor; `bgls` covers them in one shot.
 6. **Docker**: ~46 compose projects, ~120 running containers.
 7. **pm2**: n8n only.
 
-## THE TOOL: bgls
+## THE TOOL: srvls
 
-`bgls` (on PATH) — unified background-task inventory across all surfaces above.
+`srvls` (on PATH) — unified background-task inventory across all surfaces above.
 
 - Output modes: table (default) / `--json` / `--prom` / `--md` / `--fzf`.
-- Actions: `bgls inspect|stop|restart|start|disable TYPE NAME`.
+- Actions: `srvls inspect|stop|restart|start|disable TYPE NAME`.
 - Types: `cron`, `sys-svc`, `sys-timer`, `usr-svc`, `usr-timer`, `docker`, `pm2`.
 
 ## Metrics pipeline
 
-- `bgls-metrics.timer` (user, every 5 min) → writes `~/.local/state/node-exporter-textfile/bgls.prom` → **node-exporter** (host `:9519`, textfile collector) → **Prometheus** (host `:9472`).
-- Prometheus queries: `bgls_items`, `bgls_unit_problem`, `bgls_loadavg`.
-- Nightly markdown snapshots: `bgls-snapshot.timer` → `~/code/infra/docs/inventory/` (git-committed) — diff these for "when did X appear".
+- `srvls-metrics.timer` (user, every 5 min) → writes `~/.local/state/node-exporter-textfile/srvls.prom` → **node-exporter** (host `:9519`, textfile collector) → **Prometheus** (host `:9472`).
+- Prometheus queries: `srvls_items`, `srvls_unit_problem`, `srvls_loadavg`.
+- Nightly markdown snapshots: `srvls-snapshot.timer` → `~/code/infra/docs/inventory/` (git-committed) — diff these for "when did X appear".
 - **Holocene dashboard** (holocene.delo.sh, behind SSO) has a Systems tab over this data; its API is the user unit `holocene-api.service` on `:4000`.
 
 ## Docker layout

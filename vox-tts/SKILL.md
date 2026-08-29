@@ -20,6 +20,7 @@ A self-hosted TTS service at **<https://vox.delo.sh>** wrapping VoxCPM2 with a p
 | MCP tool: list voices                                           | `list_voices_tool()`                                                        |
 | List voices (HTTP)                                              | `GET /voices`                                                               |
 | Add a voice                                                     | `POST /voices` (multipart: name, display_name, audio)                       |
+| **Interactive voice cloning** (user says "clone my voice as…")  | See [Interactive voice cloning workflow](#interactive-voice-cloning-workflow) below |
 | Register with agent (Hermes/OpenClaw/Claude Code)               | MCP server at `https://vox.delo.sh/mcp/` (trailing slash required)          |
 | Node-RED                                                        | `node-red-contrib-vox` at `~/docker/stacks/utils/vox/node-red-contrib-vox/` |
 | Health + engine status                                          | `GET /healthz`                                                              |
@@ -83,6 +84,8 @@ Pass `voice: "<name>"` to use a saved profile. Repeatable, consistent across ses
 
 Use this when: a named character/persona needs to persist across calls, or the user explicitly supplied a reference sample.
 
+**To clone a user's own voice interactively** (user says "clone my voice as…"), see the [Interactive voice cloning workflow](#interactive-voice-cloning-workflow) below — it walks through presenting a reading passage, receiving a Telegram voice message, and uploading the raw audio.
+
 **Rule of thumb:** try description first unless the user names a voice or provides audio. Descriptions cost nothing to iterate.
 
 ## Workflows
@@ -110,6 +113,113 @@ To also pin an ElevenLabs fallback voice, update the row directly against the ho
 psql -h localhost -U "$DEFAULT_USERNAME" -d vox -c \
   "UPDATE voices SET elevenlabs_voice_id='<voice_id>' WHERE name='<slug>';"
 ```
+
+### Interactive voice cloning workflow
+
+When the user says **"clone my voice as \<name\>"** (or any variant — "create a voice called…", "register my voice as…", "add a voice named…"), follow this 5-step interactive workflow. The entire flow is designed for Telegram voice messages but works with any audio file the agent can access.
+
+**See `references/voice_cloning_passages.md` for the full set of phonetically-balanced reading passages.**
+
+#### Step 1 — Slugify the name
+
+Convert the user-provided name to a slug: lowercase, spaces → hyphens, strip non-alphanumeric characters. Example: `"My Cool Voice"` → `my-cool-voice`.
+
+#### Step 2 — Present a reading passage
+
+Pick a passage from `references/voice_cloning_passages.md` (default: Passage 1, "Standard"). Present it to the user and ask them to read it aloud as a **Telegram voice message**. The passage is ~5–10 s spoken — enough for the model to capture timbre without padding silence.
+
+Example agent message:
+
+> Great! I'll clone your voice as **jarad**. Please read this passage aloud and send it as a voice message:
+>
+> *"The quick brown fox jumps over the lazy dog. She sold sea shells by the sea shore, and the wind whispered through the tall green trees."*
+
+#### Step 3 — Receive the recording (DO NOT run STT)
+
+When the user sends a Telegram voice message, the agent receives the **raw audio file path** (typically an `.ogg` file). 
+
+**Critical: do NOT transcribe the audio.** Do not run STT, whisper, or any speech-to-text on the recording. You need the raw audio file path to upload directly to the Voxxy service. The `POST /voices` endpoint handles format conversion (ogg, wav, mp3, flac, m4a) and auto-trims to 30 s mono.
+
+#### Step 4 — Upload the raw audio
+
+Upload the raw audio file to `POST /voices` using `scripts/clone_voice.sh` or the raw HTTP form:
+
+**Using the script (recommended — also verifies and synthesizes confirmation):**
+
+```bash
+scripts/clone_voice.sh <name> "<Display Name>" <path/to/audio.ogg> [tags]
+```
+
+The script:
+1. Slugifies the name
+2. Uploads raw audio to `POST /voices`
+3. Verifies with `GET /voices/<name>`
+4. Synthesizes a confirmation message via `POST /synthesize-url`
+5. Prints the confirmation audio URL
+
+**Using raw HTTP (upload only):**
+
+```bash
+curl -X POST https://vox.delo.sh/voices \
+  -F name=<slug> -F display_name="<Display>" \
+  -F audio=@/path/to/voice_message.ogg
+```
+
+#### Step 5 — Verify and confirm
+
+After upload, verify the voice was registered and synthesize a confirmation message in the new voice:
+
+```bash
+# Verify
+curl https://vox.delo.sh/voices/<slug>
+
+# Synthesize confirmation
+curl -X POST https://vox.delo.sh/synthesize-url \
+  -H 'content-type: application/json' \
+  -d '{"text":"Voice cloning complete. How do I sound?","voice":"<slug>"}'
+```
+
+Or via MCP:
+
+```
+vox:speak_url(text="Voice cloning complete. How do I sound?", voice="<slug>")
+```
+
+Send the confirmation audio URL back to the user as a Telegram voice note (see the "Send a voice note to Telegram" workflow above). The user can then confirm whether the clone sounds right, and if not, re-record with a different passage.
+
+#### Quick reference: the full agent flow
+
+```
+User: "clone my voice as jarad"
+  ↓
+Agent: slugify("jarad") → "jarad"
+  ↓
+Agent: present passage from references/voice_cloning_passages.md
+  ↓
+User: sends Telegram voice message (raw .ogg file)
+  ↓
+Agent: get raw audio file path (DO NOT run STT)
+  ↓
+Agent: scripts/clone_voice.sh jarad "Jarad" /path/to/voice_message.ogg
+  ↓
+Service: POST /voices → auto-trim 30s mono, store as jarad.wav
+  ↓
+Agent: GET /voices/jarad → verify registered
+  ↓
+Agent: speak_url("Voice cloning complete.", voice="jarad") → audio_url
+  ↓
+Agent: send audio_url to user as Telegram voice note
+  ↓
+User: "sounds great!" or "try again with a different passage"
+```
+
+#### Pitfalls
+
+- **Never run STT on the recording.** The whole point is to upload the raw audio. STT discards the timbre information the model needs.
+- **Name must be slugified** before upload. The service stores voices by slug; spaces and uppercase cause lookup failures.
+- **If the clone sounds off**, re-record with a different passage from `references/voice_cloning_passages.md`. Different passages emphasize different phoneme distributions.
+- **Background noise is the #1 quality killer.** Encourage the user to record in a quiet room.
+- **The service auto-trims to 30 s.** Don't worry about the recording being too long — but aim for 5–15 s of actual speech.
 
 ### Synthesize speech (inline bytes)
 

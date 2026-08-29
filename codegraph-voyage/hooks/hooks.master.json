@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "owner": "codegraph-voyage.hooks.v1",
+  "command": "$HOME/.agents/skills/codegraph-voyage/scripts/hook-runtime.py",
+  "roles": {
+    "session_start": {
+      "description": "Fail-open local status probe; never indexes or calls a remote provider.",
+      "timeout_seconds": 3
+    },
+    "post_tool": {
+      "description": "Mark CodeGraph runtime state dirty after likely source mutations.",
+      "timeout_seconds": 2,
+      "mutating_tool_matcher": "Write|Edit|Patch|Create|write_file|patch|apply_patch|create_file|multi_edit|str_replace"
+    },
+    "session_end": {
+      "description": "Coalesce dirty state into one bounded incremental index refresh.",
+      "timeout_seconds": 65
+    }
+  },
+  "clients": {
+    "claude": {
+      "destination": ".claude/settings.json",
+      "events": {
+        "session_start": "SessionStart",
+        "post_tool": "PostToolUse",
+        "session_end": "Stop"
+      }
+    },
+    "codex": {
+      "destination": ".codex/hooks.json",
+      "events": {
+        "session_start": "SessionStart",
+        "post_tool": "PostToolUse",
+        "session_end": "Stop"
+      }
+    },
+    "hermes": {
+      "destination": ".hermes/hooks.json",
+      "allowlist_destination": ".hermes/shell-hooks-allowlist.json",
+      "events": {
+        "session_start": "on_session_start",
+        "post_tool": "post_tool_call",
+        "session_end": "on_session_end"
+      }
+    }
+  }
+}

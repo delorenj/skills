@@ -5,7 +5,7 @@
 # ///
 """curator-drain — orderly, backpressured bridge from Bloodbank to the n8n Folder Curator workflow.
 
-Subscribes as a JetStream DURABLE consumer to bloodbank.evt.v1.curator.file.received with
+Subscribes as a JetStream DURABLE consumer to bloodbank.evt.curator.file.received with
 max_ack_pending=1, so exactly ONE file is in flight at a time: it POSTs each envelope to the
 n8n webhook and ACKs only on HTTP 2xx. Under a burst it drains one-at-a-time (the bus is the
 buffer, never the workflow); a failed POST is NAK'd for redelivery instead of being lost.
@@ -14,7 +14,7 @@ Deploy as a systemd --user unit (see references/automation-runbook.md).
 Env:
   CURATOR_WEBHOOK   n8n webhook URL (required) — e.g. http://127.0.0.1:5678/webhook/folder-curator-intake
   NATS_URL          default nats://127.0.0.1:4222
-  CURATOR_SUBJECT   default bloodbank.evt.v1.curator.file.received
+  CURATOR_SUBJECT   default bloodbank.evt.curator.file.received
   CURATOR_DURABLE   default curator-drain
 """
 from __future__ import annotations
@@ -28,7 +28,7 @@ from nats.js.api import AckPolicy, ConsumerConfig
 
 WEBHOOK = os.environ.get("CURATOR_WEBHOOK")
 NATS_URL = os.environ.get("NATS_URL", "nats://127.0.0.1:4222")
-SUBJECT = os.environ.get("CURATOR_SUBJECT", "bloodbank.evt.v1.curator.file.received")
+SUBJECT = os.environ.get("CURATOR_SUBJECT", "bloodbank.evt.curator.file.received")
 DURABLE = os.environ.get("CURATOR_DURABLE", "curator-drain")
 
 

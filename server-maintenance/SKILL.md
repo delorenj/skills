@@ -1,6 +1,6 @@
 ---
 name: server-maintenance
-description: Diagnose and clean up the big-chungus home server. Finds what is killing processes or containers, attributes crash loops, kill loops, healthcheck storms, OOM, swap pressure, and docker bloat, then fixes and prunes safely. Use when the user says "what is killing my server", "server is slow", "server locked up", "server is dying", "high load", "what's eating CPU", "what's eating memory", "spring cleaning", "maintenance sweep", "cleanup the server", "docker cleanup", "too many containers", "disk full", "prune docker", or asks why a unit/container keeps restarting, who restarted X, or why load spiked. Built around scripts/sweep.sh (one-shot evidence report), references/server-map.md (system baselines), and references/forensics-playbook.md (attribution patterns); uses bgls, systemd, journalctl, docker, Prometheus, hindsight. Do NOT use for debugging one project's application code, provisioning new services or stacks (use delonet-conventions), or Cloudflare/network routing issues.
+description: Diagnose and clean up the big-chungus home server. Finds what is killing processes or containers, attributes crash loops, kill loops, healthcheck storms, OOM, swap pressure, and docker bloat, then fixes and prunes safely. Use when the user says "what is killing my server", "server is slow", "server locked up", "server is dying", "high load", "what's eating CPU", "what's eating memory", "spring cleaning", "maintenance sweep", "cleanup the server", "docker cleanup", "too many containers", "disk full", "prune docker", or asks why a unit/container keeps restarting, who restarted X, or why load spiked. Built around scripts/sweep.sh (one-shot evidence report), references/server-map.md (system baselines), and references/forensics-playbook.md (attribution patterns); uses srvls, systemd, journalctl, docker, Prometheus, hindsight. Do NOT use for debugging one project's application code, provisioning new services or stacks (use delonet-conventions), or Cloudflare/network routing issues.
 ---
 
 # Server Maintenance
@@ -31,7 +31,7 @@ Phased maintenance sweep for big-chungus. The expensive research (file locations
 ## Phase 0: Gather (deterministic — no judgment yet)
 
 1. `hindsight memory recall infra "<the symptom, or 'maintenance sweep'>"` — prior incidents often name the culprit outright.
-2. Run `bash "$SKILL_DIR/scripts/sweep.sh"`, where `SKILL_DIR` is the base directory stated when this skill was loaded (fallback path on this host: `~/.agents/skills/server-maintenance/scripts/sweep.sh`). It prints the path of a markdown report in /tmp. Read that one file. It covers identity, load/mem/swap, top consumers, ctx switches, OOM, failed units, crash-loop flags, docker anomalies (restart storms, orphans, trunk-main leftovers, fast healthchecks), disk/journal/log bloat, bgls problem metrics, root crontab, and Prometheus trend. Do not duplicate any of these with ad-hoc commands.
+2. Run `bash "$SKILL_DIR/scripts/sweep.sh"`, where `SKILL_DIR` is the base directory stated when this skill was loaded (fallback path on this host: `~/.agents/skills/server-maintenance/scripts/sweep.sh`). It prints the path of a markdown report in /tmp. Read that one file. It covers identity, load/mem/swap, top consumers, ctx switches, OOM, failed units, crash-loop flags, docker anomalies (restart storms, orphans, trunk-main leftovers, fast healthchecks), disk/journal/log bloat, srvls problem metrics, root crontab, and Prometheus trend. Do not duplicate any of these with ad-hoc commands.
 
 ## Phase 1: Triage
 
@@ -59,7 +59,7 @@ Everything else — volumes, stopped stacks, images in use, decommissioning trun
 
 ## Phase 5: Verify
 
-Re-run `scripts/sweep.sh`; diff the new report against the Phase 0 report (anomaly sections shrink, baselines hold). Then check the trend, not just the moment: Holocene dashboard Systems tab (holocene.delo.sh) or Prometheus directly (`bgls_unit_problem`, `bgls_loadavg`, ctx-switch rate) — confirm problem metrics are flat or declining.
+Re-run `scripts/sweep.sh`; diff the new report against the Phase 0 report (anomaly sections shrink, baselines hold). Then check the trend, not just the moment: Holocene dashboard Systems tab (holocene.delo.sh) or Prometheus directly (`srvls_unit_problem`, `srvls_loadavg`, ctx-switch rate) — confirm problem metrics are flat or declining.
 
 ## Phase 6: Retain (mandatory — this is what keeps the skill cheap)
 

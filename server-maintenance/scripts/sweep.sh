@@ -193,9 +193,9 @@ main() {
   find /tmp "$HOME/.local/state" -type f -size +50M -exec du -h {} + 2>/dev/null | sort -rh | head -20 | print_or "none > 50MB"
   fence
 
-  printf '\n## bgls problem metrics\n\n'
+  printf '\n## srvls problem metrics\n\n'
   fence
-  bgls --prom 2>/dev/null | grep '^bgls_unit_problem' | print_or "no bgls_unit_problem lines (bgls missing or zero problems)"
+  srvls --prom 2>/dev/null | grep '^srvls_unit_problem' | print_or "no srvls_unit_problem lines (srvls missing or zero problems)"
   fence
 
   printf '\n## Root crontab (must be empty — cleared 2026-06-10)\n\n'
@@ -214,13 +214,13 @@ main() {
   fi
   fence
 
-  printf '\n## Prometheus trend (bgls_loadavg, sum of bgls_unit_problem)\n\n'
+  printf '\n## Prometheus trend (srvls_loadavg, sum of srvls_unit_problem)\n\n'
   fence
   local prom
-  prom=$(curl -sG --max-time 5 'http://localhost:9472/api/v1/query' --data-urlencode 'query=bgls_loadavg' 2>/dev/null || true)
+  prom=$(curl -sG --max-time 5 'http://localhost:9472/api/v1/query' --data-urlencode 'query=srvls_loadavg' 2>/dev/null || true)
   printf '%s\n' "${prom:-prometheus :9472 unreachable}" | head -c 2000
   printf '\n'
-  prom=$(curl -sG --max-time 5 'http://localhost:9472/api/v1/query' --data-urlencode 'query=sum(bgls_unit_problem)' 2>/dev/null || true)
+  prom=$(curl -sG --max-time 5 'http://localhost:9472/api/v1/query' --data-urlencode 'query=sum(srvls_unit_problem)' 2>/dev/null || true)
   printf '%s\n' "${prom:-prometheus :9472 unreachable}" | head -c 2000
   printf '\n'
   fence

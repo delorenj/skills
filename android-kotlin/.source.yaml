@@ -1,0 +1,6 @@
+# Provenance for this skill. Managed by skill_ssot.py.
+origin:
+  type: adhoc
+  extracted_at: 2026-08-10T00:59:53+00:00
+  rescued_from: "/home/delorenj/code/skillex/skill-sets/global/android-kotlin"
+modified_locally: false

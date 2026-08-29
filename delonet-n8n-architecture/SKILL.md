@@ -1,6 +1,6 @@
 ---
 name: delonet-n8n-architecture
-description: Architecture principles and the custom-node catalog for building n8n workflows on DeLoNET/33GOD. Use when creating, reviewing, or refactoring ANY n8n workflow for the pipeline — deciding node boundaries (atomic single-responsibility nodes vs a god-node executeCommand/localFileTrigger shell script), emitting pipeline lifecycle events to the bloodbank bus instead of ad-hoc ntfy, choosing community vs custom nodes, packaging custom nodes as n8n-nodes-* micro-packages (n8n-nodes-bloodbank, -transcribe, -vault, minio/s3.delo.sh, obsidian vault), rebuilding the inbox/transcribe pipeline, or applying n8n instance conventions (PM2 :5678, availableInMCP, archive-outside-watch-root, direct API PUT for tags/description). Do NOT use for whether-to-use-n8n-vs-bloodbank routing (delonet-workflow-router), the event schema/envelope contract itself (bloodbank-integration), or infra paths/containers/creds (delonet-conventions).
+description: Architecture principles and the custom-node catalog for building n8n workflows on DeLoNET/33GOD. Use when creating, reviewing, or refactoring ANY n8n workflow for the pipeline — including the canonical signed Plane webhook ingress — deciding node boundaries (atomic single-responsibility nodes vs a god-node executeCommand/localFileTrigger shell script), emitting pipeline lifecycle events to Bloodbank instead of ad-hoc ntfy, choosing community vs custom nodes, packaging custom nodes as n8n-nodes-* micro-packages, rebuilding the inbox/transcribe pipeline, or applying n8n instance conventions (PM2 :5678, raw-body HMAC, per-webhook secret selection, availableInMCP, archive-outside-watch-root, direct API PUT for tags/description). Do NOT use for whether-to-use-n8n-vs-bloodbank routing (delonet-workflow-router), the event schema/envelope contract itself (bloodbank-integration), or infra paths/containers/creds (delonet-conventions).
 ---
 
 # DeLoNET n8n Architecture
@@ -17,9 +17,9 @@ visual hub for the internals — not a place to hide a shell script inside one n
    an `executeCommand` wrapping a script that quietly does three jobs, giving the
    canvas zero visibility into any of them.
 2. **The bus is the completion signal.** Pipeline lifecycle events publish to
-   bloodbank (`bloodbank.evt.v1.<domain>.<entity>.<action>`). Never wire ntfy /
+   bloodbank (`bloodbank.evt.<domain>.<entity>.<action>`). Never wire ntfy /
    Slack / email directly for a pipeline event — the `bloodbank-event-toaster`
-   already fans `bloodbank.evt.v1.>` out to `ntfy.delo.sh/bloodbank`, so emitting
+   already fans `bloodbank.evt.>` out to `ntfy.delo.sh/bloodbank`, so emitting
    correctly gives you the notification **plus every other consumer** for free.
    A direct ntfy node bypasses the bus and throws all of that away.
 3. **Schema-first events.** Only emit events already defined under
@@ -32,6 +32,10 @@ visual hub for the internals — not a place to hide a shell script inside one n
 5. **Reusable + parameterized beats bespoke.** Every atomic action that recurs
    across pipelines earns a reusable unit. Promote it up the escalation ladder
    as reuse grows.
+6. **Ingress authenticates before it transforms.** An external webhook's exact
+   bytes are provenance. Preserve the raw body, select the narrow credential by
+   stable sender identity, verify HMAC, then normalize and publish. Never put a
+   Set/Code transform or workspace guess ahead of signature verification.
 
 ## Quick Navigation
 
@@ -40,6 +44,7 @@ visual hub for the internals — not a place to hide a shell script inside one n
 | Justify/apply the principles + the escalation ladder in depth | [references/principles.md](./references/principles.md) |
 | Build, choose, or package a custom/community node | [references/node-catalog.md](./references/node-catalog.md) |
 | Emit a bloodbank event from inside an n8n workflow | [references/bloodbank-emit.md](./references/bloodbank-emit.md) |
+| Operate or debug the signed Plane → n8n → Bloodbank ingress | [references/plane-webhook-ingress.md](./references/plane-webhook-ingress.md) |
 | n8n instance facts + hard-won failure modes | [references/gotchas.md](./references/gotchas.md) |
 | Rebuild the transcribe/inbox pipeline (reference implementation) | [references/transcribe-rebuild.md](./references/transcribe-rebuild.md) |
 
@@ -71,8 +76,13 @@ is cheaper than untangling a monolith under fire.
   rung only. → node-catalog.
 - **n8n has no Dapr sidecar.** It runs as a PM2 host process on `:5678`; NATS is on
   the host at `127.0.0.1:4222`. Emit **NATS-direct** (via the `bb-emit` CLI) to
-  `bloodbank.evt.v1.<…>` — the bloodbank **HTTP ingress is v2/RabbitMQ and bypasses
+  `bloodbank.evt.<…>` — the bloodbank **HTTP ingress is v2/RabbitMQ and bypasses
   the v3 toaster**, and Dapr `/publish` is unavailable. → bloodbank-emit.
+- **Plane is the authenticated ingress exception.** Both Plane workspace
+  webhooks enter the same HTTPS workflow, which verifies the raw-body HMAC and
+  publishes through the custom Bloodbank node. This is not Bloodbank HTTP
+  `/event`, a second n8n instance, or the retired port-8477 bridge. →
+  plane-webhook-ingress.
 - **Never archive into a subdir of a watched folder.** `localFileTrigger` will
   re-fire forever. Archive off-filesystem (S3) or to a sibling outside the watch
   root. → gotchas.

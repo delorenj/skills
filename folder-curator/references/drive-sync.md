@@ -38,7 +38,7 @@ for f in "$DROPBOX"/*; do
   grep -q "\"$h\"" "$LEDGER" 2>/dev/null && continue        # already known → skip
   printf '{"id":"%s","file_path":"%s","file_name":"%s","file_hash_sha256":"%s"}' \
     "$h" "$f" "$(basename "$f")" "$h" \
-  | bb-emit --type bloodbank.v1.curator.file.received \
+  | bb-emit --type bloodbank.curator.file.received \
             --source urn:33god:cli:sync-jim-dropbox \
             --producer operator:jarad --service folder-curator
 done

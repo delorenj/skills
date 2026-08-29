@@ -1,0 +1,38 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CODEGRAPH_VOYAGE_HOOK_OWNER=codegraph-voyage.hooks.v1 \"$HOME/.agents/skills/codegraph-voyage/scripts/hook-runtime.py\" session_start",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CODEGRAPH_VOYAGE_HOOK_OWNER=codegraph-voyage.hooks.v1 \"$HOME/.agents/skills/codegraph-voyage/scripts/hook-runtime.py\" post_tool",
+            "timeout": 2
+          }
+        ],
+        "matcher": "Write|Edit|Patch|Create|write_file|patch|apply_patch|create_file|multi_edit|str_replace"
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CODEGRAPH_VOYAGE_HOOK_OWNER=codegraph-voyage.hooks.v1 \"$HOME/.agents/skills/codegraph-voyage/scripts/hook-runtime.py\" session_end",
+            "timeout": 65
+          }
+        ]
+      }
+    ]
+  }
+}

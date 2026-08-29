@@ -1,0 +1,128 @@
+{
+  "version": 2,
+  "timezone": "America/New_York",
+  "artifact_dir": "/home/delorenj/.local/state/delonet-daily-report/artifacts",
+  "archive_dir": "/home/delorenj/.local/state/delonet-daily-report/archive",
+  "max_age_hours": 24,
+  "core_sections": [
+    {
+      "id": "executive-brief",
+      "title": "Executive Brief",
+      "required": true
+    },
+    {
+      "id": "key-changes",
+      "title": "Key Changes",
+      "required": true
+    },
+    {
+      "id": "risks-watchlist",
+      "title": "Risks and Watchlist",
+      "required": true
+    },
+    {
+      "id": "coverage-freshness",
+      "title": "Coverage and Freshness",
+      "required": true
+    }
+  ],
+  "narrator": {
+    "enabled": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5",
+    "reasoning": "high"
+  },
+  "project_roots": [
+    "/home/delorenj/code/33GOD",
+    "/home/delorenj/code/james-brennan",
+    "/home/delorenj/code/intelliforia",
+    "/home/delorenj/code/delonet-company",
+    "/home/delorenj/code/PoopToTheMoon",
+    "/home/delorenj/code/33GOD/pjangler",
+    "/home/delorenj/code/33GOD/bloodbank",
+    "/home/delorenj/code/33GOD/candystore",
+    "/home/delorenj/code/33GOD/holocene"
+  ],
+  "sections": [
+    {
+      "id": "dev-activity",
+      "title": "Developer Activity",
+      "collector": "dev_activity",
+      "required": true,
+      "enabled": true,
+      "max_age_hours": 24,
+      "options": {
+        "candystore_url": "http://127.0.0.1:8683",
+        "max_commits_per_project": 30,
+        "page_size": 1000
+      }
+    },
+    {
+      "id": "fleet-health",
+      "title": "Hermes Fleet Health",
+      "collector": "fleet_health",
+      "required": false,
+      "enabled": true,
+      "max_age_hours": 24,
+      "options": {
+        "hermes_home": "/home/delorenj/.hermes",
+        "registry_file": "agents-registry.yaml",
+        "systemd_unit_glob": "hermes-*"
+      }
+    },
+    {
+      "id": "pr-maintenance",
+      "title": "Nightly PR Maintenance",
+      "collector": "pr_maintenance",
+      "required": false,
+      "enabled": true,
+      "max_age_hours": 24,
+      "options": {
+        "state_dir": "/home/delorenj/.local/state/pr-crusher",
+        "max_tick_runs": 5
+      }
+    },
+    {
+      "id": "report-delivery",
+      "title": "Daily Report and Delivery Health",
+      "collector": "report_delivery",
+      "required": true,
+      "enabled": true,
+      "max_age_hours": 24,
+      "options": {
+        "candystore_url": "http://127.0.0.1:8683",
+        "lookback_days": 7
+      }
+    }
+  ],
+  "distribution": {
+    "vault": {
+      "enabled": false,
+      "path": "/path/to/vault/Journal/Dev-Reports",
+      "git_commit": true
+    },
+    "notebook": {
+      "enabled": false,
+      "base_url": "",
+      "notebook_name": "Dev Journal"
+    },
+    "email": {
+      "enabled": false,
+      "to": [
+        "you@example.com"
+      ],
+      "from": "dev-journal@delo.sh",
+      "mode": "full",
+      "subject_template": "Dev Journal \u2014 {date} [{status}]"
+    },
+    "slack": {
+      "enabled": false,
+      "to": [
+        "channel-xxxx@example.slack.com"
+      ],
+      "from": "dev-journal@delo.sh",
+      "mode": "digest",
+      "subject_template": "Dev Journal \u2014 {date} [{status}]"
+    }
+  }
+}

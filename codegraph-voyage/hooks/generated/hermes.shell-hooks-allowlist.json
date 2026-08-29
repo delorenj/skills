@@ -1,0 +1,19 @@
+{
+  "approvals": [
+    {
+      "approved_by": "codegraph-voyage.hooks.v1",
+      "command": "CODEGRAPH_VOYAGE_HOOK_OWNER=codegraph-voyage.hooks.v1 \"$HOME/.agents/skills/codegraph-voyage/scripts/hook-runtime.py\" session_start",
+      "event": "on_session_start"
+    },
+    {
+      "approved_by": "codegraph-voyage.hooks.v1",
+      "command": "CODEGRAPH_VOYAGE_HOOK_OWNER=codegraph-voyage.hooks.v1 \"$HOME/.agents/skills/codegraph-voyage/scripts/hook-runtime.py\" post_tool",
+      "event": "post_tool_call"
+    },
+    {
+      "approved_by": "codegraph-voyage.hooks.v1",
+      "command": "CODEGRAPH_VOYAGE_HOOK_OWNER=codegraph-voyage.hooks.v1 \"$HOME/.agents/skills/codegraph-voyage/scripts/hook-runtime.py\" session_end",
+      "event": "on_session_end"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "hooks": {
+    "on_session_start": [
+      {
+        "command": "CODEGRAPH_VOYAGE_HOOK_OWNER=codegraph-voyage.hooks.v1 \"$HOME/.agents/skills/codegraph-voyage/scripts/hook-runtime.py\" session_start",
+        "timeout": 3
+      }
+    ],
+    "post_tool_call": [
+      {
+        "command": "CODEGRAPH_VOYAGE_HOOK_OWNER=codegraph-voyage.hooks.v1 \"$HOME/.agents/skills/codegraph-voyage/scripts/hook-runtime.py\" post_tool",
+        "timeout": 2
+      }
+    ],
+    "on_session_end": [
+      {
+        "command": "CODEGRAPH_VOYAGE_HOOK_OWNER=codegraph-voyage.hooks.v1 \"$HOME/.agents/skills/codegraph-voyage/scripts/hook-runtime.py\" session_end",
+        "timeout": 65
+      }
+    ]
+  }
+}

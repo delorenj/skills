@@ -1,6 +1,6 @@
 ---
 name: requirements-traceability-register
-description: Scaffold and populate a Requirements Management & Traceability Register — a multi-sheet spreadsheet that tracks project requirements from scoping through execution to acceptance and testing. Use when the user wants a requirements tracker, traceability register or matrix (RTM), acceptance matrix, phase-based requirements workbook, or a requirements dashboard in Google Sheets or Excel — built from a Lists validation tab, per-phase registers (P1/P2/P3) on a shared 21-column schema, an aggregated All Requirements master (VSTACK/QUERY), Traceability and Acceptance Matrix views, and COUNTIFS metric cards. Triggers include requirements traceability matrix, requirements register, acceptance criteria matrix, requirement ID, trace tags, phase gate, requirements dashboard, requirement statement. Do NOT use to author a PRD (use bmad-create-prd), run a Plane/Trello ticket board (use project-lifecycle or momo), or build a Gantt/timeline (use html-timeline-roadmap).
+description: Scaffold and populate a Requirements Management & Traceability Register — a multi-sheet spreadsheet that tracks project requirements from scoping through execution to acceptance and testing. Use when the user wants a requirements tracker, traceability register or matrix (RTM), acceptance matrix, phase-based requirements workbook, or a requirements dashboard in Google Sheets or Excel — built from a Lists validation tab, per-phase registers (P1/P2/P3) on a shared 21-column schema, an aggregated All Requirements master (VSTACK/QUERY), Traceability and Acceptance Matrix views, and COUNTIFS metric cards. Triggers include requirements traceability matrix, requirements register, acceptance criteria matrix, requirement ID, trace tags, phase gate, requirements dashboard, requirement statement. Do NOT use to author a PRD (use bmad-create-prd), run a Plane/Trello ticket board (use `momo` for 33GOD board orchestration; use `project-lifecycle` for direct Plane ticket CRUD outside 33GOD), or build a Gantt/timeline (use html-timeline-roadmap).
 ---
 
 # Requirements Management & Traceability Register
@@ -65,6 +65,6 @@ When scaffolding is not an option (locked-down Sheet, bespoke schema), build in 
 ## Out of Scope
 
 - **Authoring the requirements themselves** (the PRD, epics, user stories) — use `bmad-create-prd` / `bmad-create-epics-and-stories`. This skill builds the *register*, not the requirement content.
-- **Running a live ticket board** (Plane, Trello, Linear, Jira execution) — use `project-lifecycle` or `momo`. The register tracks and traces; it is not the system of record for ticket workflow.
+- **Running a live ticket board** (Plane, Trello, Linear, Jira execution) — in 33GOD, use **`momo`** for board orchestration; use `project-lifecycle` for direct Plane ticket CRUD outside 33GOD. The register tracks and traces; it is not the system of record for ticket workflow.
 - **Timeline / Gantt / roadmap visuals** — use `html-timeline-roadmap`. The register is tabular, not time-axis.
 - **Generic spreadsheet formula help** unrelated to this register structure — answer directly; no skill needed.

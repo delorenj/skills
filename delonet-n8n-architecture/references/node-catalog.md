@@ -18,7 +18,7 @@ Does a community node already do this action?
 ```
 
 A generic `n8n-nodes-nats` can publish to a subject — but it cannot know the
-CloudEvents envelope, the `bloodbank.evt.v1.*` subject binding, or the schema
+CloudEvents envelope, the `bloodbank.evt.*` subject binding, or the schema
 registry. That gap is exactly why a custom Bloodbank node is worth a day of work
 and a raw NATS node is not.
 

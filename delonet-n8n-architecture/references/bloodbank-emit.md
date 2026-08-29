@@ -6,18 +6,26 @@ lives in `bloodbank-integration` — do not duplicate or diverge from it here.
 
 ## Transport: which path from n8n?
 
+This section is for events **originated by workflow execution**, such as
+`audio.transcription.completed`. External Plane ingress is a different boundary:
+the signed request enters the active `Plane → Bloodbank` workflow, the custom
+node verifies the raw-body HMAC and normalizes provider data, then publishes the
+canonical event NATS-direct. See `plane-webhook-ingress.md`; do not route Plane
+through Bloodbank HTTP `/event`.
+
 n8n runs as a **PM2 host process on `:5678` with no Dapr sidecar**, and NATS is
 reachable on the host at `127.0.0.1:4222`. **Publish NATS-direct — do NOT use the
 bloodbank HTTP ingress for pipeline events.**
 
 - **NATS-direct (the correct path).** PUB the CloudEvents envelope to subject
-  `bloodbank.evt.v1.<domain>.<entity>.<action>` — the v3 path the `event-toaster`
+  `bloodbank.evt.<domain>.<entity>.<action>` — the path the `event-toaster`
   and every JetStream consumer actually see. On the host this is a dependency-free
   stdlib-TCP publish; use the **`bb-emit` CLI** (`~/.local/bin/bb-emit`), which reads
   the `data` JSON on stdin and derives the envelope, subject, `ordering_key`, and a
   deterministic `correlationid` from `data.transcription_id`. From n8n: an
   `Execute Command` node piping the base64-decoded `data` into
-  `bb-emit --type bloodbank.v1.<…>`.
+  `bb-emit --type bloodbank.<domain>.<entity>.<action>`. bb-emit **rejects** a
+  5-token `bloodbank.v1.*` type and exits 1 — it is not rewritten for you.
 - **Do NOT use HTTP `/publish` or `/event` for pipeline events.** Those hit the
   **v2 RabbitMQ exchange**, and the v3 NATS catch-all (`event-toaster` → ntfy) does
   **not** see RabbitMQ-only events. HTTP is only for genuine v2 fan-out or when
@@ -33,15 +41,23 @@ bound subject. `bb-emit` is its host-side seed.
 The NATS subject is the envelope's `type` with `evt` inserted after `bloodbank`:
 
 ```
-type    : bloodbank.v1.audio.transcription.completed
-subject : bloodbank.evt.v1.audio.transcription.completed   (evt=event, cmd=command, rpy=reply)
+type    : bloodbank.audio.transcription.completed
+subject : bloodbank.evt.audio.transcription.completed      (evt=event, cmd=command, rpy=reply)
 ```
 
 Never publish to a subject that doesn't match the envelope's `type`.
 
+**There is no contract-version token.** The type is 4 tokens and the subject is
+5; a `bloodbank.v1.*` type or a `bloodbank.evt.v1.*` subject is the retired
+shape. `bb-emit` refuses a 5-token `--type` outright (exit 1) rather than
+rewriting it, so a stale caller fails loudly instead of publishing where nothing
+is bound. The `.v1` that survives is the **schema revision** in `schemaref`
+(`bloodbank.<domain>.<entity>.<action>.v<n>`) — a different axis. See
+bloodbank `docs/event-naming.md` §3.1 and §13.
+
 ## The audio events already exist — use them verbatim
 
-Defined under `bloodbank/schemas/bloodbank/v1/audio/`:
+Defined under `bloodbank/schemas/bloodbank/audio/`:
 `file.received`, `transcription.start`, `transcription.started`,
 `transcription.completed`, `transcription.failed`. Emit these; do not invent new
 audio events without adding the schema first.
@@ -53,16 +69,16 @@ CloudEvents 1.0 + the 33GOD extension fields. For `audio.transcription.completed
 ```json
 {
   "specversion": "1.0",
-  "type": "bloodbank.v1.audio.transcription.completed",
+  "type": "bloodbank.audio.transcription.completed",
   "source": "n8n/inbox-transcribe",
-  "subject": "bloodbank.evt.v1.audio.transcription.completed",
+  "subject": "bloodbank.evt.audio.transcription.completed",
   "id": "{{ $execution.id }}",
   "time": "{{ $now.toISO() }}",
   "datacontenttype": "application/json",
   "producer": "n8n",
   "service": "inbox-transcribe",
   "domain": "audio",
-  "schemaref": "bloodbank/v1/audio/transcription.completed.v1.json",
+  "schemaref": "bloodbank.audio.transcription.completed.v1",
   "correlationid": "{{ $json.sourcePath }}",
   "data": {
     "sourcePath": "{{ $json.sourcePath }}",
@@ -77,7 +93,7 @@ CloudEvents 1.0 + the 33GOD extension fields. For `audio.transcription.completed
 ```
 
 Build `data` to match the schema's `data` object exactly — pull the real field
-names from `transcription.completed.v1.json`, don't trust this sketch. Use one
+names from `transcription.completed.json`, don't trust this sketch. Use one
 stable `correlationid` (the source path or a run id) across `started` → `completed`
 /`failed` so consumers can stitch the lifecycle together.
 
@@ -90,7 +106,7 @@ stable `correlationid` (the source path or a run id) across `started` → `compl
 
 ## Verify it actually landed
 
-`bloodbank-event-toaster` subscribes to `bloodbank.evt.v1.>` and forwards every
+`bloodbank-event-toaster` subscribes to `bloodbank.evt.>` and forwards every
 envelope to `https://ntfy.delo.sh/bloodbank`. Watch that topic while test-firing —
 if your event doesn't appear there, it never reached NATS. This is also *why* a
 direct ntfy node is redundant: the toaster already gives you the ping.

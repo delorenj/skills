@@ -69,6 +69,14 @@ COLUMNS = [
 PROVIDERS = {
     "aws", "cloudflare", "twilio", "clerk", "gorilladesk",
     "openai", "resend", "1password", "homelab",
+    # Added 2026-08-27 by the architecture-truth reconciliation. These are not
+    # speculative: each was found wired into a running process and consuming a
+    # real credential, and the ledger could not name any of them.
+    #
+    # `openrouter` matters twice over — the `openai` row above describes a
+    # vendor this engagement does not use. The model traffic goes to OpenRouter
+    # and always has; three processes share one key.
+    "deepgram", "cartesia", "openrouter", "posthog", "hindsight",
 }
 OWNERS = {"automaticai", "client", "shared-operator-tooling", "undetermined"}
 STATUSES = {"live", "rollback-only", "deprecated", "idle"}

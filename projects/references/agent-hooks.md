@@ -59,14 +59,17 @@ trees. Legacy `claude/publish.py`, `codex/publish.py`, `copilot/publish.py`, and
 ```yaml
 bloodbank:
   subscribe:
-    - "bloodbank.evt.v1.repo.<repo>.>"          # all events for this repo
-    - "bloodbank.cmd.v1.agent.invocation.start" # one command contract; target is in data
+    # Non-functional: the repo name sits in the grammar's entity slot, which
+    # real repo events fill with task/board/decision/intake/maintenance. Left
+    # as-is pending the optional scope-tail phase; do not improvise a scope.
+    - "bloodbank.evt.repo.<repo>.>"
+    - "bloodbank.cmd.agent.invocation.start"    # one command contract; target is in data
   producer: "hermes-agent:<agent_id>"
 ```
 
 **Consume:** there is intentionally **no per-agent consumer**. Command ingress
 is the single fleet-shared `hermes-fleet-bloodbank-gateway.service`, which
-subscribes once to `bloodbank.cmd.v1.agent.invocation.start` and routes
+subscribes once to `bloodbank.cmd.agent.invocation.start` and routes
 `data.target_agent_id` → the agent's Hermes profile via the fleet registry.
 `60-bloodbank.sh` is a compatibility checkpoint only — it installs no files or
 services. A `bloodbank-consumer.py` or `hermes-<agent>-consumer.service`
@@ -77,8 +80,10 @@ emits via `.scripts/sentinel/bin/emit-event.py`; producer identity is
 `hermes-agent:<agent_id>`.
 
 **Subject scheme:**
-- `bloodbank.evt.v1.repo.<repo>.>` — repo-scoped events.
-- `bloodbank.cmd.v1.agent.invocation.start` — the single command subject; the
+- `bloodbank.evt.repo.>` — repo-domain events (`task`, `board`, `decision`,
+  `intake`, `maintenance`, `skill` fill the entity slot; the repo identity
+  travels in `data`, not the subject).
+- `bloodbank.cmd.agent.invocation.start` — the single command subject; the
   target agent travels in `data.target_agent_id`, never in the subject.
 
 ### Plane facts use a separate ingress boundary
@@ -87,7 +92,7 @@ Agent hooks do not publish Plane ticket lifecycle facts. Plane sends signed
 webhooks for both self-hosted workspaces to the one active n8n workflow at
 `https://n8n.delo.sh/webhook/plane`. That workflow verifies raw-body HMAC,
 normalizes the provider action, resolves `board_id` through the shared fleet
-registry, and publishes `bloodbank.evt.v1.repo.task.*`.
+registry, and publishes `bloodbank.evt.repo.task.*`.
 
 PJangler owns the identity dependency in that journey: repo-root
 `.project.json.ticket_provider` is reconciled into

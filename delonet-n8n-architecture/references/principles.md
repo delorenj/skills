@@ -31,7 +31,7 @@ into one step" — only useful here, so it is not a unit, it is a monolith.
 Every pipeline outcome is an **event**, and events belong on bloodbank. This is
 not ceremony — it is the difference between a pipeline that notifies *you* and a
 pipeline that notifies *the system*. Concretely: `bloodbank-event-toaster`
-subscribes to `bloodbank.evt.v1.>` and forwards every envelope to
+subscribes to `bloodbank.evt.>` and forwards every envelope to
 `https://ntfy.delo.sh/bloodbank`. So a correctly-emitted `audio.transcription.completed`
 already lands as an ntfy ping — **and** is persisted by Candystore, **and** is
 visible to any future consumer (a "summarize new transcripts" agent, a metrics

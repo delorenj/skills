@@ -52,13 +52,31 @@ impl ZellijPlugin for State {
 
 ```bash
 # Add WASM target
-rustup target add wasm32-wasi
+rustup target add wasm32-wasip1
 
 # Build
 cargo build --release
 
-# Location: target/wasm32-wasi/release/<PLUGIN_NAME>.wasm
+# Location: target/wasm32-wasip1/release/<PLUGIN_NAME>.wasm
 ```
+
+> **On big-chungus, `cargo build` will fail with `can't find crate for core`.**
+> `/usr/bin/rustc` precedes rustup on `PATH` and carries no `wasm32-wasip1` std. The
+> error reads exactly like a missing target, so `rustup target add` looks like the fix
+> and does nothing — the target *is* installed. Pin `RUSTC` instead:
+>
+> ```bash
+> T=~/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu
+> RUSTC="$T/bin/rustc" "$T/bin/cargo" build --release --target wasm32-wasip1
+> ```
+>
+> Related: `rustc --print sysroot` returns **empty** when `RUSTUP_TOOLCHAIN` is set,
+> which sends the diagnosis further astray.
+
+> **Do not rebuild a plugin just because zellij was upgraded.** There is no plugin API
+> version gate in 0.44.3 — a plugin built against zellij-tile 0.41.1 loads fine. The only
+> cost of an old build is cosmetic (pre-0.43 knows `Style.palette` but not
+> `Style.styling`, so 16-colour approximation). See the `zellij-workspace-ops` skill.
 
 ### Loading Plugins
 
@@ -123,7 +141,7 @@ This launches `develop-rust-plugin` for real-time iteration (Ctrl+Shift+R to reb
 **Local Testing:**
 
 ```bash
-zellij plugin -- file:./target/wasm32-wasi/release/plugin.wasm
+zellij plugin -- file:./target/wasm32-wasip1/release/plugin.wasm
 ```
 
 **Release:**
@@ -301,7 +319,7 @@ Coordinate multiple plugins via message passing.
 
 ## Notes
 
-- Plugins compile to WASM (wasm32-wasi target)
+- Plugins compile to WASM (wasm32-wasip1 target)
 - Use color indices (0-3) instead of hex for theme compatibility
 - Always check exit codes for command execution
 - Leverage Zellij's pane system for long-running processes

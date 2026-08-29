@@ -30,12 +30,13 @@ pipeline-status:
 │   ├── macos-init.zsh          # macOS-specific setup
 │   └── linux-init.zsh          # Linux-specific setup
 ├── zellij/                      # Terminal multiplexer configs
-│   ├── config.kdl              # Zellij configuration
+│   ├── config.kdl              # Hand-edited, authoritative (NOT generated)
 │   ├── layouts/                # Custom layouts
 │   │   ├── default.kdl
-│   │   ├── dev.kdl
-│   │   └── workspace.kdl
-│   └── setup-zellij-v2.sh      # Setup automation
+│   │   ├── terminal.kdl        # the default_layout
+│   │   └── agent-orchestrator.kdl
+│   ├── plugins/                # Custom .wasm plugins
+│   └── scripts/                # zellij-doctor, zellij-unwedge, agent-pane
 └── alacritty/                   # Terminal emulator configs
     └── themes/                 # Color schemes
 ```
@@ -261,17 +262,26 @@ auto_layout true
 ```
 
 ### Session Management
-```bash
-# Start named session
-zellij-start() {
-  zellij attach -c "$1"
-}
 
-# Session shortcuts
-alias zl='zellij list-sessions'
-alias za='zellij attach'
-alias zk='zellij kill-session'
+**This machine runs exactly one zellij session, named `Workspace`.** It is created and
+kept alive by `zellij-workspace.service` (`ensure-zellij-workspace --watch`), holds
+~16–30 tabs of live agent conversations, and must never be killed or restarted to apply
+a config change. Work happens in tabs, not in sessions.
+
+Generic multi-session helpers (`zellij attach -c "$1"`, `alias zk='zellij kill-session'`)
+are therefore an anti-pattern here and have been removed — `kill-session` in particular
+is the one command that must not be aimed at `Workspace`.
+
+To operate on a tab from outside, address it by its **stable id** (position changes when
+tabs are reordered):
+
+```bash
+zellij -s Workspace action list-tabs --json      # ids, names, state
+zellij -s Workspace action go-to-tab-by-id <id>
 ```
+
+For anything deeper — diagnosing a hung CLI, wiring a plugin, resurrection — use the
+`zellij-workspace-ops` skill.
 
 ## Cross-Platform Compatibility
 

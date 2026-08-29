@@ -134,7 +134,7 @@ fn update_panes(&mut self) {
 cargo build --release
 ```
 
-This generates a WASM binary at: `target/wasm32-wasi/release/<PLUGIN_NAME>.wasm`
+This generates a WASM binary at: `target/wasm32-wasip1/release/<PLUGIN_NAME>.wasm`
 
 ### Loading the Plugin
 

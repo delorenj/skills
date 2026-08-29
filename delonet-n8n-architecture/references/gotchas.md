@@ -100,3 +100,27 @@ archive steps / credentials. Each entry: **Symptom → Cause → Fix → Prevent
   PM2_HOME=/home/delorenj/.pm2 pm2 restart n8n`.
 - **Prevention:** in any deploy hook that restarts n8n, set `PM2_HOME` and use the
   node-dir `pm2`, not the mise shim.
+
+## Plane says HMAC is configured but the workflow rejects it
+
+- **Symptom:** `X-Plane-Signature` fails even when the 1Password item is correct.
+- **Cause:** verification received parsed/re-serialized JSON instead of the exact
+  bytes Plane signed, or the secret was selected by workspace rather than the
+  stable payload `webhook_id`.
+- **Fix:** enable `rawBody` on the Webhook node; make `Normalize and Publish` the
+  first downstream node; select the `op://` reference from the webhook-ID
+  allowlist; verify before registry lookup, normalization, or NATS publication.
+- **Prevention:** test a valid signature, invalid signature, unknown webhook ID,
+  and semantically identical/reformatted JSON. The latter must fail.
+
+## Plane appears to need port 8477 or a second workflow
+
+- **Symptom:** two Plane webhooks/workflows seem to imply two services, or an old
+  host-port relay appears necessary.
+- **Cause:** historical `plane-webhook-bridge` wiring is being confused with the
+  consolidated ingress.
+- **Fix:** both self-hosted workspaces target the same HTTPS endpoint,
+  `https://n8n.delo.sh/webhook/plane`, and the same active workflow. Their
+  distinct `webhook_id` values select distinct secrets. Port `8477` is retired.
+- **Prevention:** one active workflow, one webhook per workspace, per-webhook
+  HMAC allowlist, and Candystore proof after every material ingress change.

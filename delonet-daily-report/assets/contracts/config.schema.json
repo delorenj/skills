@@ -1,33 +1,57 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://delonet.local/ddr/config.schema.json",
-  "title": "DeLoNET Daily Report configuration",
+  "title": "DeLoNET Daily Report configuration (v2)",
+  "description": "v2 replaced news topics with collector-backed sections. Coverage is always enumerated from this file, never from artifacts found on disk.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "timezone", "inference", "artifact_dir", "archive_dir", "core_sections", "daily", "topics"],
+  "required": ["version", "timezone", "artifact_dir", "archive_dir", "core_sections", "narrator", "project_roots", "sections"],
   "properties": {
-    "version": {"const": 1},
-    "timezone": {"const": "America/New_York"},
-    "inference": {"type": "object", "additionalProperties": false, "required": ["provider", "model"], "properties": {"provider": {"type": "string", "minLength": 1}, "model": {"type": "string", "minLength": 1}}},
+    "version": {"const": 2},
+    "timezone": {"type": "string", "minLength": 1, "description": "IANA zone name"},
     "artifact_dir": {"type": "string", "pattern": "^/"},
     "archive_dir": {"type": "string", "pattern": "^/"},
     "max_age_hours": {"type": "integer", "minimum": 1, "maximum": 168, "default": 24},
-    "core_sections": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "object", "additionalProperties": false, "required": ["id", "title", "required"], "properties": {"id": {"type": "string", "minLength": 1, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"}, "title": {"type": "string", "minLength": 1}, "required": {"type": "boolean"}}}},
-    "daily": {
-      "type": "object", "additionalProperties": false,
-      "required": ["enabled", "schedule", "deliver"],
-      "properties": {"enabled": {"type": "boolean"}, "schedule": {"const": "0 7 * * *"}, "deliver": {"type": "string", "minLength": 1}, "workdir": {"oneOf": [{"const": ""}, {"type": "string", "pattern": "^/"}]}}
+    "core_sections": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"type": "object", "additionalProperties": false, "required": ["id", "title", "required"], "properties": {"id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"}, "title": {"type": "string", "minLength": 1}, "required": {"type": "boolean"}}}
     },
-    "topics": {
-      "type": "array",
+    "narrator": {
+      "type": "object", "additionalProperties": false,
+      "required": ["enabled", "provider", "model"],
+      "properties": {"enabled": {"type": "boolean"}, "provider": {"type": "string", "minLength": 1}, "model": {"type": "string", "minLength": 1}}
+    },
+    "project_roots": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "description": "Absolute repository paths scanned by the dev_activity collector.",
+      "items": {"type": "string", "pattern": "^/"}
+    },
+    "sections": {
+      "type": "array", "minItems": 1,
+      "minContains": 1,
+      "contains": {"type": "object", "required": ["required", "enabled"], "properties": {"required": {"const": true}, "enabled": {"const": true}}},
       "items": {
         "type": "object", "additionalProperties": false,
-        "required": ["id", "title", "prompt", "schedule", "enabled", "sources"],
+        "required": ["id", "title", "collector", "required", "enabled", "max_age_hours", "options"],
         "properties": {
-          "id": {"type": "string", "minLength": 1, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"}, "title": {"type": "string", "minLength": 1}, "prompt": {"type": "string", "minLength": 1}, "schedule": {"type": "string", "pattern": "^[0-9]{1,2} [0-9]{1,2} \\* \\* \\*$"}, "enabled": {"type": "boolean"},
-          "sources": {"type": "array", "uniqueItems": true, "items": {"type": "string", "format": "uri", "pattern": "^https://(?![^/?#]*@)[^?]+$"}},
-          "secret_env": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$"}}
-        }
+          "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+          "title": {"type": "string", "minLength": 1},
+          "collector": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$", "description": "module name under scripts/collectors/"},
+          "required": {"type": "boolean"},
+          "enabled": {"type": "boolean"},
+          "max_age_hours": {"type": "integer", "minimum": 1, "maximum": 168},
+          "options": {
+            "type": "object",
+            "propertyNames": {"pattern": "^[a-z][a-z0-9_]*$"},
+            "additionalProperties": {"oneOf": [{"type": ["string", "number", "boolean"]}, {"type": "array", "items": {"type": ["string", "number", "boolean"]}}]}
+          }
+        },
+        "allOf": [
+          {
+            "if": {"required": ["required"], "properties": {"required": {"const": true}}},
+            "then": {"properties": {"enabled": {"const": true}}, "description": "A required section that is never collected would make an overall complete status vacuously true."}
+          }
+        ]
       }
     }
   }

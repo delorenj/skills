@@ -17,7 +17,7 @@ workflow is never overloaded and files drain in order.
 [file lands in a curated dir]  (e.g. client_dropbox/ — via the inbound Drive pull → drive-sync.md)
         │  announce: bb-emit curator.file.received   (one per file not in .curator/ledger.json)
         ▼
-  bloodbank.evt.v1.curator.file.received   ── retained by BLOODBANK_EVENTS (JetStream, evt.v1.>)
+  bloodbank.evt.curator.file.received   ── retained by BLOODBANK_EVENTS (JetStream, evt.>)
         │
 [curator-drain]  nats-py durable · manual_ack · max_ack_pending=1     (assets/curator-drain.py)
         │  POST envelope → n8n webhook; ACK only on HTTP 2xx  (exactly one in flight)
@@ -50,19 +50,19 @@ The `curator` domain is registered and the four event schemas exist and validate
   (each `allOf`-extends `_common/cloudevent_base.v1.json`; `type`/`kind`/`domain` consts pinned).
 - **Verified:** `mise run validate:schemas` (tree), `mise run smoketest:schema-contract-consistency`
   (every declared type passes the runtime validator), `mise run smoketest:bloodbank-naming`.
-- **Retention:** `BLOODBANK_EVENTS` already filters `bloodbank.evt.v1.>` — curator events are
+- **Retention:** `BLOODBANK_EVENTS` already filters `bloodbank.evt.>` — curator events are
   retained with **no `compose/nats/streams.json` change**.
 
 The event set and their `data` (model payloads on the schema files, not this sketch):
 
-| Type (`bloodbank.v1.` +) | When | Key `data` |
+| Type (`bloodbank.` +) | When | Key `data` |
 |---|---|---|
 | `curator.file.received` | a file appeared in a curated dir (announce) | `file_path`, `file_hash_sha256`, `curated_dir` |
 | `curator.file.routed`   | file classified + placed (after `apply`) | `file_path`, `destination`, `category`, `kind`, `confidence` |
 | `curator.file.flagged`  | parked for review (0 or >1 category match; or a quarantined secret) | `file_path`, `reason`, `confidence`, `purpose` |
 | `curator.file.failed`   | a curation step failed (error branch) | `file_path`, `stage`, `error` |
 
-Subject = type with `evt` inserted: `bloodbank.evt.v1.curator.file.<action>`. `ordering_key`
+Subject = type with `evt` inserted: `bloodbank.evt.curator.file.<action>`. `ordering_key`
 = `file:<sha256(file_path)>` so re-detections of one artifact share a bucket.
 
 ## 2. Announce producer

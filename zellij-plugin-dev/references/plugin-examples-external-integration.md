@@ -7,7 +7,7 @@ Real-world example demonstrating external process management and system integrat
 **Repository:** https://github.com/dj95/zj-docker
 **License:** MIT (© 2023 Lev Perschin, Daniel Jankowski)
 **Category:** System Integration
-**Language:** Rust/WASM (wasm32-wasi)
+**Language:** Rust/WASM (wasm32-wasip1)
 
 ### Overview
 

@@ -1,0 +1,12 @@
+# Provenance for this skill. Managed by skill_ssot.py.
+origin:
+  type: vendored
+  upstream: https://github.com/citrolabs/ego-lite
+  upstream_version: v1.2.3
+  extracted_at: 2026-08-14T00:00:00+00:00
+modified_locally: true
+notes: >
+  Upstream is macOS-only. references/upstream-SKILL.md and
+  assets/upstream-install.sh are verbatim upstream. SKILL.md and
+  scripts/ego-browser are local: they add the ssh bridge so any fleet host
+  drives the Mac, plus the money/root handoff gate policy.

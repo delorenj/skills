@@ -898,7 +898,7 @@ def transform_pdf(path: Path, client_root: Path, contract: dict, tconf: dict, vi
     if via == "event":
         entry = {"file": rel, "action": "pdf->md (delegate to n8n)", "status": "planned"}
         if apply:
-            ok = emit_event("bloodbank.v1.curator.file.received", {
+            ok = emit_event("bloodbank.curator.file.received", {
                 "file": str(path.resolve()), "client_root": str(client_root),
                 "content_type": "application/pdf", "transform": "pdf_to_markdown"})
             entry["status"] = "emitted" if ok else "emit-failed"
@@ -917,11 +917,11 @@ def transform_pdf(path: Path, client_root: Path, contract: dict, tconf: dict, vi
     md = convert_pdf(path)
     if md is None:
         entry["status"] = "failed"; entry["error"] = "conversion failed"
-        emit_event("bloodbank.v1.curator.file.failed", {"file": rel, "stage": "convert"})
+        emit_event("bloodbank.curator.file.failed", {"file": rel, "stage": "convert"})
         return entry
     if not dest_spec or not s3_archive(path, dest_spec, verify):
         entry["status"] = "failed"; entry["error"] = "s3 archive/verify failed — original kept"
-        emit_event("bloodbank.v1.curator.file.failed", {"file": rel, "stage": "archive"})
+        emit_event("bloodbank.curator.file.failed", {"file": rel, "stage": "archive"})
         return entry
     md_path = path.with_suffix(".md")
     if md_path.exists():
@@ -931,7 +931,7 @@ def transform_pdf(path: Path, client_root: Path, contract: dict, tconf: dict, vi
     if delete_after:
         path.unlink()
     entry.update(status="done", markdown=plan.get("destination"), deleted_local=delete_after)
-    emit_event("bloodbank.v1.curator.file.routed", {
+    emit_event("bloodbank.curator.file.routed", {
         "file": rel, "destination": plan.get("destination"), "kind": plan.get("kind"),
         "transformed_from": "pdf", "archived": f"{dest_spec}/{path.name}"})
     return entry

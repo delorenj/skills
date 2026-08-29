@@ -4,6 +4,11 @@ pipeline-status:
 ---
 # Plugin Examples: UI and Navigation
 
+> **Plugin URLs take no variables.** Neither `~` nor `$HOME` is expanded — zellij
+> reads the string literally, and a tilde path silently produces a plugin that never
+> loads. This exact class killed four plugins on this machine. Absolute paths only.
+
+
 Real-world examples demonstrating UI rendering, search, and navigation patterns.
 
 ## Monocle: Fuzzy File Finder
@@ -38,7 +43,7 @@ Monocle implements fuzzy search for file names and contents, demonstrating advan
 
 **Kiosk Mode:**
 ```kdl
-zellij plugin --in-place -- file:~/.config/zellij/plugins/monocle.wasm \
+zellij plugin --in-place -- file:/home/delorenj/.config/zellij/plugins/monocle.wasm \
   --configuration kiosk=true
 ```
 
@@ -106,7 +111,7 @@ Room streamlines tab navigation through fuzzy search, demonstrating practical mo
 
 **Basic Setup:**
 ```kdl
-plugin location="file:~/.config/zellij/plugins/room.wasm" {
+plugin location="file:/home/delorenj/.config/zellij/plugins/room.wasm" {
     floating true
     ignore_case true
     quick_jump false
@@ -136,7 +141,7 @@ When enabled, numeric keys directly select tabs, but prevents proper filtering o
 **Keybinding Configuration:**
 ```kdl
 bind "Ctrl t" {
-    LaunchOrFocusPlugin "file:~/.config/zellij/plugins/room.wasm" {
+    LaunchOrFocusPlugin "file:/home/delorenj/.config/zellij/plugins/room.wasm" {
         floating true
         ignore_case true
     }

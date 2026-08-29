@@ -1,0 +1,311 @@
+{
+  "$schema": "https://raw.githubusercontent.com/delorenj/skillex/main/skills.schema.json",
+  "inherit_global": true,
+  "registry": "https://github.com/delorenj/skillex.git",
+  "skills": [
+    {
+      "name": "bmad-advanced-elicitation",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-advanced-elicitation"
+    },
+    {
+      "name": "bmad-agent-analyst",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-agent-analyst"
+    },
+    {
+      "name": "bmad-agent-architect",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-agent-architect"
+    },
+    {
+      "name": "bmad-agent-builder",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-agent-builder"
+    },
+    {
+      "name": "bmad-agent-dev",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-agent-dev"
+    },
+    {
+      "name": "bmad-agent-pm",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-agent-pm"
+    },
+    {
+      "name": "bmad-agent-tech-writer",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-agent-tech-writer"
+    },
+    {
+      "name": "bmad-agent-ux-designer",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-agent-ux-designer"
+    },
+    {
+      "name": "bmad-architecture",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-architecture"
+    },
+    {
+      "name": "bmad-bmb-setup",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-bmb-setup"
+    },
+    {
+      "name": "bmad-brainstorming",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-brainstorming"
+    },
+    {
+      "name": "bmad-check-implementation-readiness",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-check-implementation-readiness"
+    },
+    {
+      "name": "bmad-checkpoint-preview",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-checkpoint-preview"
+    },
+    {
+      "name": "bmad-cis-agent-brainstorming-coach",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-cis-agent-brainstorming-coach"
+    },
+    {
+      "name": "bmad-cis-agent-creative-problem-solver",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-cis-agent-creative-problem-solver"
+    },
+    {
+      "name": "bmad-cis-agent-design-thinking-coach",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-cis-agent-design-thinking-coach"
+    },
+    {
+      "name": "bmad-cis-agent-innovation-strategist",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-cis-agent-innovation-strategist"
+    },
+    {
+      "name": "bmad-cis-agent-presentation-master",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-cis-agent-presentation-master"
+    },
+    {
+      "name": "bmad-cis-agent-storyteller",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-cis-agent-storyteller"
+    },
+    {
+      "name": "bmad-cis-design-thinking",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-cis-design-thinking"
+    },
+    {
+      "name": "bmad-cis-innovation-strategy",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-cis-innovation-strategy"
+    },
+    {
+      "name": "bmad-cis-problem-solving",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-cis-problem-solving"
+    },
+    {
+      "name": "bmad-cis-storytelling",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-cis-storytelling"
+    },
+    {
+      "name": "bmad-code-review",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-code-review"
+    },
+    {
+      "name": "bmad-correct-course",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-correct-course"
+    },
+    {
+      "name": "bmad-create-architecture",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-create-architecture"
+    },
+    {
+      "name": "bmad-create-epics-and-stories",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-create-epics-and-stories"
+    },
+    {
+      "name": "bmad-create-prd",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-create-prd"
+    },
+    {
+      "name": "bmad-create-story",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-create-story"
+    },
+    {
+      "name": "bmad-customize",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-customize"
+    },
+    {
+      "name": "bmad-deep-recon",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-deep-recon"
+    },
+    {
+      "name": "bmad-dev-auto",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-dev-auto"
+    },
+    {
+      "name": "bmad-dev-story",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-dev-story"
+    },
+    {
+      "name": "bmad-document-project",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-document-project"
+    },
+    {
+      "name": "bmad-domain-research",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-domain-research"
+    },
+    {
+      "name": "bmad-edit-prd",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-edit-prd"
+    },
+    {
+      "name": "bmad-editorial-review",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-editorial-review"
+    },
+    {
+      "name": "bmad-editorial-review-prose",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-editorial-review-prose"
+    },
+    {
+      "name": "bmad-editorial-review-structure",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-editorial-review-structure"
+    },
+    {
+      "name": "bmad-eval-runner",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-eval-runner"
+    },
+    {
+      "name": "bmad-forge-idea",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-forge-idea"
+    },
+    {
+      "name": "bmad-generate-project-context",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-generate-project-context"
+    },
+    {
+      "name": "bmad-help",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-help"
+    },
+    {
+      "name": "bmad-loop-resolve",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-loop-resolve"
+    },
+    {
+      "name": "bmad-loop-setup",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-loop-setup"
+    },
+    {
+      "name": "bmad-loop-sweep",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-loop-sweep"
+    },
+    {
+      "name": "bmad-market-research",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-market-research"
+    },
+    {
+      "name": "bmad-module-builder",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-module-builder"
+    },
+    {
+      "name": "bmad-party-mode",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-party-mode"
+    },
+    {
+      "name": "bmad-prd",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-prd"
+    },
+    {
+      "name": "bmad-prfaq",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-prfaq"
+    },
+    {
+      "name": "bmad-product-brief",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-product-brief"
+    },
+    {
+      "name": "bmad-qa-generate-e2e-tests",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-qa-generate-e2e-tests"
+    },
+    {
+      "name": "bmad-quick-dev",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-quick-dev"
+    },
+    {
+      "name": "bmad-retrospective",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-retrospective"
+    },
+    {
+      "name": "bmad-review",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-review"
+    },
+    {
+      "name": "bmad-review-adversarial-general",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-review-adversarial-general"
+    },
+    {
+      "name": "bmad-review-edge-case-hunter",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-review-edge-case-hunter"
+    },
+    {
+      "name": "bmad-review-verification-gap",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-review-verification-gap"
+    },
+    {
+      "name": "bmad-spec",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-spec"
+    },
+    {
+      "name": "bmad-sprint-planning",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-sprint-planning"
+    },
+    {
+      "name": "bmad-sprint-status",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-sprint-status"
+    },
+    {
+      "name": "bmad-tea",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-tea"
+    },
+    {
+      "name": "bmad-teach-me-testing",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-teach-me-testing"
+    },
+    {
+      "name": "bmad-technical-research",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-technical-research"
+    },
+    {
+      "name": "bmad-testarch-atdd",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-testarch-atdd"
+    },
+    {
+      "name": "bmad-testarch-automate",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-testarch-automate"
+    },
+    {
+      "name": "bmad-testarch-ci",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-testarch-ci"
+    },
+    {
+      "name": "bmad-testarch-framework",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-testarch-framework"
+    },
+    {
+      "name": "bmad-testarch-nfr",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-testarch-nfr"
+    },
+    {
+      "name": "bmad-testarch-test-design",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-testarch-test-design"
+    },
+    {
+      "name": "bmad-testarch-test-review",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-testarch-test-review"
+    },
+    {
+      "name": "bmad-testarch-trace",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-testarch-trace"
+    },
+    {
+      "name": "bmad-ux",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-ux"
+    },
+    {
+      "name": "bmad-validate-prd",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-validate-prd"
+    },
+    {
+      "name": "bmad-workflow-builder",
+      "source": "file:///home/delorenj/.agents/.cache/registries/https___github_com_delorenj_skillex_git/packs/bmad/6.10.1-next.31/bmad-workflow-builder"
+    }
+  ]
+}

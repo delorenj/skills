@@ -1,11 +1,21 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://delonet.local/ddr/section-artifact.schema.json", "title": "SectionArtifact", "type": "object", "additionalProperties": false,
-  "required": ["schema_version", "run_id", "topic_id", "generated_at", "fresh_until", "status", "summary", "findings", "sources", "caveats"],
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://delonet.local/ddr/section-artifact.schema.json", "title": "SectionArtifact (v2)", "type": "object", "additionalProperties": false,
+  "description": "v2 supports local collectors: findings and sources are optional (local sources have no URLs), metrics and detail were added, and reason is mandatory whenever status is not complete.",
+  "required": ["schema_version", "run_id", "topic_id", "generated_at", "fresh_until", "status", "summary", "caveats"],
   "properties": {
-    "schema_version": {"const": 1}, "run_id": {"type": "string", "minLength": 1}, "topic_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "schema_version": {"const": 2}, "run_id": {"type": "string", "minLength": 1}, "topic_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
     "generated_at": {"type": "string", "minLength": 1, "format": "date-time"}, "fresh_until": {"type": "string", "minLength": 1, "format": "date-time"}, "status": {"enum": ["complete", "partial", "stale", "failed"]}, "summary": {"type": "string", "minLength": 1},
+    "reason": {"type": "string", "minLength": 1, "description": "Why the status is not complete. Required unless status is complete."},
+    "metrics": {"type": "object", "description": "Free-form flat map of counts and short facts.", "propertyNames": {"minLength": 1}, "additionalProperties": {"type": ["string", "number", "boolean"]}},
+    "detail": {"type": "array", "description": "Pre-rendered lines. Truncation is always recorded in caveats.", "items": {"type": "string"}},
     "findings": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["claim", "significance", "source_urls"], "properties": {"claim": {"type": "string", "minLength": 1}, "significance": {"type": "string", "minLength": 1}, "source_urls": {"type": "array", "items": {"type": "string", "minLength": 1, "format": "uri", "pattern": "^https://(?![^/?#]*@)[^?]+$"}}}}},
     "sources": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["url", "retrieved_at"], "properties": {"url": {"type": "string", "minLength": 1, "format": "uri", "pattern": "^https://(?![^/?#]*@)[^?]+$"}, "title": {"type": "string", "minLength": 1}, "publisher": {"type": "string", "minLength": 1}, "published_at": {"type": ["string", "null"], "format": "date-time"}, "retrieved_at": {"type": "string", "minLength": 1, "format": "date-time"}}}},
     "caveats": {"type": "array", "items": {"type": "string", "minLength": 1}}
-  }
+  },
+  "allOf": [
+    {
+      "if": {"required": ["status"], "properties": {"status": {"not": {"const": "complete"}}}},
+      "then": {"required": ["reason"]}
+    }
+  ]
 }

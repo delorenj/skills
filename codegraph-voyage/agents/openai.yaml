@@ -1,0 +1,6 @@
+interface:
+  display_name: "CodeGraph Voyage"
+  short_description: "Semantic code search for CodeGraph projects"
+  default_prompt: "Use $codegraph-voyage to find semantically relevant symbols in this project."
+policy:
+  allow_implicit_invocation: true
