@@ -19,7 +19,7 @@ pipeline-status:
 | Provider | Access | Best For | How to Invoke |
 |----------|--------|----------|---------------|
 | **GitHub Copilot** | Token auth (subscription) | Fast tasks, code completion, reviews | `sessions_spawn` with `model: "github-copilot/claude-sonnet-4.5"` or any copilot model |
-| **OpenAI Codex CLI** | OAuth ($20/mo subscription) | Complex single-file tasks, full-auto mode | `exec pty:true command:"codex exec --full-auto 'prompt'" workdir:/path` |
+| **OpenAI Codex CLI** | OAuth ($20/mo subscription) | Complex single-file tasks, bounded workspace-write automation | `exec command:"codex exec --approve-for-me 'prompt'" workdir:/path` |
 | **Kimi K2.5** | API key (kimi-coding) | Reasoning-heavy tasks, architecture, large context | `sessions_spawn` with `model: "kimi-coding/k2p5"` |
 | **Jules** (Google) | API key: `op://DeLoSecrets/Jules/API Key` | Async background coding, PR generation | See Jules section below |
 | **Augment (auggie)** | CLI at `~/.bun/bin/auggie` | Code generation, refactoring, indexing | See Augment section below |
@@ -70,7 +70,7 @@ pipeline-status:
 **Always exhaust free/subscription tiers before pay-per-token:**
 
 1. **GitHub Copilot models** — included in subscription, use freely
-2. **Codex CLI** — $20/mo flat, use `--full-auto` or `--yolo` liberally
+2. **Codex CLI** — $20/mo flat; use `--approve-for-me` by default. Use `--dangerously-bypass-approvals-and-sandbox` only when an external sandbox already provides containment.
 3. **Kimi K2.5** — generous free tier, great for reasoning
 4. **Jules** — included in Google Max plan, async background work
 5. **Augment** — free tier tokens available
@@ -82,14 +82,14 @@ pipeline-status:
 
 ### Codex CLI (OpenAI)
 ```bash
-# One-shot task (PTY required!)
-exec pty:true workdir:/path/to/repo command:"codex exec --full-auto 'Your task description'"
+# One-shot task
+exec workdir:/path/to/repo command:"codex exec --approve-for-me 'Your task description'"
 
 # Background for longer work
-exec pty:true workdir:/path/to/repo background:true command:"codex exec --full-auto 'Your task. When done, run: openclaw gateway wake --text \"Done: brief summary\" --mode now'"
+exec workdir:/path/to/repo background:true command:"codex exec --approve-for-me 'Your task. When done, run: openclaw gateway wake --text \"Done: brief summary\" --mode now'"
 
-# YOLO mode (no sandbox, no approvals — fastest)
-exec pty:true workdir:/path/to/repo command:"codex exec --yolo 'Your task'"
+# Unsandboxed mode — only when an external sandbox already provides containment
+exec workdir:/path/to/repo command:"codex exec --dangerously-bypass-approvals-and-sandbox 'Your task'"
 
 # Code review
 exec pty:true workdir:/path/to/repo command:"codex review --base origin/main"
@@ -211,7 +211,7 @@ Task: "Build user dashboard"
 ### Pattern 2: Pipeline (sequential dependencies)
 ```
 Step 1 (kimi-k2.5): "Design the API schema and types"
-  → Step 2 (codex --full-auto): "Implement the API endpoints"
+  → Step 2 (codex --approve-for-me): "Implement the API endpoints"
     → Step 3 (copilot/sonnet): "Write integration tests"
       → Step 4 (copilot/haiku): "Generate API documentation"
 ```
@@ -237,7 +237,7 @@ exec pty:true background:true command:"codex exec 'Review PR #87. git diff origi
 
 1. **Always check this skill before coding** — even for small tasks
 2. **Free tokens first** — exhaust GitHub Copilot, Codex CLI, Kimi, Jules, Augment before paying
-3. **PTY required for Codex CLI** — `pty:true` always
+3. **`codex exec` is non-interactive** — it does not require a PTY; use `--approve-for-me` for bounded workspace-write automation
 4. **Codex needs a git repo** — won't run outside one
 5. **Never run coding agents in `~/.openclaw/`** — they'll read soul docs and get weird
 6. **Notify on completion** — append `openclaw gateway wake` to long-running prompts
