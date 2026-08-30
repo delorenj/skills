@@ -116,9 +116,10 @@ does not prove a target is routable: eligibility is default-deny and requires
   `ExecMainStatus`, `NRestarts`, and the latest heartbeat service result; one
   `is-active` sample is not success.
 - The immutable PM skill core is `33god-projects`, `delonet-conventions`,
-  `delonet-dotenv`, `hermes-pm-template-maintenance`, `hindsight`, and
+  `delonet-dotenv`, `agent-fleet-operations`, `hindsight`, and
   `subagent-driven-development`. Configuration may add skills, never subtract
-  or replace these six.
+  or replace these six. `hermes-pm-template-maintenance` is deprecated; its
+  fleet/template procedures live in this skill.
 - Fleet summaries and `pj audit` are aggregate claims. Verify their result
   against `.project.json`, the registry row, real profile files, and exact
   systemd enabled/active/restart state before declaring success.
