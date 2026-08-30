@@ -158,7 +158,7 @@ exec pty:true workdir:/path/to/repo command:"auggie --image screenshot.png 'Impl
 exec pty:true workdir:/path/to/repo command:"auggie --ask 'Explain the auth flow in this codebase'"
 ```
 
-**Binary:** `~/.bun/bin/auggie`
+**Binary:** mise-managed; resolve with `command -v auggie` and invoke `auggie` by name.
 **Best for:** Code generation, refactoring, codebase-aware tasks. Has workspace indexing for deep context.
 **Note:** First run in a new workspace triggers an indexing step. Use `--print` from workspace root to index.
 
