@@ -40,14 +40,16 @@ MP3 request (`container: mp3`, 44.1 kHz, 128 kbps). It requests
 `locale: en-US`, `volume: 1`, and a measured slow `speed: 0.85`; the intent is a
 solemn, unhurried documentary read without cloning or custom-voice training.
 
-The bounded stock candidates are **Ronald** and **Carson**, per Cartesia's
-official stable-English-voice guidance; these are candidate names, not verified
-IDs. Set `CARTESIA_VOICE_ID` only after a standard runtime key
-can inspect the official Voice Library and a mock-safe validation confirms the
-chosen stock voice supports this model and output. Do not invent or hard-code an
-unverified ID. Live validation is currently blocked: no usable standard Cartesia
-runtime key is available, and the legacy admin/unrecognized key must never be used
-for TTS, provisioned, persisted, or tested with paid synthesis.
+The bounded stock candidates are **Jameson** (first stable-English-male
+candidate) and **Daniel** (alternate). Cartesia's current official guidance also
+lists Archie, Parker, and Corey as stable English male voices. These are names
+only, not verified IDs or a claim of period/Ken-Burns similarity. Set
+`CARTESIA_VOICE_ID` only after a standard runtime key can preview the current
+official Voice Library and confirm the selected stock voice supports this model
+and MP3 output. Do not invent or hard-code an unverified ID, and do not clone or
+train a custom voice. Live validation is currently blocked: no usable standard
+Cartesia runtime key is available, and the legacy admin/unrecognized key must
+never be used for TTS, provisioned, persisted, or tested with paid synthesis.
 
 Use only a standard `CARTESIA_API_KEY` (`sk_car_...`); the adapter rejects
 `sk_car_admin_...`. Supply it through an `op://DeLoSecrets/...` reference resolved
@@ -60,6 +62,8 @@ Official references (checked 2026-08-31):
 - https://docs.cartesia.ai/api-reference/tts/bytes
 - https://docs.cartesia.ai/use-the-api/api-conventions
 - https://docs.cartesia.ai/build-with-cartesia/capability-guides/choosing-a-voice
+  (retrieved 2026-08-31; stable English male list: Daniel, Archie, Parker,
+  Jameson, Corey; emotive English male list: Brandon, Cory, Alec)
 
 ## Music
 
