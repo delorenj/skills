@@ -73,10 +73,11 @@ function streamedResponse({
   chunks = [],
   requestId = 'safe-request-id',
   cancelError,
+  cancelNeverSettles = false,
   hang = false,
   readError,
 } = {}) {
-  const stats = {abortCalls: 0, cancelCalls: 0, getReaderCalls: 0, readCalls: 0};
+  const stats = {abortCalls: 0, cancelCalls: 0, abortCallsWhenCancelStarted: undefined, getReaderCalls: 0, readCalls: 0};
   let index = 0;
   const reader = {
     async read() {
@@ -88,6 +89,8 @@ function streamedResponse({
     },
     async cancel() {
       stats.cancelCalls += 1;
+      stats.abortCallsWhenCancelStarted = stats.abortCalls;
+      if (cancelNeverSettles) return new Promise(() => {});
       if (cancelError) throw cancelError;
     },
   };
@@ -103,6 +106,48 @@ function streamedResponse({
       init.signal?.addEventListener('abort', () => { stats.abortCalls += 1; }, {once: true});
     },
   };
+}
+
+function bodyCancelableResponse({
+  status = 400,
+  contentType = 'text/plain',
+  requestId = 'safe-request-id',
+  cancelError,
+  cancelNeverSettles = false,
+} = {}) {
+  const stats = {abortCalls: 0, bodyCancelCalls: 0, abortCallsWhenCancelStarted: undefined};
+  return {
+    response: {
+      ok: false,
+      status,
+      headers: new Headers({'content-type': contentType, 'x-request-id': requestId}),
+      body: {
+        cancel() {
+          stats.bodyCancelCalls += 1;
+          stats.abortCallsWhenCancelStarted = stats.abortCalls;
+          if (cancelNeverSettles) return new Promise(() => {});
+          if (cancelError) return Promise.reject(cancelError);
+          return Promise.resolve();
+        },
+      },
+    },
+    stats,
+    observeRequest(init) {
+      init.signal?.addEventListener('abort', () => { stats.abortCalls += 1; }, {once: true});
+    },
+  };
+}
+
+async function rejectsPromptly(operation, assertion, timeoutMs = 250) {
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('provider cleanup did not return within its bound')), timeoutMs);
+  });
+  try {
+    await assert.rejects(Promise.race([operation, deadline]), assertion);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function unreadableAudioResponse(requestId = 'safe-request-id') {
@@ -269,7 +314,11 @@ test('skipped non-JSON errors cancel unread streams without masking provider sem
   assert.equal(fs.existsSync(lockPathFor(elevenOut)), false);
 
   const cartesiaOut = path.join(runDir('streamed-nonjson-cartesia'), 'narration.mp3');
-  const cartesiaStream = streamedResponse({ok: false, status: 400, contentType: 'text/plain', chunks: [Buffer.from('PRIVATE PROVIDER BODY')]});
+  const cartesiaStream = bodyCancelableResponse({
+    status: 400,
+    contentType: 'text/plain',
+    cancelError: new Error('PRIVATE BODY CANCEL FAILURE'),
+  });
   const cartesiaCalls = [];
   await assert.rejects(
     narrate({
@@ -284,9 +333,54 @@ test('skipped non-JSON errors cancel unread streams without masking provider sem
     (error) => error.provider === 'cartesia' && error.fallbackClass === 'nonretryable',
   );
   assert.deepEqual(cartesiaCalls, ['https://eleven.test/tts', 'https://cartesia.test/tts/bytes']);
-  assert.equal(cartesiaStream.stats.readCalls, 0);
-  assert.equal(cartesiaStream.stats.cancelCalls, 1);
+  assert.equal(cartesiaStream.stats.bodyCancelCalls, 1);
   assert.equal(cartesiaStream.stats.abortCalls, 1);
+  assert.equal(fs.existsSync(lockPathFor(cartesiaOut)), false);
+});
+
+test('never-settling reader and body cleanup cannot delay Eleven or Cartesia semantic failures', async () => {
+  const elevenOut = path.join(runDir('never-settling-eleven-reader-cancel'), 'narration.mp3');
+  const elevenStream = streamedResponse({
+    ok: false,
+    status: 400,
+    contentType: 'text/plain',
+    cancelNeverSettles: true,
+  });
+  const elevenCalls = [];
+  await rejectsPromptly(
+    narrate({
+      text: 'A solemn dispatch.', out: elevenOut, operationId: 'first', config: config(), log: () => {},
+      fetchImpl: async (url, init) => { elevenCalls.push(url); elevenStream.observeRequest(init); return elevenStream.response; },
+    }),
+    (error) => error.provider === 'eleven' && error.fallbackClass === 'nonretryable',
+  );
+  assert.deepEqual(elevenCalls, ['https://eleven.test/tts']);
+  assert.equal(elevenStream.stats.cancelCalls, 1);
+  assert.equal(elevenStream.stats.abortCalls, 1);
+  assert.equal(elevenStream.stats.abortCallsWhenCancelStarted, 1);
+  assert.equal(fs.existsSync(lockPathFor(elevenOut)), false);
+
+  const cartesiaOut = path.join(runDir('never-settling-cartesia-body-cancel'), 'narration.mp3');
+  const cartesiaStream = bodyCancelableResponse({status: 400, cancelNeverSettles: true});
+  const cartesiaCalls = [];
+  await rejectsPromptly(
+    narrate({
+      text: 'A solemn dispatch.', out: cartesiaOut, operationId: 'first', config: config(), log: () => {},
+      fetchImpl: async (url, init) => {
+        cartesiaCalls.push(url);
+        if (cartesiaCalls.length === 1) {
+          return elevenErrorResponse(429, {type: 'rate_limit_error', code: 'rate_limit_exceeded'});
+        }
+        cartesiaStream.observeRequest(init);
+        return cartesiaStream.response;
+      },
+    }),
+    (error) => error.provider === 'cartesia' && error.fallbackClass === 'nonretryable',
+  );
+  assert.deepEqual(cartesiaCalls, ['https://eleven.test/tts', 'https://cartesia.test/tts/bytes']);
+  assert.equal(cartesiaStream.stats.bodyCancelCalls, 1);
+  assert.equal(cartesiaStream.stats.abortCalls, 1);
+  assert.equal(cartesiaStream.stats.abortCallsWhenCancelStarted, 1);
   assert.equal(fs.existsSync(lockPathFor(cartesiaOut)), false);
 });
 

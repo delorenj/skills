@@ -223,29 +223,36 @@ function withTimeout(work, timeoutMs, onTimeout) {
   });
 }
 
-async function releaseProviderResponse(transport, {reader = transport.reader, fullyConsumed = transport.bodyFullyConsumed} = {}) {
+function discardCleanupResult(work) {
+  // Never await provider cleanup: a broken stream implementation can leave
+  // cancel() pending forever. Attach a rejection handler immediately so a
+  // late cleanup failure cannot become an unhandled rejection or replace the
+  // provider result that caused cleanup.
+  try {
+    Promise.resolve(work()).catch(() => {});
+  } catch {}
+}
+
+function releaseProviderResponse(transport, {reader = transport.reader, fullyConsumed = transport.bodyFullyConsumed} = {}) {
   if (transport.released) return;
   transport.released = true;
+  // Abort synchronously and independently of body cleanup. Once headers have
+  // arrived, preserving the original semantic outcome and returning control
+  // cannot depend on a reader/body cancel promise ever settling.
+  try { transport.controller?.abort(); } catch {}
+  if (fullyConsumed) return;
   try {
-    if (!fullyConsumed) {
-      try {
-        let unreadReader = reader;
-        if (!unreadReader && typeof transport.response?.body?.getReader === 'function') {
-          try { unreadReader = transport.response.body.getReader(); } catch {}
-        }
-        if (typeof unreadReader?.cancel === 'function') {
-          try { await unreadReader.cancel(); } catch {}
-        } else if (typeof transport.response?.body?.cancel === 'function') {
-          try { await transport.response.body.cancel(); } catch {}
-        }
-      } catch {
-        // Resource cleanup is best-effort and never replaces the provider error.
-      }
+    let unreadReader = reader;
+    if (!unreadReader && typeof transport.response?.body?.getReader === 'function') {
+      try { unreadReader = transport.response.body.getReader(); } catch {}
     }
-  } finally {
-    // The original provider outcome always wins. A cancellation/abort failure
-    // is deliberately silent and can never trigger another provider attempt.
-    try { transport.controller?.abort(); } catch {}
+    if (typeof unreadReader?.cancel === 'function') {
+      discardCleanupResult(() => unreadReader.cancel());
+    } else if (typeof transport.response?.body?.cancel === 'function') {
+      discardCleanupResult(() => transport.response.body.cancel());
+    }
+  } catch {
+    // Resource cleanup is best-effort and never replaces the provider error.
   }
 }
 
