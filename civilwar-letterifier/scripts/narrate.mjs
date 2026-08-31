@@ -223,22 +223,55 @@ function withTimeout(work, timeoutMs, onTimeout) {
   });
 }
 
-async function readProviderBody(response, provider, config, lock, kind) {
+async function releaseProviderResponse(transport, {reader = transport.reader, fullyConsumed = transport.bodyFullyConsumed} = {}) {
+  if (transport.released) return;
+  transport.released = true;
+  try {
+    if (!fullyConsumed) {
+      try {
+        let unreadReader = reader;
+        if (!unreadReader && typeof transport.response?.body?.getReader === 'function') {
+          try { unreadReader = transport.response.body.getReader(); } catch {}
+        }
+        if (typeof unreadReader?.cancel === 'function') {
+          try { await unreadReader.cancel(); } catch {}
+        } else if (typeof transport.response?.body?.cancel === 'function') {
+          try { await transport.response.body.cancel(); } catch {}
+        }
+      } catch {
+        // Resource cleanup is best-effort and never replaces the provider error.
+      }
+    }
+  } finally {
+    // The original provider outcome always wins. A cancellation/abort failure
+    // is deliberately silent and can never trigger another provider attempt.
+    try { transport.controller?.abort(); } catch {}
+  }
+}
+
+async function readProviderBody(transport, provider, config, lock, kind) {
+  const {response} = transport;
   const limit = kind === 'audio' ? config.limits.maxAudioBytes : config.limits.maxErrorBodyBytes;
   const phaseBase = `${provider}_${kind === 'audio' ? 'audio_body' : 'error_body'}_read`;
-  advanceOperationLock(lock, `${phaseBase}_started`);
   let reader;
+  let fullyConsumed = false;
   try {
+    advanceOperationLock(lock, `${phaseBase}_started`);
     const bytes = await withTimeout(async () => {
       const declaredLength = Number(responseHeader(response, 'content-length'));
       if (Number.isSafeInteger(declaredLength) && declaredLength > limit) throw new BodyLimitError();
       if (typeof response.body?.getReader === 'function') {
         reader = response.body.getReader();
+        transport.reader = reader;
         const chunks = [];
         let total = 0;
         while (true) {
           const {done, value} = await reader.read();
-          if (done) break;
+          if (done) {
+            fullyConsumed = true;
+            transport.bodyFullyConsumed = true;
+            break;
+          }
           const chunk = Buffer.from(value);
           total += chunk.length;
           if (total > limit) throw new BodyLimitError();
@@ -248,14 +281,15 @@ async function readProviderBody(response, provider, config, lock, kind) {
       }
       if (typeof response.arrayBuffer !== 'function') throw new Error('response body is unavailable');
       const bytes = Buffer.from(await response.arrayBuffer());
+      fullyConsumed = true;
+      transport.bodyFullyConsumed = true;
       if (bytes.length > limit) throw new BodyLimitError();
       return bytes;
-    }, config.limits.bodyReadTimeoutMs, () => {
-      try { void Promise.resolve(reader?.cancel?.()).catch(() => {}); } catch {}
-    });
+    }, config.limits.bodyReadTimeoutMs);
     advanceOperationLock(lock, `${phaseBase}_completed`);
     return bytes;
   } catch (error) {
+    await releaseProviderResponse(transport, {reader, fullyConsumed});
     if (error instanceof BodyLimitError && kind === 'audio') {
       throw new NarrationError(`${provider} narration audio exceeded the configured byte limit.`, {
         provider, fallbackClass: 'invalid_audio',
@@ -270,9 +304,13 @@ async function readProviderBody(response, provider, config, lock, kind) {
   }
 }
 
-async function safeErrorBody(response, provider, config, lock) {
-  if (!(responseHeader(response, 'content-type') || '').toLowerCase().includes('application/json')) return {};
-  const bytes = await readProviderBody(response, provider, config, lock, 'error');
+async function safeErrorBody(transport, provider, config, lock) {
+  const {response} = transport;
+  if (!(responseHeader(response, 'content-type') || '').toLowerCase().includes('application/json')) {
+    await releaseProviderResponse(transport);
+    return {};
+  }
+  const bytes = await readProviderBody(transport, provider, config, lock, 'error');
   try {
     return JSON.parse(bytes.toString('utf8'));
   } catch (error) {
@@ -300,17 +338,23 @@ async function requestProviderResponse(provider, url, init, config, fetchImpl, l
       provider, fallbackClass: 'ambiguous_transport',
     });
   }
-  if (!response || typeof response.ok !== 'boolean' || typeof responseHeader(response, 'content-type') === 'undefined') {
-    throw new NarrationError(`${provider} narration response was incomplete; refusing fallback or retry.`, {
-      provider, fallbackClass: 'ambiguous_transport',
-    });
+  const transport = {response, controller, released: false, bodyFullyConsumed: false};
+  try {
+    if (!response || typeof response.ok !== 'boolean' || typeof responseHeader(response, 'content-type') === 'undefined') {
+      throw new NarrationError(`${provider} narration response was incomplete; refusing fallback or retry.`, {
+        provider, fallbackClass: 'ambiguous_transport',
+      });
+    }
+    advanceOperationLock(lock, `${provider}_headers_received`);
+    return transport;
+  } catch (error) {
+    await releaseProviderResponse(transport);
+    throw error;
   }
-  advanceOperationLock(lock, `${provider}_headers_received`);
-  return response;
 }
 
 async function requestEleven(config, text, fetchImpl, lock) {
-  const response = await requestProviderResponse('eleven', config.elevenUrl, {
+  const transport = await requestProviderResponse('eleven', config.elevenUrl, {
     method: 'POST',
     headers: {'xi-api-key': config.elevenKey, 'Content-Type': 'application/json', Accept: 'audio/mpeg'},
     body: JSON.stringify({
@@ -319,16 +363,25 @@ async function requestEleven(config, text, fetchImpl, lock) {
       voice_settings: {stability: 0.45, similarity_boost: 0.8, style: 0.4, use_speaker_boost: true},
     }),
   }, config, fetchImpl, lock);
-  if (!response.ok) throw classifiedProviderError('eleven', response, await safeErrorBody(response, 'eleven', config, lock));
+  const {response} = transport;
+  if (!response.ok) {
+    let body;
+    try {
+      body = await safeErrorBody(transport, 'eleven', config, lock);
+    } finally {
+      await releaseProviderResponse(transport);
+    }
+    throw classifiedProviderError('eleven', response, body);
+  }
   return {
-    audio: await readProviderBody(response, 'eleven', config, lock, 'audio'),
+    audio: await readProviderBody(transport, 'eleven', config, lock, 'audio'),
     requestId: requestIdFrom(response, 'eleven'),
   };
 }
 
 async function requestCartesia(config, text, fetchImpl, lock) {
   assertCartesiaReady(config);
-  const response = await requestProviderResponse('cartesia', config.cartesiaUrl, {
+  const transport = await requestProviderResponse('cartesia', config.cartesiaUrl, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${config.cartesiaKey}`,
@@ -345,9 +398,18 @@ async function requestCartesia(config, text, fetchImpl, lock) {
       generation_config: {volume: 1, speed: 0.85},
     }),
   }, config, fetchImpl, lock);
-  if (!response.ok) throw classifiedProviderError('cartesia', response, await safeErrorBody(response, 'cartesia', config, lock));
+  const {response} = transport;
+  if (!response.ok) {
+    let body;
+    try {
+      body = await safeErrorBody(transport, 'cartesia', config, lock);
+    } finally {
+      await releaseProviderResponse(transport);
+    }
+    throw classifiedProviderError('cartesia', response, body);
+  }
   return {
-    audio: await readProviderBody(response, 'cartesia', config, lock, 'audio'),
+    audio: await readProviderBody(transport, 'cartesia', config, lock, 'audio'),
     requestId: requestIdFrom(response, 'cartesia'),
   };
 }

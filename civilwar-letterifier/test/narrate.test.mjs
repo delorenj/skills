@@ -66,6 +66,45 @@ function audioResponse(audio = validAudio, requestId = 'safe-request-id') {
   return new Response(audio, {status: 200, headers: {'content-type': 'audio/mpeg', 'x-request-id': requestId}});
 }
 
+function streamedResponse({
+  ok = true,
+  status = 200,
+  contentType = 'audio/mpeg',
+  chunks = [],
+  requestId = 'safe-request-id',
+  cancelError,
+  hang = false,
+  readError,
+} = {}) {
+  const stats = {abortCalls: 0, cancelCalls: 0, getReaderCalls: 0, readCalls: 0};
+  let index = 0;
+  const reader = {
+    async read() {
+      stats.readCalls += 1;
+      if (hang) return new Promise(() => {});
+      if (readError) throw readError;
+      if (index >= chunks.length) return {done: true};
+      return {done: false, value: chunks[index++]};
+    },
+    async cancel() {
+      stats.cancelCalls += 1;
+      if (cancelError) throw cancelError;
+    },
+  };
+  return {
+    response: {
+      ok,
+      status,
+      headers: new Headers({'content-type': contentType, 'x-request-id': requestId}),
+      body: {getReader: () => { stats.getReaderCalls += 1; return reader; }},
+    },
+    stats,
+    observeRequest(init) {
+      init.signal?.addEventListener('abort', () => { stats.abortCalls += 1; }, {once: true});
+    },
+  };
+}
+
 function unreadableAudioResponse(requestId = 'safe-request-id') {
   return {
     ok: true,
@@ -104,14 +143,151 @@ test('primary success makes one Eleven call, no Cartesia call, and a decodable M
   const calls = [];
   const dir = runDir('primary');
   const out = path.join(dir, 'narration.mp3');
+  const stream = streamedResponse({chunks: [validAudio]});
   const receipt = await narrate({
     text: 'A solemn dispatch.', out, operationId: 'primary', config: config(), log: () => {},
-    fetchImpl: async (url) => { calls.push(url); return audioResponse(); },
+    fetchImpl: async (url, init) => { calls.push(url); stream.observeRequest(init); return stream.response; },
   });
   assert.deepEqual(calls, ['https://eleven.test/tts']);
   assert.equal(receipt.selection.provider, 'eleven');
   assert.equal(isDecodableMp3(out), true);
   assert.ok(fs.statSync(out).size > 0);
+  assert.equal(stream.stats.cancelCalls, 0);
+  assert.equal(stream.stats.abortCalls, 0);
+});
+
+test('streamed oversized Eleven audio cancels its unread reader and retains the claim', async () => {
+  const out = path.join(runDir('streamed-oversized-eleven-audio'), 'narration.mp3');
+  const stream = streamedResponse({chunks: [Buffer.alloc(1025)]});
+  const calls = [];
+  const fetchImpl = async (url, init) => { calls.push(url); stream.observeRequest(init); return stream.response; };
+  const limits = config({limits: {maxAudioBytes: 1024}});
+  await assert.rejects(
+    narrate({text: 'A solemn dispatch.', out, operationId: 'first', config: limits, log: () => {}, fetchImpl}),
+    (error) => error.provider === 'eleven' && error.fallbackClass === 'invalid_audio',
+  );
+  assert.deepEqual(calls, ['https://eleven.test/tts']);
+  assert.equal(stream.stats.cancelCalls, 1);
+  assert.equal(stream.stats.abortCalls, 1);
+  assert.equal(JSON.parse(fs.readFileSync(lockPathFor(out), 'utf8')).phase, 'eleven_audio_body_read_started');
+  await assert.rejects(
+    narrate({text: 'A different dispatch.', out, operationId: 'second', config: limits, log: () => {}, fetchImpl}),
+    (error) => error.fallbackClass === 'operation_locked',
+  );
+  assert.equal(calls.length, 1);
+});
+
+test('streamed oversized Cartesia error body cancels its unread reader and retains the claim', async () => {
+  const out = path.join(runDir('streamed-oversized-cartesia-error'), 'narration.mp3');
+  const stream = streamedResponse({ok: false, status: 503, contentType: 'application/json', chunks: [Buffer.alloc(129)]});
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    calls.push(url);
+    if (calls.length === 1) return elevenErrorResponse(429, {type: 'rate_limit_error', code: 'rate_limit_exceeded'});
+    stream.observeRequest(init);
+    return stream.response;
+  };
+  const limits = config({limits: {maxErrorBodyBytes: 128}});
+  await assert.rejects(
+    narrate({text: 'A solemn dispatch.', out, operationId: 'first', config: limits, log: () => {}, fetchImpl}),
+    (error) => error.provider === 'cartesia' && error.fallbackClass === 'ambiguous_transport',
+  );
+  assert.deepEqual(calls, ['https://eleven.test/tts', 'https://cartesia.test/tts/bytes']);
+  assert.equal(stream.stats.cancelCalls, 1);
+  assert.equal(stream.stats.abortCalls, 1);
+  assert.equal(JSON.parse(fs.readFileSync(lockPathFor(out), 'utf8')).phase, 'cartesia_error_body_read_started');
+  await assert.rejects(
+    narrate({text: 'A different dispatch.', out, operationId: 'second', config: limits, log: () => {}, fetchImpl}),
+    (error) => error.fallbackClass === 'operation_locked',
+  );
+  assert.equal(calls.length, 2);
+});
+
+test('streamed reader timeout and failure cancel unread Eleven response resources', async () => {
+  const timeoutOut = path.join(runDir('streamed-reader-timeout'), 'narration.mp3');
+  const timeoutStream = streamedResponse({hang: true});
+  let timeoutCalls = 0;
+  const timeoutConfig = config({limits: {bodyReadTimeoutMs: 10}});
+  const timeoutFetch = async (url, init) => {
+    timeoutCalls += 1;
+    timeoutStream.observeRequest(init);
+    return timeoutStream.response;
+  };
+  await assert.rejects(
+    narrate({text: 'A solemn dispatch.', out: timeoutOut, operationId: 'first', config: timeoutConfig, log: () => {}, fetchImpl: timeoutFetch}),
+    (error) => error.provider === 'eleven' && error.fallbackClass === 'ambiguous_transport',
+  );
+  assert.equal(timeoutStream.stats.cancelCalls, 1);
+  assert.equal(timeoutStream.stats.abortCalls, 1);
+  await assert.rejects(
+    narrate({text: 'A different dispatch.', out: timeoutOut, operationId: 'second', config: timeoutConfig, log: () => {}, fetchImpl: timeoutFetch}),
+    (error) => error.fallbackClass === 'operation_locked',
+  );
+  assert.equal(timeoutCalls, 1);
+
+  const errorOut = path.join(runDir('streamed-reader-error'), 'narration.mp3');
+  const errorStream = streamedResponse({readError: new Error('PRIVATE STREAM READ FAILURE')});
+  let errorCalls = 0;
+  await assert.rejects(
+    narrate({
+      text: 'A solemn dispatch.', out: errorOut, operationId: 'first', config: config(), log: () => {},
+      fetchImpl: async (url, init) => { errorCalls += 1; errorStream.observeRequest(init); return errorStream.response; },
+    }),
+    (error) => error.provider === 'eleven' && error.fallbackClass === 'ambiguous_transport',
+  );
+  assert.equal(errorStream.stats.cancelCalls, 1);
+  assert.equal(errorStream.stats.abortCalls, 1);
+  assert.equal(fs.existsSync(lockPathFor(errorOut)), true);
+  await assert.rejects(
+    narrate({
+      text: 'A different dispatch.', out: errorOut, operationId: 'second', config: config(), log: () => {},
+      fetchImpl: async (url, init) => { errorCalls += 1; errorStream.observeRequest(init); return errorStream.response; },
+    }),
+    (error) => error.fallbackClass === 'operation_locked',
+  );
+  assert.equal(errorCalls, 1);
+});
+
+test('skipped non-JSON errors cancel unread streams without masking provider semantics', async () => {
+  const elevenOut = path.join(runDir('streamed-nonjson-eleven'), 'narration.mp3');
+  const elevenStream = streamedResponse({
+    ok: false, status: 400, contentType: 'text/plain', chunks: [Buffer.from('PRIVATE PROVIDER BODY')],
+    cancelError: new Error('PRIVATE CANCEL FAILURE'),
+  });
+  const elevenCalls = [];
+  await assert.rejects(
+    narrate({
+      text: 'A solemn dispatch.', out: elevenOut, operationId: 'first', config: config(), log: () => {},
+      fetchImpl: async (url, init) => { elevenCalls.push(url); elevenStream.observeRequest(init); return elevenStream.response; },
+    }),
+    (error) => error.provider === 'eleven' && error.fallbackClass === 'nonretryable',
+  );
+  assert.deepEqual(elevenCalls, ['https://eleven.test/tts']);
+  assert.equal(elevenStream.stats.readCalls, 0);
+  assert.equal(elevenStream.stats.cancelCalls, 1);
+  assert.equal(elevenStream.stats.abortCalls, 1);
+  assert.equal(fs.existsSync(lockPathFor(elevenOut)), false);
+
+  const cartesiaOut = path.join(runDir('streamed-nonjson-cartesia'), 'narration.mp3');
+  const cartesiaStream = streamedResponse({ok: false, status: 400, contentType: 'text/plain', chunks: [Buffer.from('PRIVATE PROVIDER BODY')]});
+  const cartesiaCalls = [];
+  await assert.rejects(
+    narrate({
+      text: 'A solemn dispatch.', out: cartesiaOut, operationId: 'first', config: config(), log: () => {},
+      fetchImpl: async (url, init) => {
+        cartesiaCalls.push(url);
+        if (cartesiaCalls.length === 1) return elevenErrorResponse(429, {type: 'rate_limit_error', code: 'rate_limit_exceeded'});
+        cartesiaStream.observeRequest(init);
+        return cartesiaStream.response;
+      },
+    }),
+    (error) => error.provider === 'cartesia' && error.fallbackClass === 'nonretryable',
+  );
+  assert.deepEqual(cartesiaCalls, ['https://eleven.test/tts', 'https://cartesia.test/tts/bytes']);
+  assert.equal(cartesiaStream.stats.readCalls, 0);
+  assert.equal(cartesiaStream.stats.cancelCalls, 1);
+  assert.equal(cartesiaStream.stats.abortCalls, 1);
+  assert.equal(fs.existsSync(lockPathFor(cartesiaOut)), false);
 });
 
 test('definitive quota failure calls Cartesia once with the official bytes MP3 request', async () => {

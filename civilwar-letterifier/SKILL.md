@@ -165,6 +165,10 @@ timestamps, and a bounded phase history; it never contains a transcript, raw
 path, provider message/body, request header, or credential. A response timeout,
 body-read/size failure after a provider boundary, invalid successful audio, or
 receipt-integrity failure retains the claim and blocks automatic regeneration.
+On any non-normal streamed-body exit, the adapter best-effort cancels the
+unread reader and aborts its request controller before classifying the error;
+cleanup failures never replace that error or authorize a retry. Fully consumed
+streams are not cancelled.
 `SLOWBURNS_NARRATION_MAX_AUDIO_BYTES` applies to provider bodies, temporary
 validation, and completed-artifact recovery. Recovery stats the final artifact
 before `ffprobe` or a full SHA-256 read; an over-limit file is retained as
