@@ -29,6 +29,38 @@ It prints a `voice_id`; paste it into `VOICE_ID`. Tips: keep `--age old`,
 `--accent american`, strength ~1.0–1.2. The description carries most of the
 character — emphasize _weathered, slow, mournful, dignified_.
 
+### Cartesia capacity fallback (configuration gate)
+
+Cartesia is not a second narrator or a load-balancing path. It is a single,
+capacity-only backup when ElevenLabs has returned a definitive quota, concurrency,
+or availability failure. The live adapter calls the current official
+`POST https://api.cartesia.ai/tts/bytes` endpoint with `Authorization: Bearer`,
+`Cartesia-Version: 2026-08-14`, `model_id: sonic-3.6`, a stock voice ID, and an
+MP3 request (`container: mp3`, `encoding: mp3`, 44.1 kHz, 128 kbps). It requests
+`locale: en-US`, `volume: 1`, and a measured slow `speed: 0.85`; the intent is a
+solemn, unhurried documentary read without cloning or custom-voice training.
+
+The bounded stock candidate is **Jameson**, because Cartesia's current official
+voice guidance names it among stable English male voices; this is a candidate
+name, not a verified ID. Set `CARTESIA_VOICE_ID` only after a standard runtime key
+can inspect the official Voice Library and a mock-safe validation confirms the
+chosen stock voice supports this model and output. Do not invent or hard-code an
+unverified ID. Live validation is currently blocked: no usable standard Cartesia
+runtime key is available, and the legacy admin/unrecognized key must never be used
+for TTS, provisioned, persisted, or tested with paid synthesis.
+
+Use only a standard `CARTESIA_API_KEY` (`sk_car_...`); the adapter rejects
+`sk_car_admin_...`. Supply it through an `op://DeLoSecrets/...` reference resolved
+at invocation time, never a plaintext secret or dotenv file. The receipt contains
+only provider/model/voice/fallback class and a safe request ID, never transcript,
+response body, headers, or credentials.
+
+Official references (checked 2026-08-31):
+
+- https://docs.cartesia.ai/api-reference/tts/bytes
+- https://docs.cartesia.ai/use-the-api/api-conventions
+- https://docs.cartesia.ai/build-with-cartesia/capability-guides/choosing-a-voice
+
 ## Music
 
 The composition loops a short bed quietly under the narration and fades it in and

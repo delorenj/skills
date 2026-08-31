@@ -34,6 +34,9 @@ scripts use bare `node`); the Remotion render deps auto-install on first run.
 ### Keys
 
 - **`ELEVENLABS_API_KEY`** — narration + synthesized music/ambience beds.
+- **`CARTESIA_API_KEY`** and **`CARTESIA_VOICE_ID`** — optional, bounded
+  narration fallback only. `CARTESIA_API_KEY` must be a standard runtime key
+  (`sk_car_...`); admin keys (`sk_car_admin_...`) are rejected before a request.
 - **`SLOWBURNS_OPENROUTER_API_KEY`** — the letterify step, via
   [OpenRouter](https://openrouter.ai) (falls back to `OPENROUTER_API_KEY`).
   Default model `anthropic/claude-sonnet-5`; override with `--model <slug>` or
@@ -41,9 +44,10 @@ scripts use bare `node`); the Remotion render deps auto-install on first run.
   (`op://DeLoSecrets/OpenRouter/SLOWBURNS_OPENROUTER_API_KEY`), resolved at
   runtime via `op read` — so no plaintext key need live on disk.
 
-Put both in a project `.env.local` (gitignored) or the environment. The letter's
-sign-off is written by the model (cohesive with the content); set the name with
-`--signer` (default `J.`).
+Provide credentials through the process environment only, ideally with an
+`op://DeLoSecrets/...` reference resolved at invocation time. Do not create or
+persist a dotenv file. The letter's sign-off is written by the model (cohesive
+with the content); set the name with `--signer` (default `J.`).
 
 ## Two layers
 
@@ -54,8 +58,12 @@ Modes: `field-note` (short), `full` (maximum banjo), `executive` (manager-safe).
 above, or directly:
 
 ```bash
-export ELEVENLABS_API_KEY=sk_...        # Node 18+, ffmpeg required
-node scripts/build.mjs --file note.txt --auto-music --out out/letter.mp4
+# Node 18+ and ffmpeg required. References are resolved only at invocation.
+op run --env-file <(printf '%s\n' \
+  'ELEVENLABS_API_KEY=op://DeLoSecrets/ElevenLabs/SlowBurns API Key/credential' \
+  'CARTESIA_API_KEY=op://DeLoSecrets/Cartesia/<standard-runtime-key-item>/credential' \
+  'CARTESIA_VOICE_ID=<verified-stock-voice-id>') -- \
+  node scripts/build.mjs --file note.txt --auto-music --out out/letter.mp4
 ```
 
 That narrates the letter, builds/loads a music + ambient bed, and renders an MP4
@@ -72,7 +80,7 @@ civilwar-letterifier/
 │   └── composition-guide.md  # every visual knob
 ├── scripts/
 │   ├── build.mjs             # orchestrator: narrate → music → props → render
-│   ├── narrate.mjs           # ElevenLabs TTS (single continuous read)
+│   ├── narrate.mjs           # Eleven primary + capacity-only Cartesia fallback
 │   └── make-music.mjs        # optional auto-generated ambient bed
 ├── assets/
 │   ├── example-letter.json   # sample spec

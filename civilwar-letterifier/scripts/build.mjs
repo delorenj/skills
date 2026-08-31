@@ -7,7 +7,7 @@
  * translating the source message. Everything else — the date line, title,
  * narrator voice, music, ambient bed, and render — is deterministic and handled
  * here. Given that note text, this:
- *   1. narrates it with ElevenLabs            -> remotion/public/narration.mp3
+ *   1. narrates it with ElevenLabs (Cartesia capacity fallback) -> remotion/public/narration.mp3
  *   2. resolves a music bed (drop-in or auto) -> remotion/public/music.mp3
  *   2b. resolves the ambient bed (assets/sfx) -> remotion/public/ambient.mp3
  *   3. writes render props                    -> remotion/props.json
@@ -30,7 +30,9 @@
  * from today's date; the title is a fixed constant below. The signature is NOT
  * added here — it is part of the letterified note (the model writes its own).
  *
- * Auth: ELEVENLABS_API_KEY (or ELEVEN_API_KEY). Requires Node 18+ (fetch) and,
+ * Auth: process environment only: ELEVENLABS_API_KEY (or ELEVEN_API_KEY), plus
+ * optional CARTESIA_API_KEY/CARTESIA_VOICE_ID for bounded capacity fallback.
+ * Requires Node 18+ (fetch) and,
  * for rendering, the remotion/ project deps (auto-installed on first run).
  */
 import fs from 'node:fs';
@@ -42,27 +44,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const REMOTION = path.join(ROOT, 'remotion');
 const PUBLIC = path.join(REMOTION, 'public');
-
-// Load .env.local (cwd + skill root, quotes stripped) and propagate to the
-// child scripts via the inherited environment, so `--auto-music` and narration
-// authenticate even when the key lives only in .env.local.
-function loadEnvLocal() {
-  for (const p of [path.join(process.cwd(), '.env.local'), path.join(ROOT, '.env.local')]) {
-    if (!fs.existsSync(p)) continue;
-    for (const line of fs.readFileSync(p, 'utf8').split('\n')) {
-      const i = line.indexOf('=');
-      if (i > 0 && !line.trim().startsWith('#')) {
-        const k = line.slice(0, i).trim();
-        let v = line.slice(i + 1).trim();
-        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
-          v = v.slice(1, -1);
-        }
-        if (!process.env[k]) process.env[k] = v;
-      }
-    }
-  }
-}
-loadEnvLocal();
 
 function arg(name, def) {
   const i = process.argv.indexOf(`--${name}`);
@@ -149,7 +130,8 @@ const fontStyle = arg('font') === 'dispatch' ? 'dispatch' : 'script';
 fs.mkdirSync(PUBLIC, {recursive: true});
 
 // --- 1. Narration ---------------------------------------------------------
-// narrate.mjs uses the hardcoded "Civil War Veteran" voice; no voice argument.
+// narrate.mjs uses the fixed Eleven narrator and an explicitly configured
+// Cartesia fallback voice; no provider retry loop is permitted.
 const letterTxt = path.join(PUBLIC, '.letter.txt');
 fs.writeFileSync(letterTxt, letterText);
 run('node', [

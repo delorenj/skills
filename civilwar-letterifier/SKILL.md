@@ -62,7 +62,7 @@ user text
    │  Layer 1 — YOU write the period prose (the only creative/agentic step)
    ▼
 the note ──► scripts/build.mjs ──► out/letter.mp4
-               │  1. ElevenLabs narration (hardcoded voice) → remotion/public/narration.mp3
+               │  1. ElevenLabs narration (Cartesia capacity fallback) → remotion/public/narration.mp3
                │  2. music bed (drop-in or auto-generated, optional)
                │  2b. ambient bed (assets/sfx, always-on atmosphere)
                │  3. props.json  (date auto-generated; signature/title fixed)
@@ -89,8 +89,8 @@ keep it to a slow read (roughly ≤ 200 words for a tight clip).
 ### Step 2 — Render
 
 ```bash
-# Prereqs: Node 18+, ffmpeg, and ELEVENLABS_API_KEY in env or .env.local
-export ELEVENLABS_API_KEY=sk_...
+# Prereqs: Node 18+, ffmpeg, and credentials in the process environment.
+# Use op:// references resolved only at invocation; do not create a dotenv file.
 
 # Pass the note inline (voice + music + ambient are all automatic):
 node scripts/build.mjs --text "My dear colleagues, ...the period prose... Pray proceed without me." --out out/letter.mp4
@@ -117,6 +117,20 @@ The narrator is **hardcoded** — the custom **"Civil War Veteran"** voice
 `--voice` flag and no env override: one note, one narrator. To change narrators,
 design a new voice (see `references/voice-and-music.md`) and replace that single
 constant.
+
+### Capacity fallback
+
+ElevenLabs remains the one-call primary narrator. Cartesia is considered exactly
+once only after a definitive primary quota/capacity/availability result (allowlisted
+provider code, HTTP 429, or HTTP 5xx). It is never a retry path and never follows
+auth/configuration/voice/model/input failures, another 4xx, malformed output, or
+an ambiguous transport outcome. The adapter writes a temporary MP3, validates it
+with `ffprobe`, then atomically publishes it with a sanitized receipt sidecar.
+
+Fallback is dark until both variables are present in the invocation environment:
+`CARTESIA_API_KEY` (standard `sk_car_...`, never `sk_car_admin_...`) and an explicit
+`CARTESIA_VOICE_ID`. See `references/voice-and-music.md` for the voice-selection
+gate and source references. There is no persisted dotenv configuration.
 
 ### Music
 

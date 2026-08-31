@@ -8,7 +8,8 @@
   },
   "scripts": {
     "letterify": "node scripts/letterify.mjs",
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.mjs"
   },
   "engines": {
     "node": ">=18"

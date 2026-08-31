@@ -1,50 +1,300 @@
 #!/usr/bin/env node
 /**
- * narrate.mjs — turn a finished Civil War letter into a single, continuous
- * narration track via ElevenLabs. A letter is read in one solemn breath, so
- * (unlike the elevenlabs-remotion scene tool) no stitching is needed.
- *
- *   node narrate.mjs --file letter.txt --out ../remotion/public/narration.mp3
- *
- * The narrator is the hardcoded custom "Civil War Veteran" voice (VOICE_ID
- * below). This is deliberately NOT parameterized — there is one narrator.
- *
- * Auth: ELEVENLABS_API_KEY (or ELEVEN_API_KEY) in the environment or in a
- * .env.local file in the current working directory.
+ * Produce exactly one durable narration artifact. ElevenLabs is primary; the
+ * explicitly bounded Cartesia /tts/bytes path is a capacity-only fallback.
+ * Credentials are read from the process environment (for example, `op run`).
  */
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 
-// Load .env.local from the current dir and the skill root, stripping any
-// surrounding quotes so KEY="sk_..." doesn't smuggle quotes into the API call.
-function loadEnvLocal() {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    path.join(process.cwd(), '.env.local'),
-    path.join(here, '..', '.env.local'),
-  ];
-  for (const p of candidates) {
-    if (!fs.existsSync(p)) continue;
-    for (const line of fs.readFileSync(p, 'utf8').split('\n')) {
-      const i = line.indexOf('=');
-      if (i > 0 && !line.trim().startsWith('#')) {
-        const k = line.slice(0, i).trim();
-        let v = line.slice(i + 1).trim();
-        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
-          v = v.slice(1, -1);
-        }
-        if (!process.env[k]) process.env[k] = v;
-      }
-    }
+export const ELEVEN_VOICE_ID = 'HvjKMFO0rjuPaM2f997g';
+export const ELEVEN_MODEL = 'eleven_multilingual_v2';
+export const CARTESIA_MODEL = 'sonic-3.6';
+export const CARTESIA_VERSION = '2026-08-14';
+const CARTESIA_TTS_URL = 'https://api.cartesia.ai/tts/bytes';
+const ELEVEN_TTS_URL = `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`;
+const MAX_RECEIPT_REQUEST_ID_LENGTH = 160;
+
+export class NarrationError extends Error {
+  constructor(message, {provider, status, code, fallbackClass, requestId} = {}) {
+    super(message);
+    this.name = 'NarrationError';
+    this.provider = provider;
+    this.status = status;
+    this.code = code;
+    this.fallbackClass = fallbackClass;
+    this.requestId = requestId;
   }
 }
-loadEnvLocal();
 
-const KEY = process.env.ELEVENLABS_API_KEY || process.env.ELEVEN_API_KEY;
-if (!KEY) {
-  console.error('Error: set ELEVENLABS_API_KEY (or ELEVEN_API_KEY).');
-  process.exit(1);
+function sha256(value) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function safeRequestId(value) {
+  if (typeof value !== 'string' || value.length > MAX_RECEIPT_REQUEST_ID_LENGTH) return undefined;
+  return /^[A-Za-z0-9:._-]+$/.test(value) ? value : undefined;
+}
+
+function requestIdFrom(response, body) {
+  return safeRequestId(
+    body?.request_id || body?.requestId || response.headers.get('x-request-id') || response.headers.get('request-id'),
+  );
+}
+
+async function safeErrorBody(response) {
+  if (!(response.headers.get('content-type') || '').includes('application/json')) return {};
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
+
+function classifiedProviderError(provider, response, body) {
+  const code = typeof body.error_code === 'string' ? body.error_code : undefined;
+  const fallbackClass = isCapacityFailure(response.status, code) ? 'capacity_or_availability' : 'nonretryable';
+  return new NarrationError(`${provider} narration request failed (${response.status}).`, {
+    provider, status: response.status, code, fallbackClass, requestId: requestIdFrom(response, body),
+  });
+}
+
+export function isCapacityFailure(status, code) {
+  return status === 429 || status >= 500 && status <= 599 || [
+    'quota_exceeded', 'concurrency_limited', 'capacity_exceeded', 'service_unavailable',
+  ].includes(code);
+}
+
+export function validateCartesiaKey(key) {
+  if (!key) return;
+  if (key.startsWith('sk_car_admin_')) {
+    throw new NarrationError('CARTESIA_API_KEY must be a standard Cartesia runtime key, not an admin key.', {
+      provider: 'cartesia', fallbackClass: 'configuration',
+    });
+  }
+  if (!/^sk_car_[A-Za-z0-9_-]{16,}$/.test(key)) {
+    throw new NarrationError('CARTESIA_API_KEY is not a valid standard Cartesia runtime-key format.', {
+      provider: 'cartesia', fallbackClass: 'configuration',
+    });
+  }
+}
+
+export function resolveConfig(env = process.env) {
+  const elevenKey = env.ELEVENLABS_API_KEY || env.ELEVEN_API_KEY;
+  if (!elevenKey) throw new NarrationError('Set ELEVENLABS_API_KEY (or ELEVEN_API_KEY).', {provider: 'eleven'});
+  const cartesiaKey = env.CARTESIA_API_KEY;
+  validateCartesiaKey(cartesiaKey);
+  return {
+    elevenKey,
+    cartesiaKey,
+    cartesiaVoiceId: env.CARTESIA_VOICE_ID,
+    elevenUrl: env.ELEVENLABS_TTS_URL || ELEVEN_TTS_URL,
+    cartesiaUrl: env.CARTESIA_TTS_URL || CARTESIA_TTS_URL,
+  };
+}
+
+function assertCartesiaReady(config) {
+  if (!config.cartesiaKey || !config.cartesiaVoiceId) {
+    throw new NarrationError('Cartesia fallback is unavailable: set standard CARTESIA_API_KEY and CARTESIA_VOICE_ID.', {
+      provider: 'cartesia', fallbackClass: 'configuration',
+    });
+  }
+}
+
+async function requestEleven(config, text, fetchImpl) {
+  let response;
+  try {
+    response = await fetchImpl(config.elevenUrl, {
+      method: 'POST',
+      headers: {'xi-api-key': config.elevenKey, 'Content-Type': 'application/json', Accept: 'audio/mpeg'},
+      body: JSON.stringify({
+        text,
+        model_id: ELEVEN_MODEL,
+        voice_settings: {stability: 0.45, similarity_boost: 0.8, style: 0.4, use_speaker_boost: true},
+      }),
+    });
+  } catch {
+    throw new NarrationError('ElevenLabs narration transport outcome is ambiguous; refusing fallback or retry.', {
+      provider: 'eleven', fallbackClass: 'ambiguous_transport',
+    });
+  }
+  if (!response.ok) throw classifiedProviderError('eleven', response, await safeErrorBody(response));
+  return {audio: Buffer.from(await response.arrayBuffer()), requestId: requestIdFrom(response)};
+}
+
+async function requestCartesia(config, text, fetchImpl) {
+  assertCartesiaReady(config);
+  let response;
+  try {
+    response = await fetchImpl(config.cartesiaUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.cartesiaKey}`,
+        'Cartesia-Version': CARTESIA_VERSION,
+        'Content-Type': 'application/json',
+        Accept: 'audio/mpeg',
+      },
+      body: JSON.stringify({
+        model_id: CARTESIA_MODEL,
+        transcript: text,
+        voice: config.cartesiaVoiceId,
+        output_format: {container: 'mp3', encoding: 'mp3', sample_rate: 44100, bit_rate: 128000},
+        locale: 'en-US',
+        generation_config: {volume: 1, speed: 0.85},
+      }),
+    });
+  } catch {
+    throw new NarrationError('Cartesia narration transport outcome is ambiguous.', {
+      provider: 'cartesia', fallbackClass: 'ambiguous_transport',
+    });
+  }
+  if (!response.ok) throw classifiedProviderError('cartesia', response, await safeErrorBody(response));
+  return {audio: Buffer.from(await response.arrayBuffer()), requestId: requestIdFrom(response)};
+}
+
+function tempPathFor(out) {
+  return path.join(path.dirname(out), `.${path.basename(out)}.${crypto.randomUUID()}.tmp.mp3`);
+}
+
+export function isDecodableMp3(file) {
+  try {
+    if (!fs.statSync(file).size) return false;
+    const format = execFileSync('ffprobe', [
+      '-v', 'error', '-show_entries', 'format=format_name', '-of', 'default=noprint_wrappers=1:nokey=1', file,
+    ], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim();
+    return format.split(',').includes('mp3');
+  } catch {
+    return false;
+  }
+}
+
+function publishAudio(audio, out) {
+  if (!audio?.length) throw new NarrationError('Provider returned an empty narration artifact.', {fallbackClass: 'invalid_audio'});
+  fs.mkdirSync(path.dirname(out), {recursive: true});
+  const temp = tempPathFor(out);
+  try {
+    fs.writeFileSync(temp, audio, {mode: 0o600});
+    if (!isDecodableMp3(temp)) throw new NarrationError('Provider returned audio incompatible with the MP3 render pipeline.', {fallbackClass: 'invalid_audio'});
+    fs.renameSync(temp, out);
+    return sha256(audio);
+  } finally {
+    fs.rmSync(temp, {force: true});
+  }
+}
+
+function writeJsonAtomic(file, value) {
+  fs.mkdirSync(path.dirname(file), {recursive: true});
+  const temp = path.join(path.dirname(file), `.${path.basename(file)}.${crypto.randomUUID()}.tmp`);
+  try {
+    fs.writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, {mode: 0o600});
+    fs.renameSync(temp, file);
+  } finally {
+    fs.rmSync(temp, {force: true});
+  }
+}
+
+function readReceipt(file) {
+  try {
+    const receipt = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return receipt && typeof receipt === 'object' ? receipt : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function providerReceipt(provider, model, voice, fallbackClass, requestId) {
+  return Object.fromEntries(Object.entries({
+    provider, model, voice, fallback_class: fallbackClass, request_id: safeRequestId(requestId),
+  }).filter(([, value]) => value !== undefined));
+}
+
+function logReceipt(receipt, log) {
+  log(`[narration-receipt] ${JSON.stringify(receipt)}`);
+}
+
+function removeStaleOperation(out, receiptPath) {
+  fs.rmSync(out, {force: true});
+  fs.rmSync(receiptPath, {force: true});
+}
+
+/**
+ * Generate or recover one narration operation. A matching incomplete receipt
+ * is intentionally terminal: an unknown previous provider outcome must never
+ * be retried implicitly and risk duplicate synthesis.
+ */
+export async function narrate({text, out, operationId = 'default', receiptPath = `${out}.receipt.json`, config = resolveConfig(), fetchImpl = fetch, log = console.log}) {
+  const finalOut = path.resolve(out);
+  const finalReceipt = path.resolve(receiptPath);
+  const operation = sha256(`${operationId}\0${text}`);
+  const existing = readReceipt(finalReceipt);
+  if (existing?.operation === operation) {
+    if (isDecodableMp3(finalOut)) {
+      const provider = existing.selection?.provider || (existing.state === 'fallback_started' ? 'cartesia' : 'eleven');
+      const recovered = {
+        ...existing,
+        state: 'complete',
+        selection: existing.selection || providerReceipt(
+          provider,
+          provider === 'cartesia' ? CARTESIA_MODEL : ELEVEN_MODEL,
+          provider === 'cartesia' ? config.cartesiaVoiceId : ELEVEN_VOICE_ID,
+          'recovered_after_unfinished_receipt',
+        ),
+        audio_sha256: existing.audio_sha256 || sha256(fs.readFileSync(finalOut)),
+        recovered: true,
+      };
+      writeJsonAtomic(finalReceipt, recovered);
+      logReceipt(recovered, log);
+      return recovered;
+    }
+    throw new NarrationError('This narration operation already started without a verified final artifact; refusing implicit retry.', {
+      fallbackClass: 'ambiguous_retry',
+    });
+  }
+  removeStaleOperation(finalOut, finalReceipt);
+  const receipt = {schema_version: 1, operation, state: 'primary_started', attempts: []};
+  writeJsonAtomic(finalReceipt, receipt);
+
+  try {
+    const primary = await requestEleven(config, text, fetchImpl);
+    const audioSha256 = publishAudio(primary.audio, finalOut);
+    receipt.state = 'complete';
+    receipt.selection = providerReceipt('eleven', ELEVEN_MODEL, ELEVEN_VOICE_ID, 'primary', primary.requestId);
+    receipt.audio_sha256 = audioSha256;
+    writeJsonAtomic(finalReceipt, receipt);
+    logReceipt(receipt, log);
+    return receipt;
+  } catch (error) {
+    const primaryError = error instanceof NarrationError ? error : new NarrationError('ElevenLabs narration failed.', {provider: 'eleven'});
+    receipt.attempts.push(providerReceipt('eleven', ELEVEN_MODEL, ELEVEN_VOICE_ID, primaryError.fallbackClass, primaryError.requestId));
+    receipt.state = 'primary_failed';
+    writeJsonAtomic(finalReceipt, receipt);
+    if (primaryError.fallbackClass !== 'capacity_or_availability') {
+      fs.rmSync(finalOut, {force: true});
+      throw primaryError;
+    }
+    try {
+      receipt.state = 'fallback_started';
+      writeJsonAtomic(finalReceipt, receipt);
+      const fallback = await requestCartesia(config, text, fetchImpl);
+      const audioSha256 = publishAudio(fallback.audio, finalOut);
+      receipt.state = 'complete';
+      receipt.selection = providerReceipt('cartesia', CARTESIA_MODEL, config.cartesiaVoiceId, 'capacity_or_availability', fallback.requestId);
+      receipt.audio_sha256 = audioSha256;
+      writeJsonAtomic(finalReceipt, receipt);
+      logReceipt(receipt, log);
+      return receipt;
+    } catch (fallbackError) {
+      const cartesiaError = fallbackError instanceof NarrationError ? fallbackError : new NarrationError('Cartesia narration failed.', {provider: 'cartesia'});
+      receipt.attempts.push(providerReceipt('cartesia', CARTESIA_MODEL, config.cartesiaVoiceId, cartesiaError.fallbackClass, cartesiaError.requestId));
+      receipt.state = 'failed';
+      writeJsonAtomic(finalReceipt, receipt);
+      fs.rmSync(finalOut, {force: true});
+      throw cartesiaError;
+    }
+  }
 }
 
 function arg(name, def) {
@@ -52,47 +302,19 @@ function arg(name, def) {
   return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : def;
 }
 
-const file = arg('file');
-const text = file ? fs.readFileSync(file, 'utf8').trim() : arg('text');
-if (!text) {
-  console.error('Error: pass --file <letter.txt> or --text "..."');
-  process.exit(1);
-}
-const out = arg('out', 'narration.mp3');
-
-// The one and only narrator: the custom "Civil War Veteran" voice, with its
-// fixed mournful, deliberate field-dispatch delivery. All of this is hardcoded
-// on purpose — the voice is never parameterized. To change narrators, design a
-// new voice (see references/voice-and-music.md) and replace these constants.
-const VOICE_ID = 'HvjKMFO0rjuPaM2f997g';
-const model = 'eleven_multilingual_v2';
-const voiceSettings = {
-  stability: 0.45,
-  similarity_boost: 0.8,
-  style: 0.4,
-  use_speaker_boost: true,
-};
-
 async function main() {
-  console.log(`Narrating ${text.length} chars with the Civil War Veteran voice (${model})…`);
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
-    method: 'POST',
-    headers: {
-      'xi-api-key': KEY,
-      'Content-Type': 'application/json',
-      Accept: 'audio/mpeg',
-    },
-    body: JSON.stringify({text, model_id: model, voice_settings: voiceSettings}),
-  });
-  if (!res.ok) {
-    console.error(`TTS failed: ${res.status} ${await res.text()}`);
-    process.exit(1);
-  }
-  fs.mkdirSync(path.dirname(path.resolve(out)), {recursive: true});
-  fs.writeFileSync(out, Buffer.from(await res.arrayBuffer()));
-  console.log(`Saved narration -> ${out}`);
+  const file = arg('file');
+  const text = file ? fs.readFileSync(file, 'utf8').trim() : arg('text');
+  if (!text) throw new NarrationError('Pass --file <letter.txt> or --text "...".');
+  const out = arg('out', 'narration.mp3');
+  const receipt = await narrate({text, out, operationId: arg('operation-id', 'default'), receiptPath: arg('receipt', `${out}.receipt.json`)});
+  console.log(`Saved narration -> ${out} (${receipt.selection.provider})`);
 }
-main().catch((e) => {
-  console.error(e.message);
-  process.exit(1);
-});
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    // Deliberately no provider response body, transcript, credentials, or headers.
+    console.error(`Narration failed${error.fallbackClass ? ` (${error.fallbackClass})` : ''}: ${error.message}`);
+    process.exit(1);
+  });
+}
