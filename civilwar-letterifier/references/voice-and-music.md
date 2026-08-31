@@ -36,13 +36,13 @@ capacity-only backup when ElevenLabs has returned a definitive quota, concurrenc
 or availability failure. The live adapter calls the current official
 `POST https://api.cartesia.ai/tts/bytes` endpoint with `Authorization: Bearer`,
 `Cartesia-Version: 2026-08-14`, `model_id: sonic-3.6`, a stock voice ID, and an
-MP3 request (`container: mp3`, `encoding: mp3`, 44.1 kHz, 128 kbps). It requests
+MP3 request (`container: mp3`, 44.1 kHz, 128 kbps). It requests
 `locale: en-US`, `volume: 1`, and a measured slow `speed: 0.85`; the intent is a
 solemn, unhurried documentary read without cloning or custom-voice training.
 
-The bounded stock candidate is **Jameson**, because Cartesia's current official
-voice guidance names it among stable English male voices; this is a candidate
-name, not a verified ID. Set `CARTESIA_VOICE_ID` only after a standard runtime key
+The bounded stock candidates are **Ronald** and **Carson**, per Cartesia's
+official stable-English-voice guidance; these are candidate names, not verified
+IDs. Set `CARTESIA_VOICE_ID` only after a standard runtime key
 can inspect the official Voice Library and a mock-safe validation confirms the
 chosen stock voice supports this model and output. Do not invent or hard-code an
 unverified ID. Live validation is currently blocked: no usable standard Cartesia

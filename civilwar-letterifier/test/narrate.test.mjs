@@ -72,7 +72,7 @@ test('definitive quota failure calls Cartesia once with the official bytes MP3 r
   assert.equal(calls[1].init.headers.Authorization, 'Bearer sk_car_1234567890abcdefghij');
   assert.equal(calls[1].init.headers['Cartesia-Version'], '2026-08-14');
   const payload = JSON.parse(calls[1].init.body);
-  assert.deepEqual(payload.output_format, {container: 'mp3', encoding: 'mp3', sample_rate: 44100, bit_rate: 128000});
+  assert.deepEqual(payload.output_format, {container: 'mp3', sample_rate: 44100, bit_rate: 128000});
   assert.equal(payload.voice, 'verified-by-runtime-config');
   assert.equal(receipt.selection.provider, 'cartesia');
   assert.equal(isDecodableMp3(out), true);
@@ -90,6 +90,53 @@ test('Eleven auth/input failure is nonretryable and never calls Cartesia', async
   );
   assert.deepEqual(calls, ['https://eleven.test/tts']);
   assert.equal(fs.existsSync(out), false);
+});
+
+test('auth, config, input, and other 4xx errors never fall back even with capacity-looking codes', async () => {
+  for (const [status, code] of [[400, 'quota_exceeded'], [401, 'quota_exceeded'], [403, 'concurrency_limited'], [404, 'service_unavailable'], [429, 'unauthorized']]) {
+    const calls = [];
+    const out = path.join(runDir(`contradictory-${status}`), 'narration.mp3');
+    await assert.rejects(
+      narrate({
+        text: 'A solemn dispatch.', out, operationId: `contradictory-${status}`, config: config(), log: () => {},
+        fetchImpl: async (url) => { calls.push(url); return jsonResponse(status, {error_code: code}); },
+      }),
+      (error) => error.fallbackClass === 'nonretryable',
+    );
+    assert.deepEqual(calls, ['https://eleven.test/tts']);
+    assert.equal(fs.existsSync(out), false);
+  }
+});
+
+test('malformed or unclassified 5xx errors fail closed, while structured availability falls back once', async () => {
+  const malformedCases = [
+    () => new Response('gateway exploded', {status: 503, headers: {'content-type': 'text/plain'}}),
+    () => new Response('{not json', {status: 503, headers: {'content-type': 'application/json'}}),
+    () => jsonResponse(503, {error_code: 'something_else'}),
+  ];
+  for (const [index, response] of malformedCases.entries()) {
+    const calls = [];
+    await assert.rejects(
+      narrate({
+        text: 'A solemn dispatch.', out: path.join(runDir(`bad-5xx-${index}`), 'narration.mp3'), operationId: `bad-5xx-${index}`,
+        config: config(), log: () => {}, fetchImpl: async (url) => { calls.push(url); return response(); },
+      }),
+      (error) => error.fallbackClass === 'nonretryable',
+    );
+    assert.deepEqual(calls, ['https://eleven.test/tts']);
+  }
+
+  const calls = [];
+  const receipt = await narrate({
+    text: 'A solemn dispatch.', out: path.join(runDir('structured-5xx'), 'narration.mp3'), operationId: 'structured-5xx',
+    config: config(), log: () => {},
+    fetchImpl: async (url) => {
+      calls.push(url);
+      return calls.length === 1 ? jsonResponse(503, {error_code: 'service_unavailable'}) : audioResponse();
+    },
+  });
+  assert.deepEqual(calls, ['https://eleven.test/tts', 'https://cartesia.test/tts/bytes']);
+  assert.equal(receipt.selection.provider, 'cartesia');
 });
 
 test('Cartesia failure fails closed and never leaves a final artifact', async () => {
@@ -111,15 +158,19 @@ test('Cartesia failure fails closed and never leaves a final artifact', async ()
   assert.equal(fs.existsSync(out), false);
 });
 
-test('ambiguous transport, retry, and recovery cannot double-generate', async () => {
+test('ambiguous transport keeps its operation lock and cannot double-generate', async () => {
   const dir = runDir('idempotency');
   const out = path.join(dir, 'narration.mp3');
   let calls = 0;
   const ambiguousFetch = async () => { calls += 1; throw new Error('socket reset'); };
   await assert.rejects(narrate({text: 'A solemn dispatch.', out, operationId: 'same', config: config(), log: () => {}, fetchImpl: ambiguousFetch}));
-  await assert.rejects(narrate({text: 'A solemn dispatch.', out, operationId: 'same', config: config(), log: () => {}, fetchImpl: ambiguousFetch}), /already started/);
+  await assert.rejects(narrate({text: 'A solemn dispatch.', out, operationId: 'same', config: config(), log: () => {}, fetchImpl: ambiguousFetch}), /already active or ambiguous/);
   assert.equal(calls, 1);
+});
 
+test('completed artifact recovers from a partial receipt without another provider call', async () => {
+  const out = path.join(runDir('recovery'), 'narration.mp3');
+  let calls = 0;
   await narrate({text: 'A solemn dispatch.', out, operationId: 'new', config: config(), log: () => {}, fetchImpl: async () => { calls += 1; return audioResponse(); }});
   const receiptPath = `${out}.receipt.json`;
   const partialReceipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
@@ -128,7 +179,35 @@ test('ambiguous transport, retry, and recovery cannot double-generate', async ()
   fs.writeFileSync(receiptPath, JSON.stringify(partialReceipt));
   const recovered = await narrate({text: 'A solemn dispatch.', out, operationId: 'new', config: config(), log: () => {}, fetchImpl: async () => { throw new Error('must not call'); }});
   assert.equal(recovered.recovered, true);
-  assert.equal(calls, 2);
+  assert.equal(calls, 1);
+});
+
+test('concurrent same and different operations share one exclusive output claim', async () => {
+  const out = path.join(runDir('concurrent'), 'narration.mp3');
+  let calls = 0;
+  let releaseFirst;
+  const first = narrate({
+    text: 'First dispatch.', out, operationId: 'first', config: config(), log: () => {},
+    fetchImpl: async () => {
+      calls += 1;
+      await new Promise((resolve) => { releaseFirst = resolve; });
+      return audioResponse();
+    },
+  });
+  while (!releaseFirst) await new Promise((resolve) => setImmediate(resolve));
+  const [same, different] = await Promise.allSettled([
+    narrate({text: 'First dispatch.', out, operationId: 'first', config: config(), log: () => {}, fetchImpl: async () => { throw new Error('must not call'); }}),
+    narrate({text: 'Different dispatch.', out, operationId: 'different', config: config(), log: () => {}, fetchImpl: async () => { throw new Error('must not call'); }}),
+  ]);
+  assert.equal(same.status, 'rejected');
+  assert.equal(different.status, 'rejected');
+  assert.equal(same.reason.fallbackClass, 'operation_locked');
+  assert.equal(different.reason.fallbackClass, 'operation_locked');
+  assert.equal(calls, 1);
+  releaseFirst();
+  const completed = await first;
+  assert.equal(completed.selection.provider, 'eleven');
+  assert.equal(isDecodableMp3(out), true);
 });
 
 test('invalid successful audio does not trigger fallback and is not published', async () => {
