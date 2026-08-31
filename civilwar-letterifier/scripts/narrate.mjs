@@ -6,6 +6,7 @@
  */
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
@@ -18,16 +19,37 @@ const CARTESIA_TTS_URL = 'https://api.cartesia.ai/tts/bytes';
 const ELEVEN_TTS_URL = `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`;
 const MAX_RECEIPT_REQUEST_ID_LENGTH = 160;
 const SHA256_HEX = /^[a-f0-9]{64}$/;
-// Fallback is intentionally a positive status-and-code allowlist. A status by
-// itself, or a code outside its expected status family, is not enough to risk
+const LOCK_SCHEMA_VERSION = 2;
+const LOCK_PHASE_HISTORY_LIMIT = 32;
+const NARRATION_LIMIT_SPECS = Object.freeze({
+  requestTimeoutMs: {env: 'SLOWBURNS_NARRATION_REQUEST_TIMEOUT_MS', defaultValue: 30_000, min: 1, max: 120_000},
+  bodyReadTimeoutMs: {env: 'SLOWBURNS_NARRATION_BODY_TIMEOUT_MS', defaultValue: 30_000, min: 1, max: 120_000},
+  maxAudioBytes: {env: 'SLOWBURNS_NARRATION_MAX_AUDIO_BYTES', defaultValue: 64 * 1024 * 1024, min: 1_024, max: 128 * 1024 * 1024},
+  maxErrorBodyBytes: {env: 'SLOWBURNS_NARRATION_MAX_ERROR_BODY_BYTES', defaultValue: 64 * 1024, min: 128, max: 1024 * 1024},
+  ffprobeTimeoutMs: {env: 'SLOWBURNS_NARRATION_FFPROBE_TIMEOUT_MS', defaultValue: 5_000, min: 1, max: 30_000},
+  ffprobeMaxBufferBytes: {env: 'SLOWBURNS_NARRATION_FFPROBE_MAX_BUFFER_BYTES', defaultValue: 64 * 1024, min: 1_024, max: 1024 * 1024},
+});
+export const DEFAULT_NARRATION_LIMITS = Object.freeze(Object.fromEntries(
+  Object.entries(NARRATION_LIMIT_SPECS).map(([key, spec]) => [key, spec.defaultValue]),
+));
+// Fallback is intentionally a positive provider-specific status, type, and
+// code allowlist. A status alone, a provider-shaped error from the wrong
+// service, or an auth/config/input-shaped contradiction is not enough to risk
 // a second synthesis request.
-const FALLBACK_CODES_BY_STATUS = new Map([
+const ELEVEN_FALLBACK_BY_STATUS = new Map([
+  [429, {type: 'rate_limit_error', codes: new Set([
+    'rate_limit_exceeded', 'concurrent_limit_exceeded', 'too_many_concurrent_requests', 'system_busy',
+  ])}],
+  [503, {type: 'service_unavailable', codes: new Set(['service_unavailable', 'maintenance'])}],
+]);
+const CARTESIA_FALLBACK_CODES_BY_STATUS = new Map([
   [429, new Set(['quota_exceeded', 'concurrency_limited', 'capacity_exceeded'])],
   [500, new Set(['capacity_exceeded', 'concurrency_limited', 'service_unavailable'])],
   [502, new Set(['capacity_exceeded', 'concurrency_limited', 'service_unavailable'])],
   [503, new Set(['capacity_exceeded', 'concurrency_limited', 'service_unavailable'])],
   [504, new Set(['capacity_exceeded', 'concurrency_limited', 'service_unavailable'])],
 ]);
+const RETAINED_LOCK_REASONS = new Set(['ambiguous_transport', 'receipt_integrity', 'invalid_audio', 'ambiguous_retry']);
 
 export class NarrationError extends Error {
   constructor(message, {provider, status, code, fallbackClass, requestId} = {}) {
@@ -40,6 +62,9 @@ export class NarrationError extends Error {
     this.requestId = requestId;
   }
 }
+
+class NarrationTimeoutError extends Error {}
+class BodyLimitError extends Error {}
 
 function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
@@ -54,36 +79,66 @@ function safeRequestId(value) {
   return /^[A-Za-z0-9:._-]+$/.test(value) ? value : undefined;
 }
 
-function requestIdFrom(response, body) {
-  return safeRequestId(
-    body?.request_id || body?.requestId || response.headers.get('x-request-id') || response.headers.get('request-id'),
-  );
+function safeErrorToken(value) {
+  return typeof value === 'string' && /^[a-z][a-z0-9_]{0,127}$/.test(value) ? value : undefined;
 }
 
-async function safeErrorBody(response, provider) {
-  if (!(response.headers.get('content-type') || '').includes('application/json')) return {};
-  try {
-    return await response.json();
-  } catch (error) {
-    // Malformed JSON is a definitive, non-fallback provider failure. A stream
-    // read error after headers, however, leaves the provider outcome unknown.
-    if (error instanceof SyntaxError || error?.name === 'SyntaxError') return {};
-    throw new NarrationError(`${provider} narration error response body could not be read; refusing retry.`, {
-      provider, fallbackClass: 'ambiguous_transport',
-    });
+function responseHeader(response, name) {
+  return typeof response?.headers?.get === 'function' ? response.headers.get(name) : undefined;
+}
+
+function providerErrorDetails(provider, body) {
+  if (provider === 'eleven') {
+    const detail = body?.detail;
+    if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return {};
+    // A present-but-malformed current `code` must fail closed rather than
+    // silently falling back to the legacy field.
+    const hasCurrentCode = Object.prototype.hasOwnProperty.call(detail, 'code');
+    return {
+      type: safeErrorToken(detail.type),
+      code: hasCurrentCode ? safeErrorToken(detail.code) : safeErrorToken(detail.status),
+      legacyStatus: !hasCurrentCode && typeof detail.status === 'string',
+      requestId: safeRequestId(detail.request_id),
+    };
   }
+  return {
+    code: safeErrorToken(body?.error_code),
+    requestId: safeRequestId(body?.request_id || body?.requestId),
+  };
+}
+
+function requestIdFrom(response, provider, body) {
+  return providerErrorDetails(provider, body).requestId
+    || safeRequestId(responseHeader(response, 'x-request-id'))
+    || safeRequestId(responseHeader(response, 'request-id'));
 }
 
 function classifiedProviderError(provider, response, body) {
-  const code = typeof body.error_code === 'string' ? body.error_code : undefined;
-  const fallbackClass = isCapacityFailure(response.status, code) ? 'capacity_or_availability' : 'nonretryable';
-  return new NarrationError(`${provider} narration request failed (${response.status}).`, {
-    provider, status: response.status, code, fallbackClass, requestId: requestIdFrom(response, body),
+  const details = providerErrorDetails(provider, body);
+  const status = Number.isInteger(response.status) ? response.status : undefined;
+  const fallbackClass = isCapacityFailure(provider, status, details.code, details.type, details.legacyStatus)
+    ? 'capacity_or_availability'
+    : 'nonretryable';
+  return new NarrationError(`${provider} narration request failed${status ? ` (${status})` : ''}.`, {
+    provider,
+    status,
+    code: details.code,
+    fallbackClass,
+    requestId: details.requestId || requestIdFrom(response, provider, body),
   });
 }
 
-export function isCapacityFailure(status, code) {
-  return typeof code === 'string' && FALLBACK_CODES_BY_STATUS.get(status)?.has(code) === true;
+export function isCapacityFailure(provider, status, code, type, legacyStatus = false) {
+  if (!Number.isInteger(status) || !safeErrorToken(code)) return false;
+  if (provider === 'eleven') {
+    const rule = ELEVEN_FALLBACK_BY_STATUS.get(status);
+    if (!rule || !rule.codes.has(code)) return false;
+    // `detail.status` is a documented legacy field. A legacy envelope may
+    // omit `type`, but a present type must still be the positive allowlisted
+    // one. Current `detail.code` responses must identify the matching type.
+    return legacyStatus ? (!type || type === rule.type) : type === rule.type;
+  }
+  return CARTESIA_FALLBACK_CODES_BY_STATUS.get(status)?.has(code) === true;
 }
 
 export function validateCartesiaKey(key) {
@@ -100,18 +155,40 @@ export function validateCartesiaKey(key) {
   }
 }
 
+export function resolveNarrationLimits(overrides = {}) {
+  const limits = {};
+  for (const [key, spec] of Object.entries(NARRATION_LIMIT_SPECS)) {
+    const raw = overrides?.[key];
+    const value = raw === undefined
+      ? spec.defaultValue
+      : (typeof raw === 'string' && /^\d+$/.test(raw) ? Number(raw) : raw);
+    if (!Number.isSafeInteger(value) || value < spec.min || value > spec.max) {
+      throw new NarrationError(`${spec.env} must be an integer between ${spec.min} and ${spec.max}.`, {
+        fallbackClass: 'configuration',
+      });
+    }
+    limits[key] = value;
+  }
+  return limits;
+}
+
+function normalizeNarrationConfig(config) {
+  if (!config?.elevenKey) {
+    throw new NarrationError('Set ELEVENLABS_API_KEY (or ELEVEN_API_KEY).', {provider: 'eleven', fallbackClass: 'configuration'});
+  }
+  validateCartesiaKey(config.cartesiaKey);
+  return {...config, limits: resolveNarrationLimits(config.limits)};
+}
+
 export function resolveConfig(env = process.env) {
-  const elevenKey = env.ELEVENLABS_API_KEY || env.ELEVEN_API_KEY;
-  if (!elevenKey) throw new NarrationError('Set ELEVENLABS_API_KEY (or ELEVEN_API_KEY).', {provider: 'eleven'});
-  const cartesiaKey = env.CARTESIA_API_KEY;
-  validateCartesiaKey(cartesiaKey);
-  return {
-    elevenKey,
-    cartesiaKey,
+  return normalizeNarrationConfig({
+    elevenKey: env.ELEVENLABS_API_KEY || env.ELEVEN_API_KEY,
+    cartesiaKey: env.CARTESIA_API_KEY,
     cartesiaVoiceId: env.CARTESIA_VOICE_ID,
     elevenUrl: env.ELEVENLABS_TTS_URL || ELEVEN_TTS_URL,
     cartesiaUrl: env.CARTESIA_TTS_URL || CARTESIA_TTS_URL,
-  };
+    limits: Object.fromEntries(Object.entries(NARRATION_LIMIT_SPECS).map(([key, spec]) => [key, env[spec.env]])),
+  });
 }
 
 function assertCartesiaReady(config) {
@@ -122,93 +199,193 @@ function assertCartesiaReady(config) {
   }
 }
 
-async function requestEleven(config, text, fetchImpl) {
-  let response;
-  try {
-    response = await fetchImpl(config.elevenUrl, {
-      method: 'POST',
-      headers: {'xi-api-key': config.elevenKey, 'Content-Type': 'application/json', Accept: 'audio/mpeg'},
-      body: JSON.stringify({
-        text,
-        model_id: ELEVEN_MODEL,
-        voice_settings: {stability: 0.45, similarity_boost: 0.8, style: 0.4, use_speaker_boost: true},
-      }),
-    });
-  } catch {
-    throw new NarrationError('ElevenLabs narration transport outcome is ambiguous; refusing fallback or retry.', {
-      provider: 'eleven', fallbackClass: 'ambiguous_transport',
-    });
-  }
-  if (!response.ok) throw classifiedProviderError('eleven', response, await safeErrorBody(response, 'eleven'));
-  return {audio: await readSuccessfulAudio(response, 'eleven'), requestId: requestIdFrom(response)};
+function withTimeout(work, timeoutMs, onTimeout) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      callback(value);
+    };
+    const timer = setTimeout(() => {
+      try { onTimeout?.(); } catch {}
+      finish(reject, new NarrationTimeoutError());
+    }, timeoutMs);
+    Promise.resolve().then(work).then(
+      (value) => finish(resolve, value),
+      (error) => finish(reject, error),
+    );
+  });
 }
 
-async function requestCartesia(config, text, fetchImpl) {
-  assertCartesiaReady(config);
-  let response;
+async function readProviderBody(response, provider, config, lock, kind) {
+  const limit = kind === 'audio' ? config.limits.maxAudioBytes : config.limits.maxErrorBodyBytes;
+  const phaseBase = `${provider}_${kind === 'audio' ? 'audio_body' : 'error_body'}_read`;
+  advanceOperationLock(lock, `${phaseBase}_started`);
+  let reader;
   try {
-    response = await fetchImpl(config.cartesiaUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${config.cartesiaKey}`,
-        'Cartesia-Version': CARTESIA_VERSION,
-        'Content-Type': 'application/json',
-        Accept: 'audio/mpeg',
-      },
-      body: JSON.stringify({
-        model_id: CARTESIA_MODEL,
-        transcript: text,
-        voice: config.cartesiaVoiceId,
-        output_format: {container: 'mp3', sample_rate: 44100, bit_rate: 128000},
-        locale: 'en-US',
-        generation_config: {volume: 1, speed: 0.85},
-      }),
+    const bytes = await withTimeout(async () => {
+      const declaredLength = Number(responseHeader(response, 'content-length'));
+      if (Number.isSafeInteger(declaredLength) && declaredLength > limit) throw new BodyLimitError();
+      if (typeof response.body?.getReader === 'function') {
+        reader = response.body.getReader();
+        const chunks = [];
+        let total = 0;
+        while (true) {
+          const {done, value} = await reader.read();
+          if (done) break;
+          const chunk = Buffer.from(value);
+          total += chunk.length;
+          if (total > limit) throw new BodyLimitError();
+          chunks.push(chunk);
+        }
+        return Buffer.concat(chunks, total);
+      }
+      if (typeof response.arrayBuffer !== 'function') throw new Error('response body is unavailable');
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (bytes.length > limit) throw new BodyLimitError();
+      return bytes;
+    }, config.limits.bodyReadTimeoutMs, () => {
+      try { void Promise.resolve(reader?.cancel?.()).catch(() => {}); } catch {}
     });
-  } catch {
-    throw new NarrationError('Cartesia narration transport outcome is ambiguous.', {
-      provider: 'cartesia', fallbackClass: 'ambiguous_transport',
-    });
-  }
-  if (!response.ok) throw classifiedProviderError('cartesia', response, await safeErrorBody(response, 'cartesia'));
-  return {audio: await readSuccessfulAudio(response, 'cartesia'), requestId: requestIdFrom(response)};
-}
-
-async function readSuccessfulAudio(response, provider) {
-  try {
-    return Buffer.from(await response.arrayBuffer());
-  } catch {
-    // A successful header does not prove whether synthesis completed. Preserve
-    // the operation claim so a later invocation cannot issue a duplicate call.
-    throw new NarrationError(`${provider} narration response body could not be read; refusing retry.`, {
+    advanceOperationLock(lock, `${phaseBase}_completed`);
+    return bytes;
+  } catch (error) {
+    if (error instanceof BodyLimitError && kind === 'audio') {
+      throw new NarrationError(`${provider} narration audio exceeded the configured byte limit.`, {
+        provider, fallbackClass: 'invalid_audio',
+      });
+    }
+    // Error bodies and successful audio streams can both cross a provider
+    // billing boundary. An unreadable/oversized error body is not reliable
+    // evidence that no synthesis occurred, so neither outcome is retried.
+    throw new NarrationError(`${provider} narration response body could not be read within configured bounds; refusing retry.`, {
       provider, fallbackClass: 'ambiguous_transport',
     });
   }
+}
+
+async function safeErrorBody(response, provider, config, lock) {
+  if (!(responseHeader(response, 'content-type') || '').toLowerCase().includes('application/json')) return {};
+  const bytes = await readProviderBody(response, provider, config, lock, 'error');
+  try {
+    return JSON.parse(bytes.toString('utf8'));
+  } catch (error) {
+    // A completed malformed JSON body is a definitive provider failure. Do
+    // not promote it to a capacity outcome or parse its message for policy.
+    if (error instanceof SyntaxError || error?.name === 'SyntaxError') return {};
+    throw new NarrationError(`${provider} narration error response could not be classified; refusing retry.`, {
+      provider, fallbackClass: 'ambiguous_transport',
+    });
+  }
+}
+
+async function requestProviderResponse(provider, url, init, config, fetchImpl, lock) {
+  advanceOperationLock(lock, `${provider}_request_started`);
+  const controller = typeof AbortController === 'function' ? new AbortController() : undefined;
+  let response;
+  try {
+    response = await withTimeout(
+      () => fetchImpl(url, controller ? {...init, signal: controller.signal} : init),
+      config.limits.requestTimeoutMs,
+      () => controller?.abort(),
+    );
+  } catch {
+    throw new NarrationError(`${provider} narration transport outcome is ambiguous; refusing fallback or retry.`, {
+      provider, fallbackClass: 'ambiguous_transport',
+    });
+  }
+  if (!response || typeof response.ok !== 'boolean' || typeof responseHeader(response, 'content-type') === 'undefined') {
+    throw new NarrationError(`${provider} narration response was incomplete; refusing fallback or retry.`, {
+      provider, fallbackClass: 'ambiguous_transport',
+    });
+  }
+  advanceOperationLock(lock, `${provider}_headers_received`);
+  return response;
+}
+
+async function requestEleven(config, text, fetchImpl, lock) {
+  const response = await requestProviderResponse('eleven', config.elevenUrl, {
+    method: 'POST',
+    headers: {'xi-api-key': config.elevenKey, 'Content-Type': 'application/json', Accept: 'audio/mpeg'},
+    body: JSON.stringify({
+      text,
+      model_id: ELEVEN_MODEL,
+      voice_settings: {stability: 0.45, similarity_boost: 0.8, style: 0.4, use_speaker_boost: true},
+    }),
+  }, config, fetchImpl, lock);
+  if (!response.ok) throw classifiedProviderError('eleven', response, await safeErrorBody(response, 'eleven', config, lock));
+  return {
+    audio: await readProviderBody(response, 'eleven', config, lock, 'audio'),
+    requestId: requestIdFrom(response, 'eleven'),
+  };
+}
+
+async function requestCartesia(config, text, fetchImpl, lock) {
+  assertCartesiaReady(config);
+  const response = await requestProviderResponse('cartesia', config.cartesiaUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${config.cartesiaKey}`,
+      'Cartesia-Version': CARTESIA_VERSION,
+      'Content-Type': 'application/json',
+      Accept: 'audio/mpeg',
+    },
+    body: JSON.stringify({
+      model_id: CARTESIA_MODEL,
+      transcript: text,
+      voice: config.cartesiaVoiceId,
+      output_format: {container: 'mp3', sample_rate: 44100, bit_rate: 128000},
+      locale: 'en-US',
+      generation_config: {volume: 1, speed: 0.85},
+    }),
+  }, config, fetchImpl, lock);
+  if (!response.ok) throw classifiedProviderError('cartesia', response, await safeErrorBody(response, 'cartesia', config, lock));
+  return {
+    audio: await readProviderBody(response, 'cartesia', config, lock, 'audio'),
+    requestId: requestIdFrom(response, 'cartesia'),
+  };
 }
 
 function tempPathFor(out) {
   return path.join(path.dirname(out), `.${path.basename(out)}.${crypto.randomUUID()}.tmp.mp3`);
 }
 
-export function isDecodableMp3(file) {
+export function isDecodableMp3(file, limits = DEFAULT_NARRATION_LIMITS, ffprobeImpl = execFileSync) {
+  const bounded = resolveNarrationLimits(limits);
   try {
     if (!fs.statSync(file).size) return false;
-    const format = execFileSync('ffprobe', [
+    const format = ffprobeImpl('ffprobe', [
       '-v', 'error', '-show_entries', 'format=format_name', '-of', 'default=noprint_wrappers=1:nokey=1', file,
-    ], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim();
+    ], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: bounded.ffprobeTimeoutMs,
+      maxBuffer: bounded.ffprobeMaxBufferBytes,
+    }).trim();
     return format.split(',').includes('mp3');
   } catch {
     return false;
   }
 }
 
-function publishAudio(audio, out) {
-  if (!audio?.length) throw new NarrationError('Provider returned an empty narration artifact.', {fallbackClass: 'invalid_audio'});
+function publishAudio(audio, out, config, ffprobeImpl, lock, provider) {
+  advanceOperationLock(lock, `${provider}_audio_validation_started`);
+  if (!audio?.length) {
+    throw new NarrationError('Provider returned an empty narration artifact.', {provider, fallbackClass: 'invalid_audio'});
+  }
   fs.mkdirSync(path.dirname(out), {recursive: true});
   const temp = tempPathFor(out);
   try {
     fs.writeFileSync(temp, audio, {mode: 0o600});
-    if (!isDecodableMp3(temp)) throw new NarrationError('Provider returned audio incompatible with the MP3 render pipeline.', {fallbackClass: 'invalid_audio'});
+    if (!isDecodableMp3(temp, config.limits, ffprobeImpl)) {
+      throw new NarrationError('Provider returned audio incompatible with the MP3 render pipeline.', {
+        provider, fallbackClass: 'invalid_audio',
+      });
+    }
     fs.renameSync(temp, out);
+    advanceOperationLock(lock, `${provider}_audio_published`);
     return sha256(audio);
   } finally {
     fs.rmSync(temp, {force: true});
@@ -250,17 +427,103 @@ function removeStaleOperation(out, receiptPath) {
   fs.rmSync(receiptPath, {force: true});
 }
 
-function acquireOperationLock(receiptPath, operation) {
-  const lockPath = `${receiptPath}.lock`;
+function canonicalizePath(file) {
+  if (typeof file !== 'string' || !file) {
+    throw new NarrationError('Narration output and receipt paths must be nonempty strings.', {fallbackClass: 'configuration'});
+  }
+  const absolute = path.resolve(file);
+  if (!path.basename(absolute)) {
+    throw new NarrationError('Narration output must name a file.', {fallbackClass: 'configuration'});
+  }
+  const suffix = [path.basename(absolute)];
+  let directory = path.dirname(absolute);
+  while (!fs.existsSync(directory)) {
+    const parent = path.dirname(directory);
+    if (parent === directory) return absolute;
+    suffix.unshift(path.basename(directory));
+    directory = parent;
+  }
+  try {
+    return path.join(fs.realpathSync(directory), ...suffix);
+  } catch {
+    return absolute;
+  }
+}
+
+function resolveNarrationPaths(out, receiptPath) {
+  const finalOut = canonicalizePath(out);
+  const finalReceipt = canonicalizePath(receiptPath);
+  const lockPath = `${finalOut}.narration.lock`;
+  if (finalReceipt === finalOut || finalReceipt === lockPath) {
+    throw new NarrationError('Narration receipt path may not collide with the output or its canonical claim.', {
+      fallbackClass: 'configuration',
+    });
+  }
+  return {finalOut, finalReceipt, lockPath};
+}
+
+function lockRecord(lock) {
+  return Object.fromEntries(Object.entries({
+    schema_version: LOCK_SCHEMA_VERSION,
+    operation: lock.operation,
+    output_identity: lock.outputIdentity,
+    phase: lock.phase,
+    created_at: lock.createdAt,
+    updated_at: lock.updatedAt,
+    owner_pid: lock.ownerPid,
+    owner_host: lock.ownerHost,
+    phase_history: lock.phaseHistory,
+    operator_intervention_required: lock.operatorInterventionRequired || undefined,
+    retained_reason: lock.retainedReason,
+    expected_audio_sha256: safeAudioSha256(lock.expectedAudioSha256),
+    actual_audio_sha256: safeAudioSha256(lock.actualAudioSha256),
+  }).filter(([, value]) => value !== undefined));
+}
+
+function updateLock(lock) {
+  writeJsonAtomic(lock.lockPath, lockRecord(lock));
+}
+
+function advanceOperationLock(lock, phase, {operatorInterventionRequired = false, expectedAudioSha256, actualAudioSha256} = {}) {
+  const now = new Date().toISOString();
+  lock.phase = phase;
+  lock.updatedAt = now;
+  lock.phaseHistory = [...lock.phaseHistory, {phase, at: now}].slice(-LOCK_PHASE_HISTORY_LIMIT);
+  if (operatorInterventionRequired) lock.operatorInterventionRequired = true;
+  if (safeAudioSha256(expectedAudioSha256)) lock.expectedAudioSha256 = expectedAudioSha256;
+  if (safeAudioSha256(actualAudioSha256)) lock.actualAudioSha256 = actualAudioSha256;
+  updateLock(lock);
+}
+
+function retainOperationLock(lock, reason) {
+  lock.updatedAt = new Date().toISOString();
+  lock.operatorInterventionRequired = true;
+  lock.retainedReason = RETAINED_LOCK_REASONS.has(reason) ? reason : 'ambiguous_retry';
+  updateLock(lock);
+}
+
+function acquireOperationLock(finalOut, lockPath, operation) {
   fs.mkdirSync(path.dirname(lockPath), {recursive: true});
+  const now = new Date().toISOString();
+  const lock = {
+    lockPath,
+    operation,
+    outputIdentity: sha256(finalOut),
+    phase: 'claimed_pre_provider',
+    createdAt: now,
+    updatedAt: now,
+    ownerPid: process.pid,
+    ownerHost: os.hostname(),
+    phaseHistory: [{phase: 'claimed_pre_provider', at: now}],
+  };
   let fd;
   try {
     fd = fs.openSync(lockPath, 'wx', 0o600);
-    fs.writeFileSync(fd, `${JSON.stringify({schema_version: 1, operation, state: 'active'})}\n`);
-    return lockPath;
+    fs.writeFileSync(fd, `${JSON.stringify(lockRecord(lock), null, 2)}\n`);
+    return lock;
   } catch (error) {
     if (error?.code === 'EEXIST') {
-      throw new NarrationError('Narration operation is already active or ambiguous; refusing a second provider call.', {
+      throw new NarrationError('Narration output is already active or ambiguous; refusing a second provider call.', {
         fallbackClass: 'operation_locked',
       });
     }
@@ -270,49 +533,46 @@ function acquireOperationLock(receiptPath, operation) {
   }
 }
 
-function releaseOperationLock(lockPath) {
-  fs.rmSync(lockPath, {force: true});
+function releaseOperationLock(lock) {
+  fs.rmSync(lock.lockPath, {force: true});
 }
 
-function receiptIntegrityFailure(lockPath, operation, state, expectedAudioSha256, actualAudioSha256) {
-  const lockEvidence = Object.fromEntries(Object.entries({
-    schema_version: 1,
-    operation,
-    state,
-    operator_intervention_required: true,
-    expected_audio_sha256: safeAudioSha256(expectedAudioSha256),
-    actual_audio_sha256: safeAudioSha256(actualAudioSha256),
-  }).filter(([, value]) => value !== undefined));
+function receiptIntegrityFailure(lock, state, expectedAudioSha256, actualAudioSha256) {
   // Keep the completed receipt immutable: the lock records only sanitized
-  // diagnosis data while preventing an implicit replacement synthesis.
-  writeJsonAtomic(lockPath, lockEvidence);
+  // diagnosis data while preventing implicit replacement. No raw output,
+  // receipt, provider body, header, secret, or transcript is serialized.
+  advanceOperationLock(lock, state, {
+    operatorInterventionRequired: true,
+    expectedAudioSha256,
+    actualAudioSha256,
+  });
   throw new NarrationError('Completed narration receipt failed artifact-integrity verification; operator intervention is required.', {
     fallbackClass: 'receipt_integrity',
   });
 }
 
-function verifyReceiptAudioSha256(existing, out, lockPath, operation) {
+function verifyReceiptAudioSha256(existing, out, lock) {
   let actualAudioSha256;
   try {
     actualAudioSha256 = sha256(fs.readFileSync(out));
   } catch {
-    receiptIntegrityFailure(lockPath, operation, 'receipt_integrity_unreadable_artifact', existing.audio_sha256);
+    receiptIntegrityFailure(lock, 'receipt_integrity_unreadable_artifact', existing.audio_sha256);
   }
   const expectedAudioSha256 = safeAudioSha256(existing.audio_sha256);
   if (!expectedAudioSha256) {
-    receiptIntegrityFailure(lockPath, operation, 'receipt_integrity_missing_hash', undefined, actualAudioSha256);
+    receiptIntegrityFailure(lock, 'receipt_integrity_missing_hash', undefined, actualAudioSha256);
   }
   if (expectedAudioSha256 !== actualAudioSha256) {
-    receiptIntegrityFailure(lockPath, operation, 'receipt_integrity_hash_mismatch', expectedAudioSha256, actualAudioSha256);
+    receiptIntegrityFailure(lock, 'receipt_integrity_hash_mismatch', expectedAudioSha256, actualAudioSha256);
   }
   return actualAudioSha256;
 }
 
-function verifyCompletedReceiptIntegrity(existing, out, lockPath, operation) {
-  if (!isDecodableMp3(out)) {
-    receiptIntegrityFailure(lockPath, operation, 'receipt_integrity_missing_or_invalid_artifact', existing.audio_sha256);
+function verifyCompletedReceiptIntegrity(existing, out, lock, limits, ffprobeImpl) {
+  if (!isDecodableMp3(out, limits, ffprobeImpl)) {
+    receiptIntegrityFailure(lock, 'receipt_integrity_missing_or_invalid_artifact', existing.audio_sha256);
   }
-  return verifyReceiptAudioSha256(existing, out, lockPath, operation);
+  return verifyReceiptAudioSha256(existing, out, lock);
 }
 
 /**
@@ -320,24 +580,42 @@ function verifyCompletedReceiptIntegrity(existing, out, lockPath, operation) {
  * is intentionally terminal: an unknown previous provider outcome must never
  * be retried implicitly and risk duplicate synthesis.
  */
-export async function narrate({text, out, operationId = 'default', receiptPath = `${out}.receipt.json`, config, fetchImpl = fetch, log = console.log}) {
-  const resolvedConfig = config || resolveConfig();
-  // Direct callers must receive the same guard as the CLI path before any
-  // state mutation or network call.
-  validateCartesiaKey(resolvedConfig.cartesiaKey);
-  const finalOut = path.resolve(out);
-  const finalReceipt = path.resolve(receiptPath);
+function writeCompletedReceipt(receiptPath, receipt) {
+  try {
+    writeJsonAtomic(receiptPath, receipt);
+  } catch {
+    throw new NarrationError('Narration artifact could not be durably receipted; refusing automatic recovery.', {
+      fallbackClass: 'ambiguous_transport',
+    });
+  }
+}
+
+export async function narrate({
+  text,
+  out,
+  operationId = 'default',
+  receiptPath = `${out}.receipt.json`,
+  config,
+  fetchImpl = fetch,
+  ffprobeImpl = execFileSync,
+  log = console.log,
+}) {
+  const resolvedConfig = normalizeNarrationConfig(config || resolveConfig());
+  const {finalOut, finalReceipt, lockPath} = resolveNarrationPaths(out, receiptPath);
   const operation = sha256(`${operationId}\0${text}`);
-  const lockPath = acquireOperationLock(finalReceipt, operation);
+  const lock = acquireOperationLock(finalOut, lockPath, operation);
   let preserveLock = false;
   try {
     const existing = readReceipt(finalReceipt);
+    if (!existing && fs.existsSync(finalReceipt)) {
+      throw new NarrationError('Narration receipt is unreadable; refusing implicit retry.', {fallbackClass: 'ambiguous_retry'});
+    }
     const completedAudioSha256 = existing?.state === 'complete'
-      ? verifyCompletedReceiptIntegrity(existing, finalOut, lockPath, operation)
+      ? verifyCompletedReceiptIntegrity(existing, finalOut, lock, resolvedConfig.limits, ffprobeImpl)
       : undefined;
     if (existing?.operation === operation) {
-      if (isDecodableMp3(finalOut)) {
-        const actualAudioSha256 = completedAudioSha256 || verifyReceiptAudioSha256(existing, finalOut, lockPath, operation);
+      if (isDecodableMp3(finalOut, resolvedConfig.limits, ffprobeImpl)) {
+        const actualAudioSha256 = completedAudioSha256 || verifyReceiptAudioSha256(existing, finalOut, lock);
         const provider = existing.selection?.provider || (existing.state === 'fallback_started' ? 'cartesia' : 'eleven');
         const recovered = {
           ...existing,
@@ -351,7 +629,8 @@ export async function narrate({text, out, operationId = 'default', receiptPath =
           audio_sha256: actualAudioSha256,
           recovered: true,
         };
-        writeJsonAtomic(finalReceipt, recovered);
+        writeCompletedReceipt(finalReceipt, recovered);
+        advanceOperationLock(lock, 'recovery_receipt_written');
         logReceipt(recovered, log);
         return recovered;
       }
@@ -359,20 +638,28 @@ export async function narrate({text, out, operationId = 'default', receiptPath =
         fallbackClass: 'ambiguous_retry',
       });
     }
+    if (existing && existing.state !== 'complete') {
+      throw new NarrationError('An unfinished narration receipt already exists for this output; refusing implicit retry.', {
+        fallbackClass: 'ambiguous_retry',
+      });
+    }
     removeStaleOperation(finalOut, finalReceipt);
     const receipt = {schema_version: 1, operation, state: 'primary_started', attempts: []};
     writeJsonAtomic(finalReceipt, receipt);
     try {
-      const primary = await requestEleven(resolvedConfig, text, fetchImpl);
-      const audioSha256 = publishAudio(primary.audio, finalOut);
+      const primary = await requestEleven(resolvedConfig, text, fetchImpl, lock);
+      const audioSha256 = publishAudio(primary.audio, finalOut, resolvedConfig, ffprobeImpl, lock, 'eleven');
       receipt.state = 'complete';
       receipt.selection = providerReceipt('eleven', ELEVEN_MODEL, ELEVEN_VOICE_ID, 'primary', primary.requestId);
       receipt.audio_sha256 = audioSha256;
-      writeJsonAtomic(finalReceipt, receipt);
+      writeCompletedReceipt(finalReceipt, receipt);
+      advanceOperationLock(lock, 'complete_receipt_written');
       logReceipt(receipt, log);
       return receipt;
     } catch (error) {
-      const primaryError = error instanceof NarrationError ? error : new NarrationError('ElevenLabs narration failed.', {provider: 'eleven'});
+      const primaryError = error instanceof NarrationError
+        ? error
+        : new NarrationError('ElevenLabs narration failed.', {provider: 'eleven', fallbackClass: 'nonretryable'});
       receipt.attempts.push(providerReceipt('eleven', ELEVEN_MODEL, ELEVEN_VOICE_ID, primaryError.fallbackClass, primaryError.requestId));
       receipt.state = 'primary_failed';
       writeJsonAtomic(finalReceipt, receipt);
@@ -383,16 +670,19 @@ export async function narrate({text, out, operationId = 'default', receiptPath =
       try {
         receipt.state = 'fallback_started';
         writeJsonAtomic(finalReceipt, receipt);
-        const fallback = await requestCartesia(resolvedConfig, text, fetchImpl);
-        const audioSha256 = publishAudio(fallback.audio, finalOut);
+        const fallback = await requestCartesia(resolvedConfig, text, fetchImpl, lock);
+        const audioSha256 = publishAudio(fallback.audio, finalOut, resolvedConfig, ffprobeImpl, lock, 'cartesia');
         receipt.state = 'complete';
         receipt.selection = providerReceipt('cartesia', CARTESIA_MODEL, resolvedConfig.cartesiaVoiceId, 'capacity_or_availability', fallback.requestId);
         receipt.audio_sha256 = audioSha256;
-        writeJsonAtomic(finalReceipt, receipt);
+        writeCompletedReceipt(finalReceipt, receipt);
+        advanceOperationLock(lock, 'complete_receipt_written');
         logReceipt(receipt, log);
         return receipt;
       } catch (fallbackError) {
-        const cartesiaError = fallbackError instanceof NarrationError ? fallbackError : new NarrationError('Cartesia narration failed.', {provider: 'cartesia'});
+        const cartesiaError = fallbackError instanceof NarrationError
+          ? fallbackError
+          : new NarrationError('Cartesia narration failed.', {provider: 'cartesia', fallbackClass: 'nonretryable'});
         receipt.attempts.push(providerReceipt('cartesia', CARTESIA_MODEL, resolvedConfig.cartesiaVoiceId, cartesiaError.fallbackClass, cartesiaError.requestId));
         receipt.state = 'failed';
         writeJsonAtomic(finalReceipt, receipt);
@@ -401,11 +691,11 @@ export async function narrate({text, out, operationId = 'default', receiptPath =
       }
     }
   } catch (error) {
-    preserveLock = error instanceof NarrationError
-      && ['ambiguous_transport', 'receipt_integrity'].includes(error.fallbackClass);
+    preserveLock = error instanceof NarrationError && RETAINED_LOCK_REASONS.has(error.fallbackClass);
+    if (preserveLock) retainOperationLock(lock, error.fallbackClass);
     throw error;
   } finally {
-    if (!preserveLock) releaseOperationLock(lockPath);
+    if (!preserveLock) releaseOperationLock(lock);
   }
 }
 

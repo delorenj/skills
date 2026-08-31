@@ -37,6 +37,14 @@ scripts use bare `node`); the Remotion render deps auto-install on first run.
 - **`CARTESIA_API_KEY`** and **`CARTESIA_VOICE_ID`** — optional, bounded
   narration fallback only. `CARTESIA_API_KEY` must be a standard runtime key
   (`sk_car_...`); admin keys (`sk_car_admin_...`) are rejected before a request.
+- **Bounded narration controls** — optional integer environment values:
+  `SLOWBURNS_NARRATION_REQUEST_TIMEOUT_MS`,
+  `SLOWBURNS_NARRATION_BODY_TIMEOUT_MS`, `SLOWBURNS_NARRATION_MAX_AUDIO_BYTES`,
+  `SLOWBURNS_NARRATION_MAX_ERROR_BODY_BYTES`,
+  `SLOWBURNS_NARRATION_FFPROBE_TIMEOUT_MS`, and
+  `SLOWBURNS_NARRATION_FFPROBE_MAX_BUFFER_BYTES`. Defaults, ranges, canonical
+  output claims, and the no-auto-retry manual recovery procedure are in
+  [`SKILL.md`](SKILL.md#bounded-narration-io-and-manual-recovery).
 - **`SLOWBURNS_OPENROUTER_API_KEY`** — the letterify step, via
   [OpenRouter](https://openrouter.ai) (falls back to `OPENROUTER_API_KEY`).
   Default model `anthropic/claude-sonnet-5`; override with `--model <slug>` or

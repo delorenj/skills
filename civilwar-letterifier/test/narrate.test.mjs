@@ -24,14 +24,19 @@ function runDir(name) {
   return fs.mkdtempSync(path.join(tempRoot, `${name}-`));
 }
 
-function config() {
+function config(overrides = {}) {
   return {
     elevenKey: 'eleven-test-key',
     cartesiaKey: 'sk_car_1234567890abcdefghij',
     cartesiaVoiceId: 'verified-by-runtime-config',
     elevenUrl: 'https://eleven.test/tts',
     cartesiaUrl: 'https://cartesia.test/tts/bytes',
+    ...overrides,
   };
+}
+
+function lockPathFor(out) {
+  return `${path.resolve(out)}.narration.lock`;
 }
 
 function jsonResponse(status, body, requestId = 'safe-request-id') {
@@ -39,6 +44,17 @@ function jsonResponse(status, body, requestId = 'safe-request-id') {
     status,
     headers: {'content-type': 'application/json', 'x-request-id': requestId},
   });
+}
+
+function elevenErrorResponse(status, {type, code, legacyStatus, requestId = 'safe-request-id', message = 'provider message'} = {}) {
+  const detail = {type, message, request_id: requestId};
+  if (code !== undefined) detail.code = code;
+  if (legacyStatus !== undefined) detail.status = legacyStatus;
+  return jsonResponse(status, {detail}, requestId);
+}
+
+function cartesiaErrorResponse(status, errorCode, requestId = 'safe-request-id') {
+  return jsonResponse(status, {error_code: errorCode, request_id: requestId}, requestId);
 }
 
 function audioResponse(audio = validAudio, requestId = 'safe-request-id') {
@@ -59,7 +75,23 @@ function unreadableJsonResponse(status = 500, requestId = 'safe-request-id') {
     ok: false,
     status,
     headers: new Headers({'content-type': 'application/json', 'x-request-id': requestId}),
-    json: async () => { throw new Error('error response stream interrupted'); },
+    arrayBuffer: async () => { throw new Error('error response stream interrupted'); },
+  };
+}
+
+function hangingAudioResponse(requestId = 'safe-request-id') {
+  return {
+    ok: true,
+    status: 200,
+    headers: new Headers({'content-type': 'audio/mpeg', 'x-request-id': requestId}),
+    body: {
+      getReader() {
+        return {
+          read: async () => new Promise(() => {}),
+          cancel: async () => {},
+        };
+      },
+    },
   };
 }
 
@@ -86,7 +118,7 @@ test('definitive quota failure calls Cartesia once with the official bytes MP3 r
     fetchImpl: async (url, init) => {
       calls.push({url, init});
       return calls.length === 1
-        ? jsonResponse(429, {error_code: 'quota_exceeded', request_id: 'eleven-capacity'})
+        ? elevenErrorResponse(429, {type: 'rate_limit_error', code: 'rate_limit_exceeded', requestId: 'eleven-capacity'})
         : audioResponse(validAudio, 'cartesia-complete');
     },
   });
@@ -104,15 +136,20 @@ test('definitive quota failure calls Cartesia once with the official bytes MP3 r
 test('Eleven auth/input failure is nonretryable and never calls Cartesia', async () => {
   const calls = [];
   const out = path.join(runDir('nonretryable'), 'narration.mp3');
+  const providerMessage = 'PRIVATE PROVIDER MESSAGE MUST NOT PERSIST';
   await assert.rejects(
     narrate({
       text: 'A solemn dispatch.', out, operationId: 'nonretryable', config: config(), log: () => {},
-      fetchImpl: async (url) => { calls.push(url); return jsonResponse(401, {error_code: 'unauthorized'}); },
+      fetchImpl: async (url) => {
+        calls.push(url);
+        return elevenErrorResponse(401, {type: 'authentication_error', code: 'invalid_api_key', message: providerMessage});
+      },
     }),
     (error) => error.fallbackClass === 'nonretryable',
   );
   assert.deepEqual(calls, ['https://eleven.test/tts']);
   assert.equal(fs.existsSync(out), false);
+  assert.doesNotMatch(fs.readFileSync(`${out}.receipt.json`, 'utf8'), new RegExp(providerMessage));
 });
 
 test('auth, config, input, and other 4xx errors never fall back even with capacity-looking codes', async () => {
@@ -122,7 +159,10 @@ test('auth, config, input, and other 4xx errors never fall back even with capaci
     await assert.rejects(
       narrate({
         text: 'A solemn dispatch.', out, operationId: `contradictory-${status}`, config: config(), log: () => {},
-        fetchImpl: async (url) => { calls.push(url); return jsonResponse(status, {error_code: code}); },
+        fetchImpl: async (url) => {
+          calls.push(url);
+          return elevenErrorResponse(status, {type: 'authentication_error', code});
+        },
       }),
       (error) => error.fallbackClass === 'nonretryable',
     );
@@ -138,7 +178,7 @@ test('429 fallback requires a structured allowlisted capacity code', async () =>
     fetchImpl: async (url) => {
       recognizedCalls.push(url);
       return recognizedCalls.length === 1
-        ? jsonResponse(429, {error_code: 'concurrency_limited'})
+        ? elevenErrorResponse(429, {type: 'rate_limit_error', code: 'concurrent_limit_exceeded'})
         : audioResponse();
     },
   });
@@ -146,9 +186,10 @@ test('429 fallback requires a structured allowlisted capacity code', async () =>
   assert.equal(recognized.selection.provider, 'cartesia');
 
   const rejectedCases = [
-    () => jsonResponse(429, {error_code: 'auth_error'}),
-    () => jsonResponse(429, {error_code: 'unknown_provider_error'}),
-    () => jsonResponse(429, {}),
+    () => elevenErrorResponse(429, {type: 'authentication_error', code: 'rate_limit_exceeded'}),
+    () => elevenErrorResponse(429, {type: 'rate_limit_error', code: 'unknown_provider_error'}),
+    () => elevenErrorResponse(429, {type: 'rate_limit_error'}),
+    () => elevenErrorResponse(429, {type: 'rate_limit_error', code: 123, legacyStatus: 'system_busy'}),
     () => new Response('{not json', {status: 429, headers: {'content-type': 'application/json'}}),
   ];
   for (const [index, response] of rejectedCases.entries()) {
@@ -175,13 +216,13 @@ test('malformed JSON SyntaxError is an ordinary nonfallback failure', async () =
     (error) => error.provider === 'eleven' && error.fallbackClass === 'nonretryable',
   );
   assert.deepEqual(calls, ['https://eleven.test/tts']);
-  assert.equal(fs.existsSync(`${out}.receipt.json.lock`), false);
+  assert.equal(fs.existsSync(lockPathFor(out)), false);
 });
 
 test('unclassified 5xx errors fail closed, while structured availability falls back once', async () => {
   const malformedCases = [
     () => new Response('gateway exploded', {status: 503, headers: {'content-type': 'text/plain'}}),
-    () => jsonResponse(503, {error_code: 'something_else'}),
+    () => elevenErrorResponse(503, {type: 'service_unavailable', code: 'something_else'}),
   ];
   for (const [index, response] of malformedCases.entries()) {
     const calls = [];
@@ -201,7 +242,9 @@ test('unclassified 5xx errors fail closed, while structured availability falls b
     config: config(), log: () => {},
     fetchImpl: async (url) => {
       calls.push(url);
-      return calls.length === 1 ? jsonResponse(503, {error_code: 'service_unavailable'}) : audioResponse();
+      return calls.length === 1
+        ? elevenErrorResponse(503, {type: 'service_unavailable', code: 'service_unavailable'})
+        : audioResponse();
     },
   });
   assert.deepEqual(calls, ['https://eleven.test/tts', 'https://cartesia.test/tts/bytes']);
@@ -217,8 +260,8 @@ test('Cartesia failure fails closed and never leaves a final artifact', async ()
       fetchImpl: async (url) => {
         calls.push(url);
         return calls.length === 1
-          ? jsonResponse(503, {error_code: 'service_unavailable'})
-          : jsonResponse(401, {error_code: 'unauthorized'});
+          ? elevenErrorResponse(503, {type: 'service_unavailable', code: 'service_unavailable'})
+          : cartesiaErrorResponse(401, 'unauthorized');
       },
     }),
     (error) => error.provider === 'cartesia',
@@ -248,7 +291,7 @@ test('Eleven non-OK error-body read ambiguity retains the output claim', async (
   const receipt = JSON.parse(fs.readFileSync(`${out}.receipt.json`, 'utf8'));
   assert.equal(receipt.state, 'primary_failed');
   assert.equal(receipt.attempts[0].fallback_class, 'ambiguous_transport');
-  assert.equal(fs.existsSync(`${out}.receipt.json.lock`), true);
+  assert.equal(fs.existsSync(lockPathFor(out)), true);
   for (const [operationId, text] of [['first', 'A solemn dispatch.'], ['different', 'A different dispatch.']]) {
     await assert.rejects(
       narrate({text, out, operationId, config: config(), log: () => {}, fetchImpl: unreadableFetch}),
@@ -264,7 +307,7 @@ test('Cartesia non-OK error-body read ambiguity retains the output claim', async
   const fallbackWithUnreadableErrorBody = async () => {
     calls += 1;
     return calls === 1
-      ? jsonResponse(503, {error_code: 'service_unavailable'})
+      ? elevenErrorResponse(503, {type: 'service_unavailable', code: 'service_unavailable'})
       : unreadableJsonResponse(500);
   };
   await assert.rejects(
@@ -274,7 +317,7 @@ test('Cartesia non-OK error-body read ambiguity retains the output claim', async
   const receipt = JSON.parse(fs.readFileSync(`${out}.receipt.json`, 'utf8'));
   assert.equal(receipt.state, 'failed');
   assert.equal(receipt.attempts[1].fallback_class, 'ambiguous_transport');
-  assert.equal(fs.existsSync(`${out}.receipt.json.lock`), true);
+  assert.equal(fs.existsSync(lockPathFor(out)), true);
   for (const [operationId, text] of [['first', 'A solemn dispatch.'], ['different', 'A different dispatch.']]) {
     await assert.rejects(
       narrate({text, out, operationId, config: config(), log: () => {}, fetchImpl: fallbackWithUnreadableErrorBody}),
@@ -295,7 +338,7 @@ test('Eleven response-body read ambiguity retains the output claim for every ope
   const receipt = JSON.parse(fs.readFileSync(`${out}.receipt.json`, 'utf8'));
   assert.equal(receipt.state, 'primary_failed');
   assert.equal(receipt.attempts[0].fallback_class, 'ambiguous_transport');
-  assert.equal(fs.existsSync(`${out}.receipt.json.lock`), true);
+  assert.equal(fs.existsSync(lockPathFor(out)), true);
   for (const [operationId, text] of [['first', 'A solemn dispatch.'], ['different', 'A different dispatch.']]) {
     await assert.rejects(
       narrate({text, out, operationId, config: config(), log: () => {}, fetchImpl: unreadableFetch}),
@@ -312,7 +355,7 @@ test('Cartesia response-body read ambiguity retains the output claim for every o
   const fallbackWithUnreadableBody = async () => {
     calls += 1;
     return calls === 1
-      ? jsonResponse(429, {error_code: 'quota_exceeded'})
+      ? elevenErrorResponse(429, {type: 'rate_limit_error', code: 'rate_limit_exceeded'})
       : unreadableAudioResponse();
   };
   await assert.rejects(
@@ -322,7 +365,7 @@ test('Cartesia response-body read ambiguity retains the output claim for every o
   const receipt = JSON.parse(fs.readFileSync(`${out}.receipt.json`, 'utf8'));
   assert.equal(receipt.state, 'failed');
   assert.equal(receipt.attempts[1].fallback_class, 'ambiguous_transport');
-  assert.equal(fs.existsSync(`${out}.receipt.json.lock`), true);
+  assert.equal(fs.existsSync(lockPathFor(out)), true);
   for (const [operationId, text] of [['first', 'A solemn dispatch.'], ['different', 'A different dispatch.']]) {
     await assert.rejects(
       narrate({text, out, operationId, config: config(), log: () => {}, fetchImpl: fallbackWithUnreadableBody}),
@@ -365,8 +408,8 @@ test('completed receipt hash mismatch retains the claim without blessing replace
   assert.equal(calls, 1);
   assert.equal(fs.readFileSync(receiptPath, 'utf8'), originalReceipt);
   assert.equal(JSON.parse(fs.readFileSync(receiptPath, 'utf8')).audio_sha256, originalHash);
-  const lock = JSON.parse(fs.readFileSync(`${receiptPath}.lock`, 'utf8'));
-  assert.equal(lock.state, 'receipt_integrity_hash_mismatch');
+  const lock = JSON.parse(fs.readFileSync(lockPathFor(out), 'utf8'));
+  assert.equal(lock.phase, 'receipt_integrity_hash_mismatch');
   assert.equal(lock.expected_audio_sha256, originalHash);
   assert.match(lock.actual_audio_sha256, /^[a-f0-9]{64}$/);
   assert.notEqual(lock.actual_audio_sha256, originalHash);
@@ -396,7 +439,7 @@ test('completed receipt missing its durable hash retains the claim without provi
   );
   assert.equal(calls, 1);
   assert.equal(fs.readFileSync(receiptPath, 'utf8'), missingHashReceipt);
-  assert.equal(JSON.parse(fs.readFileSync(`${receiptPath}.lock`, 'utf8')).state, 'receipt_integrity_missing_hash');
+  assert.equal(JSON.parse(fs.readFileSync(lockPathFor(out), 'utf8')).phase, 'receipt_integrity_missing_hash');
 
   await assert.rejects(
     narrate({text: 'A different dispatch.', out, operationId: 'different', config: config(), log: () => {}, fetchImpl}),
@@ -447,9 +490,23 @@ test('invalid successful audio does not trigger fallback and is not published', 
   assert.equal(fs.existsSync(out), false);
 });
 
-test('runtime config rejects admin and malformed Cartesia keys before network use', () => {
+test('runtime config rejects admin/malformed keys and invalid I/O limits before network use', async () => {
   assert.throws(() => resolveConfig({ELEVENLABS_API_KEY: 'eleven', CARTESIA_API_KEY: 'sk_car_admin_dont-use-me'}), /not an admin key/);
   assert.throws(() => resolveConfig({ELEVENLABS_API_KEY: 'eleven', CARTESIA_API_KEY: 'legacy-key'}), /standard Cartesia/);
+  assert.throws(
+    () => resolveConfig({ELEVENLABS_API_KEY: 'eleven', SLOWBURNS_NARRATION_REQUEST_TIMEOUT_MS: '0'}),
+    /SLOWBURNS_NARRATION_REQUEST_TIMEOUT_MS/,
+  );
+  let calls = 0;
+  await assert.rejects(
+    narrate({
+      text: 'A solemn dispatch.', out: path.join(runDir('invalid-limits'), 'narration.mp3'), operationId: 'invalid-limits',
+      config: config({limits: {maxAudioBytes: 0}}), log: () => {},
+      fetchImpl: async () => { calls += 1; return audioResponse(); },
+    }),
+    (error) => error.fallbackClass === 'configuration',
+  );
+  assert.equal(calls, 0);
 });
 
 test('receipt is sanitized and never contains transcript or raw provider body', async () => {
@@ -465,4 +522,210 @@ test('receipt is sanitized and never contains transcript or raw provider body', 
   assert.match(body, /"request_id": "safe.receipt-1"/);
   assert.doesNotMatch(body, new RegExp(text));
   assert.doesNotMatch(body, /xi-api-key|Authorization|raw provider body/i);
+});
+
+test('legacy Eleven 429 detail.status capacity envelopes remain strictly eligible', async () => {
+  for (const legacyStatus of ['too_many_concurrent_requests', 'system_busy']) {
+    const calls = [];
+    const out = path.join(runDir(`legacy-eleven-${legacyStatus}`), 'narration.mp3');
+    const receipt = await narrate({
+      text: 'A solemn dispatch.', out, operationId: legacyStatus, config: config(), log: () => {},
+      fetchImpl: async (url) => {
+        calls.push(url);
+        return calls.length === 1
+          ? elevenErrorResponse(429, {legacyStatus, requestId: `legacy-${legacyStatus}`})
+          : audioResponse();
+      },
+    });
+    assert.deepEqual(calls, ['https://eleven.test/tts', 'https://cartesia.test/tts/bytes']);
+    assert.equal(receipt.selection.provider, 'cartesia');
+  }
+});
+
+test('a canonical output claim blocks concurrent callers using different receipt paths', async () => {
+  const dir = runDir('canonical-output-claim');
+  const out = path.join(dir, 'narration.mp3');
+  const firstReceipt = path.join(dir, 'first.receipt.json');
+  const secondReceipt = path.join(dir, 'second.receipt.json');
+  let calls = 0;
+  let releaseFirst;
+  const first = narrate({
+    text: 'First dispatch.', out, receiptPath: firstReceipt, operationId: 'first', config: config(), log: () => {},
+    fetchImpl: async () => {
+      calls += 1;
+      await new Promise((resolve) => { releaseFirst = resolve; });
+      return audioResponse();
+    },
+  });
+  while (!releaseFirst) await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(fs.existsSync(lockPathFor(out)), true);
+  await assert.rejects(
+    narrate({
+      text: 'Second dispatch.', out, receiptPath: secondReceipt, operationId: 'second', config: config(), log: () => {},
+      fetchImpl: async () => { calls += 1; return audioResponse(); },
+    }),
+    (error) => error.fallbackClass === 'operation_locked',
+  );
+  assert.equal(calls, 1);
+  assert.equal(fs.existsSync(secondReceipt), false);
+  releaseFirst();
+  await first;
+  assert.equal(isDecodableMp3(out), true);
+  assert.equal(fs.existsSync(firstReceipt), true);
+  assert.equal(fs.existsSync(secondReceipt), false);
+});
+
+test('receipt paths cannot collide with the canonical output claim', async () => {
+  const out = path.join(runDir('receipt-path-collision'), 'narration.mp3');
+  let calls = 0;
+  for (const receiptPath of [out, lockPathFor(out)]) {
+    await assert.rejects(
+      narrate({
+        text: 'A solemn dispatch.', out, receiptPath, operationId: `collision-${receiptPath}`, config: config(), log: () => {},
+        fetchImpl: async () => { calls += 1; return audioResponse(); },
+      }),
+      (error) => error.fallbackClass === 'configuration',
+    );
+  }
+  assert.equal(calls, 0);
+  assert.equal(fs.existsSync(lockPathFor(out)), false);
+});
+
+test('request timeout retains a redacted phase-aware claim and blocks every later operation', async () => {
+  const text = 'PRIVATE TRANSCRIPT MUST NOT ENTER THE LOCK';
+  const out = path.join(runDir('request-timeout'), 'narration.mp3');
+  let calls = 0;
+  const timeoutConfig = config({limits: {requestTimeoutMs: 10}});
+  const hangingFetch = async () => {
+    calls += 1;
+    return new Promise(() => {});
+  };
+  await assert.rejects(
+    narrate({text, out, operationId: 'first', config: timeoutConfig, log: () => {}, fetchImpl: hangingFetch}),
+    (error) => error.provider === 'eleven' && error.fallbackClass === 'ambiguous_transport',
+  );
+  const rawLock = fs.readFileSync(lockPathFor(out), 'utf8');
+  const lock = JSON.parse(rawLock);
+  assert.equal(lock.schema_version, 2);
+  assert.equal(lock.phase, 'eleven_request_started');
+  assert.equal(lock.operator_intervention_required, true);
+  assert.equal(lock.retained_reason, 'ambiguous_transport');
+  assert.match(lock.operation, /^[a-f0-9]{64}$/);
+  assert.match(lock.output_identity, /^[a-f0-9]{64}$/);
+  assert.equal(typeof lock.owner_pid, 'number');
+  assert.equal(typeof lock.owner_host, 'string');
+  assert.ok(lock.owner_host.length > 0);
+  assert.ok(Date.parse(lock.created_at));
+  assert.ok(Date.parse(lock.updated_at));
+  assert.deepEqual(lock.phase_history.map(({phase}) => phase), ['claimed_pre_provider', 'eleven_request_started']);
+  assert.equal(rawLock.includes(text), false);
+  assert.equal(rawLock.includes(out), false);
+  assert.doesNotMatch(rawLock, /eleven-test-key|xi-api-key|Authorization|provider message/i);
+  await assert.rejects(
+    narrate({text: 'A different dispatch.', out, operationId: 'second', config: timeoutConfig, log: () => {}, fetchImpl: hangingFetch}),
+    (error) => error.fallbackClass === 'operation_locked',
+  );
+  assert.equal(calls, 1);
+});
+
+test('bounded response bodies fail closed on timeout or oversize without a second provider call', async () => {
+  const timeoutOut = path.join(runDir('body-timeout'), 'narration.mp3');
+  let timeoutCalls = 0;
+  const timeoutConfig = config({limits: {bodyReadTimeoutMs: 10}});
+  await assert.rejects(
+    narrate({
+      text: 'A solemn dispatch.', out: timeoutOut, operationId: 'timeout', config: timeoutConfig, log: () => {},
+      fetchImpl: async () => { timeoutCalls += 1; return hangingAudioResponse(); },
+    }),
+    (error) => error.provider === 'eleven' && error.fallbackClass === 'ambiguous_transport',
+  );
+  assert.equal(JSON.parse(fs.readFileSync(lockPathFor(timeoutOut), 'utf8')).phase, 'eleven_audio_body_read_started');
+  await assert.rejects(
+    narrate({
+      text: 'A different dispatch.', out: timeoutOut, operationId: 'second', config: timeoutConfig, log: () => {},
+      fetchImpl: async () => { timeoutCalls += 1; return audioResponse(); },
+    }),
+    (error) => error.fallbackClass === 'operation_locked',
+  );
+  assert.equal(timeoutCalls, 1);
+
+  const oversizedErrorOut = path.join(runDir('oversized-error-body'), 'narration.mp3');
+  let oversizedErrorCalls = 0;
+  const oversizedErrorConfig = config({limits: {maxErrorBodyBytes: 128}});
+  await assert.rejects(
+    narrate({
+      text: 'A solemn dispatch.', out: oversizedErrorOut, operationId: 'oversized-error', config: oversizedErrorConfig, log: () => {},
+      fetchImpl: async () => {
+        oversizedErrorCalls += 1;
+        return {
+          ok: false,
+          status: 503,
+          headers: new Headers({'content-type': 'application/json', 'content-length': '1024'}),
+          arrayBuffer: async () => Buffer.from('{"detail":{"type":"service_unavailable","code":"service_unavailable"}}'),
+        };
+      },
+    }),
+    (error) => error.provider === 'eleven' && error.fallbackClass === 'ambiguous_transport',
+  );
+  assert.equal(JSON.parse(fs.readFileSync(lockPathFor(oversizedErrorOut), 'utf8')).phase, 'eleven_error_body_read_started');
+  await assert.rejects(
+    narrate({
+      text: 'A different dispatch.', out: oversizedErrorOut, operationId: 'second', config: oversizedErrorConfig, log: () => {},
+      fetchImpl: async () => { oversizedErrorCalls += 1; return audioResponse(); },
+    }),
+    (error) => error.fallbackClass === 'operation_locked',
+  );
+  assert.equal(oversizedErrorCalls, 1);
+
+  const oversizedOut = path.join(runDir('oversized-audio'), 'narration.mp3');
+  let oversizedCalls = 0;
+  const oversizedConfig = config({limits: {maxAudioBytes: validAudio.length - 1}});
+  await assert.rejects(
+    narrate({
+      text: 'A solemn dispatch.', out: oversizedOut, operationId: 'oversized', config: oversizedConfig, log: () => {},
+      fetchImpl: async () => { oversizedCalls += 1; return audioResponse(); },
+    }),
+    (error) => error.provider === 'eleven' && error.fallbackClass === 'invalid_audio',
+  );
+  assert.equal(fs.existsSync(oversizedOut), false);
+  assert.equal(JSON.parse(fs.readFileSync(lockPathFor(oversizedOut), 'utf8')).phase, 'eleven_audio_body_read_started');
+  await assert.rejects(
+    narrate({
+      text: 'A different dispatch.', out: oversizedOut, operationId: 'second', config: oversizedConfig, log: () => {},
+      fetchImpl: async () => { oversizedCalls += 1; return audioResponse(); },
+    }),
+    (error) => error.fallbackClass === 'operation_locked',
+  );
+  assert.equal(oversizedCalls, 1);
+});
+
+test('bounded ffprobe failure keeps the claim and passes its timeout and buffer limits', async () => {
+  const out = path.join(runDir('ffprobe-timeout'), 'narration.mp3');
+  const limits = {ffprobeTimeoutMs: 9, ffprobeMaxBufferBytes: 4096};
+  const calls = [];
+  let ffprobeOptions;
+  const timedOutFfprobe = (...args) => {
+    ffprobeOptions = args[2];
+    const error = new Error('ffprobe timeout');
+    error.code = 'ETIMEDOUT';
+    throw error;
+  };
+  await assert.rejects(
+    narrate({
+      text: 'A solemn dispatch.', out, operationId: 'ffprobe', config: config({limits}), log: () => {}, ffprobeImpl: timedOutFfprobe,
+      fetchImpl: async (url) => { calls.push(url); return audioResponse(); },
+    }),
+    (error) => error.provider === 'eleven' && error.fallbackClass === 'invalid_audio',
+  );
+  assert.equal(ffprobeOptions.timeout, limits.ffprobeTimeoutMs);
+  assert.equal(ffprobeOptions.maxBuffer, limits.ffprobeMaxBufferBytes);
+  assert.equal(JSON.parse(fs.readFileSync(lockPathFor(out), 'utf8')).phase, 'eleven_audio_validation_started');
+  await assert.rejects(
+    narrate({
+      text: 'A different dispatch.', out, operationId: 'second', config: config({limits}), log: () => {}, ffprobeImpl: timedOutFfprobe,
+      fetchImpl: async (url) => { calls.push(url); return audioResponse(); },
+    }),
+    (error) => error.fallbackClass === 'operation_locked',
+  );
+  assert.deepEqual(calls, ['https://eleven.test/tts']);
 });

@@ -122,17 +122,59 @@ constant.
 
 ElevenLabs remains the one-call primary narrator. Cartesia is considered exactly
 once only after a definitive primary quota/capacity/availability result (allowlisted
-provider code paired with an eligible HTTP 429 or 5xx status). Bare, malformed,
-or unclassified statuses — including generic 5xx responses — fail closed. It is
-never a retry path and never follows auth/configuration/voice/model/input failures,
-another 4xx, malformed output, or an ambiguous transport outcome. The adapter
-writes a temporary MP3, validates it with `ffprobe`, then atomically publishes it
-with a sanitized receipt sidecar.
+provider code paired with an eligible provider-specific status and type). For
+ElevenLabs, the current [error envelope](https://elevenlabs.io/docs/eleven-api/resources/errors)
+must have `detail.type: rate_limit_error` plus `detail.code` of
+`rate_limit_exceeded` or `concurrent_limit_exceeded` at HTTP 429, or
+`detail.type: service_unavailable` plus `detail.code` of `service_unavailable`
+or `maintenance` at HTTP 503. The documented legacy `detail.status` values
+`too_many_concurrent_requests` and `system_busy` are accepted only at HTTP 429
+and never override a present contradictory type. Cartesia retains its distinct,
+top-level structured error schema and its own positive allowlist.
+
+Bare, malformed, generic, auth/configuration/voice/model/input, or otherwise
+unclassified responses — including generic 5xx responses — fail closed. It is
+never a retry path and never follows another 4xx, malformed output, oversized or
+invalid audio, or an ambiguous transport outcome. The adapter writes a temporary
+MP3, validates it with `ffprobe`, then atomically publishes it with a sanitized
+receipt sidecar.
 
 Fallback is dark until both variables are present in the invocation environment:
 `CARTESIA_API_KEY` (standard `sk_car_...`, never `sk_car_admin_...`) and an explicit
 `CARTESIA_VOICE_ID`. See `references/voice-and-music.md` for the voice-selection
 gate and source references. There is no persisted dotenv configuration.
+
+### Bounded narration I/O and manual recovery
+
+The narration adapter reads all values from the invocation environment and rejects
+invalid values before any provider request. These bounded controls have safe
+defaults and accept only whole numbers in the stated ranges:
+
+- `SLOWBURNS_NARRATION_REQUEST_TIMEOUT_MS` — `30000` default, `1..120000`.
+- `SLOWBURNS_NARRATION_BODY_TIMEOUT_MS` — `30000` default, `1..120000`.
+- `SLOWBURNS_NARRATION_MAX_AUDIO_BYTES` — `67108864` default, `1024..134217728`.
+- `SLOWBURNS_NARRATION_MAX_ERROR_BODY_BYTES` — `65536` default, `128..1048576`.
+- `SLOWBURNS_NARRATION_FFPROBE_TIMEOUT_MS` — `5000` default, `1..30000`.
+- `SLOWBURNS_NARRATION_FFPROBE_MAX_BUFFER_BYTES` — `65536` default,
+  `1024..1048576`.
+
+Every resolved output has one exclusive canonical claim at
+`<output>.narration.lock`, independent of a caller-selected receipt path. The
+lock contains only a hashed output identity, operation hash, owner PID/host,
+timestamps, and a bounded phase history; it never contains a transcript, raw
+path, provider message/body, request header, or credential. A response timeout,
+body-read/size failure after a provider boundary, invalid successful audio, or
+receipt-integrity failure retains the claim and blocks automatic regeneration.
+
+There is **no automatic stale-lock cleanup**. For a manual recovery, first inspect
+the sanitized phase and receipt. The only possible manual-clear candidate is a
+`claimed_pre_provider` lock unchanged for at least 10 minutes, after confirming
+the recorded owner PID is dead on the recorded host and that no final artifact
+exists. Any `*_request_started`, `*_headers_received`, `*_body_read_*`,
+`*_audio_validation_*`, or receipt-integrity phase requires provider/request and
+billing reconciliation (using only a safe request ID when present), artifact
+inspection, and explicit operator removal after that investigation. Never delete
+an ambiguous claim to make the CLI retry automatically.
 
 ### Music
 
