@@ -74,6 +74,10 @@ function safeAudioSha256(value) {
   return typeof value === 'string' && SHA256_HEX.test(value) ? value : undefined;
 }
 
+function safeByteCount(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+}
+
 function safeRequestId(value) {
   if (typeof value !== 'string' || value.length > MAX_RECEIPT_REQUEST_ID_LENGTH) return undefined;
   return /^[A-Za-z0-9:._-]+$/.test(value) ? value : undefined;
@@ -355,7 +359,11 @@ function tempPathFor(out) {
 export function isDecodableMp3(file, limits = DEFAULT_NARRATION_LIMITS, ffprobeImpl = execFileSync) {
   const bounded = resolveNarrationLimits(limits);
   try {
-    if (!fs.statSync(file).size) return false;
+    const stat = fs.statSync(file);
+    // This guard applies to both freshly written provider bytes and recovered
+    // artifacts. Never let a file outside the configured storage envelope
+    // reach ffprobe (or a later full-file hash) merely because it exists.
+    if (!stat.isFile() || !safeByteCount(stat.size) || stat.size > bounded.maxAudioBytes) return false;
     const format = ffprobeImpl('ffprobe', [
       '-v', 'error', '-show_entries', 'format=format_name', '-of', 'default=noprint_wrappers=1:nokey=1', file,
     ], {
@@ -477,6 +485,8 @@ function lockRecord(lock) {
     retained_reason: lock.retainedReason,
     expected_audio_sha256: safeAudioSha256(lock.expectedAudioSha256),
     actual_audio_sha256: safeAudioSha256(lock.actualAudioSha256),
+    artifact_size_bytes: safeByteCount(lock.artifactSizeBytes),
+    max_audio_bytes: safeByteCount(lock.maxAudioBytes),
   }).filter(([, value]) => value !== undefined));
 }
 
@@ -484,7 +494,13 @@ function updateLock(lock) {
   writeJsonAtomic(lock.lockPath, lockRecord(lock));
 }
 
-function advanceOperationLock(lock, phase, {operatorInterventionRequired = false, expectedAudioSha256, actualAudioSha256} = {}) {
+function advanceOperationLock(lock, phase, {
+  operatorInterventionRequired = false,
+  expectedAudioSha256,
+  actualAudioSha256,
+  artifactSizeBytes,
+  maxAudioBytes,
+} = {}) {
   const now = new Date().toISOString();
   lock.phase = phase;
   lock.updatedAt = now;
@@ -492,6 +508,8 @@ function advanceOperationLock(lock, phase, {operatorInterventionRequired = false
   if (operatorInterventionRequired) lock.operatorInterventionRequired = true;
   if (safeAudioSha256(expectedAudioSha256)) lock.expectedAudioSha256 = expectedAudioSha256;
   if (safeAudioSha256(actualAudioSha256)) lock.actualAudioSha256 = actualAudioSha256;
+  if (safeByteCount(artifactSizeBytes) !== undefined) lock.artifactSizeBytes = artifactSizeBytes;
+  if (safeByteCount(maxAudioBytes) !== undefined) lock.maxAudioBytes = maxAudioBytes;
   updateLock(lock);
 }
 
@@ -537,7 +555,10 @@ function releaseOperationLock(lock) {
   fs.rmSync(lock.lockPath, {force: true});
 }
 
-function receiptIntegrityFailure(lock, state, expectedAudioSha256, actualAudioSha256) {
+function receiptIntegrityFailure(lock, state, expectedAudioSha256, actualAudioSha256, {
+  artifactSizeBytes,
+  maxAudioBytes,
+} = {}) {
   // Keep the completed receipt immutable: the lock records only sanitized
   // diagnosis data while preventing implicit replacement. No raw output,
   // receipt, provider body, header, secret, or transcript is serialized.
@@ -545,6 +566,8 @@ function receiptIntegrityFailure(lock, state, expectedAudioSha256, actualAudioSh
     operatorInterventionRequired: true,
     expectedAudioSha256,
     actualAudioSha256,
+    artifactSizeBytes,
+    maxAudioBytes,
   });
   throw new NarrationError('Completed narration receipt failed artifact-integrity verification; operator intervention is required.', {
     fallbackClass: 'receipt_integrity',
@@ -568,7 +591,30 @@ function verifyReceiptAudioSha256(existing, out, lock) {
   return actualAudioSha256;
 }
 
-function verifyCompletedReceiptIntegrity(existing, out, lock, limits, ffprobeImpl) {
+function verifyReceiptArtifactSize(existing, out, lock, limits) {
+  const maxAudioBytes = resolveNarrationLimits(limits).maxAudioBytes;
+  let stat;
+  try {
+    stat = fs.statSync(out);
+  } catch {
+    receiptIntegrityFailure(lock, 'receipt_integrity_missing_or_invalid_artifact', existing.audio_sha256);
+  }
+  if (!stat.isFile() || !safeByteCount(stat.size)) {
+    receiptIntegrityFailure(lock, 'receipt_integrity_missing_or_invalid_artifact', existing.audio_sha256);
+  }
+  if (stat.size > maxAudioBytes) {
+    receiptIntegrityFailure(lock, 'receipt_integrity_artifact_too_large', safeAudioSha256(existing.audio_sha256), undefined, {
+      artifactSizeBytes: stat.size,
+      maxAudioBytes,
+    });
+  }
+}
+
+function verifyReceiptArtifactIntegrity(existing, out, lock, limits, ffprobeImpl) {
+  // Stat first: a completed receipt never authorizes decoding or hashing a
+  // file outside the current byte limit. The retained lock is the sole
+  // diagnostic mutation; the durable receipt stays byte-for-byte intact.
+  verifyReceiptArtifactSize(existing, out, lock, limits);
   if (!isDecodableMp3(out, limits, ffprobeImpl)) {
     receiptIntegrityFailure(lock, 'receipt_integrity_missing_or_invalid_artifact', existing.audio_sha256);
   }
@@ -611,11 +657,12 @@ export async function narrate({
       throw new NarrationError('Narration receipt is unreadable; refusing implicit retry.', {fallbackClass: 'ambiguous_retry'});
     }
     const completedAudioSha256 = existing?.state === 'complete'
-      ? verifyCompletedReceiptIntegrity(existing, finalOut, lock, resolvedConfig.limits, ffprobeImpl)
+      ? verifyReceiptArtifactIntegrity(existing, finalOut, lock, resolvedConfig.limits, ffprobeImpl)
       : undefined;
     if (existing?.operation === operation) {
-      if (isDecodableMp3(finalOut, resolvedConfig.limits, ffprobeImpl)) {
-        const actualAudioSha256 = completedAudioSha256 || verifyReceiptAudioSha256(existing, finalOut, lock);
+      if (fs.existsSync(finalOut)) {
+        const actualAudioSha256 = completedAudioSha256
+          || verifyReceiptArtifactIntegrity(existing, finalOut, lock, resolvedConfig.limits, ffprobeImpl);
         const provider = existing.selection?.provider || (existing.state === 'fallback_started' ? 'cartesia' : 'eleven');
         const recovered = {
           ...existing,

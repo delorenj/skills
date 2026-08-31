@@ -17,6 +17,11 @@ execFileSync('ffmpeg', [
   '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=660:duration=0.15', '-q:a', '9', '-acodec', 'libmp3lame', alternateSampleMp3,
 ]);
 const alternateValidAudio = fs.readFileSync(alternateSampleMp3);
+const largeSampleMp3 = path.join(tempRoot, 'large-sample.mp3');
+execFileSync('ffmpeg', [
+  '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=330:duration=1', '-q:a', '9', '-acodec', 'libmp3lame', largeSampleMp3,
+]);
+const largeValidAudio = fs.readFileSync(largeSampleMp3);
 
 test.after(() => fs.rmSync(tempRoot, {recursive: true, force: true}));
 
@@ -420,6 +425,53 @@ test('completed receipt hash mismatch retains the claim without blessing replace
   );
   assert.equal(calls, 1);
   assert.equal(isDecodableMp3(out), true);
+});
+
+test('completed artifact over maxAudioBytes is rejected before ffprobe or hashing and retains its claim', async () => {
+  const out = path.join(runDir('receipt-too-large'), 'narration.mp3');
+  const receiptPath = `${out}.receipt.json`;
+  const maxAudioBytes = 1024;
+  assert.ok(largeValidAudio.length > maxAudioBytes);
+  let calls = 0;
+  const fetchImpl = async () => { calls += 1; return audioResponse(largeValidAudio); };
+  await narrate({text: 'A solemn dispatch.', out, operationId: 'original', config: config(), log: () => {}, fetchImpl});
+  const originalReceipt = fs.readFileSync(receiptPath, 'utf8');
+  const originalHash = JSON.parse(originalReceipt).audio_sha256;
+  let ffprobeCalls = 0;
+  const noProbe = () => {
+    ffprobeCalls += 1;
+    throw new Error('ffprobe must not run for an oversized artifact');
+  };
+  const boundedConfig = config({limits: {maxAudioBytes}});
+
+  assert.equal(isDecodableMp3(out, boundedConfig.limits, noProbe), false);
+  assert.equal(ffprobeCalls, 0);
+  await assert.rejects(
+    narrate({text: 'A solemn dispatch.', out, operationId: 'original', config: boundedConfig, log: () => {}, fetchImpl, ffprobeImpl: noProbe}),
+    (error) => error.fallbackClass === 'receipt_integrity',
+  );
+  assert.equal(calls, 1);
+  assert.equal(ffprobeCalls, 0);
+  assert.equal(fs.readFileSync(receiptPath, 'utf8'), originalReceipt);
+  const lock = JSON.parse(fs.readFileSync(lockPathFor(out), 'utf8'));
+  assert.equal(lock.phase, 'receipt_integrity_artifact_too_large');
+  assert.equal(lock.artifact_size_bytes, largeValidAudio.length);
+  assert.equal(lock.max_audio_bytes, maxAudioBytes);
+  assert.match(lock.output_identity, /^[a-f0-9]{64}$/);
+  assert.equal(lock.expected_audio_sha256, originalHash);
+  assert.equal(lock.actual_audio_sha256, undefined);
+  const sanitized = JSON.stringify(lock);
+  assert.equal(sanitized.includes(out), false);
+  assert.equal(sanitized.includes('A solemn dispatch.'), false);
+
+  for (const [operationId, text] of [['original', 'A solemn dispatch.'], ['different', 'A different dispatch.']]) {
+    await assert.rejects(
+      narrate({text, out, operationId, config: boundedConfig, log: () => {}, fetchImpl, ffprobeImpl: noProbe}),
+      (error) => error.fallbackClass === 'operation_locked',
+    );
+  }
+  assert.equal(calls, 1);
+  assert.equal(ffprobeCalls, 0);
 });
 
 test('completed receipt missing its durable hash retains the claim without provider calls', async () => {

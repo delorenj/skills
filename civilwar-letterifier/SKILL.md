@@ -165,6 +165,12 @@ timestamps, and a bounded phase history; it never contains a transcript, raw
 path, provider message/body, request header, or credential. A response timeout,
 body-read/size failure after a provider boundary, invalid successful audio, or
 receipt-integrity failure retains the claim and blocks automatic regeneration.
+`SLOWBURNS_NARRATION_MAX_AUDIO_BYTES` applies to provider bodies, temporary
+validation, and completed-artifact recovery. Recovery stats the final artifact
+before `ffprobe` or a full SHA-256 read; an over-limit file is retained as
+`receipt_integrity_artifact_too_large` with only its safe byte count, configured
+limit, and hash identities in the lock. Its completed receipt is not repaired or
+rewritten.
 
 There is **no automatic stale-lock cleanup**. For a manual recovery, first inspect
 the sanitized phase and receipt. The only possible manual-clear candidate is a
