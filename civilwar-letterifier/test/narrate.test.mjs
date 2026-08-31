@@ -12,6 +12,11 @@ execFileSync('ffmpeg', [
   '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=0.15', '-q:a', '9', '-acodec', 'libmp3lame', sampleMp3,
 ]);
 const validAudio = fs.readFileSync(sampleMp3);
+const alternateSampleMp3 = path.join(tempRoot, 'alternate-sample.mp3');
+execFileSync('ffmpeg', [
+  '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=660:duration=0.15', '-q:a', '9', '-acodec', 'libmp3lame', alternateSampleMp3,
+]);
+const alternateValidAudio = fs.readFileSync(alternateSampleMp3);
 
 test.after(() => fs.rmSync(tempRoot, {recursive: true, force: true}));
 
@@ -339,6 +344,64 @@ test('completed artifact recovers from a partial receipt without another provide
   fs.writeFileSync(receiptPath, JSON.stringify(partialReceipt));
   const recovered = await narrate({text: 'A solemn dispatch.', out, operationId: 'new', config: config(), log: () => {}, fetchImpl: async () => { throw new Error('must not call'); }});
   assert.equal(recovered.recovered, true);
+  assert.equal(calls, 1);
+});
+
+test('completed receipt hash mismatch retains the claim without blessing replacement audio', async () => {
+  const out = path.join(runDir('receipt-hash-mismatch'), 'narration.mp3');
+  const receiptPath = `${out}.receipt.json`;
+  let calls = 0;
+  const fetchImpl = async () => { calls += 1; return audioResponse(); };
+  await narrate({text: 'A solemn dispatch.', out, operationId: 'original', config: config(), log: () => {}, fetchImpl});
+  const originalReceipt = fs.readFileSync(receiptPath, 'utf8');
+  const originalHash = JSON.parse(originalReceipt).audio_sha256;
+  fs.writeFileSync(out, alternateValidAudio);
+  assert.equal(isDecodableMp3(out), true);
+
+  await assert.rejects(
+    narrate({text: 'A solemn dispatch.', out, operationId: 'original', config: config(), log: () => {}, fetchImpl}),
+    (error) => error.fallbackClass === 'receipt_integrity',
+  );
+  assert.equal(calls, 1);
+  assert.equal(fs.readFileSync(receiptPath, 'utf8'), originalReceipt);
+  assert.equal(JSON.parse(fs.readFileSync(receiptPath, 'utf8')).audio_sha256, originalHash);
+  const lock = JSON.parse(fs.readFileSync(`${receiptPath}.lock`, 'utf8'));
+  assert.equal(lock.state, 'receipt_integrity_hash_mismatch');
+  assert.equal(lock.expected_audio_sha256, originalHash);
+  assert.match(lock.actual_audio_sha256, /^[a-f0-9]{64}$/);
+  assert.notEqual(lock.actual_audio_sha256, originalHash);
+
+  await assert.rejects(
+    narrate({text: 'A different dispatch.', out, operationId: 'different', config: config(), log: () => {}, fetchImpl}),
+    (error) => error.fallbackClass === 'operation_locked',
+  );
+  assert.equal(calls, 1);
+  assert.equal(isDecodableMp3(out), true);
+});
+
+test('completed receipt missing its durable hash retains the claim without provider calls', async () => {
+  const out = path.join(runDir('receipt-missing-hash'), 'narration.mp3');
+  const receiptPath = `${out}.receipt.json`;
+  let calls = 0;
+  const fetchImpl = async () => { calls += 1; return audioResponse(); };
+  await narrate({text: 'A solemn dispatch.', out, operationId: 'original', config: config(), log: () => {}, fetchImpl});
+  const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
+  delete receipt.audio_sha256;
+  fs.writeFileSync(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
+  const missingHashReceipt = fs.readFileSync(receiptPath, 'utf8');
+
+  await assert.rejects(
+    narrate({text: 'A solemn dispatch.', out, operationId: 'original', config: config(), log: () => {}, fetchImpl}),
+    (error) => error.fallbackClass === 'receipt_integrity',
+  );
+  assert.equal(calls, 1);
+  assert.equal(fs.readFileSync(receiptPath, 'utf8'), missingHashReceipt);
+  assert.equal(JSON.parse(fs.readFileSync(`${receiptPath}.lock`, 'utf8')).state, 'receipt_integrity_missing_hash');
+
+  await assert.rejects(
+    narrate({text: 'A different dispatch.', out, operationId: 'different', config: config(), log: () => {}, fetchImpl}),
+    (error) => error.fallbackClass === 'operation_locked',
+  );
   assert.equal(calls, 1);
 });
 

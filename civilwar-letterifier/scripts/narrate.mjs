@@ -17,6 +17,7 @@ export const CARTESIA_VERSION = '2026-08-14';
 const CARTESIA_TTS_URL = 'https://api.cartesia.ai/tts/bytes';
 const ELEVEN_TTS_URL = `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`;
 const MAX_RECEIPT_REQUEST_ID_LENGTH = 160;
+const SHA256_HEX = /^[a-f0-9]{64}$/;
 // Fallback is intentionally a positive status-and-code allowlist. A status by
 // itself, or a code outside its expected status family, is not enough to risk
 // a second synthesis request.
@@ -42,6 +43,10 @@ export class NarrationError extends Error {
 
 function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function safeAudioSha256(value) {
+  return typeof value === 'string' && SHA256_HEX.test(value) ? value : undefined;
 }
 
 function safeRequestId(value) {
@@ -269,6 +274,47 @@ function releaseOperationLock(lockPath) {
   fs.rmSync(lockPath, {force: true});
 }
 
+function receiptIntegrityFailure(lockPath, operation, state, expectedAudioSha256, actualAudioSha256) {
+  const lockEvidence = Object.fromEntries(Object.entries({
+    schema_version: 1,
+    operation,
+    state,
+    operator_intervention_required: true,
+    expected_audio_sha256: safeAudioSha256(expectedAudioSha256),
+    actual_audio_sha256: safeAudioSha256(actualAudioSha256),
+  }).filter(([, value]) => value !== undefined));
+  // Keep the completed receipt immutable: the lock records only sanitized
+  // diagnosis data while preventing an implicit replacement synthesis.
+  writeJsonAtomic(lockPath, lockEvidence);
+  throw new NarrationError('Completed narration receipt failed artifact-integrity verification; operator intervention is required.', {
+    fallbackClass: 'receipt_integrity',
+  });
+}
+
+function verifyReceiptAudioSha256(existing, out, lockPath, operation) {
+  let actualAudioSha256;
+  try {
+    actualAudioSha256 = sha256(fs.readFileSync(out));
+  } catch {
+    receiptIntegrityFailure(lockPath, operation, 'receipt_integrity_unreadable_artifact', existing.audio_sha256);
+  }
+  const expectedAudioSha256 = safeAudioSha256(existing.audio_sha256);
+  if (!expectedAudioSha256) {
+    receiptIntegrityFailure(lockPath, operation, 'receipt_integrity_missing_hash', undefined, actualAudioSha256);
+  }
+  if (expectedAudioSha256 !== actualAudioSha256) {
+    receiptIntegrityFailure(lockPath, operation, 'receipt_integrity_hash_mismatch', expectedAudioSha256, actualAudioSha256);
+  }
+  return actualAudioSha256;
+}
+
+function verifyCompletedReceiptIntegrity(existing, out, lockPath, operation) {
+  if (!isDecodableMp3(out)) {
+    receiptIntegrityFailure(lockPath, operation, 'receipt_integrity_missing_or_invalid_artifact', existing.audio_sha256);
+  }
+  return verifyReceiptAudioSha256(existing, out, lockPath, operation);
+}
+
 /**
  * Generate or recover one narration operation. A matching incomplete receipt
  * is intentionally terminal: an unknown previous provider outcome must never
@@ -286,8 +332,12 @@ export async function narrate({text, out, operationId = 'default', receiptPath =
   let preserveLock = false;
   try {
     const existing = readReceipt(finalReceipt);
+    const completedAudioSha256 = existing?.state === 'complete'
+      ? verifyCompletedReceiptIntegrity(existing, finalOut, lockPath, operation)
+      : undefined;
     if (existing?.operation === operation) {
       if (isDecodableMp3(finalOut)) {
+        const actualAudioSha256 = completedAudioSha256 || verifyReceiptAudioSha256(existing, finalOut, lockPath, operation);
         const provider = existing.selection?.provider || (existing.state === 'fallback_started' ? 'cartesia' : 'eleven');
         const recovered = {
           ...existing,
@@ -298,7 +348,7 @@ export async function narrate({text, out, operationId = 'default', receiptPath =
             provider === 'cartesia' ? resolvedConfig.cartesiaVoiceId : ELEVEN_VOICE_ID,
             'recovered_after_unfinished_receipt',
           ),
-          audio_sha256: existing.audio_sha256 || sha256(fs.readFileSync(finalOut)),
+          audio_sha256: actualAudioSha256,
           recovered: true,
         };
         writeJsonAtomic(finalReceipt, recovered);
@@ -351,7 +401,8 @@ export async function narrate({text, out, operationId = 'default', receiptPath =
       }
     }
   } catch (error) {
-    preserveLock = error instanceof NarrationError && error.fallbackClass === 'ambiguous_transport';
+    preserveLock = error instanceof NarrationError
+      && ['ambiguous_transport', 'receipt_integrity'].includes(error.fallbackClass);
     throw error;
   } finally {
     if (!preserveLock) releaseOperationLock(lockPath);
