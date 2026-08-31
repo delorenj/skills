@@ -49,6 +49,15 @@ function unreadableAudioResponse(requestId = 'safe-request-id') {
   };
 }
 
+function unreadableJsonResponse(status = 500, requestId = 'safe-request-id') {
+  return {
+    ok: false,
+    status,
+    headers: new Headers({'content-type': 'application/json', 'x-request-id': requestId}),
+    json: async () => { throw new Error('error response stream interrupted'); },
+  };
+}
+
 test('primary success makes one Eleven call, no Cartesia call, and a decodable MP3', async () => {
   const calls = [];
   const dir = runDir('primary');
@@ -150,10 +159,23 @@ test('429 fallback requires a structured allowlisted capacity code', async () =>
   }
 });
 
-test('malformed or unclassified 5xx errors fail closed, while structured availability falls back once', async () => {
+test('malformed JSON SyntaxError is an ordinary nonfallback failure', async () => {
+  const out = path.join(runDir('malformed-json'), 'narration.mp3');
+  const calls = [];
+  await assert.rejects(
+    narrate({
+      text: 'A solemn dispatch.', out, operationId: 'malformed-json', config: config(), log: () => {},
+      fetchImpl: async (url) => { calls.push(url); return new Response('{not json', {status: 503, headers: {'content-type': 'application/json'}}); },
+    }),
+    (error) => error.provider === 'eleven' && error.fallbackClass === 'nonretryable',
+  );
+  assert.deepEqual(calls, ['https://eleven.test/tts']);
+  assert.equal(fs.existsSync(`${out}.receipt.json.lock`), false);
+});
+
+test('unclassified 5xx errors fail closed, while structured availability falls back once', async () => {
   const malformedCases = [
     () => new Response('gateway exploded', {status: 503, headers: {'content-type': 'text/plain'}}),
-    () => new Response('{not json', {status: 503, headers: {'content-type': 'application/json'}}),
     () => jsonResponse(503, {error_code: 'something_else'}),
   ];
   for (const [index, response] of malformedCases.entries()) {
@@ -208,6 +230,53 @@ test('ambiguous transport keeps its operation lock and cannot double-generate', 
   await assert.rejects(narrate({text: 'A solemn dispatch.', out, operationId: 'same', config: config(), log: () => {}, fetchImpl: ambiguousFetch}));
   await assert.rejects(narrate({text: 'A solemn dispatch.', out, operationId: 'same', config: config(), log: () => {}, fetchImpl: ambiguousFetch}), /already active or ambiguous/);
   assert.equal(calls, 1);
+});
+
+test('Eleven non-OK error-body read ambiguity retains the output claim', async () => {
+  const out = path.join(runDir('eleven-error-body-read'), 'narration.mp3');
+  let calls = 0;
+  const unreadableFetch = async () => { calls += 1; return unreadableJsonResponse(500); };
+  await assert.rejects(
+    narrate({text: 'A solemn dispatch.', out, operationId: 'first', config: config(), log: () => {}, fetchImpl: unreadableFetch}),
+    (error) => error.provider === 'eleven' && error.fallbackClass === 'ambiguous_transport',
+  );
+  const receipt = JSON.parse(fs.readFileSync(`${out}.receipt.json`, 'utf8'));
+  assert.equal(receipt.state, 'primary_failed');
+  assert.equal(receipt.attempts[0].fallback_class, 'ambiguous_transport');
+  assert.equal(fs.existsSync(`${out}.receipt.json.lock`), true);
+  for (const [operationId, text] of [['first', 'A solemn dispatch.'], ['different', 'A different dispatch.']]) {
+    await assert.rejects(
+      narrate({text, out, operationId, config: config(), log: () => {}, fetchImpl: unreadableFetch}),
+      (error) => error.fallbackClass === 'operation_locked',
+    );
+  }
+  assert.equal(calls, 1);
+});
+
+test('Cartesia non-OK error-body read ambiguity retains the output claim', async () => {
+  const out = path.join(runDir('cartesia-error-body-read'), 'narration.mp3');
+  let calls = 0;
+  const fallbackWithUnreadableErrorBody = async () => {
+    calls += 1;
+    return calls === 1
+      ? jsonResponse(503, {error_code: 'service_unavailable'})
+      : unreadableJsonResponse(500);
+  };
+  await assert.rejects(
+    narrate({text: 'A solemn dispatch.', out, operationId: 'first', config: config(), log: () => {}, fetchImpl: fallbackWithUnreadableErrorBody}),
+    (error) => error.provider === 'cartesia' && error.fallbackClass === 'ambiguous_transport',
+  );
+  const receipt = JSON.parse(fs.readFileSync(`${out}.receipt.json`, 'utf8'));
+  assert.equal(receipt.state, 'failed');
+  assert.equal(receipt.attempts[1].fallback_class, 'ambiguous_transport');
+  assert.equal(fs.existsSync(`${out}.receipt.json.lock`), true);
+  for (const [operationId, text] of [['first', 'A solemn dispatch.'], ['different', 'A different dispatch.']]) {
+    await assert.rejects(
+      narrate({text, out, operationId, config: config(), log: () => {}, fetchImpl: fallbackWithUnreadableErrorBody}),
+      (error) => error.fallbackClass === 'operation_locked',
+    );
+  }
+  assert.equal(calls, 2);
 });
 
 test('Eleven response-body read ambiguity retains the output claim for every operation', async () => {

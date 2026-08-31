@@ -55,12 +55,17 @@ function requestIdFrom(response, body) {
   );
 }
 
-async function safeErrorBody(response) {
+async function safeErrorBody(response, provider) {
   if (!(response.headers.get('content-type') || '').includes('application/json')) return {};
   try {
     return await response.json();
-  } catch {
-    return {};
+  } catch (error) {
+    // Malformed JSON is a definitive, non-fallback provider failure. A stream
+    // read error after headers, however, leaves the provider outcome unknown.
+    if (error instanceof SyntaxError || error?.name === 'SyntaxError') return {};
+    throw new NarrationError(`${provider} narration error response body could not be read; refusing retry.`, {
+      provider, fallbackClass: 'ambiguous_transport',
+    });
   }
 }
 
@@ -129,7 +134,7 @@ async function requestEleven(config, text, fetchImpl) {
       provider: 'eleven', fallbackClass: 'ambiguous_transport',
     });
   }
-  if (!response.ok) throw classifiedProviderError('eleven', response, await safeErrorBody(response));
+  if (!response.ok) throw classifiedProviderError('eleven', response, await safeErrorBody(response, 'eleven'));
   return {audio: await readSuccessfulAudio(response, 'eleven'), requestId: requestIdFrom(response)};
 }
 
@@ -159,7 +164,7 @@ async function requestCartesia(config, text, fetchImpl) {
       provider: 'cartesia', fallbackClass: 'ambiguous_transport',
     });
   }
-  if (!response.ok) throw classifiedProviderError('cartesia', response, await safeErrorBody(response));
+  if (!response.ok) throw classifiedProviderError('cartesia', response, await safeErrorBody(response, 'cartesia'));
   return {audio: await readSuccessfulAudio(response, 'cartesia'), requestId: requestIdFrom(response)};
 }
 
