@@ -122,10 +122,12 @@ constant.
 
 ElevenLabs remains the one-call primary narrator. Cartesia is considered exactly
 once only after a definitive primary quota/capacity/availability result (allowlisted
-provider code, HTTP 429, or HTTP 5xx). It is never a retry path and never follows
-auth/configuration/voice/model/input failures, another 4xx, malformed output, or
-an ambiguous transport outcome. The adapter writes a temporary MP3, validates it
-with `ffprobe`, then atomically publishes it with a sanitized receipt sidecar.
+provider code paired with an eligible HTTP 429 or 5xx status). Bare, malformed,
+or unclassified statuses — including generic 5xx responses — fail closed. It is
+never a retry path and never follows auth/configuration/voice/model/input failures,
+another 4xx, malformed output, or an ambiguous transport outcome. The adapter
+writes a temporary MP3, validates it with `ffprobe`, then atomically publishes it
+with a sanitized receipt sidecar.
 
 Fallback is dark until both variables are present in the invocation environment:
 `CARTESIA_API_KEY` (standard `sk_car_...`, never `sk_car_admin_...`) and an explicit

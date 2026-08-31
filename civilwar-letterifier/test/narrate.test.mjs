@@ -40,6 +40,15 @@ function audioResponse(audio = validAudio, requestId = 'safe-request-id') {
   return new Response(audio, {status: 200, headers: {'content-type': 'audio/mpeg', 'x-request-id': requestId}});
 }
 
+function unreadableAudioResponse(requestId = 'safe-request-id') {
+  return {
+    ok: true,
+    status: 200,
+    headers: new Headers({'content-type': 'audio/mpeg', 'x-request-id': requestId}),
+    arrayBuffer: async () => { throw new Error('response stream interrupted'); },
+  };
+}
+
 test('primary success makes one Eleven call, no Cartesia call, and a decodable MP3', async () => {
   const calls = [];
   const dir = runDir('primary');
@@ -93,7 +102,7 @@ test('Eleven auth/input failure is nonretryable and never calls Cartesia', async
 });
 
 test('auth, config, input, and other 4xx errors never fall back even with capacity-looking codes', async () => {
-  for (const [status, code] of [[400, 'quota_exceeded'], [401, 'quota_exceeded'], [403, 'concurrency_limited'], [404, 'service_unavailable'], [429, 'unauthorized']]) {
+  for (const [status, code] of [[400, 'quota_exceeded'], [401, 'quota_exceeded'], [403, 'concurrency_limited'], [404, 'service_unavailable']]) {
     const calls = [];
     const out = path.join(runDir(`contradictory-${status}`), 'narration.mp3');
     await assert.rejects(
@@ -105,6 +114,39 @@ test('auth, config, input, and other 4xx errors never fall back even with capaci
     );
     assert.deepEqual(calls, ['https://eleven.test/tts']);
     assert.equal(fs.existsSync(out), false);
+  }
+});
+
+test('429 fallback requires a structured allowlisted capacity code', async () => {
+  const recognizedCalls = [];
+  const recognized = await narrate({
+    text: 'A solemn dispatch.', out: path.join(runDir('recognized-429'), 'narration.mp3'), operationId: 'recognized-429', config: config(), log: () => {},
+    fetchImpl: async (url) => {
+      recognizedCalls.push(url);
+      return recognizedCalls.length === 1
+        ? jsonResponse(429, {error_code: 'concurrency_limited'})
+        : audioResponse();
+    },
+  });
+  assert.deepEqual(recognizedCalls, ['https://eleven.test/tts', 'https://cartesia.test/tts/bytes']);
+  assert.equal(recognized.selection.provider, 'cartesia');
+
+  const rejectedCases = [
+    () => jsonResponse(429, {error_code: 'auth_error'}),
+    () => jsonResponse(429, {error_code: 'unknown_provider_error'}),
+    () => jsonResponse(429, {}),
+    () => new Response('{not json', {status: 429, headers: {'content-type': 'application/json'}}),
+  ];
+  for (const [index, response] of rejectedCases.entries()) {
+    const calls = [];
+    await assert.rejects(
+      narrate({
+        text: 'A solemn dispatch.', out: path.join(runDir(`rejected-429-${index}`), 'narration.mp3'), operationId: `rejected-429-${index}`,
+        config: config(), log: () => {}, fetchImpl: async (url) => { calls.push(url); return response(); },
+      }),
+      (error) => error.fallbackClass === 'nonretryable',
+    );
+    assert.deepEqual(calls, ['https://eleven.test/tts']);
   }
 });
 
@@ -166,6 +208,55 @@ test('ambiguous transport keeps its operation lock and cannot double-generate', 
   await assert.rejects(narrate({text: 'A solemn dispatch.', out, operationId: 'same', config: config(), log: () => {}, fetchImpl: ambiguousFetch}));
   await assert.rejects(narrate({text: 'A solemn dispatch.', out, operationId: 'same', config: config(), log: () => {}, fetchImpl: ambiguousFetch}), /already active or ambiguous/);
   assert.equal(calls, 1);
+});
+
+test('Eleven response-body read ambiguity retains the output claim for every operation', async () => {
+  const out = path.join(runDir('eleven-body-read'), 'narration.mp3');
+  let calls = 0;
+  const unreadableFetch = async () => { calls += 1; return unreadableAudioResponse(); };
+  await assert.rejects(
+    narrate({text: 'A solemn dispatch.', out, operationId: 'first', config: config(), log: () => {}, fetchImpl: unreadableFetch}),
+    (error) => error.provider === 'eleven' && error.fallbackClass === 'ambiguous_transport',
+  );
+  const receipt = JSON.parse(fs.readFileSync(`${out}.receipt.json`, 'utf8'));
+  assert.equal(receipt.state, 'primary_failed');
+  assert.equal(receipt.attempts[0].fallback_class, 'ambiguous_transport');
+  assert.equal(fs.existsSync(`${out}.receipt.json.lock`), true);
+  for (const [operationId, text] of [['first', 'A solemn dispatch.'], ['different', 'A different dispatch.']]) {
+    await assert.rejects(
+      narrate({text, out, operationId, config: config(), log: () => {}, fetchImpl: unreadableFetch}),
+      (error) => error.fallbackClass === 'operation_locked',
+    );
+  }
+  assert.equal(calls, 1);
+  assert.equal(fs.existsSync(out), false);
+});
+
+test('Cartesia response-body read ambiguity retains the output claim for every operation', async () => {
+  const out = path.join(runDir('cartesia-body-read'), 'narration.mp3');
+  let calls = 0;
+  const fallbackWithUnreadableBody = async () => {
+    calls += 1;
+    return calls === 1
+      ? jsonResponse(429, {error_code: 'quota_exceeded'})
+      : unreadableAudioResponse();
+  };
+  await assert.rejects(
+    narrate({text: 'A solemn dispatch.', out, operationId: 'first', config: config(), log: () => {}, fetchImpl: fallbackWithUnreadableBody}),
+    (error) => error.provider === 'cartesia' && error.fallbackClass === 'ambiguous_transport',
+  );
+  const receipt = JSON.parse(fs.readFileSync(`${out}.receipt.json`, 'utf8'));
+  assert.equal(receipt.state, 'failed');
+  assert.equal(receipt.attempts[1].fallback_class, 'ambiguous_transport');
+  assert.equal(fs.existsSync(`${out}.receipt.json.lock`), true);
+  for (const [operationId, text] of [['first', 'A solemn dispatch.'], ['different', 'A different dispatch.']]) {
+    await assert.rejects(
+      narrate({text, out, operationId, config: config(), log: () => {}, fetchImpl: fallbackWithUnreadableBody}),
+      (error) => error.fallbackClass === 'operation_locked',
+    );
+  }
+  assert.equal(calls, 2);
+  assert.equal(fs.existsSync(out), false);
 });
 
 test('completed artifact recovers from a partial receipt without another provider call', async () => {

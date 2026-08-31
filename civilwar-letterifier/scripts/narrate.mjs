@@ -17,12 +17,15 @@ export const CARTESIA_VERSION = '2026-08-14';
 const CARTESIA_TTS_URL = 'https://api.cartesia.ai/tts/bytes';
 const ELEVEN_TTS_URL = `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`;
 const MAX_RECEIPT_REQUEST_ID_LENGTH = 160;
-const CAPACITY_CODES = new Set(['quota_exceeded', 'concurrency_limited', 'capacity_exceeded', 'service_unavailable']);
-const NON_FALLBACK_CODES = new Set([
-  'unauthorized', 'authentication_failed', 'invalid_api_key', 'forbidden',
-  'invalid_request', 'validation_error', 'voice_model_mismatch', 'voice_not_found',
-  'model_not_found', 'language_not_supported', 'file_too_large',
-  'unsupported_audio_format', 'plan_upgrade_required',
+// Fallback is intentionally a positive status-and-code allowlist. A status by
+// itself, or a code outside its expected status family, is not enough to risk
+// a second synthesis request.
+const FALLBACK_CODES_BY_STATUS = new Map([
+  [429, new Set(['quota_exceeded', 'concurrency_limited', 'capacity_exceeded'])],
+  [500, new Set(['capacity_exceeded', 'concurrency_limited', 'service_unavailable'])],
+  [502, new Set(['capacity_exceeded', 'concurrency_limited', 'service_unavailable'])],
+  [503, new Set(['capacity_exceeded', 'concurrency_limited', 'service_unavailable'])],
+  [504, new Set(['capacity_exceeded', 'concurrency_limited', 'service_unavailable'])],
 ]);
 
 export class NarrationError extends Error {
@@ -70,12 +73,7 @@ function classifiedProviderError(provider, response, body) {
 }
 
 export function isCapacityFailure(status, code) {
-  // Never let a capacity-looking body override a definitive auth/config/input
-  // status. A bare 429 is explicitly authorized; a 5xx needs an allowlisted,
-  // structured provider code so malformed/unclassified failures fail closed.
-  if (NON_FALLBACK_CODES.has(code) || status < 400 || status >= 500 && status <= 599 && !CAPACITY_CODES.has(code)) return false;
-  if (status === 429) return true;
-  return status >= 500 && status <= 599 && CAPACITY_CODES.has(code);
+  return typeof code === 'string' && FALLBACK_CODES_BY_STATUS.get(status)?.has(code) === true;
 }
 
 export function validateCartesiaKey(key) {
@@ -132,7 +130,7 @@ async function requestEleven(config, text, fetchImpl) {
     });
   }
   if (!response.ok) throw classifiedProviderError('eleven', response, await safeErrorBody(response));
-  return {audio: Buffer.from(await response.arrayBuffer()), requestId: requestIdFrom(response)};
+  return {audio: await readSuccessfulAudio(response, 'eleven'), requestId: requestIdFrom(response)};
 }
 
 async function requestCartesia(config, text, fetchImpl) {
@@ -162,7 +160,19 @@ async function requestCartesia(config, text, fetchImpl) {
     });
   }
   if (!response.ok) throw classifiedProviderError('cartesia', response, await safeErrorBody(response));
-  return {audio: Buffer.from(await response.arrayBuffer()), requestId: requestIdFrom(response)};
+  return {audio: await readSuccessfulAudio(response, 'cartesia'), requestId: requestIdFrom(response)};
+}
+
+async function readSuccessfulAudio(response, provider) {
+  try {
+    return Buffer.from(await response.arrayBuffer());
+  } catch {
+    // A successful header does not prove whether synthesis completed. Preserve
+    // the operation claim so a later invocation cannot issue a duplicate call.
+    throw new NarrationError(`${provider} narration response body could not be read; refusing retry.`, {
+      provider, fallbackClass: 'ambiguous_transport',
+    });
+  }
 }
 
 function tempPathFor(out) {
