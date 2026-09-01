@@ -1,0 +1,4 @@
+interface:
+  display_name: "Merge Forward"
+  short_description: "Ship verified monorepo slices straight to main"
+  default_prompt: "Use $merge-forward to deliver this change as the smallest verified slice and merge it to main immediately."

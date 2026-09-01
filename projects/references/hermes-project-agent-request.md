@@ -31,10 +31,8 @@ When a 33god project asks for a Hermes agent, the project side owns only the req
   `platforms.slack.enabled` false until ownership of the corresponding
   dedicated credential is verified.
 - The immutable required skill core: `33god-projects`, `delonet-conventions`,
-  `delonet-dotenv`, `agent-fleet-operations`, `hindsight`, and
+  `delonet-dotenv`, `hermes-pm-template-maintenance`, `hindsight`, and
   `subagent-driven-development`. Optional configuration may only add skills.
-  `hermes-pm-template-maintenance` is deprecated; fleet/template maintenance is
-  owned by `agent-fleet-operations`.
 
 If the expected named profile is a legacy symlink, or `.project.json` is
 malformed, provisioning aborts before any mutation. The fleet runbook owns the

@@ -1,0 +1,12 @@
+# Provenance for this skill. Managed by `skillex vendor`; do not hand-edit.
+origin:
+  type: vendored
+  source: bloodbank
+  upstream: git@github.com:delorenj/bloodbank.git
+  upstream_version: main
+  upstream_commit: 28c708b7a532252effaad03f1adc75bbadd4965f
+  upstream_tree: 21ece3c0db3fb7c249f53b4348c004f75e68a042
+  upstream_path: skills/bloodbank-sdk-generation
+  extracted_at: "2026-09-01T15:55:42+00:00"
+  digest: sha256:05006356939514bacb79592886c3fe0a0439fbc9f5561a395227907987b0715f
+modified_locally: false

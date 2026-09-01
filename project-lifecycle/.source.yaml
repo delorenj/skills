@@ -1,0 +1,12 @@
+# Provenance for this skill. Managed by `skillex vendor`; do not hand-edit.
+origin:
+  type: vendored
+  source: krebs
+  upstream: git@github.com:delorenj/33GOD.git
+  upstream_version: main
+  upstream_commit: c091266b5e666c772655e4fd396484840b7945b0
+  upstream_tree: 46281ebe661d00861cb6cf9ec5593b4a344650b4
+  upstream_path: krebs/skills/project-lifecycle
+  extracted_at: "2026-09-01T15:55:42+00:00"
+  digest: sha256:776ef0a499fb908cdb363f2c097b6f5b512e66afbd26ac2fbf88d81e308007ba
+modified_locally: false

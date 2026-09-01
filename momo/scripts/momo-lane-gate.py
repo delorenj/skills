@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+"""momo-lane-gate — CLI wrapper for the canonical lane-gate library."""
+import sys
+from pathlib import Path
+
+_LIB = Path(__file__).resolve().parent / "lib"
+sys.path.insert(0, str(_LIB))
+
+from momo_lane_gate import main  # type: ignore[import]  # noqa: E402
+
+if __name__ == "__main__":
+    raise SystemExit(main())

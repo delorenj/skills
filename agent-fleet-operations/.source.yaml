@@ -1,5 +1,12 @@
-# Provenance for this skill. Managed by skill_ssot.py.
+# Provenance for this skill. Managed by `skillex vendor`; do not hand-edit.
 origin:
-  type: local
-  extracted_at: 2026-07-01T20:47:25+00:00
-modified_locally: true
+  type: vendored
+  source: pjangler
+  upstream: git@github.com:delorenj/pjangler.git
+  upstream_version: 5f27761fb1c0b298146cb3eeae30f3687e448f97
+  upstream_commit: 5f27761fb1c0b298146cb3eeae30f3687e448f97
+  upstream_tree: 9cef3b7c1dbc3774e85affccb4dae4afc21dbcb7
+  upstream_path: skills/agent-fleet-operations
+  extracted_at: "2026-09-01T15:58:01+00:00"
+  digest: sha256:edce713bfa86c4dcd0eb97e4fe50aa9fd9837cd59489da1204e53c50adfdcc47
+modified_locally: false

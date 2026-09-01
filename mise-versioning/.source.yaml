@@ -1,0 +1,12 @@
+# Provenance for this skill. Managed by `skillex vendor`; do not hand-edit.
+origin:
+  type: vendored
+  source: pjangler
+  upstream: git@github.com:delorenj/pjangler.git
+  upstream_version: v1.4.2
+  upstream_commit: dbafc00435bdc34f99936477742f1e42cad9e5d9
+  upstream_tree: fccce02e54a657d1d56f6e57e8b86103358f1fb5
+  upstream_path: skills/mise-versioning
+  extracted_at: "2026-09-01T15:55:42+00:00"
+  digest: sha256:f266507bee68f7e961229adb353d7c5f81d3d168141b9d42eab6e60261f5bf6f
+modified_locally: false

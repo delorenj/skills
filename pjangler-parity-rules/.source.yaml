@@ -1,0 +1,12 @@
+# Provenance for this skill. Managed by `skillex vendor`; do not hand-edit.
+origin:
+  type: vendored
+  source: pjangler
+  upstream: git@github.com:delorenj/pjangler.git
+  upstream_version: v1.4.2
+  upstream_commit: dbafc00435bdc34f99936477742f1e42cad9e5d9
+  upstream_tree: 519daf16a3ffd0d5e39f08634093a42b457bdbc7
+  upstream_path: skills/pjangler-parity-rules
+  extracted_at: "2026-09-01T15:55:42+00:00"
+  digest: sha256:4529424a3189255bc03b1651d0e84357f40cf28c873bba725bae0de0dcc0d8a1
+modified_locally: false

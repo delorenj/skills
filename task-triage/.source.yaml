@@ -1,0 +1,12 @@
+# Provenance for this skill. Managed by `skillex vendor`; do not hand-edit.
+origin:
+  type: vendored
+  source: krebs
+  upstream: git@github.com:delorenj/33GOD.git
+  upstream_version: main
+  upstream_commit: c091266b5e666c772655e4fd396484840b7945b0
+  upstream_tree: 94e09e432f4d1b6d754d9c69fb5a1fcd2fd510d2
+  upstream_path: krebs/skills/task-triage
+  extracted_at: "2026-09-01T15:55:42+00:00"
+  digest: sha256:dc2af8a6b6376f4eff7da00bda10d2555407ec7d4b98e352c32d56087d54fe98
+modified_locally: false

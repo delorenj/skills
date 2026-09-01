@@ -1,0 +1,12 @@
+# Provenance for this skill. Managed by `skillex vendor`; do not hand-edit.
+origin:
+  type: vendored
+  source: 33god-platform
+  upstream: git@github.com:delorenj/33GOD.git
+  upstream_version: main
+  upstream_commit: c091266b5e666c772655e4fd396484840b7945b0
+  upstream_tree: 3bda87fc460a4a58c91b5b1ccd0fec546c61b396
+  upstream_path: 33god-platform/skills/33god-hub
+  extracted_at: "2026-09-01T15:55:42+00:00"
+  digest: sha256:e03ad98937b95a10244d486b5d7e8b512bc68713615831e7b5a5f3371932ff3a
+modified_locally: false

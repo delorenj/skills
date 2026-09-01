@@ -5,8 +5,8 @@ origin:
   upstream: git@github.com:delorenj/pjangler.git
   upstream_version: 5f27761fb1c0b298146cb3eeae30f3687e448f97
   upstream_commit: 5f27761fb1c0b298146cb3eeae30f3687e448f97
-  upstream_tree: 14c5b5f3e809a22a4396a8085b90191e125cf720
-  upstream_path: skills/projects
+  upstream_tree: cb74b7a5dec0f14bd1e5c13269c528805620cd98
+  upstream_path: skills/project-jangler
   extracted_at: "2026-09-01T15:58:01+00:00"
-  digest: sha256:78f16bd93e7e2fb31a160b0b39abddada37f94ec04c47f054dde95ca23326f28
+  digest: sha256:727420ec4d4e48661b6b2a5c35c634ed9f247a7a50e11ddc5e255e943f03f2fc
 modified_locally: false
