@@ -139,6 +139,35 @@ POST /api/invoices
   location_id, terms, note, payment_terms_id, po_number_repeat }
 ```
 
+### `location_id` is REQUIRED, and it is the private integer
+
+Proved live on 2026-09-02. The first machine attempt (testbed job 83388, every
+other figure true) answered **HTTP 422 `{"success": false, "message": ["Oops!
+Location is required"]}`** to `location_id: null`. The public job payload
+carries only the location's hashid (`location.id = "nqdyMzld16"`), which this
+backend cannot resolve either. The integer lives on
+
+```
+GET /api/customers/{privateCustomerId}/locations
+→ data: [{ id: "17367", location_name: "1450 Washington Avenue",
+           address: { service: { line1, city, state, zip }, billing: {...} } }]
+```
+
+`PrivateCrmWriter.customer_locations` is that read (the fourth, beside taxes,
+items and `invoices/init`); `DualBackendCrm.private_location_id` matches the
+job's own `address_line_1` against each row's `address.service.line1` exactly,
+on the canonical form, with city and state agreeing — two rows on one line is
+nobody. `relay.invoice.compose` answers `Undecided(missing="location")` without
+it, so the brief says so before anybody approves. With it, the same body landed:
+**draft invoice 5444 (private id 7018, public `jkeLmLWgw5`) on testbed job
+83389, silent, read back `draft` / $240 over the public API.** That is the
+first invoice this system ever raised, and the payload above is the one that
+did it.
+
+A refused invoice's receipt now carries the vendor's sentence
+(`crm_private._vendor_message`). It used to carry the status code alone, and
+this finding had to be reproduced by hand to read it.
+
 ## `trigger_action` defaults to SEND. This is the whole risk.
 
 From `app/modules/jobdetail/const/Invoice.js`, `ACTION_VALUE` is
@@ -308,9 +337,17 @@ dedicated integration user (his action)". He did not need to. What happened:
    and is the artifact.
 4. `RELAY_CAPABILITY_EVIDENCE=supported` on `relay` and `dispatchers`.
 5. `RELAY_EGRESS_ENABLED=true`, fenced by `RELAY_WRITE_SCOPE_CITY="Miami Beach"`
-   / `RELAY_WRITE_SCOPE_STATE=FL`. The invoice stays assisted:
-   `can_create_invoice` is still False on the dual adapter, so that operation is
-   refused as absent before the evidence gate is ever consulted.
+   / `RELAY_WRITE_SCOPE_STATE=FL`. `can_create_invoice` is True on the dual
+   adapter since 2026-08-28; the invoice itself first landed on 2026-09-02
+   (draft 5444, job 83389) once `location_id` was resolved — see above.
+6. **The testbed's service must match a line item by name.** `relay.invoice.
+   compose` matches `job.name` against `settings/items`; "Initial Service"
+   (1841) is a service with no line item, so every testbed invoice composed
+   `missing: line_item` until `relay.testbed.DEFAULT_SERVICE_ID` moved to
+   General Pest Control (1842, item 1712). Four services match an item by name:
+   General Pest Control, Bed Bug Treatment, Mice, Preventative Monitoring &
+   Maintenance. A bare "$240" also stops at the tax question; "no tax" settles
+   it (`SPOKEN_NO_TAX`).
 
 ### The probe is the point, not a formality
 
