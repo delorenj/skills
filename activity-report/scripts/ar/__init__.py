@@ -4,4 +4,4 @@
 `data.generator.skill_version`; keep it equal to `metadata.version` in SKILL.md.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"

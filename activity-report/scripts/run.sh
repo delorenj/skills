@@ -213,6 +213,8 @@ put("previous_title", prev.get("title") or "none")
   local eff_label="${digest_label:-$label}"
   if [ "$eff_label" != "$label" ]; then
     log "note: digest label $eff_label differs from provisional $label; files use $eff_label"
+    mv -f "$digest" "$work/$eff_label-$audience.digest.json"
+    digest="$work/$eff_label-$audience.digest.json"
   fi
   local base="$work/$eff_label-$audience"
   local raw="$base.raw.txt" md="$base.md" html="$base.html" event="$base.event.json"

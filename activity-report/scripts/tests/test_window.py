@@ -75,7 +75,8 @@ class WindowTests(unittest.TestCase):
         self.assertEqual(w.basis, "explicit")
         self.assertEqual(w.start, datetime(2026, 9, 1, 7, tzinfo=timezone.utc))
         self.assertEqual(w.end, datetime(2026, 9, 2, 7, tzinfo=timezone.utc))
-        self.assertEqual(w.previous_event_id, PREV_ID)
+        self.assertIsNone(w.previous_event_id)   # explicit bounds carry no lineage
+        self.assertIsNotNone(w.previous)
         self.assertEqual(w.label("America/New_York"), "2026-09-02T0300")
 
     def test_explicit_since_without_previous_has_no_previous_id(self):
@@ -89,7 +90,7 @@ class WindowTests(unittest.TestCase):
         w = self.resolve(previous(prev_end), until=(NOW - timedelta(hours=2)).isoformat())
         self.assertEqual(w.basis, "explicit")
         self.assertEqual(w.start, prev_end)
-        self.assertEqual(w.previous_event_id, PREV_ID)
+        self.assertIsNone(w.previous_event_id)   # basis is explicit, so no lineage
 
     def test_short_window_is_nothing_to_do_unless_forced(self):
         with self.assertRaises(NothingToDo):

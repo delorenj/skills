@@ -79,12 +79,10 @@ def resolve(project, audience: str, now: datetime | None = None, since: str | No
     previous = candystore.find_previous_report(project.slug, audience, now)
     prev_end = _utc(parse_iso(previous["window_end"])) if previous else None
     prev_id = previous.get("event_id") if previous else None
-    chained = False
 
     if since:
         start = _parse_flag(since, "--since")
         basis = BASIS_EXPLICIT
-        chained = previous is not None
         if prev_end is not None and start > prev_end:
             caveats.append(f"explicit window starts after the previous {audience} report ended ({to_iso_z(prev_end)}); "
                            "the gap between them is not covered")
@@ -95,7 +93,6 @@ def resolve(project, audience: str, now: datetime | None = None, since: str | No
         basis = BASIS_EXPLICIT
         if prev_end is not None and cap_start <= prev_end < end:
             start = prev_end
-            chained = True
         else:
             start = cap_start
             if prev_end is None:
@@ -111,7 +108,7 @@ def resolve(project, audience: str, now: datetime | None = None, since: str | No
                            "start clamped to one second ago")
             prev_end = now - timedelta(seconds=1)
         if prev_end is not None and prev_end >= cap_start:
-            start, basis, chained = prev_end, BASIS_PREVIOUS, True
+            start, basis = prev_end, BASIS_PREVIOUS
         else:
             start = cap_start
             if int(cap.total_seconds()) == CAP_24H_SECONDS:
@@ -136,7 +133,9 @@ def resolve(project, audience: str, now: datetime | None = None, since: str | No
                               f"window.min_minutes={min_minutes}; pass --force to report anyway")
         caveats.append(f"window is {duration}s, shorter than window.min_minutes={min_minutes}; forced")
 
-    previous_event_id = prev_id if chained and isinstance(prev_id, str) else None
+    # Lineage only when this window continues the previous report; an explicit
+    # window that happens to start where it ended still records no previous id.
+    previous_event_id = prev_id if basis == BASIS_PREVIOUS and isinstance(prev_id, str) else None
     return Window(start=start, end=end, basis=basis, previous_event_id=previous_event_id,
                   previous=previous, caveats=caveats)
 
