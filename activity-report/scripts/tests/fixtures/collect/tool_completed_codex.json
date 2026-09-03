@@ -1,0 +1,46 @@
+{
+  "id": "2d6059ac-9483-459c-83c1-187fe0046429",
+  "type": "bloodbank.agent.tool.completed",
+  "time": "2026-09-02T23:14:04.710000Z",
+  "producer": "codex-cli",
+  "service": "codex-hooks",
+  "domain": "agent",
+  "actor": {
+    "cli": "codex",
+    "type": "agent_cli",
+    "model": "gpt-5.6-sol",
+    "agent_id": "bloodbank.agent.codex",
+    "provider": "openai"
+  },
+  "data": {
+    "hook": "PostToolUse",
+    "outcome": "success",
+    "payload": {
+      "cwd": "/home/delorenj/code/james-brennan-jimb169",
+      "model": "gpt-5.6-sol",
+      "turn_id": "01a0644e-1312-7c90-b8a1-7ffdd08bac60",
+      "tool_name": "apply_patch",
+      "session_id": "01a0644e-122e-7411-abac-8fd27d3d9d60",
+      "tool_input": {
+        "command": "*** Begin Patch\n*** Update File: /home/delorenj/code/james-brennan-jimb169/apps/relay/tests/test_deploy_gate.py\n@@\n     …"
+      },
+      "tool_use_id": "exec-54a63376-bbaa-42ae-998e-d652057f2bf9",
+      "hook_event_name": "PostToolUse",
+      "permission_mode": "default",
+      "transcript_path": null
+    },
+    "arguments": {
+      "command": "*** Begin Patch\n*** Update File: /home/delorenj/code/james-brennan-jimb169/apps/relay/tests/test_deploy_gate.py\n@@\n     …"
+    },
+    "tool_name": "apply_patch",
+    "git_branch": "codex/jimb-169-prod-incident-20260901",
+    "git_status": "modified",
+    "turn_number": 35,
+    "tool_call_id": "91e8b0ccf06acfcf579db9b8de8b1ac9",
+    "invocation_id": "2c4b2ba2-c35a-4df9-8838-9674a9f30565",
+    "working_directory": "/home/delorenj/code/james-brennan-jimb169"
+  },
+  "correlationid": "2c4b2ba2-c35a-4df9-8838-9674a9f30565",
+  "cli": "codex",
+  "project": "james-brennan-jimb169"
+}

@@ -1,0 +1,76 @@
+{
+  "id": "416284ad-0543-5516-8d64-0ba1ec1741bd",
+  "type": "bloodbank.repo.task.created",
+  "time": "2026-09-02T22:43:19.058000Z",
+  "producer": "n8n-plane-webhook",
+  "service": "n8n",
+  "domain": "repo",
+  "actor": {
+    "type": "ticket_provider",
+    "agent_id": "bloodbank.integration.plane",
+    "provider": "plane"
+  },
+  "data": {
+    "repo": "james-brennan",
+    "slug": "james-brennan",
+    "phase": "Todo",
+    "title": "Customer name should be considered as a data point when linking a technician call to a job",
+    "ticket": {
+      "id": "dd876faf-74fc-4dfc-ae7b-95030a842965",
+      "name": "Customer name should be considered as a data point when linking a technician call to a job",
+      "type": null,
+      "point": null,
+      "state": {
+        "id": "5c475e29-3255-4e80-b536-82ccec365000",
+        "name": "Todo",
+        "color": "#60646C",
+        "group": "unstarted"
+      },
+      "labels": [
+        {
+          "id": "6a837b68-4f0b-4559-b8bf-0f8fe0295fad",
+          "name": "xp:external",
+          "color": "#0693E3"
+        }
+      ],
+      "parent": null,
+      "project": "a8a12be1-b3ab-44f4-ab24-abe8829aeb72",
+      "is_draft": false,
+      "priority": "urgent",
+      "assignees": [],
+      "workspace": "4a90d794-14cf-4ff7-9196-cb0a4f5bbb1f",
+      "created_at": "2026-09-02T22:43:19.032357Z",
+      "created_by": "a95d7646-e557-437e-b453-ae82d7f78df7",
+      "deleted_at": null,
+      "sort_order": 1070000,
+      "start_date": null,
+      "updated_at": "2026-09-02T22:43:19.058961Z",
+      "updated_by": null,
+      "archived_at": null,
+      "description": {},
+      "external_id": null,
+      "sequence_id": 251,
+      "target_date": null,
+      "completed_at": null,
+      "estimate_point": null,
+      "external_source": null,
+      "description_html": "<p class=\"editor-paragraph-block\" data-id=\"e37e2c24-5b2a-4493-a3f7-4bafc34243f9\"…",
+      "description_json": {},
+      "description_binary": null,
+      "description_stripped": "question from Jim:\"If I say something like Orleans tech that was scheduled this …"
+    },
+    "task_id": "dd876faf-74fc-4dfc-ae7b-95030a842965",
+    "tp_band": "unstarted",
+    "board_id": "a8a12be1-b3ab-44f4-ab24-abe8829aeb72",
+    "provider": "plane",
+    "ticket_id": "dd876faf-74fc-4dfc-ae7b-95030a842965",
+    "timestamp": "2026-09-02T22:43:19.058Z",
+    "workspace": "automaticai",
+    "project_id": "a8a12be1-b3ab-44f4-ab24-abe8829aeb72",
+    "ticket_key": "JIMB-251",
+    "provider_event_type": "plane.ticket.created"
+  },
+  "correlationid": "94e5603a-b5ae-54b3-b702-518036732045",
+  "cli": null,
+  "project": "unknown"
+}

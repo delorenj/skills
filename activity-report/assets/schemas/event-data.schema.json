@@ -1,0 +1,641 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://33god.dev/schemas/activity-report/event-data.schema.json",
+  "title": "bloodbank.project.activity.recorded — data",
+  "description": "The `data` object of one bloodbank.project.activity.recorded event, as produced by `activity-report assemble` and checked by scripts/ar/contract.py.",
+  "$comment": "Vendored for documentation from 33GOD/bloodbank schemas/bloodbank/project/activity.recorded.json (properties.data + $defs, with uuid/timestamp/semantic_version inlined from _common/types.v1.json). The Bloodbank copy is the contract; this one is a reading aid and is not loaded at runtime.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "project": {
+      "$ref": "#/$defs/project",
+      "description": "The pjangler project this report covers, copied from its .project.json."
+    },
+    "audience": {
+      "type": "string",
+      "enum": [
+        "internal",
+        "external"
+      ],
+      "description": "internal = the team's exhaustive log; external = the client-safe narrative. External events cannot carry sources or tickets."
+    },
+    "window": {
+      "$ref": "#/$defs/window",
+      "description": "The bounded interval the report describes and how its start was chosen."
+    },
+    "report": {
+      "$ref": "#/$defs/report",
+      "description": "The report in three forms: raw (portal plain-text grammar), markdown, and a self-contained HTML document."
+    },
+    "tokens": {
+      "$ref": "#/$defs/tokens",
+      "description": "LLM token usage attributed to the window, per agent CLI."
+    },
+    "generator": {
+      "$ref": "#/$defs/generator",
+      "description": "The skill run that produced this report; run_id is the envelope correlationid."
+    },
+    "sources": {
+      "$ref": "#/$defs/sources",
+      "description": "Internal only: the collected facts the narrative was written from."
+    },
+    "tickets": {
+      "$ref": "#/$defs/tickets",
+      "description": "Internal only: board tickets that moved inside the window."
+    }
+  },
+  "required": [
+    "schema_version",
+    "project",
+    "audience",
+    "window",
+    "report",
+    "tokens",
+    "generator"
+  ],
+  "if": {
+    "properties": {
+      "audience": {
+        "const": "external"
+      }
+    },
+    "required": [
+      "audience"
+    ]
+  },
+  "then": {
+    "properties": {
+      "sources": false,
+      "tickets": false
+    }
+  },
+  "else": {
+    "required": [
+      "sources",
+      "tickets"
+    ]
+  },
+  "$defs": {
+    "slug": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+    },
+    "repo_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "agent_key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,31}$"
+    },
+    "ticket_key": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9]{1,11}-[0-9]+$"
+    },
+    "ticket_key_list": {
+      "type": "array",
+      "maxItems": 200,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ticket_key"
+      }
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "no_absolute_path": {
+      "not": {
+        "pattern": "(^|[^A-Za-z0-9_.])/(home|Users|root|tmp|var|etc|opt|srv|mnt)/"
+      }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "slug": {
+          "$ref": "#/$defs/slug"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "identifier": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z][A-Z0-9]{1,11}$",
+          "description": "Ticket-provider project identifier (e.g. JIMB); null when the project has no board. External text is refused if it contains <identifier>-<n>."
+        },
+        "workspace": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "board_id": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "repos": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/repo_name"
+          }
+        }
+      },
+      "required": [
+        "slug",
+        "name",
+        "identifier",
+        "workspace",
+        "board_id",
+        "repos"
+      ]
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "end": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "duration_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2678400,
+          "description": "end - start in whole seconds; at most 31 days."
+        },
+        "basis": {
+          "type": "string",
+          "enum": [
+            "previous_report",
+            "cap_24h",
+            "explicit"
+          ],
+          "description": "previous_report: start is the end of the previous same-audience event; cap_24h: no usable previous event, window is exactly 24h; explicit: operator-supplied bounds."
+        },
+        "previous_event_id": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Envelope id of the previous event with the same project slug AND the same audience; null for the first report or a cap_24h/explicit window."
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "duration_seconds",
+        "basis",
+        "previous_event_id"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "basis": {
+                "const": "previous_report"
+              }
+            },
+            "required": [
+              "basis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "previous_event_id": {
+                "$ref": "#/$defs/uuid"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "basis": {
+                "const": "cap_24h"
+              }
+            },
+            "required": [
+              "basis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "duration_seconds": {
+                "const": 86400
+              }
+            }
+          }
+        }
+      ]
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "$ref": "#/$defs/no_absolute_path",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180,
+          "description": "Same cap as the portal's upsertUpdateInputSchema title."
+        },
+        "raw": {
+          "$ref": "#/$defs/no_absolute_path",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 5000,
+          "description": "Plain text in the portal UpdateBody grammar (## heading, - bullet, HH:MM timeline, | k | v | metric, paragraph, **bold**). Same 5000-char cap as the portal body; never widen."
+        },
+        "markdown": {
+          "$ref": "#/$defs/no_absolute_path",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "html": {
+          "$ref": "#/$defs/no_absolute_path",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 262144,
+          "pattern": "^<!(DOCTYPE|doctype) html>",
+          "description": "A complete, self-contained HTML document (inline CSS only, no scripts, no external fonts, no external images). 256 KiB cap keeps the envelope under the NATS 1 MiB default."
+        }
+      },
+      "required": [
+        "title",
+        "raw",
+        "markdown",
+        "html"
+      ]
+    },
+    "token_bucket": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "$ref": "#/$defs/count"
+        },
+        "output": {
+          "$ref": "#/$defs/count"
+        },
+        "cache_read": {
+          "$ref": "#/$defs/count"
+        },
+        "cache_write": {
+          "$ref": "#/$defs/count"
+        },
+        "total": {
+          "$ref": "#/$defs/count"
+        }
+      },
+      "required": [
+        "input",
+        "output",
+        "cache_read",
+        "cache_write",
+        "total"
+      ]
+    },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "total": {
+          "$ref": "#/$defs/count"
+        },
+        "by_agent": {
+          "type": "object",
+          "maxProperties": 16,
+          "propertyNames": {
+            "$ref": "#/$defs/agent_key"
+          },
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token_bucket"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": "Keyed by agent CLI name (claude, codex, kimi ...) as in actor.cli; null when the CLI reports no usage."
+        }
+      },
+      "required": [
+        "total",
+        "by_agent"
+      ]
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "skill": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,63}$"
+        },
+        "skill_version": {
+          "$ref": "#/$defs/semantic_version"
+        },
+        "run_id": {
+          "$ref": "#/$defs/uuid",
+          "description": "Must equal the envelope correlationid."
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "dry_run": {
+          "type": "boolean",
+          "description": "true when the run published nothing to the portal; fixtures and live probes set it so a consumer can ignore them."
+        }
+      },
+      "required": [
+        "skill",
+        "skill_version",
+        "run_id",
+        "model",
+        "dry_run"
+      ]
+    },
+    "commit": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$"
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "author": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "at": {
+          "$ref": "#/$defs/timestamp"
+        }
+      },
+      "required": [
+        "sha",
+        "subject",
+        "author",
+        "at"
+      ]
+    },
+    "git_repo_activity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "commits": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/commit"
+          },
+          "description": "Newest first; the collector keeps at most 100 per repo and sets truncated."
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "branches": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "files_changed": {
+          "$ref": "#/$defs/count"
+        },
+        "insertions": {
+          "$ref": "#/$defs/count"
+        },
+        "deletions": {
+          "$ref": "#/$defs/count"
+        }
+      },
+      "required": [
+        "commits",
+        "truncated",
+        "branches",
+        "files_changed",
+        "insertions",
+        "deletions"
+      ]
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "git": {
+          "type": "object",
+          "maxProperties": 8,
+          "propertyNames": {
+            "$ref": "#/$defs/repo_name"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/git_repo_activity"
+          }
+        },
+        "candystore": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sessions": {
+              "$ref": "#/$defs/count"
+            },
+            "tool_calls": {
+              "$ref": "#/$defs/count"
+            },
+            "by_cli": {
+              "type": "object",
+              "maxProperties": 16,
+              "propertyNames": {
+                "$ref": "#/$defs/agent_key"
+              },
+              "additionalProperties": {
+                "$ref": "#/$defs/count"
+              }
+            }
+          },
+          "required": [
+            "sessions",
+            "tool_calls",
+            "by_cli"
+          ]
+        },
+        "board": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "closed": {
+              "$ref": "#/$defs/ticket_key_list"
+            },
+            "opened": {
+              "$ref": "#/$defs/ticket_key_list"
+            },
+            "started": {
+              "$ref": "#/$defs/ticket_key_list"
+            }
+          },
+          "required": [
+            "closed",
+            "opened",
+            "started"
+          ]
+        },
+        "hindsight": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "bank": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+            },
+            "facts": {
+              "$ref": "#/$defs/count"
+            }
+          },
+          "required": [
+            "bank",
+            "facts"
+          ]
+        }
+      },
+      "required": [
+        "git",
+        "candystore",
+        "board",
+        "hindsight"
+      ]
+    },
+    "tickets": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "$ref": "#/$defs/ticket_key"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "from_state": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 64
+          },
+          "to_state": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 64
+          },
+          "labels": {
+            "type": "array",
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            }
+          },
+          "exposure": {
+            "type": "string",
+            "enum": [
+              "external",
+              "internal",
+              "unlabeled"
+            ]
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "from_state",
+          "to_state",
+          "labels",
+          "exposure"
+        ]
+      }
+    },
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "description": "RFC 4122 UUID",
+      "examples": [
+        "550e8400-e29b-41d4-a716-446655440000"
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp in UTC (e.g., '2024-01-15T10:30:00Z')",
+      "examples": [
+        "2024-01-15T10:30:00Z",
+        "2024-12-31T23:59:59.999Z"
+      ]
+    },
+    "semantic_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version (major.minor.patch)",
+      "examples": [
+        "1.0.0",
+        "2.1.3",
+        "0.1.0"
+      ]
+    }
+  }
+}

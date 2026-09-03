@@ -1,0 +1,24 @@
+# Invoice drafts land in the CRM; credential rotation started
+
+## The day
+Six agent sessions, 412 tool calls, four commits on smoketest-project. The invoice draft path (**SMK-214**) closed after the location fallback landed in a1b2c3d.
+
+## Timeline
+09:40 a1b2c3d feat(relay): draft invoice reaches the CRM
+13:02 pytest failed twice on the mirror suite, fixed in b2c3d4e
+16:15 SMK-231 moved to In Progress: rotate the mirror capture credentials
+21:40 d4e5f6a wip: greet by name, on feat/invoice-draft, not merged
+
+## Closed
+- **SMK-214** Draft invoice reaches the CRM
+
+## Started
+- **SMK-231** Rotate the mirror capture credentials
+
+## Numbers
+| Sessions | 6 |
+| Tool calls | 412 |
+| Commits | 4 |
+
+## Assumptions
+- Treated the failed pytest run as transient; the retry passed.

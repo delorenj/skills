@@ -1,0 +1,92 @@
+{
+  "id": "2ae773f9-379a-5d45-8e10-2004ca6723d5",
+  "type": "bloodbank.repo.task.updated",
+  "time": "2026-08-31T13:17:36.417000Z",
+  "producer": "n8n-plane-webhook",
+  "service": "n8n",
+  "domain": "repo",
+  "actor": {
+    "type": "ticket_provider",
+    "agent_id": "bloodbank.integration.plane",
+    "provider": "plane"
+  },
+  "data": {
+    "repo": "james-brennan",
+    "slug": "james-brennan",
+    "phase": "Done",
+    "title": "Restore the 15-minute GorillaDesk mirror capture",
+    "ticket": {
+      "id": "f79ab147-3d09-4a0f-b691-fd51685ca83e",
+      "name": "Restore the 15-minute GorillaDesk mirror capture",
+      "type": null,
+      "point": null,
+      "state": {
+        "id": "473de84b-317f-4383-9c46-175e03e52938",
+        "name": "Done",
+        "color": "#46A758",
+        "group": "completed"
+      },
+      "labels": [
+        {
+          "id": "fd0c1ed4-49af-43af-ae7f-684dba5cd533",
+          "name": "integration",
+          "color": "#0891B2"
+        }
+      ],
+      "parent": null,
+      "project": "a8a12be1-b3ab-44f4-ab24-abe8829aeb72",
+      "is_draft": false,
+      "priority": "medium",
+      "assignees": [
+        {
+          "id": "a95d7646-e557-437e-b453-ae82d7f78df7",
+          "email": "jaradd@gmail.com",
+          "avatar": "https://plane.delo.sh/plane-bucket/user-06f234dc80174a9783d7e592abd6611f-me_pixel.png",
+          "last_name": "DeLorenzo",
+          "avatar_url": "https://plane.delo.sh/plane-bucket/user-06f234dc80174a9783d7e592abd6611f-me_pixel.png",
+          "first_name": "Jarad",
+          "display_name": "Jarad"
+        }
+      ],
+      "workspace": "4a90d794-14cf-4ff7-9196-cb0a4f5bbb1f",
+      "created_at": "2026-08-30T22:15:37.400114Z",
+      "created_by": "36dce2c2-6360-499d-807a-a7d16703eea4",
+      "deleted_at": null,
+      "sort_order": 608930,
+      "start_date": null,
+      "updated_at": "2026-08-31T13:17:36.417702Z",
+      "updated_by": "36dce2c2-6360-499d-807a-a7d16703eea4",
+      "archived_at": null,
+      "description": {},
+      "external_id": null,
+      "sequence_id": 229,
+      "target_date": null,
+      "completed_at": "2026-08-31T13:17:36.415569Z",
+      "estimate_point": null,
+      "external_source": null,
+      "description_html": "<p class=\"editor-paragraph-block\" data-id=\"0e0f3405-ebbc-45e4-8ad7-52d0014b74af\"…",
+      "description_json": {},
+      "description_binary": null,
+      "description_stripped": "Relates to JIMB-193.PurposeKeep the extended external pipeline aligned with Gori…"
+    },
+    "task_id": "f79ab147-3d09-4a0f-b691-fd51685ca83e",
+    "tp_band": "completed",
+    "board_id": "a8a12be1-b3ab-44f4-ab24-abe8829aeb72",
+    "provider": "plane",
+    "ticket_id": "f79ab147-3d09-4a0f-b691-fd51685ca83e",
+    "timestamp": "2026-08-31T13:17:36.417Z",
+    "workspace": "automaticai",
+    "project_id": "a8a12be1-b3ab-44f4-ab24-abe8829aeb72",
+    "ticket_key": "JIMB-229",
+    "changed_fields": [
+      "state"
+    ],
+    "previous_phase": "4737f5e6-8d66-49c7-91cb-b967f9f40c0f",
+    "trigger_source": "plane-webhook",
+    "previous_tp_band": null,
+    "provider_event_type": "plane.ticket.transitioned"
+  },
+  "correlationid": "e0b06920-686d-5a14-b037-b3e2f64afed1",
+  "cli": null,
+  "project": "unknown"
+}

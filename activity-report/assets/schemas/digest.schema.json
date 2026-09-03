@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://delo.sh/schemas/activity-report/digest.schema.json",
+  "title": "activity-report digest",
+  "description": "What `activity-report collect` writes as <label>-<audience>.digest.json: every fact the compose agent may use, for one project, one audience and one window. Documentation of the shape enforced by scripts/ar/digest.py validate_digest (hand-rolled; this file is not loaded at runtime). Absolute filesystem paths are allowed only in `scope` and `git.repos[].worktrees[].path`; everywhere else `/home/<user>/x` has been scrubbed to `~/x`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "generated_at", "audience", "label", "project", "window", "previous_report", "scope", "candystore", "git", "board", "hindsight", "tokens", "caveats"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "run_id": {"$ref": "#/$defs/uuid", "description": "Shared by both audiences of one run; the event's correlation id."},
+    "generated_at": {"$ref": "#/$defs/timestamp"},
+    "audience": {"enum": ["internal", "external"]},
+    "label": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{4}$", "description": "Window end in the project timezone, YYYY-MM-DDTHHMM; the run's file prefix."},
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slug", "name", "identifier", "workspace", "board_id", "repos", "timezone"],
+      "properties": {
+        "slug": {"type": "string", "maxLength": 64},
+        "name": {"type": "string", "maxLength": 120},
+        "identifier": {"type": ["string", "null"], "maxLength": 12, "description": "Ticket key prefix (JIMB)."},
+        "workspace": {"type": ["string", "null"]},
+        "board_id": {"type": ["string", "null"]},
+        "repos": {"type": "array", "maxItems": 8, "items": {"$ref": "#/$defs/repo_name"}},
+        "timezone": {"type": "string"}
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end", "duration_seconds", "basis", "previous_event_id"],
+      "properties": {
+        "start": {"$ref": "#/$defs/timestamp"},
+        "end": {"$ref": "#/$defs/timestamp"},
+        "duration_seconds": {"type": "integer", "minimum": 1, "description": "Exactly end - start."},
+        "basis": {"enum": ["previous_report", "cap_24h", "explicit"], "description": "previous_report: start is the previous report's window end (previous_event_id required). cap_24h: no usable previous report, exactly 86400 s ending now. explicit: --since/--until, or a configured cap that is not 24 h."},
+        "previous_event_id": {"oneOf": [{"$ref": "#/$defs/uuid"}, {"type": "null"}]}
+      }
+    },
+    "previous_report": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["event_id", "window_end", "title", "raw_excerpt"],
+          "properties": {
+            "event_id": {"$ref": "#/$defs/uuid"},
+            "window_end": {"$ref": "#/$defs/timestamp"},
+            "title": {"type": ["string", "null"]},
+            "raw_excerpt": {"type": ["string", "null"], "maxLength": 600}
+          },
+          "description": "The newest earlier report for this project and audience, even when the window did not chain from it (basis cap_24h with a previous report older than the cap)."
+        }
+      ]
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["roots", "worktrees"],
+      "properties": {
+        "roots": {"type": "array", "items": {"$ref": "#/$defs/absolute_path"}},
+        "worktrees": {"type": "array", "items": {"$ref": "#/$defs/absolute_path"}, "description": "Linked worktrees from `git worktree list` plus <root>/.claude/worktrees/*; an event or transcript counts only when its cwd sits under a root or a worktree."}
+      }
+    },
+    "candystore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reachable", "base_url", "tool_calls_total", "failed", "unknown_outcome", "by_cli", "by_tool", "sessions", "sessions_by_cli", "branches_touched", "deploy_commands", "failures", "sessions_ended", "coverage"],
+      "properties": {
+        "reachable": {"const": true, "description": "An unreachable store is exit 2, never a digest."},
+        "base_url": {"type": "string"},
+        "tool_calls_total": {"$ref": "#/$defs/count", "description": "agent.tool.completed events (both namespaces, plus tool.tool_call.*) whose cwd is in scope."},
+        "failed": {"$ref": "#/$defs/count"},
+        "unknown_outcome": {"$ref": "#/$defs/count", "description": "Events with no outcome field; never counted as success."},
+        "by_cli": {"$ref": "#/$defs/agent_counts"},
+        "by_tool": {"type": "object", "maxProperties": 12, "additionalProperties": {"$ref": "#/$defs/count"}},
+        "sessions": {"$ref": "#/$defs/count", "description": "Distinct invocation_id (fallback session_id, then correlationid) among in-scope tool events."},
+        "sessions_by_cli": {"$ref": "#/$defs/agent_counts"},
+        "branches_touched": {"type": "array", "maxItems": 64, "items": {"type": "string"}},
+        "deploy_commands": {
+          "type": "array", "maxItems": 40,
+          "items": {"type": "object", "required": ["at", "cli", "command"], "properties": {"at": {"$ref": "#/$defs/timestamp"}, "cli": {"$ref": "#/$defs/agent_key"}, "command": {"type": "string", "maxLength": 160}, "outcome": {"type": "string"}}}
+        },
+        "failures": {
+          "type": "array", "maxItems": 40,
+          "items": {"type": "object", "required": ["at", "cli", "tool", "detail"], "properties": {"at": {"$ref": "#/$defs/timestamp"}, "cli": {"$ref": "#/$defs/agent_key"}, "tool": {"type": "string"}, "detail": {"type": "string", "maxLength": 160}}}
+        },
+        "sessions_ended": {
+          "type": "object", "additionalProperties": false,
+          "required": ["count", "turns", "duration_seconds", "by_cli"],
+          "properties": {"count": {"$ref": "#/$defs/count"}, "turns": {"$ref": "#/$defs/count"}, "duration_seconds": {"$ref": "#/$defs/count"}, "by_cli": {"$ref": "#/$defs/agent_counts"}},
+          "description": "agent.session.ended events in scope; turns and duration are sums of what the events carry."
+        },
+        "coverage": {
+          "type": "object", "required": ["total", "fetched", "pages", "truncated"],
+          "properties": {"total": {"$ref": "#/$defs/count"}, "fetched": {"$ref": "#/$defs/count"}, "pages": {"$ref": "#/$defs/count"}, "truncated": {"type": "boolean"}},
+          "description": "How much of the store's answer for the tool-event types was read; truncated means the page cap was hit and counts are a floor."
+        }
+      }
+    },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit_count", "repos"],
+      "properties": {
+        "commit_count": {"$ref": "#/$defs/count", "description": "Sum over repos after replay collapsing."},
+        "repos": {"type": "array", "maxItems": 8, "items": {"$ref": "#/$defs/repo"}}
+      }
+    },
+    "board": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "status", "labels_resolved", "exposure_labels", "tickets", "opened", "closed", "started", "commented", "decisions"],
+      "properties": {
+        "provider": {"type": ["string", "null"]},
+        "status": {"enum": ["ok", "unavailable", "unsupported"], "description": "unavailable: no key or the API failed (external withholds every ticket; internal marks them unlabeled)."},
+        "labels_resolved": {"type": "boolean"},
+        "exposure_labels": {"type": "object", "required": ["external", "internal"], "properties": {"external": {"type": "string"}, "internal": {"type": "string"}}},
+        "tickets": {"type": "array", "maxItems": 200, "items": {"$ref": "#/$defs/ticket"}},
+        "opened": {"$ref": "#/$defs/ticket_keys", "description": "Keys with a `created` event in the window; every key here is in tickets."},
+        "closed": {"$ref": "#/$defs/ticket_keys", "description": "Keys whose LAST state transition in the window lands in a completed or cancelled state."},
+        "started": {"$ref": "#/$defs/ticket_keys", "description": "Keys with any transition into a started-group state (In Progress)."},
+        "commented": {"$ref": "#/$defs/ticket_keys"},
+        "decisions": {"type": "array", "maxItems": 50, "items": {"type": "object", "required": ["at", "title", "note"], "properties": {"at": {"$ref": "#/$defs/timestamp"}, "title": {"type": "string"}, "note": {"type": ["string", "null"]}}}}
+      }
+    },
+    "hindsight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bank", "status", "items", "recall"],
+      "description": "Colour only. Nothing here is a count or a fact the report may assert on its own; every item is an aside the compose agent may quote as memory.",
+      "properties": {
+        "bank": {"type": ["string", "null"], "maxLength": 64},
+        "status": {"enum": ["ok", "unavailable", "disabled"]},
+        "items": {"type": "array", "maxItems": 40, "items": {"type": "object", "required": ["at", "fact_type", "text"], "properties": {"at": {"$ref": "#/$defs/timestamp"}, "fact_type": {"type": ["string", "null"]}, "text": {"type": "string", "maxLength": 500}}}},
+        "recall": {"type": "object", "required": ["query", "items"], "properties": {"query": {"type": ["string", "null"]}, "items": {"type": "array", "maxItems": 20, "items": {"type": "string", "maxLength": 500}}}}
+      }
+    },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "by_agent", "detail"],
+      "properties": {
+        "total": {"$ref": "#/$defs/count", "description": "Sum of the non-null buckets' totals."},
+        "by_agent": {
+          "type": "object", "additionalProperties": false,
+          "required": ["claude", "codex", "kimi"],
+          "properties": {
+            "claude": {"$ref": "#/$defs/token_bucket"},
+            "codex": {"$ref": "#/$defs/token_bucket"},
+            "kimi": {"type": "null", "description": "No transcript source yet; always null."}
+          },
+          "description": "null means no transcript in scope for the window (not zero usage)."
+        },
+        "detail": {"type": "object", "description": "Per-agent diagnostics (files, sessions, messages, by_model, reasoning_output); free-form."}
+      }
+    },
+    "caveats": {"type": "array", "items": {"type": "string"}, "description": "Every degradation, prefixed with its source (window:, scope:, candystore:, git:, board:, hindsight:, tokens:, project:). The report must not claim precision a caveat withdraws."}
+  },
+  "$defs": {
+    "uuid": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "timestamp": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$", "description": "RFC 3339 UTC, whole seconds, Z suffix."},
+    "count": {"type": "integer", "minimum": 0},
+    "absolute_path": {"type": "string", "pattern": "^/"},
+    "repo_name": {"type": "string", "maxLength": 100, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+    "agent_key": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,31}$"},
+    "agent_counts": {"type": "object", "propertyNames": {"$ref": "#/$defs/agent_key"}, "additionalProperties": {"$ref": "#/$defs/count"}},
+    "ticket_key": {"type": "string", "pattern": "^[A-Z][A-Z0-9]{1,11}-[0-9]+$"},
+    "ticket_keys": {"type": "array", "maxItems": 200, "items": {"$ref": "#/$defs/ticket_key"}},
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},
+    "token_bucket": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["input", "output", "cache_read", "cache_write", "total"],
+          "properties": {"input": {"$ref": "#/$defs/count"}, "output": {"$ref": "#/$defs/count"}, "cache_read": {"$ref": "#/$defs/count"}, "cache_write": {"$ref": "#/$defs/count"}, "total": {"$ref": "#/$defs/count", "description": "input + output + cache_read + cache_write."}}
+        }
+      ]
+    },
+    "commit": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sha", "short", "at", "author", "subject", "on_default"],
+      "properties": {
+        "sha": {"$ref": "#/$defs/sha"}, "short": {"$ref": "#/$defs/sha"},
+        "at": {"$ref": "#/$defs/timestamp", "description": "Committer date."},
+        "author": {"type": "string", "maxLength": 80},
+        "subject": {"type": "string", "maxLength": 120},
+        "on_default": {"type": "boolean", "description": "Reachable from the default branch (local or origin) within the window."}
+      }
+    },
+    "worktree": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "branch", "head", "uncommitted_files"],
+      "properties": {"path": {"$ref": "#/$defs/absolute_path"}, "branch": {"type": ["string", "null"]}, "head": {"type": ["string", "null"]}, "uncommitted_files": {"$ref": "#/$defs/count"}}
+    },
+    "repo": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "state", "default_branch", "commit_count", "on_default", "off_default", "replays", "truncated", "commits", "branches", "worktrees", "uncommitted_files", "files_changed", "insertions", "deletions"],
+      "properties": {
+        "name": {"$ref": "#/$defs/repo_name"},
+        "state": {"enum": ["ok", "missing", "failed"]},
+        "default_branch": {"type": ["string", "null"]},
+        "commit_count": {"$ref": "#/$defs/count", "description": "Non-merge commits with committer date in [start, end) reachable from any ref except refs/stash and refs/notes/*, plus each linked worktree's HEAD, after collapsing replays."},
+        "on_default": {"$ref": "#/$defs/count"},
+        "off_default": {"$ref": "#/$defs/count"},
+        "replays": {"$ref": "#/$defs/count", "description": "Copies dropped because another commit had the same author date and subject (rebase, cherry-pick); the default-branch copy, else the newest, is the one listed."},
+        "truncated": {"type": "boolean", "description": "True exactly when commit_count exceeds the 100 listed."},
+        "commits": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/commit"}, "description": "Newest first."},
+        "branches": {"type": "array", "maxItems": 64, "items": {"type": "string", "maxLength": 120}, "description": "Refs with commits in the window; default branch first, then by commit count."},
+        "worktrees": {"type": "array", "items": {"$ref": "#/$defs/worktree"}},
+        "uncommitted_files": {"$ref": "#/$defs/count"},
+        "files_changed": {"$ref": "#/$defs/count"},
+        "insertions": {"$ref": "#/$defs/count"},
+        "deletions": {"$ref": "#/$defs/count"}
+      }
+    },
+    "ticket": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "title", "from_state", "to_state", "event_kinds", "labels", "exposure", "surface", "description_excerpt", "url", "first_seen", "last_seen"],
+      "properties": {
+        "key": {"$ref": "#/$defs/ticket_key"},
+        "title": {"type": "string", "maxLength": 200},
+        "from_state": {"type": ["string", "null"], "maxLength": 64, "description": "State before the first in-window transition; null when the ticket did not change state."},
+        "to_state": {"type": ["string", "null"], "maxLength": 64, "description": "Phase after the last in-window transition, else the phase the events report."},
+        "event_kinds": {"type": "array", "items": {"enum": ["created", "updated", "appended", "closed"]}},
+        "labels": {"type": "array", "maxItems": 8, "items": {"type": "string", "maxLength": 40}, "description": "CURRENT labels from a live read when the budget allowed, else the event snapshot (a caveat says which)."},
+        "exposure": {"enum": ["external", "internal", "unlabeled"], "description": "xp:internal beats xp:external; neither is unlabeled."},
+        "surface": {"enum": ["always", "judgment", null], "description": "null in an internal digest. External: always for exposure external, judgment for unlabeled; internal tickets are absent (their titles are in the lint json)."},
+        "description_excerpt": {"type": ["string", "null"], "maxLength": 600, "description": "Internal: always when available. External: only for exposure external."},
+        "url": {"type": ["string", "null"]},
+        "first_seen": {"$ref": "#/$defs/timestamp"},
+        "last_seen": {"$ref": "#/$defs/timestamp"}
+      }
+    }
+  }
+}

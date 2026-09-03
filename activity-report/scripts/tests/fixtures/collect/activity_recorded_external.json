@@ -1,0 +1,65 @@
+{
+  "id": "a2f2c23a-495a-4217-a51b-a50863b324aa",
+  "type": "bloodbank.project.activity.recorded",
+  "time": "2026-09-02T23:19:05Z",
+  "producer": "activity-report",
+  "service": "activity-report",
+  "domain": "project",
+  "actor": {
+    "cli": null,
+    "type": "service",
+    "model": null,
+    "agent_id": "bloodbank.skill.activity-report",
+    "provider": null
+  },
+  "data": {
+    "report": {
+      "raw": "## What moved\n- The activity report now has a formal, versio…",
+      "html": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><…",
+      "title": "Reporting foundation in place",
+      "markdown": "## What moved\n\n- The activity report now has a formal, versi…"
+    },
+    "tokens": {
+      "total": 118500,
+      "by_agent": {
+        "codex": null,
+        "claude": {
+          "input": 42000,
+          "total": 118500,
+          "output": 6500,
+          "cache_read": 70000,
+          "cache_write": 0
+        }
+      }
+    },
+    "window": {
+      "end": "2026-09-02T07:00:00Z",
+      "basis": "cap_24h",
+      "start": "2026-09-01T07:00:00Z",
+      "duration_seconds": 86400,
+      "previous_event_id": null
+    },
+    "project": {
+      "name": "Smoketest Project",
+      "slug": "smoketest-project",
+      "repos": [
+        "bloodbank"
+      ],
+      "board_id": null,
+      "workspace": "automaticai",
+      "identifier": "SMK"
+    },
+    "audience": "external",
+    "generator": {
+      "model": "claude-fable-5-1",
+      "skill": "activity-report",
+      "run_id": "4c1f2e8a-3b5d-4e6f-9a7b-1c2d3e4f5a6b",
+      "dry_run": true,
+      "skill_version": "1.0.0"
+    },
+    "schema_version": 1
+  },
+  "correlationid": "4c1f2e8a-3b5d-4e6f-9a7b-1c2d3e4f5a6b",
+  "cli": null,
+  "project": "{\"name\": \"Smoketest Project\", \"slug\": \"smoketest-project\", \"repos\": [\"bloodbank\"], \"board_id\": null, \"workspace\": \"automaticai\", \"identifier\": \"SMK\"}"
+}

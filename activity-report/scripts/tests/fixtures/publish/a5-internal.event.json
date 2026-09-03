@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "project": {
+    "slug": "smoketest-project",
+    "name": "Smoketest Project",
+    "identifier": "SMK",
+    "workspace": "automaticai",
+    "board_id": null,
+    "repos": [
+      "bloodbank"
+    ]
+  },
+  "audience": "internal",
+  "window": {
+    "start": "2026-09-01T07:00:00Z",
+    "end": "2026-09-02T07:00:00Z",
+    "duration_seconds": 86400,
+    "basis": "previous_report",
+    "previous_event_id": "0f6d4b2c-9a1e-4c3d-8b7a-2e5f1c9d0a11"
+  },
+  "report": {
+    "title": "Smoketest Project: contract PR landed, board caught up",
+    "raw": "## Shipped\n- SMK-12 closed: project activity contract landed on main (43bfa40d)\n- SMK-14 started: emit path gains --ordering-key\n## Numbers\n| Commits | 1 |\n| Sessions | 6 |\n| Tool calls | 412 |\n09:15 validate:schemas green after the new domain row\n15:04 contract PR merged",
+    "markdown": "## Shipped\n\n- **SMK-12** closed: project activity contract landed on main (`43bfa40d`)\n- **SMK-14** started: emit path gains `--ordering-key`\n\n## Numbers\n\n| Metric | Value |\n|---|---|\n| Commits | 1 |\n| Sessions | 6 |\n| Tool calls | 412 |\n",
+    "html": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Smoketest Project</title><style>:root{color-scheme:light dark}body{margin:0;padding:24px;font:15px/1.5 system-ui,sans-serif}</style></head><body><h1>Smoketest Project</h1><h2>Shipped</h2><ul><li><strong>SMK-12</strong> closed: project activity contract landed on main</li><li><strong>SMK-14</strong> started: emit path gains --ordering-key</li></ul></body></html>"
+  },
+  "tokens": {
+    "total": 118500,
+    "by_agent": {
+      "claude": {
+        "input": 42000,
+        "output": 6500,
+        "cache_read": 70000,
+        "cache_write": 0,
+        "total": 118500
+      },
+      "codex": null
+    }
+  },
+  "generator": {
+    "skill": "activity-report",
+    "skill_version": "1.0.0",
+    "run_id": "4c1f2e8a-3b5d-4e6f-9a7b-1c2d3e4f5a6b",
+    "model": "claude-fable-5-1",
+    "dry_run": true
+  },
+  "sources": {
+    "git": {
+      "bloodbank": {
+        "commits": [
+          {
+            "sha": "43bfa40d",
+            "subject": "feat(contract): add project domain and activity entity",
+            "author": "Jarad DeLorenzo",
+            "at": "2026-09-01T15:04:05Z"
+          }
+        ],
+        "truncated": false,
+        "branches": [
+          "main"
+        ],
+        "files_changed": 11,
+        "insertions": 812,
+        "deletions": 9
+      }
+    },
+    "candystore": {
+      "sessions": 6,
+      "tool_calls": 412,
+      "by_cli": {
+        "claude": 5,
+        "codex": 1
+      }
+    },
+    "board": {
+      "closed": [
+        "SMK-12"
+      ],
+      "opened": [
+        "SMK-15"
+      ],
+      "started": [
+        "SMK-14"
+      ]
+    },
+    "hindsight": {
+      "bank": "smoketest-project",
+      "facts": 3
+    }
+  },
+  "tickets": [
+    {
+      "key": "SMK-12",
+      "title": "Contract PR for project activity reports",
+      "from_state": "In Progress",
+      "to_state": "Done",
+      "labels": [
+        "xp:internal"
+      ],
+      "exposure": "internal"
+    },
+    {
+      "key": "SMK-14",
+      "title": "Emit path accepts an explicit ordering key",
+      "from_state": "Backlog",
+      "to_state": "In Progress",
+      "labels": [
+        "xp:external"
+      ],
+      "exposure": "external"
+    }
+  ]
+}

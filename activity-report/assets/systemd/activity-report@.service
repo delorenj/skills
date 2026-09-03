@@ -1,0 +1,25 @@
+# activity-report@.service: one run of the activity report for project %i.
+# Installed to ~/.config/systemd/user/ by `activity-report install-timer`.
+# The instance name is the pjangler project slug. The per-project schedule
+# lives in activity-report@<slug>.timer.d/schedule.conf, never in this file.
+[Unit]
+Description=Activity report for %i (each configured audience, internal first)
+Documentation=file://%h/.agents/skills/activity-report/SKILL.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# systemd starts with almost no PATH. The shim and mise's shims are how every
+# tool this job reaches is found; run.sh re-asserts the same list.
+Environment=PATH=%h/.local/bin:%h/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/.local/bin/activity-report run --project %i
+# Two compose passes of a headless agent run for minutes each: long enough to
+# finish both, short enough that a wedged run does not sit on the timer until
+# tomorrow night.
+TimeoutStartSec=90min
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,36 @@
+{
+  "id": "a784b532-ad0e-45aa-b3be-c105ce5a59f9",
+  "type": "bloodbank.agent.tool.completed",
+  "time": "2026-09-02T23:26:20.543000Z",
+  "producer": "hermes-agent",
+  "service": "hermes-hooks",
+  "domain": "agent",
+  "actor": {
+    "cli": "hermes",
+    "type": "agent_cli",
+    "model": null,
+    "agent_id": "bloodbank.agent.hermes",
+    "provider": null
+  },
+  "data": {
+    "hook": "post_tool_call",
+    "outcome": "success",
+    "payload": {
+      "cwd": "/home/delorenj/code/james-brennan",
+      "tool_name": "terminal",
+      "session_id": "20260902_132432_16bf96",
+      "tool_input": {
+        "command": "date '+%Y-%m-%dT%H:%M:%S%:z'; HERMES_HOME=\"$HOME/.hermes/profiles/33god-pm\" hermes cron runs aec0b33a1d07",
+        "timeout": 30,
+        "workdir": "/home/delorenj/code/33GOD"
+      },
+      "hook_event_name": "post_tool_call"
+    },
+    "tool_name": "terminal",
+    "tool_call_id": "call_IHQX9uakbnpTO3Lk78ZJTSh3",
+    "invocation_id": "20260902_132432_16bf96"
+  },
+  "correlationid": null,
+  "cli": "hermes",
+  "project": "unknown"
+}

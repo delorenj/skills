@@ -1,0 +1,36 @@
+{
+  "_readme": [
+    "Paste the `activity_report` object below into the project's .project.json, next to project_slug, project_name and ticket_provider. Then run `activity-report init` in the repo.",
+    "Every key is optional. A missing key takes the default in scripts/ar/config.py (DEFAULTS); the values here follow the james-brennan setup (its extra_repo_paths names the client-portal checkout).",
+    "enabled: false makes every subcommand exit 2 with 'nothing to do for this project'.",
+    "audiences: which reports to produce, in run order. internal first is the convention: the external pass reads the internal body.",
+    "timezone: an IANA zone. The window label (YYYY-MM-DDTHHMM) and the timer's OnCalendar use it.",
+    "extra_repo_paths: absolute paths of other checkouts whose commits belong to this project. The .project.json repo is always included; worktrees are found automatically.",
+    "schedule.at: HH:MM local time for the nightly timer. install-timer writes it into activity-report@<slug>.timer.d/schedule.conf.",
+    "window.cap_hours: the longest window one report covers; when the previous report is older than this, basis becomes cap_24h. window.min_minutes: a window shorter than this makes collect exit 4 (nothing to do) unless --force.",
+    "hindsight.bank: the memory bank name, null = the repo basename. hindsight.recall: read facts about the window into the digest. hindsight.retain: store the raw report after a successful emit.",
+    "board.api_key_ref: an op:// reference for the board API key, never a value. board.exposure_labels: the two labels that mark a ticket client-visible (always surfaced) or internal-only (never named to the client). board.max_live_fetches: cap on per-ticket lookups per run.",
+    "compose.model: a model id passed as `claude --model`, null = the CLI default. compose.timeout_minutes: wall clock for one compose pass; the systemd unit allows 90 minutes for the whole run.",
+    "lint.extra_identifiers: more ticket prefixes the external lint refuses (a second board, a vendor's tracker). lint.banned_terms: words that must never reach the client, matched whole and case-insensitively.",
+    "output.runtime_dir: repo-relative and gitignored; digests, raw.txt, html, events and the lock live under <runtime_dir>/<slug>/. output.durable_html_dir: repo-relative and committed; one html per run lands there, null = no durable copy.",
+    "portal: null when the project has no client portal. Otherwise kind (only automatic-ai exists) and project_id, the portal's own project uuid. An external report becomes a client-visible row; an internal one, a team-only row."
+  ],
+  "activity_report": {
+    "enabled": true,
+    "audiences": ["internal", "external"],
+    "timezone": "America/New_York",
+    "extra_repo_paths": [],
+    "schedule": {"at": "03:00"},
+    "window": {"cap_hours": 24, "min_minutes": 60},
+    "hindsight": {"bank": null, "recall": true, "retain": true},
+    "board": {
+      "api_key_ref": "op://DeLoSecrets/<item>/<field>",
+      "exposure_labels": {"external": "xp:external", "internal": "xp:internal"},
+      "max_live_fetches": 50
+    },
+    "compose": {"model": null, "timeout_minutes": 30},
+    "lint": {"extra_identifiers": [], "banned_terms": []},
+    "output": {"runtime_dir": "runtime/activity-report", "durable_html_dir": "workshop/activity-reports"},
+    "portal": {"kind": "automatic-ai", "project_id": "9f1c1d4e-0a1b-4c2d-8e3f-000000000002"}
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "results": [
+    {
+      "entities": [
+        "George Carlin",
+        "Project Compass",
+        "Damian",
+        "Slack"
+      ],
+      "id": "f97ff0fd-584f-4b64-82dd-83521840389b",
+      "mentioned_at": "2026-08-24T17:06:33.908163+00:00",
+      "metadata": {},
+      "occurred_end": "2026-08-23T23:59:59+00:00",
+      "occurred_start": "2026-08-23T00:00:00+00:00",
+      "scores": {
+        "final": 0.013349011481798735,
+        "keyword": 0.20000000298023224,
+        "reranker": 0.01220218834780194
+      },
+      "tags": [],
+      "text": "Damian directed George Carlin (PM bot) to become a proactive PM and decided to create a 'Project Compass' document stored in the repo markdown with a pinned Slack message, to establish plain-English business-level tracki…",
+      "type": "observation"
+    },
+    {
+      "chunk_id": "james-brennan_slack-gc-pm-thread-2026-08-23_0",
+      "context": "session-summary",
+      "document_id": "slack-gc-pm-thread-2026-08-23",
+      "entities": [
+        "George Carlin",
+        "Project Compass",
+        "Damian",
+        "Slack"
+      ],
+      "id": "e68575a5-5379-4f39-b336-b01632d8b3ff",
+      "mentioned_at": "2026-08-24T17:06:33.908163+00:00",
+      "metadata": {},
+      "occurred_end": "2026-08-23T23:59:59+00:00",
+      "occurred_start": "2026-08-23T00:00:00+00:00",
+      "scores": {
+        "final": 0.0028039885193871837,
+        "keyword": 0.20000000298023224,
+        "reranker": 0.002563095858093184
+      },
+      "tags": [],
+      "text": "Damian directed George Carlin (PM bot) to become a proactive PM and decided on creating a 'Project Compass' document stored in the repo markdown with a pinned Slack message. | When: 2026-08-23 | Involving: Damian, George…",
+      "type": "world"
+    },
+    {
+      "chunk_id": "james-brennan_cli_put_20260817_194045_1",
+      "context": "session-summary",
+      "document_id": "cli_put_20260817_194045",
+      "entities": [
+        "index.html",
+        "apps/project-room"
+      ],
+      "id": "8da6f633-bd52-46a2-b289-724a5f69e11a",
+      "mentioned_at": "2026-08-17T23:40:45.114253+00:00",
+      "metadata": {},
+      "scores": {
+        "final": 0.00029813783958845515,
+        "keyword": 0.10000000149011612,
+        "reranker": 0.000273210649715391,
+        "semantic": 0.6125652607510931
+      },
+      "tags": [],
+      "text": "In project-room index.html, a block is frozen at build time, cannot reach the published brief, and thus must not describe the brief because it is served long after the brief becomes outdated. | To avoid serving inaccurat…",
+      "type": "experience"
+    },
+    {
+      "entities": [
+        "actionable",
+        "SurfacePage.test.tsx",
+        "SurfacePage",
+        "apps/surface",
+        "JIMB-172",
+        "BlockedSummary",
+        "BLOCKED"
+      ],
+      "id": "cbce9a68-a34a-4817-9cf4-9dba79c34e65",
+      "mentioned_at": "2026-08-26T05:51:25.741738+00:00",
+      "metadata": {},
+      "scores": {
+        "final": 0.0002670649933322475,
+        "reranker": 0.00024372523183912505,
+        "semantic": 0.6497012152822662
+      },
+      "tags": [],
+      "text": "Under JIMB-172, SurfacePage aggregates blocked/unfileable work in the margin as a single block rather than enumerating it in the user's main column, avoiding a false amber status when work is stuck with someone else; the…",
+      "type": "observation"
+    }
+  ]
+}

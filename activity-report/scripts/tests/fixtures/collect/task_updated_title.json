@@ -1,0 +1,82 @@
+{
+  "id": "3fa9f52d-a55c-5121-a9d0-8369404bc481",
+  "type": "bloodbank.repo.task.updated",
+  "time": "2026-08-31T16:13:46.049000Z",
+  "producer": "n8n-plane-webhook",
+  "service": "n8n",
+  "domain": "repo",
+  "actor": {
+    "type": "ticket_provider",
+    "agent_id": "bloodbank.integration.plane",
+    "provider": "plane"
+  },
+  "data": {
+    "repo": "james-brennan",
+    "slug": "james-brennan",
+    "phase": "Todo",
+    "title": "Add a HIGH FRICTION \"soft\" delete action that removes a JobCard from the Quiet Room WITHOUT affecting the underlying gorilladesk customer data AND without actually deleting the record on our side.",
+    "ticket": {
+      "id": "4d88f0ad-acd8-49b3-b962-1ffac05e3cd7",
+      "name": "Add a HIGH FRICTION \"soft\" delete action that removes a JobCard from the Quiet Room WITHOUT affecting the underlying gorilladesk customer data AND without actually deleting the record on our side.",
+      "type": null,
+      "point": null,
+      "state": {
+        "id": "5c475e29-3255-4e80-b536-82ccec365000",
+        "name": "Todo",
+        "color": "#60646C",
+        "group": "unstarted"
+      },
+      "labels": [
+        {
+          "id": "81f0a0e7-1b24-4075-a90a-4711bc73e41a",
+          "name": "UX",
+          "color": "#9900EF"
+        }
+      ],
+      "parent": null,
+      "project": "a8a12be1-b3ab-44f4-ab24-abe8829aeb72",
+      "is_draft": false,
+      "priority": "urgent",
+      "assignees": [],
+      "workspace": "4a90d794-14cf-4ff7-9196-cb0a4f5bbb1f",
+      "created_at": "2026-08-30T22:32:12.244929Z",
+      "created_by": "a95d7646-e557-437e-b453-ae82d7f78df7",
+      "deleted_at": null,
+      "sort_order": 940000,
+      "start_date": null,
+      "updated_at": "2026-08-31T16:13:46.049536Z",
+      "updated_by": "a95d7646-e557-437e-b453-ae82d7f78df7",
+      "archived_at": null,
+      "description": {},
+      "external_id": null,
+      "sequence_id": 230,
+      "target_date": null,
+      "completed_at": null,
+      "estimate_point": null,
+      "external_source": null,
+      "description_html": "<ul class=\"list-disc pl-7 space-y-(--list-spacing-y) tight\" data-id=\"64d53090-35…",
+      "description_json": {},
+      "description_binary": null,
+      "description_stripped": "Each job card exists as an external connection between a phone call to the field…"
+    },
+    "task_id": "4d88f0ad-acd8-49b3-b962-1ffac05e3cd7",
+    "tp_band": "unstarted",
+    "board_id": "a8a12be1-b3ab-44f4-ab24-abe8829aeb72",
+    "provider": "plane",
+    "ticket_id": "4d88f0ad-acd8-49b3-b962-1ffac05e3cd7",
+    "timestamp": "2026-08-31T16:13:46.049Z",
+    "workspace": "automaticai",
+    "project_id": "a8a12be1-b3ab-44f4-ab24-abe8829aeb72",
+    "ticket_key": "JIMB-230",
+    "changed_fields": [
+      "name"
+    ],
+    "previous_phase": "Add a HIGH FRICTION \"soft\" delete action that removes a JobCard from the Quiet Room WITHOUT affecting the underlying gorilladesk customer data AND without actually deleting the record on our side",
+    "trigger_source": "plane-webhook",
+    "previous_tp_band": null,
+    "provider_event_type": "plane.ticket.updated"
+  },
+  "correlationid": "7a69c176-1087-57b9-bb98-cd07ddca5a57",
+  "cli": null,
+  "project": "unknown"
+}

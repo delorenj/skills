@@ -1,0 +1,35 @@
+{
+  "id": "8639cefb-8bb2-4697-ae7f-37ee2e0e5628",
+  "type": "bloodbank.agent.session.ended",
+  "time": "2026-09-02T23:26:56.544000Z",
+  "producer": "claude-code",
+  "service": "claude-code",
+  "domain": "agent",
+  "actor": {
+    "cli": "claude",
+    "type": "agent_cli",
+    "model": null,
+    "agent_id": "bloodbank.agent.claude",
+    "provider": "anthropic"
+  },
+  "data": {
+    "end_reason": "user_stop",
+    "git_branch": "main",
+    "session_id": "8d0e81c8-772f-4d54-aab8-afc23c5f7536",
+    "tools_used": {
+      "Bash": 7,
+      "ToolSearch": 1
+    },
+    "git_commits": [
+      "53a48286ad60b833c4869f395d19d8278ad09473"
+    ],
+    "total_turns": 8,
+    "final_status": "success",
+    "files_modified": [],
+    "duration_seconds": 51,
+    "working_directory": "/home/delorenj/code/legofirst"
+  },
+  "correlationid": "8d0e81c8-772f-4d54-aab8-afc23c5f7536",
+  "cli": "claude",
+  "project": "legofirst"
+}

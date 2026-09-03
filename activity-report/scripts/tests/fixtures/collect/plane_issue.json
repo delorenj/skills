@@ -1,0 +1,33 @@
+{
+  "id": "4d88f0ad-acd8-49b3-b962-1ffac05e3cd7",
+  "type_id": null,
+  "created_at": "2026-08-30T18:32:12.244929-04:00",
+  "updated_at": "2026-08-31T12:15:00.452026-04:00",
+  "deleted_at": null,
+  "point": null,
+  "name": "Add a HIGH FRICTION \"soft\" delete action that removes a JobCard from the Quiet Room WITHOUT affecting the underlying gorilladesk customer data AND without actually deleting the record on our side.",
+  "description_html": "<ul class=\"list-disc pl-7 space-y-(--list-spacing-y) tight\" data-id=\"64d53090-3553-4902-8720-46dbcbe1ada5\" data-tight=\"true\"><li class=\"not-prose space-y-2\" dat",
+  "description_binary": null,
+  "priority": "urgent",
+  "start_date": null,
+  "target_date": null,
+  "sequence_id": 230,
+  "sort_order": 934465.0,
+  "completed_at": null,
+  "archived_at": null,
+  "is_draft": false,
+  "external_source": null,
+  "external_id": null,
+  "created_by": "a95d7646-e557-437e-b453-ae82d7f78df7",
+  "updated_by": "a95d7646-e557-437e-b453-ae82d7f78df7",
+  "project": "a8a12be1-b3ab-44f4-ab24-abe8829aeb72",
+  "workspace": "4a90d794-14cf-4ff7-9196-cb0a4f5bbb1f",
+  "parent": null,
+  "state": "4737f5e6-8d66-49c7-91cb-b967f9f40c0f",
+  "estimate_point": null,
+  "type": null,
+  "assignees": [],
+  "labels": [
+    "81f0a0e7-1b24-4075-a90a-4711bc73e41a"
+  ]
+}

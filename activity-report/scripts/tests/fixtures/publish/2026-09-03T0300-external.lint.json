@@ -1,0 +1,14 @@
+{
+  "identifiers": [
+    "SMK"
+  ],
+  "denied_titles": [
+    "Rotate the mirror capture credentials"
+  ],
+  "surface_always": [
+    {
+      "key": "SMK-214",
+      "title": "Draft invoice reaches the CRM"
+    }
+  ]
+}

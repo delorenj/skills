@@ -1,0 +1,131 @@
+{
+  "id": "85bbe34e-cb67-4872-8936-f006d875ff0d",
+  "type": "bloodbank.project.activity.recorded",
+  "time": "2026-09-02T23:19:05Z",
+  "producer": "activity-report",
+  "service": "activity-report",
+  "domain": "project",
+  "actor": {
+    "cli": null,
+    "type": "service",
+    "model": null,
+    "agent_id": "bloodbank.skill.activity-report",
+    "provider": null
+  },
+  "data": {
+    "report": {
+      "raw": "## Shipped\n- SMK-12 closed: project activity contract landed…",
+      "html": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><…",
+      "title": "Smoketest Project: contract PR landed, board caught up",
+      "markdown": "## Shipped\n\n- **SMK-12** closed: project activity contract l…"
+    },
+    "tokens": {
+      "total": 118500,
+      "by_agent": {
+        "codex": null,
+        "claude": {
+          "input": 42000,
+          "total": 118500,
+          "output": 6500,
+          "cache_read": 70000,
+          "cache_write": 0
+        }
+      }
+    },
+    "window": {
+      "end": "2026-09-02T07:00:00Z",
+      "basis": "previous_report",
+      "start": "2026-09-01T07:00:00Z",
+      "duration_seconds": 86400,
+      "previous_event_id": "0f6d4b2c-9a1e-4c3d-8b7a-2e5f1c9d0a11"
+    },
+    "project": {
+      "name": "Smoketest Project",
+      "slug": "smoketest-project",
+      "repos": [
+        "bloodbank"
+      ],
+      "board_id": null,
+      "workspace": "automaticai",
+      "identifier": "SMK"
+    },
+    "sources": {
+      "git": {
+        "bloodbank": {
+          "commits": [
+            {
+              "at": "2026-09-01T15:04:05Z",
+              "sha": "43bfa40d",
+              "author": "Jarad DeLorenzo",
+              "subject": "feat(contract): add project domain and activity entity"
+            }
+          ],
+          "branches": [
+            "main"
+          ],
+          "deletions": 9,
+          "truncated": false,
+          "insertions": 812,
+          "files_changed": 11
+        }
+      },
+      "board": {
+        "closed": [
+          "SMK-12"
+        ],
+        "opened": [
+          "SMK-15"
+        ],
+        "started": [
+          "SMK-14"
+        ]
+      },
+      "hindsight": {
+        "bank": "smoketest-project",
+        "facts": 3
+      },
+      "candystore": {
+        "by_cli": {
+          "codex": 1,
+          "claude": 5
+        },
+        "sessions": 6,
+        "tool_calls": 412
+      }
+    },
+    "tickets": [
+      {
+        "key": "SMK-12",
+        "title": "Contract PR for project activity reports",
+        "labels": [
+          "xp:internal"
+        ],
+        "exposure": "internal",
+        "to_state": "Done",
+        "from_state": "In Progress"
+      },
+      {
+        "key": "SMK-14",
+        "title": "Emit path accepts an explicit ordering key",
+        "labels": [
+          "xp:external"
+        ],
+        "exposure": "external",
+        "to_state": "In Progress",
+        "from_state": "Backlog"
+      }
+    ],
+    "audience": "internal",
+    "generator": {
+      "model": "claude-fable-5-1",
+      "skill": "activity-report",
+      "run_id": "4c1f2e8a-3b5d-4e6f-9a7b-1c2d3e4f5a6b",
+      "dry_run": true,
+      "skill_version": "1.0.0"
+    },
+    "schema_version": 1
+  },
+  "correlationid": "4c1f2e8a-3b5d-4e6f-9a7b-1c2d3e4f5a6b",
+  "cli": null,
+  "project": "{\"name\": \"Smoketest Project\", \"slug\": \"smoketest-project\", \"repos\": [\"bloodbank\"], \"board_id\": null, \"workspace\": \"automaticai\", \"identifier\": \"SMK\"}"
+}

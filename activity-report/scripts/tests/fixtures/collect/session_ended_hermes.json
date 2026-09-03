@@ -1,0 +1,30 @@
+{
+  "id": "2d8c5875-75f2-40da-af3d-c91b653806ac",
+  "type": "bloodbank.agent.session.ended",
+  "time": "2026-09-02T23:25:51.365000Z",
+  "producer": "hermes-agent",
+  "service": "hermes-hooks",
+  "domain": "agent",
+  "actor": {
+    "cli": "hermes",
+    "type": "agent_cli",
+    "model": "gpt-5.6-sol",
+    "agent_id": "bloodbank.agent.hermes",
+    "provider": null
+  },
+  "data": {
+    "hook": "on_session_end",
+    "payload": {
+      "cwd": "/home/delorenj/code/33GOD/bloodbank",
+      "tool_name": null,
+      "session_id": "20260902_190837_0da87f",
+      "tool_input": null,
+      "hook_event_name": "on_session_end"
+    },
+    "end_reason": null,
+    "session_id": "20260902_190837_0da87f"
+  },
+  "correlationid": null,
+  "cli": "hermes",
+  "project": "unknown"
+}

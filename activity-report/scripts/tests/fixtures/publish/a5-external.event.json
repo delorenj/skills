@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "project": {
+    "slug": "smoketest-project",
+    "name": "Smoketest Project",
+    "identifier": "SMK",
+    "workspace": "automaticai",
+    "board_id": null,
+    "repos": [
+      "bloodbank"
+    ]
+  },
+  "audience": "external",
+  "window": {
+    "start": "2026-09-01T07:00:00Z",
+    "end": "2026-09-02T07:00:00Z",
+    "duration_seconds": 86400,
+    "basis": "cap_24h",
+    "previous_event_id": null
+  },
+  "report": {
+    "title": "Reporting foundation in place",
+    "raw": "## What moved\n- The activity report now has a formal, versioned shape that every downstream reader checks against.\n- Publishing gained a switch that keeps each project's reports in order.\n## What is next\n- Wire the nightly run so the first real report lands this week.",
+    "markdown": "## What moved\n\n- The activity report now has a formal, versioned shape that every downstream reader checks against.\n- Publishing gained a switch that keeps each project's reports in order.\n\n## What is next\n\n- Wire the nightly run so the first real report lands this week.\n",
+    "html": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Smoketest Project</title><style>:root{color-scheme:light dark}body{margin:0;padding:24px;font:15px/1.5 system-ui,sans-serif}</style></head><body><h1>Reporting foundation in place</h1><h2>What moved</h2><ul><li>The activity report now has a formal, versioned shape that every downstream reader checks against.</li><li>Publishing gained a switch that keeps each project's reports in order.</li></ul><h2>What is next</h2><ul><li>Wire the nightly run so the first real report lands this week.</li></ul></body></html>"
+  },
+  "tokens": {
+    "total": 118500,
+    "by_agent": {
+      "claude": {
+        "input": 42000,
+        "output": 6500,
+        "cache_read": 70000,
+        "cache_write": 0,
+        "total": 118500
+      },
+      "codex": null
+    }
+  },
+  "generator": {
+    "skill": "activity-report",
+    "skill_version": "1.0.0",
+    "run_id": "4c1f2e8a-3b5d-4e6f-9a7b-1c2d3e4f5a6b",
+    "model": "claude-fable-5-1",
+    "dry_run": true
+  }
+}

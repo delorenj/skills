@@ -1,0 +1,7 @@
+# SMK-214 shipped; sprint 3 burndown looks good
+
+## What landed
+Claude closed SMK-214 (draft invoice reaches the CRM) in commit a1b2c3d after we refactored the location fallback. 412 tool calls today.
+
+## Next
+We rotate the mirror capture credentials next; notes in /home/someone/code/smoketest-project/notes.md.

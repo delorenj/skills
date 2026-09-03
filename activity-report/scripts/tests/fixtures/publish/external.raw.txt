@@ -1,0 +1,13 @@
+# Draft invoices now reach your CRM automatically
+
+## What landed
+When a technician closes out a job by phone, the draft invoice now appears in your CRM within a minute, attached to the right customer and location. Until this week a draft could be created without a location when the customer record had none on file. That gap is closed, and every draft created since has landed where it belongs.
+
+## What we watched
+- Six closeouts ran end to end through the test line without a manual step.
+- One overnight check failed and was rerun; the rerun passed, and nothing reached your data in between.
+
+## What is next
+Work has started on tightening how the nightly copy of your records signs in, so it keeps running without anyone touching it. That is housekeeping on our side and changes nothing you see.
+
+Nothing is needed from you this week.

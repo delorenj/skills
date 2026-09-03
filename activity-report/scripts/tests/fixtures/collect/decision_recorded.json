@@ -1,0 +1,30 @@
+{
+  "id": "a33ca15c-33fb-464e-a2b2-cc6ef8bc6581",
+  "type": "bloodbank.repo.decision.recorded",
+  "time": "2026-09-02T23:11:15Z",
+  "producer": "hermes-agent:33god-pm",
+  "service": "33god",
+  "domain": "repo",
+  "actor": {
+    "cli": "hermes",
+    "type": "agent_cli",
+    "agent_id": "33god-pm",
+    "provider": "openai-codex"
+  },
+  "data": {
+    "repo": "33god",
+    "basis": [
+      "dogfood-the-platform",
+      "build-lego-not-statues"
+    ],
+    "issue": "33GOD-42",
+    "decision": "Hold Board Cranker implementation until the Kimi breakdown and child-story Plane read-back exist",
+    "reasoning": "Planning worker PID 1434945 is alive; Plane epic 33GOD-42 reads back in Backlog, but no child stories exist and the required breakdown artifact is absent. Dispatching now would bypass the approved dep…",
+    "decided_at": "2026-09-02T23:11:15Z",
+    "decided_by": "33god-pm",
+    "artifacts_root": "_bmad-output/implementation-artifacts"
+  },
+  "correlationid": "7dc9b8b9-032d-439b-b187-d4f5f5bfbb4d",
+  "cli": "hermes",
+  "project": "unknown"
+}

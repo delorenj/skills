@@ -1,0 +1,256 @@
+{
+  "schema_version": 1,
+  "run_id": "4c1f2e8a-3b5d-4e6f-9a7b-1c2d3e4f5a6b",
+  "generated_at": "2026-09-03T07:00:12Z",
+  "audience": "internal",
+  "label": "2026-09-03T0300",
+  "project": {
+    "slug": "smoketest-project",
+    "name": "Smoketest Project",
+    "identifier": "SMK",
+    "workspace": "automaticai",
+    "board_id": "0b1c2d3e-4f50-4617-8899-aabbccddeeff",
+    "repos": [
+      "smoketest-project",
+      "smoketest-mirror"
+    ],
+    "timezone": "America/New_York"
+  },
+  "window": {
+    "start": "2026-09-02T07:00:00Z",
+    "end": "2026-09-03T07:00:00Z",
+    "duration_seconds": 86400,
+    "basis": "previous_report",
+    "previous_event_id": "85bbe34e-1111-4222-8333-444455556666"
+  },
+  "previous_report": {
+    "event_id": "85bbe34e-1111-4222-8333-444455556666",
+    "window_end": "2026-09-02T07:00:00Z",
+    "title": "Invoice drafts reach the CRM",
+    "raw_excerpt": "## The day\nFive sessions, three commits."
+  },
+  "scope": {
+    "roots": [
+      "/srv/checkouts/smoketest-project",
+      "/srv/checkouts/smoketest-mirror"
+    ],
+    "worktrees": []
+  },
+  "candystore": {
+    "reachable": true,
+    "base_url": "http://127.0.0.1:8683",
+    "tool_calls_total": 412,
+    "failed": 3,
+    "unknown_outcome": 1,
+    "by_cli": {
+      "claude": 380,
+      "Codex": 32
+    },
+    "by_tool": {
+      "Bash": 200,
+      "Read": 150,
+      "Edit": 62
+    },
+    "sessions": 6,
+    "sessions_by_cli": {
+      "claude": 5,
+      "codex": 1
+    },
+    "branches_touched": [
+      "main",
+      "feat/invoice-draft"
+    ],
+    "deploy_commands": [],
+    "failures": [
+      {
+        "tool": "Bash",
+        "at": "2026-09-02T17:02:00Z",
+        "summary": "pytest: 2 failed"
+      }
+    ],
+    "sessions_ended": 6,
+    "coverage": "full"
+  },
+  "git": {
+    "commit_count": 4,
+    "repos": [
+      {
+        "name": "smoketest-project",
+        "state": "ok",
+        "default_branch": "main",
+        "commit_count": 4,
+        "on_default": 3,
+        "off_default": 1,
+        "replays": 0,
+        "truncated": false,
+        "commits": [
+          {
+            "sha": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+            "short": "a1b2c3d",
+            "at": "2026-09-02T13:40:00Z",
+            "author": "Jarad DeLorenzo",
+            "subject": "feat(relay): draft invoice reaches the CRM",
+            "on_default": true
+          },
+          {
+            "sha": "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1",
+            "short": "b2c3d4e",
+            "at": "2026-09-02T17:30:00Z",
+            "author": "Jarad DeLorenzo",
+            "subject": "fix(mirror): retry the capture when the session expires",
+            "on_default": true
+          },
+          {
+            "sha": "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2",
+            "short": "c3d4e5f",
+            "at": "2026-09-02T21:05:00Z",
+            "author": "Jarad DeLorenzo",
+            "subject": "chore: pin the relay image",
+            "on_default": true
+          },
+          {
+            "sha": "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3",
+            "short": "d4e5f6a",
+            "at": "2026-09-03T01:40:00Z",
+            "author": "codex",
+            "subject": "wip: greet by name",
+            "on_default": false
+          }
+        ],
+        "branches": [
+          "main",
+          "feat/invoice-draft"
+        ],
+        "worktrees": [],
+        "uncommitted_files": 2,
+        "files_changed": 14,
+        "insertions": 310,
+        "deletions": 42
+      },
+      {
+        "name": "smoketest-mirror",
+        "state": "missing",
+        "default_branch": null,
+        "commit_count": 0,
+        "on_default": 0,
+        "off_default": 0,
+        "replays": 0,
+        "truncated": false,
+        "commits": [],
+        "branches": [],
+        "worktrees": [],
+        "uncommitted_files": 0,
+        "files_changed": 0,
+        "insertions": 0,
+        "deletions": 0
+      }
+    ]
+  },
+  "board": {
+    "provider": "plane",
+    "status": "ok",
+    "labels_resolved": true,
+    "exposure_labels": {
+      "external": "xp:external",
+      "internal": "xp:internal"
+    },
+    "tickets": [
+      {
+        "key": "SMK-214",
+        "title": "Draft invoice reaches the CRM",
+        "from_state": "In Progress",
+        "to_state": "Done",
+        "event_kinds": [
+          "state"
+        ],
+        "labels": [
+          "xp:external",
+          "relay"
+        ],
+        "exposure": "external",
+        "surface": "always",
+        "description_excerpt": "Closeout creates a draft invoice on the customer record.",
+        "url": "https://plane.example.test/smk/SMK-214",
+        "first_seen": "2026-09-02T13:40:00Z",
+        "last_seen": "2026-09-02T15:10:00Z"
+      },
+      {
+        "key": "SMK-231",
+        "title": "Rotate the mirror capture credentials",
+        "from_state": "Backlog",
+        "to_state": "In Progress",
+        "event_kinds": [
+          "state"
+        ],
+        "labels": [
+          "xp:internal",
+          "ops"
+        ],
+        "exposure": "internal",
+        "surface": "judgment",
+        "description_excerpt": "The mirror's login is shared; give it its own.",
+        "url": "https://plane.example.test/smk/SMK-231",
+        "first_seen": "2026-09-02T20:15:00Z",
+        "last_seen": "2026-09-02T20:15:00Z"
+      },
+      {
+        "key": "SMK-240",
+        "title": "Voice line greets by name",
+        "from_state": null,
+        "to_state": "Backlog",
+        "event_kinds": [
+          "created"
+        ],
+        "labels": [],
+        "exposure": "unlabeled",
+        "surface": "judgment",
+        "description_excerpt": "",
+        "url": "https://plane.example.test/smk/SMK-240",
+        "first_seen": "2026-09-03T01:02:00Z",
+        "last_seen": "2026-09-03T01:02:00Z"
+      }
+    ],
+    "opened": [
+      "SMK-240"
+    ],
+    "closed": [
+      "SMK-214"
+    ],
+    "started": [
+      "SMK-231"
+    ],
+    "commented": [],
+    "decisions": []
+  },
+  "hindsight": {
+    "bank": "smoketest-project",
+    "status": "ok",
+    "items": [
+      {
+        "text": "The mirror capture runs every 15 minutes."
+      },
+      {
+        "text": "Invoices are drafts until reviewed."
+      }
+    ],
+    "recall": [
+      "mirror capture cadence"
+    ]
+  },
+  "tokens": {
+    "total": 123456,
+    "by_agent": {
+      "claude": {
+        "input": 100000,
+        "output": 20000,
+        "cache_read": 3000,
+        "cache_write": 456,
+        "total": 123456
+      },
+      "codex": null,
+      "kimi": null
+    },
+    "detail": {}
+  },
+  "caveats": []
+}

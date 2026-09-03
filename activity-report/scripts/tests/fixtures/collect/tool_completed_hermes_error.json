@@ -1,0 +1,36 @@
+{
+  "id": "d5f1c125-e132-4423-b166-73c73daff7f2",
+  "type": "bloodbank.agent.tool.completed",
+  "time": "2026-09-02T23:27:01.347000Z",
+  "producer": "hermes-agent",
+  "service": "hermes-hooks",
+  "domain": "agent",
+  "actor": {
+    "cli": "hermes",
+    "type": "agent_cli",
+    "model": null,
+    "agent_id": "bloodbank.agent.hermes",
+    "provider": null
+  },
+  "data": {
+    "hook": "post_tool_call",
+    "outcome": "error",
+    "payload": {
+      "cwd": "/home/delorenj/code/james-brennan",
+      "tool_name": "mcp__plane__workitem_relation",
+      "session_id": "20260902_132432_16bf96",
+      "tool_input": {
+        "action": "list",
+        "project_id": "15258893-0206-4e8f-aea6-340eb217988c",
+        "workitem_id": "4d839ffa-224e-40d5-b848-b92786e93d40"
+      },
+      "hook_event_name": "post_tool_call"
+    },
+    "tool_name": "mcp__plane__workitem_relation",
+    "tool_call_id": "call_e0fNTKAW0D7oLlTneyoXCLHb",
+    "invocation_id": "20260902_132432_16bf96"
+  },
+  "correlationid": null,
+  "cli": "hermes",
+  "project": "unknown"
+}

@@ -1,0 +1,32 @@
+{
+  "id": "b4c0431a-e581-4eea-ab2e-aee667efabc6",
+  "type": "bloodbank.agent.tool.completed",
+  "time": "2026-09-02T22:16:28.526000Z",
+  "producer": "claude-code",
+  "service": "claude-code",
+  "domain": "agent",
+  "actor": {
+    "cli": "claude",
+    "type": "agent_cli",
+    "model": null,
+    "agent_id": "bloodbank.agent.claude",
+    "provider": "anthropic"
+  },
+  "data": {
+    "outcome": "success",
+    "arguments": {
+      "command": "claude --help 2>&1 | head -70",
+      "description": "Show the raw claude CLI help"
+    },
+    "tool_name": "Bash",
+    "git_branch": "main",
+    "git_status": "clean",
+    "turn_number": 56,
+    "tool_call_id": "f63b9091cd1a9ed087a9e2d833e42578",
+    "invocation_id": "60087f47-f05c-438e-b716-a124d32767c9",
+    "working_directory": "/home/delorenj/code/james-brennan"
+  },
+  "correlationid": "60087f47-f05c-438e-b716-a124d32767c9",
+  "cli": "claude",
+  "project": "james-brennan"
+}

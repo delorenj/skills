@@ -1,0 +1,21 @@
+# activity-report@.timer: the nightly schedule for project %i.
+# The OnCalendar below is only the default. `activity-report install-timer`
+# writes the project's own time and zone (activity_report.schedule.at and
+# .timezone) into activity-report@<slug>.timer.d/schedule.conf, which resets
+# OnCalendar and sets it again. Change the config, not this file.
+[Unit]
+Description=Scheduled activity report for %i
+
+[Timer]
+# 03:00 project-local: the day a report covers runs 03:00 to 03:00, so the
+# night's last commits and sessions land inside the window that names them.
+OnCalendar=*-*-* 03:00:00 America/New_York
+# A missed night is caught up on the next boot. Safe because the portal row's
+# id is derived from (project, window end, visibility) and a catch-up
+# overwrites its row rather than adding a second one.
+Persistent=true
+AccuracySec=1min
+Unit=activity-report@%i.service
+
+[Install]
+WantedBy=timers.target
