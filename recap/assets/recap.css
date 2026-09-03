@@ -1,0 +1,131 @@
+/* recap: the one stylesheet, inlined into every rendered recap.
+   Forked from activity-report/assets/report.css (tokens originally from
+   intelliforia team-update/references/design-system.md). Pill vocabulary re-cut
+   to NEW / CHANGED / CAVEAT / BROKE. Dark palette is written TWICE on purpose:
+   the media query carries a :not([data-theme="light"]) guard so an explicit
+   toggle wins in BOTH directions.
+   Original header follows.
+   activity-report: the one stylesheet, inlined into every rendered report.
+   Tokens from intelliforia team-update/references/design-system.md.
+   Light and dark via prefers-color-scheme; teal is the only accent; status
+   colour lives in the pills, never in body text; AA contrast for --ink on
+   --panel in both themes. No scripts, no external assets, no storage. */
+:root{
+  color-scheme:light dark;
+  --bg:#f5f7f9;--panel:#ffffff;--ink:#13212f;--muted:#586a7a;--line:#e1e7ed;
+  --accent:#0e7c86;--accent-ink:#0a5a62;--accent-bg:#e6f3f4;
+  --shipped:#2f9e5f;--review:#bd8317;--progress:#5877a8;--risk:#c0472f;
+  --shipped-bg:#e9f5ee;--review-bg:#f8f0dd;--progress-bg:#e9eef7;--risk-bg:#f8e9e5;
+  --radius:11px;
+  --shadow:0 1px 2px rgba(19,33,47,.05),0 6px 22px rgba(19,33,47,.06);
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0c141d;--panel:#121d28;--ink:#e6edf4;--muted:#94a6b7;--line:#233543;
+    --accent:#3fd0dd;--accent-ink:#7fe3ec;--accent-bg:#12303a;
+    --shipped:#48c581;--review:#e0a83a;--progress:#82a0d2;--risk:#e56a50;
+    --shipped-bg:#143324;--review-bg:#3a2c10;--progress-bg:#1c2a44;--risk-bg:#3d1c14;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 22px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+    --bg:#0c141d;--panel:#121d28;--ink:#e6edf4;--muted:#94a6b7;--line:#233543;
+    --accent:#3fd0dd;--accent-ink:#7fe3ec;--accent-bg:#12303a;
+    --shipped:#48c581;--review:#e0a83a;--progress:#82a0d2;--risk:#e56a50;
+    --shipped-bg:#143324;--review-bg:#3a2c10;--progress-bg:#1c2a44;--risk-bg:#3d1c14;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 22px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;padding:32px 20px 48px;background:var(--bg);color:var(--ink);
+  font:15px/1.55 var(--sans);-webkit-text-size-adjust:100%}
+.wrap{max-width:760px;margin:0 auto}
+.masthead{margin:0 0 22px}
+.eyebrow{margin:0 0 6px;font:600 12px/1.4 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent-ink)}
+h1{margin:0 0 10px;font-size:28px;line-height:1.2;letter-spacing:-.01em;font-weight:800}
+.meta{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;color:var(--muted);font-size:13.5px}
+.pill{display:inline-block;padding:2px 10px;border-radius:999px;font:600 11.5px/1.7 var(--mono);
+  letter-spacing:.06em;text-transform:uppercase;border:1px solid transparent}
+.pill.external{color:var(--accent-ink);background:var(--accent-bg);border-color:var(--accent)}
+.pill.internal{color:var(--muted);background:var(--panel);border-color:var(--line)}
+.sec{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:18px 22px;margin:0 0 14px}
+.sec h2{margin:0 0 12px;font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);display:flex;align-items:center;gap:12px}
+.sec h2::after{content:"";flex:1;height:1px;background:var(--line)}
+.sec p{margin:0 0 10px}
+.sec p:last-child,.sec ul:last-child,.sec ol:last-child,.sec dl:last-child,.sec .metrics:last-child{margin-bottom:0}
+.sec ul{margin:0 0 10px;padding-left:22px}
+.sec li{margin:0 0 6px}
+.sec li::marker{color:var(--accent)}
+strong{font-weight:700;color:var(--ink)}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 10px}
+.metric{padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.metric b{display:block;font:700 24px/1.1 var(--mono);letter-spacing:-.02em;color:var(--ink)}
+.metric span{display:block;margin-top:4px;font:600 11px/1.4 var(--mono);letter-spacing:.08em;
+  text-transform:uppercase;color:var(--muted)}
+dl.kv{margin:0 0 10px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 18px}
+dl.kv dt{margin:0;font:600 11px/1.6 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);align-self:center}
+dl.kv dd{margin:0;justify-self:end;font:600 14px/1.6 var(--mono);font-variant-numeric:tabular-nums}
+ol.timeline{list-style:none;margin:0 0 10px;padding:0;position:relative}
+ol.timeline::before{content:"";position:absolute;top:8px;bottom:8px;left:56px;width:1px;background:var(--line)}
+ol.timeline li{display:grid;grid-template-columns:48px 18px minmax(0,1fr);gap:0 8px;align-items:baseline;margin:0 0 8px}
+ol.timeline .at{font:600 12px/1.6 var(--mono);letter-spacing:.04em;color:var(--muted);font-variant-numeric:tabular-nums}
+ol.timeline .dot{position:relative;z-index:1;justify-self:center;top:-2px;width:8px;height:8px;border-radius:50%;
+  background:var(--accent);box-shadow:0 0 0 4px var(--panel)}
+ol.timeline .what{font-size:14px;line-height:1.55}
+.foot{margin:26px 0 0;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font:12.5px/1.6 var(--mono)}
+@media (max-width:700px){
+  body{padding:20px 12px 36px}
+  h1{font-size:23px}
+  .sec{padding:14px 15px}
+  .metrics{grid-template-columns:1fr 1fr}
+  ol.timeline::before{left:48px}
+  ol.timeline li{grid-template-columns:40px 18px minmax(0,1fr)}
+}
+@media print{
+  html,body{background:#fff;color:#000}
+  body{padding:0;font-size:12pt}
+  .wrap{max-width:none}
+  .sec{box-shadow:none;border-color:#bbb;break-inside:avoid;page-break-inside:avoid}
+  .pill{border-color:#000;color:#000;background:none}
+  .metric{background:none;border-color:#bbb}
+  a{color:#000;text-decoration:none}
+}
+
+/* ---- recap additions ---------------------------------------------------- */
+/* Pills re-cut for a recap. CHANGED earns its place: "something you already do
+   now behaves differently" is the fact a human most needs and a commit log
+   never states. */
+.pill.new{color:var(--shipped);background:var(--shipped-bg);border-color:var(--shipped)}
+.pill.changed{color:var(--progress);background:var(--progress-bg);border-color:var(--progress)}
+.pill.caveat{color:var(--review);background:var(--review-bg);border-color:var(--review)}
+.pill.broke{color:var(--risk);background:var(--risk-bg);border-color:var(--risk)}
+.pill.unverified{color:var(--muted);background:var(--panel);border-color:var(--line)}
+
+.card{border:1px solid var(--line);border-radius:var(--radius);padding:15px 17px;margin:0 0 11px;background:var(--panel)}
+.card-top{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:0 0 7px}
+.card h3{margin:0 0 6px;font-size:16.5px;line-height:1.3;font-weight:700}
+.card p{margin:0 0 7px}
+.before{margin:0 0 8px;padding-left:11px;border-left:2px solid var(--line);color:var(--muted);font-size:14px}
+.before b{color:var(--ink);font-weight:600}
+.run{display:block;margin:0 0 8px;padding:7px 10px;border-radius:7px;background:var(--accent-bg);
+  color:var(--accent-ink);font:13.5px/1.5 var(--mono);word-break:break-all}
+.evi{margin:6px 0 0;color:var(--muted);font:12.5px/1.6 var(--mono)}
+.card details{margin:8px 0 0}
+.card summary{cursor:pointer;color:var(--muted);font-size:13px}
+.card details>*{margin-top:7px}
+.note{margin:0;color:var(--muted)}
+.prov{margin:18px 0 0;color:var(--muted);font:12px/1.6 var(--mono);text-align:center}
+.rail{list-style:none;margin:0;padding:0}
+.rail li{border-bottom:1px solid var(--line);padding:11px 0}
+.rail li:last-child{border-bottom:0}
+.rail a{font-weight:650;text-decoration:none;color:var(--ink)}
+.rail a:hover{color:var(--accent-ink)}
+.rail .cap{display:block;margin:3px 0 0;color:var(--muted);font-size:13.5px}
+.rail .when{float:right;color:var(--muted);font:12px/1.9 var(--mono)}
+.themer{position:fixed;top:12px;right:12px;padding:5px 11px;border:1px solid var(--line);
+  border-radius:999px;background:var(--panel);color:var(--muted);font:12px var(--mono);cursor:pointer}
+@media print{.themer{display:none}}
