@@ -12,8 +12,9 @@ import json
 import os
 import subprocess
 
-from .common import ConfigError, eprint, parse_iso, read_json, to_iso_z
+from .common import AcceptanceError, ConfigError, eprint, parse_iso, read_json, to_iso_z
 from .config import hindsight_bank, load_project
+from .render import parse, split_raw, to_prose
 
 HINDSIGHT_BIN = os.environ.get("HINDSIGHT_BIN", "hindsight")
 CONTEXT_PREFIX = "activity-report:"
@@ -160,8 +161,39 @@ def collect(project, window) -> dict:
     return block
 
 
-def retain(project, audience: str, raw_text: str, window_end, label: str) -> bool:
-    """Store the report body in the project's bank. False (with a warning) on any failure; never raises."""
+AUDIENCE_WORD = {"internal": "Internal", "external": "Client-facing"}
+
+
+def retain_text(project, audience: str, raw_text: str, window_end) -> str:
+    """The prose rendition Hindsight is given (see render.to_prose); raw.txt
+    itself only when it does not parse as a report."""
+    try:
+        title, body = split_raw(raw_text)
+    except AcceptanceError:
+        return raw_text
+    when = window_end if isinstance(window_end, str) else to_iso_z(window_end)
+    name = getattr(project, "name", None) or project.slug
+    lead = (f"{AUDIENCE_WORD.get(audience, audience)} activity report for {name} ({project.slug}), "
+            f"window ending {when}")
+    return to_prose(title, parse(body), lead=lead)
+
+
+def doc_id_for(project, audience: str, label: str, run_id: str | None, attempt: int = 1) -> str:
+    """One Hindsight document per run (and per manual attempt), not per window.
+    Hindsight retains by delta: chunks a document id already holds are never
+    re-extracted ("No chunk changes detected"), and its extractor answers with
+    zero facts on a fair share of calls (2026-09-03: about half, on the same
+    text). So a document whose first extraction came back empty cannot be
+    repaired under the same id; a new run, or `--attempt N`, gets a new one."""
+    base = f"{CONTEXT_PREFIX}{project.slug}:{audience}:{label}"
+    if isinstance(run_id, str) and run_id:
+        base = f"{base}:{run_id[:8]}"
+    return f"{base}:a{attempt}" if attempt and attempt > 1 else base
+
+
+def retain(project, audience: str, raw_text: str, window_end, label: str, run_id: str | None = None,
+           attempt: int = 1) -> bool:
+    """Store the report, as prose, in the project's bank. False (with a warning) on any failure; never raises."""
     cfg = project.config.get("hindsight") or {}
     if cfg.get("retain") is False:
         eprint(f"activity-report: retain disabled for {project.slug} (hindsight.retain=false)")
@@ -175,9 +207,9 @@ def retain(project, audience: str, raw_text: str, window_end, label: str) -> boo
         eprint(f"activity-report: retain skipped: {exc}")
         return False
     timestamp = window_end if isinstance(window_end, str) else to_iso_z(window_end)
-    args = [HINDSIGHT_BIN, "memory", "retain", bank, raw_text,
+    args = [HINDSIGHT_BIN, "memory", "retain", bank, retain_text(project, audience, raw_text, window_end),
             "--context", f"{CONTEXT_PREFIX}{audience}",
-            "--doc-id", f"{CONTEXT_PREFIX}{project.slug}:{audience}:{label}",
+            "--doc-id", doc_id_for(project, audience, label, run_id, attempt),
             "--timestamp", timestamp]
     try:
         _run(args, RETAIN_TIMEOUT)
@@ -202,8 +234,10 @@ def retain_cmd(args) -> int:
         raise ConfigError(f"{args.digest} is not a digest (no window/label)")
     if digest.get("audience") != args.audience:
         raise ConfigError(f"{args.digest} is a {digest.get('audience')} digest, not {args.audience}")
-    ok = retain(project, args.audience, raw_text, digest["window"]["end"], digest["label"])
-    doc_id = f"{CONTEXT_PREFIX}{project.slug}:{args.audience}:{digest['label']}"
+    run_id = digest.get("run_id") if isinstance(digest.get("run_id"), str) else None
+    attempt = int(getattr(args, "attempt", 1) or 1)
+    ok = retain(project, args.audience, raw_text, digest["window"]["end"], digest["label"], run_id, attempt)
+    doc_id = doc_id_for(project, args.audience, digest["label"], run_id, attempt)
     if args.json:
         print(json.dumps({"retained": ok, "bank": hindsight_bank(project), "doc_id": doc_id}))
     elif ok:

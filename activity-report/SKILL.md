@@ -2,7 +2,7 @@
 name: activity-report
 description: Produce a periodic project update for one pjangler project and one declared audience (internal or external), from Candystore, git, the ticket board and Hindsight, rendered as plain text, markdown and a self-contained HTML artifact, and emitted as one bloodbank.project.activity.recorded event. Use for "daily update", "client update", "internal update", "what did we ship", "periodic update", "activity report", "portal update", the nightly 03:00 run, a catch-up for a skipped window, or re-writing an update that lint refused. Do NOT use for the Surface operations payload (apps/surface, no free text), for roadmap checkpoints, for deploys, or for Bloodbank schema work (bloodbank-integration).
 metadata:
-  version: "0.1.1"
+  version: "0.1.2"
 ---
 
 # activity-report

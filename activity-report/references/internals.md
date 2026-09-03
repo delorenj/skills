@@ -108,7 +108,7 @@ ensure_labels(project, confirm: bool) -> dict ; ensure_labels_cmd(args) -> int
 
 # hindsight.py
 collect(project, window) -> dict                 # the digest "hindsight" block; never raises
-retain(project, audience, raw_text, window_end, label) -> bool ; retain_cmd(args) -> int
+retain_text(project, audience, raw_text, window_end) -> str ; doc_id_for(project, audience, label, run_id, attempt=1) -> str ; retain(project, audience, raw_text, window_end, label, run_id=None, attempt=1) -> bool ; retain_cmd(args) -> int
 
 # tokens.py
 collect(scope, window) -> dict                   # the digest "tokens" block

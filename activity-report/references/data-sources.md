@@ -157,9 +157,20 @@ Lists page with `per_page=100` and `next_cursor`.
 - **Nothing from Hindsight is a count or a claim.** The compose agent may quote it as
   memory; every fact in the report must trace to Candystore, git or the board. Any
   failure is `status: unavailable` with a caveat; the run never stops for it.
-- `retain` stores the finished report with `--context activity-report:<audience>`,
-  `--doc-id activity-report:<slug>:<audience>:<label>` and `--timestamp <window end>`;
-  it warns and returns false on failure.
+- `retain` stores the finished report, as prose (`render.to_prose`: metric rows
+  and timeline lines become sentences, because the extractor returns no facts
+  for the raw grammar), with `--context activity-report:<audience>`,
+  `--doc-id activity-report:<slug>:<audience>:<label>:<run id, 8 chars>` and
+  `--timestamp <window end>`; it warns and returns false on failure. The id is
+  per run on purpose. Hindsight retains by delta: chunks an existing document id
+  already holds are never re-extracted, and on 2026-09-03 its extractor
+  (OpenRouter preset `hindsight-retain`) returned zero facts on about half of
+  its calls for the same text while the CLI still reported `Stored 1 memory
+  units`. A document whose first extraction came back empty therefore cannot be
+  repaired under its own id. To repair one by hand, re-run
+  `activity-report retain ... --attempt 2` (a fresh id, suffix `:a2`) and read
+  the fact count from the API container: `docker logs hindsight 2>&1 | grep -A1
+  'STREAMING RETAIN COMPLETE'` names the document and its unit count.
 
 ## Tokens
 

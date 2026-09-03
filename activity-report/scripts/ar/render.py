@@ -126,6 +126,47 @@ def parse(body: str) -> list[Block]:
     return blocks
 
 
+# -- prose (what Hindsight's fact extractor can read) ------------------------
+
+def strip_bold(text: str) -> str:
+    """The text without its ** markers."""
+    return "".join(run for _, run in inline_runs(text))
+
+
+def _sentence(text: str) -> str:
+    t = strip_bold(text).strip()
+    if not t:
+        return ""
+    return t if t[-1] in ".!?:;" else t + "."
+
+
+def to_prose(title: str, blocks: list[Block], lead: str | None = None) -> str:
+    """Plain sentences from the portal grammar. Hindsight's extractor returns no
+    facts for metric tables and `HH:MM` timeline lines (measured 2026-09-03:
+    the prose section of a report yielded 6 facts, its table and timeline
+    section 0), so retain sends this instead of raw.txt: one `label: value.`
+    per metric row, `At HH:MM, ...` per timeline entry, a sentence per bullet,
+    headings as `Heading:` lead-ins, bold markers dropped."""
+    paras: list[str] = []
+    if lead:
+        paras.append(_sentence(lead))
+    paras.append(_sentence(title))
+    for block in blocks:
+        if block.kind == "heading":
+            head = strip_bold(block.text).strip().rstrip(":")
+            if head:
+                paras.append(head + ":")
+        elif block.kind == "metrics":
+            paras.append(" ".join(_sentence(f"{strip_bold(k).strip()}: {strip_bold(v).strip()}") for k, v in block.items))
+        elif block.kind == "timeline":
+            paras.append(" ".join(_sentence(f"At {at}, {strip_bold(text).strip()}") for at, text in block.items))
+        elif block.kind == "bullets":
+            paras.append(" ".join(_sentence(item) for item in block.items))
+        else:
+            paras.append(_sentence(block.text))
+    return "\n\n".join(para for para in paras if para)
+
+
 # -- markdown ------------------------------------------------------------------
 
 def to_markdown(title: str, blocks: list[Block]) -> str:

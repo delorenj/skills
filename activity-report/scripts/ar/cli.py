@@ -119,6 +119,9 @@ def build_parser() -> argparse.ArgumentParser:
     _common(p); _audience(p)
     p.add_argument("raw")
     p.add_argument("--digest", required=True)
+    p.add_argument("--attempt", type=int, default=1,
+                   help="manual repair: 2+ retains under a fresh document id (Hindsight never re-extracts "
+                        "chunks an existing id already holds, even when its first extraction stored nothing)")
     p.set_defaults(func=_dispatch("hindsight", "retain_cmd"))
 
     p = sub.add_parser("ensure-labels", help="create the xp:external / xp:internal labels on the board")

@@ -149,15 +149,48 @@ class CollectTests(unittest.TestCase):
 
 
 class RetainTests(unittest.TestCase):
+    def test_retain_text_is_prose_not_grammar(self):
+        raw = ("# First **draft** invoice landed\n## The window\n| Sessions | 97 (57 ended) |\n| Commits | 46 |\n"
+               "## Timeline\n20:56 a24fd10 feat(surface): field proving\n02:12 draft **5444** read back\n"
+               "## Still open\n- JIMB-169 held in review\n- nothing closed.\nPlain paragraph")
+        text = hindsight.retain_text(project(), "external", raw, "2026-09-03T00:35:54Z")
+        self.assertEqual(text.split("\n\n"), [
+            "Client-facing activity report for James Brennan (james-brennan), window ending 2026-09-03T00:35:54Z.",
+            "First draft invoice landed.",
+            "The window:",
+            "Sessions: 97 (57 ended). Commits: 46.",
+            "Timeline:",
+            "At 20:56, a24fd10 feat(surface): field proving. At 02:12, draft 5444 read back.",
+            "Still open:",
+            "JIMB-169 held in review. nothing closed.",
+            "Plain paragraph.",
+        ])
+        self.assertNotIn("|", text)
+        self.assertNotIn("**", text)
+        # text that is not a report goes through untouched
+        self.assertEqual(hindsight.retain_text(project(), "internal", "just a note", "2026-09-03T00:00:00Z"), "just a note")
+
     def test_retain_arguments(self):
         cli = FakeCli()
         with mock.patch.object(hindsight.subprocess, "run", cli):
             ok = hindsight.retain(project(), "internal", "# Title\n\nBody", window().end, "2026-09-03T0300")
         self.assertTrue(ok)
-        self.assertEqual(cli.calls, [["hindsight", "memory", "retain", "james-brennan", "# Title\n\nBody",
+        prose = ("Internal activity report for James Brennan (james-brennan), window ending 2026-09-03T00:00:00Z."
+                 "\n\nTitle.\n\nBody.")
+        self.assertEqual(cli.calls, [["hindsight", "memory", "retain", "james-brennan", prose,
                                       "--context", "activity-report:internal",
                                       "--doc-id", "activity-report:james-brennan:internal:2026-09-03T0300",
                                       "--timestamp", "2026-09-03T00:00:00Z"]])
+        cli = FakeCli()
+        with mock.patch.object(hindsight.subprocess, "run", cli):
+            hindsight.retain(project(), "internal", "# Title\n\nBody", window().end, "2026-09-03T0300",
+                             run_id="9b6e3b86-5b5e-4040-bbbe-c8fb6d258575")
+        self.assertEqual(cli.calls[0][cli.calls[0].index("--doc-id") + 1],
+                         "activity-report:james-brennan:internal:2026-09-03T0300:9b6e3b86")
+        self.assertEqual(hindsight.doc_id_for(project(), "external", "L", "9b6e3b86-x", attempt=3),
+                         "activity-report:james-brennan:external:L:9b6e3b86:a3")
+        self.assertEqual(hindsight.doc_id_for(project(), "external", "L", None, attempt=1),
+                         "activity-report:james-brennan:external:L")
 
     def test_retain_never_raises(self):
         with mock.patch.object(hindsight, "eprint") as err:
@@ -179,15 +212,18 @@ class RetainTests(unittest.TestCase):
         with open(raw, "w", encoding="utf-8") as fh:
             fh.write("# Report\n\nline\n")
         with open(digest, "w", encoding="utf-8") as fh:
-            json.dump({"audience": "internal", "label": "2026-09-03T0300", "window": {"end": "2026-09-03T00:00:00Z"}}, fh)
+            json.dump({"audience": "internal", "label": "2026-09-03T0300", "window": {"end": "2026-09-03T00:00:00Z"},
+                       "run_id": "9b6e3b86-5b5e-4040-bbbe-c8fb6d258575"}, fh)
         cli = FakeCli()
-        args = mock.Mock(project="james-brennan", audience="internal", raw=raw, digest=digest, json=True)
+        args = mock.Mock(project="james-brennan", audience="internal", raw=raw, digest=digest, json=True, attempt=1)
         with mock.patch.object(hindsight, "load_project", return_value=project()), \
                 mock.patch.object(hindsight.subprocess, "run", cli), mock.patch("sys.stdout") as out:
             self.assertEqual(hindsight.retain_cmd(args), 0)
         printed = json.loads("".join(c.args[0] for c in out.write.call_args_list))
-        self.assertEqual(printed, {"retained": True, "bank": "james-brennan", "doc_id": "activity-report:james-brennan:internal:2026-09-03T0300"})
-        self.assertEqual(cli.calls[0][4], "# Report\n\nline\n")
+        self.assertEqual(printed, {"retained": True, "bank": "james-brennan",
+                                   "doc_id": "activity-report:james-brennan:internal:2026-09-03T0300:9b6e3b86"})
+        self.assertTrue(cli.calls[0][4].endswith("\n\nReport.\n\nline."), cli.calls[0][4])
+        self.assertNotIn("# Report", cli.calls[0][4])
         args.audience = "external"
         with mock.patch.object(hindsight, "load_project", return_value=project()):
             with self.assertRaises(ConfigError):
