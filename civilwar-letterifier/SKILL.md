@@ -127,10 +127,18 @@ ElevenLabs, the current [error envelope](https://elevenlabs.io/docs/eleven-api/r
 must have `detail.type: rate_limit_error` plus `detail.code` of
 `rate_limit_exceeded` or `concurrent_limit_exceeded` at HTTP 429, or
 `detail.type: service_unavailable` plus `detail.code` of `service_unavailable`
-or `maintenance` at HTTP 503. The documented legacy `detail.status` values
-`too_many_concurrent_requests` and `system_busy` are accepted only at HTTP 429
-and never override a present contradictory type. Cartesia retains its distinct,
-top-level structured error schema and its own positive allowlist.
+or `maintenance` at HTTP 503. Current credit exhaustion is eligible only as HTTP
+402 with the exact current `detail.type: payment_required` and
+`detail.code: insufficient_credits` pair. The documented legacy
+[400/401 quota shape](https://elevenlabs.io/docs/help-center/technical/api-error-code-400-or-401)
+is eligible only at HTTP 400 or 401 with exact `detail.status: quota_exceeded`
+and no current `detail.code`; its optional type may only be `payment_required`.
+The documented legacy `detail.status` values `too_many_concurrent_requests` and
+`system_busy` remain eligible only at HTTP 429. A present current `detail.code`
+must agree with any retained legacy status; an auth, input, malformed, unknown,
+wrong-status/type/code, or contradictory hybrid never falls back. Cartesia
+retains its distinct, top-level structured error schema and its own positive
+allowlist.
 
 Bare, malformed, generic, auth/configuration/voice/model/input, or otherwise
 unclassified responses — including generic 5xx responses — fail closed. It is
@@ -141,8 +149,12 @@ receipt sidecar.
 
 Fallback is dark until both variables are present in the invocation environment:
 `CARTESIA_API_KEY` (standard `sk_car_...`, never `sk_car_admin_...`) and an explicit
-`CARTESIA_VOICE_ID`. See `references/voice-and-music.md` for the voice-selection
-gate and source references. There is no persisted dotenv configuration.
+`CARTESIA_VOICE_ID`. The reviewed SlowBurns stock fallback configuration is Clyde
+(`98a34ef2-2140-4c28-9c71-663dc4dd7022`) with
+`CARTESIA_API_KEY=op://DeLoSecrets/Cartesia/CARTESIA_API_KEY`, resolved only by
+`op run`. See `references/voice-and-music.md` for the metadata-only selection
+record, objective preview validation, and source references. There is no
+persisted dotenv configuration.
 
 ### Bounded narration I/O and manual recovery
 

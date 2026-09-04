@@ -37,11 +37,13 @@ export const DEFAULT_NARRATION_LIMITS = Object.freeze(Object.fromEntries(
 // service, or an auth/config/input-shaped contradiction is not enough to risk
 // a second synthesis request.
 const ELEVEN_FALLBACK_BY_STATUS = new Map([
+  [402, {type: 'payment_required', codes: new Set(['insufficient_credits'])}],
   [429, {type: 'rate_limit_error', codes: new Set([
     'rate_limit_exceeded', 'concurrent_limit_exceeded', 'too_many_concurrent_requests', 'system_busy',
   ])}],
   [503, {type: 'service_unavailable', codes: new Set(['service_unavailable', 'maintenance'])}],
 ]);
+const ELEVEN_LEGACY_QUOTA_STATUSES = new Set([400, 401]);
 const CARTESIA_FALLBACK_CODES_BY_STATUS = new Map([
   [429, new Set(['quota_exceeded', 'concurrency_limited', 'capacity_exceeded'])],
   [500, new Set(['capacity_exceeded', 'concurrency_limited', 'service_unavailable'])],
@@ -98,10 +100,17 @@ function providerErrorDetails(provider, body) {
     // A present-but-malformed current `code` must fail closed rather than
     // silently falling back to the legacy field.
     const hasCurrentCode = Object.prototype.hasOwnProperty.call(detail, 'code');
+    const hasLegacyStatus = Object.prototype.hasOwnProperty.call(detail, 'status');
+    const currentCode = safeErrorToken(detail.code);
+    const legacyCode = safeErrorToken(detail.status);
     return {
       type: safeErrorToken(detail.type),
-      code: hasCurrentCode ? safeErrorToken(detail.code) : safeErrorToken(detail.status),
+      code: hasCurrentCode ? currentCode : legacyCode,
       legacyStatus: !hasCurrentCode && typeof detail.status === 'string',
+      // Current envelopes may retain `status` for backwards compatibility, but
+      // it must agree exactly with `code`. A malformed or contradictory hybrid
+      // must never borrow eligibility from either envelope generation.
+      contradictory: hasCurrentCode && hasLegacyStatus && currentCode !== legacyCode,
       requestId: safeRequestId(detail.request_id),
     };
   }
@@ -120,7 +129,9 @@ function requestIdFrom(response, provider, body) {
 function classifiedProviderError(provider, response, body) {
   const details = providerErrorDetails(provider, body);
   const status = Number.isInteger(response.status) ? response.status : undefined;
-  const fallbackClass = isCapacityFailure(provider, status, details.code, details.type, details.legacyStatus)
+  const fallbackClass = isCapacityFailure(
+    provider, status, details.code, details.type, details.legacyStatus, details.contradictory,
+  )
     ? 'capacity_or_availability'
     : 'nonretryable';
   return new NarrationError(`${provider} narration request failed${status ? ` (${status})` : ''}.`, {
@@ -132,15 +143,29 @@ function classifiedProviderError(provider, response, body) {
   });
 }
 
-export function isCapacityFailure(provider, status, code, type, legacyStatus = false) {
+export function isCapacityFailure(provider, status, code, type, legacyStatus = false, contradictory = false) {
   if (!Number.isInteger(status) || !safeErrorToken(code)) return false;
   if (provider === 'eleven') {
+    if (contradictory) return false;
+    // ElevenLabs' legacy 400/401 quota envelope uses `detail.status` rather
+    // than current `detail.code`. The field may omit `type`; if it supplies a
+    // type, it must be the modern payment classification, never auth/input.
+    if (legacyStatus) {
+      if (ELEVEN_LEGACY_QUOTA_STATUSES.has(status)) {
+        return code === 'quota_exceeded'
+          && (!type || type === 'payment_required');
+      }
+      // The 429 help documentation also retains the old `detail.status`
+      // capacity names. It is a separate legacy shape: 402 credit exhaustion
+      // remains current-envelope-only, and legacy 5xx stays nonfallback.
+      const legacy429Rule = status === 429 ? ELEVEN_FALLBACK_BY_STATUS.get(status) : undefined;
+      return Boolean(legacy429Rule?.codes.has(code))
+        && (!type || type === legacy429Rule.type);
+    }
     const rule = ELEVEN_FALLBACK_BY_STATUS.get(status);
     if (!rule || !rule.codes.has(code)) return false;
-    // `detail.status` is a documented legacy field. A legacy envelope may
-    // omit `type`, but a present type must still be the positive allowlisted
-    // one. Current `detail.code` responses must identify the matching type.
-    return legacyStatus ? (!type || type === rule.type) : type === rule.type;
+    // Current `detail.code` responses must identify the matching type.
+    return type === rule.type;
   }
   return CARTESIA_FALLBACK_CODES_BY_STATUS.get(status)?.has(code) === true;
 }

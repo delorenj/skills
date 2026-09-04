@@ -40,30 +40,32 @@ MP3 request (`container: mp3`, 44.1 kHz, 128 kbps). It requests
 `locale: en-US`, `volume: 1`, and a measured slow `speed: 0.85`; the intent is a
 solemn, unhurried documentary read without cloning or custom-voice training.
 
-The bounded stock candidates are **Jameson** (first stable-English-male
-candidate) and **Daniel** (alternate). Cartesia's current official guidance also
-lists Archie, Parker, and Corey as stable English male voices. These are names
-only, not verified IDs or a claim of period/Ken-Burns similarity. Set
-`CARTESIA_VOICE_ID` only after a standard runtime key can preview the current
-official Voice Library and confirm the selected stock voice supports this model
-and MP3 output. Do not invent or hard-code an unverified ID, and do not clone or
-train a custom voice. Live validation is currently blocked: no usable standard
-Cartesia runtime key is available, and the legacy admin/unrecognized key must
-never be used for TTS, provisioned, persisted, or tested with paid synthesis.
+The selected stock fallback is **Clyde**:
+`CARTESIA_VOICE_ID=98a34ef2-2140-4c28-9c71-663dc4dd7022`. Current authenticated
+Cartesia metadata identifies Clyde as an active, public US English **Calm
+Narrator** and describes a gentle, measured, warm, clear storytelling voice.
+That is a supplier metadata decision, not a claim of period or Ken-Burns
+similarity, and it uses neither cloning nor custom-voice training.
+
+On 2026-09-04, the authenticated free preview transport was validated without a
+TTS generation: metadata and preview returned HTTP 200; the preview was
+`audio/wav`, 1,093,724 bytes, and `ffprobe` reported WAV / PCM s16le / 44.1 kHz
+/ mono. This is objective availability and codec validation only—no human
+audition, no paid synthesis, and no assertion that preview audio proves a
+`sonic-3.6` MP3 generation.
 
 Use only a standard `CARTESIA_API_KEY` (`sk_car_...`); the adapter rejects
-`sk_car_admin_...`. Supply it through an `op://DeLoSecrets/...` reference resolved
-at invocation time, never a plaintext secret or dotenv file. The receipt contains
-only provider/model/voice/fallback class and a safe request ID, never transcript,
-response body, headers, or credentials.
+`sk_car_admin_...`. The canonical SlowBurns runtime reference is
+`op://DeLoSecrets/Cartesia/CARTESIA_API_KEY`, resolved at invocation with
+`op run`; never place a value in a dotenv or other plaintext file. The receipt
+contains only provider/model/voice/fallback class and a safe request ID, never
+transcript, response body, headers, or credentials.
 
-Official references (checked 2026-08-31):
+Official references (checked 2026-09-04):
 
+- https://docs.cartesia.ai/api-reference/voices/get
 - https://docs.cartesia.ai/api-reference/tts/bytes
 - https://docs.cartesia.ai/use-the-api/api-conventions
-- https://docs.cartesia.ai/build-with-cartesia/capability-guides/choosing-a-voice
-  (retrieved 2026-08-31; stable English male list: Daniel, Archie, Parker,
-  Jameson, Corey; emotive English male list: Brandon, Cory, Alec)
 
 ## Music
 

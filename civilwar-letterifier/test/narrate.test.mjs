@@ -408,6 +408,79 @@ test('definitive quota failure calls Cartesia once with the official bytes MP3 r
   assert.equal(isDecodableMp3(out), true);
 });
 
+test('current Eleven 402 insufficient-credit envelope falls back once and recovers without another provider call', async () => {
+  const calls = [];
+  const out = path.join(runDir('current-insufficient-credits'), 'narration.mp3');
+  const initial = await narrate({
+    text: 'A solemn dispatch.', out, operationId: 'current-insufficient-credits', config: config(), log: () => {},
+    fetchImpl: async (url) => {
+      calls.push(url);
+      return calls.length === 1
+        ? elevenErrorResponse(402, {type: 'payment_required', code: 'insufficient_credits'})
+        : audioResponse();
+    },
+  });
+  assert.deepEqual(calls, ['https://eleven.test/tts', 'https://cartesia.test/tts/bytes']);
+  assert.equal(initial.selection.provider, 'cartesia');
+
+  const recovered = await narrate({
+    text: 'A solemn dispatch.', out, operationId: 'current-insufficient-credits', config: config(), log: () => {},
+    fetchImpl: async () => { throw new Error('recovery must not call a provider'); },
+  });
+  assert.equal(recovered.selection.provider, 'cartesia');
+  assert.equal(calls.length, 2);
+});
+
+test('legacy Eleven 400/401 quota envelopes fall back only with the exact documented status form', async () => {
+  for (const [status, type] of [[400, undefined], [400, 'payment_required'], [401, undefined], [401, 'payment_required']]) {
+    const calls = [];
+    const out = path.join(runDir(`legacy-quota-${status}-${type || 'no-type'}`), 'narration.mp3');
+    const receipt = await narrate({
+      text: 'A solemn dispatch.', out, operationId: `legacy-quota-${status}-${type || 'no-type'}`, config: config(), log: () => {},
+      fetchImpl: async (url) => {
+        calls.push(url);
+        return calls.length === 1
+          ? elevenErrorResponse(status, {type, legacyStatus: 'quota_exceeded'})
+          : audioResponse();
+      },
+    });
+    assert.deepEqual(calls, ['https://eleven.test/tts', 'https://cartesia.test/tts/bytes']);
+    assert.equal(receipt.selection.provider, 'cartesia');
+  }
+});
+
+test('near-miss Eleven credit and legacy quota envelopes fail closed without Cartesia', async () => {
+  const rejectedCases = [
+    () => elevenErrorResponse(400, {type: 'payment_required', code: 'insufficient_credits'}),
+    () => elevenErrorResponse(401, {type: 'payment_required', code: 'insufficient_credits'}),
+    () => elevenErrorResponse(402, {type: 'authentication_error', code: 'insufficient_credits'}),
+    () => elevenErrorResponse(402, {type: 'payment_required', code: 'invalid_api_key'}),
+    () => elevenErrorResponse(402, {type: 'payment_required'}),
+    () => elevenErrorResponse(402, {type: 'payment_required', code: 'insufficient_credits', legacyStatus: 'quota_exceeded'}),
+    () => elevenErrorResponse(402, {type: 'payment_required', code: 123, legacyStatus: 'quota_exceeded'}),
+    () => elevenErrorResponse(402, {legacyStatus: 'quota_exceeded'}),
+    () => elevenErrorResponse(400, {type: 'authentication_error', legacyStatus: 'quota_exceeded'}),
+    () => elevenErrorResponse(401, {type: 'authentication_error', legacyStatus: 'quota_exceeded'}),
+    () => elevenErrorResponse(429, {legacyStatus: 'quota_exceeded'}),
+    () => elevenErrorResponse(400, {legacyStatus: 'invalid_api_key'}),
+    () => elevenErrorResponse(401, {code: 'invalid_api_key', legacyStatus: 'quota_exceeded'}),
+    () => elevenErrorResponse(503, {legacyStatus: 'quota_exceeded'}),
+    () => new Response('{not json', {status: 402, headers: {'content-type': 'application/json'}}),
+  ];
+  for (const [index, response] of rejectedCases.entries()) {
+    const calls = [];
+    await assert.rejects(
+      narrate({
+        text: 'A solemn dispatch.', out: path.join(runDir(`rejected-credit-envelope-${index}`), 'narration.mp3'),
+        operationId: `rejected-credit-envelope-${index}`, config: config(), log: () => {},
+        fetchImpl: async (url) => { calls.push(url); return response(); },
+      }),
+      (error) => error.provider === 'eleven' && error.fallbackClass === 'nonretryable',
+    );
+    assert.deepEqual(calls, ['https://eleven.test/tts']);
+  }
+});
+
 test('Eleven auth/input failure is nonretryable and never calls Cartesia', async () => {
   const calls = [];
   const out = path.join(runDir('nonretryable'), 'narration.mp3');

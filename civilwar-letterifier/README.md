@@ -37,6 +37,10 @@ scripts use bare `node`); the Remotion render deps auto-install on first run.
 - **`CARTESIA_API_KEY`** and **`CARTESIA_VOICE_ID`** — optional, bounded
   narration fallback only. `CARTESIA_API_KEY` must be a standard runtime key
   (`sk_car_...`); admin keys (`sk_car_admin_...`) are rejected before a request.
+  The SlowBurns runtime supplies the key only through
+  `op://DeLoSecrets/Cartesia/CARTESIA_API_KEY`, resolved by `op run`; its
+  reviewed stock fallback voice is Clyde
+  (`98a34ef2-2140-4c28-9c71-663dc4dd7022`).
 - **Bounded narration controls** — optional integer environment values:
   `SLOWBURNS_NARRATION_REQUEST_TIMEOUT_MS`,
   `SLOWBURNS_NARRATION_BODY_TIMEOUT_MS`, `SLOWBURNS_NARRATION_MAX_AUDIO_BYTES`,
@@ -45,12 +49,20 @@ scripts use bare `node`); the Remotion render deps auto-install on first run.
   `SLOWBURNS_NARRATION_FFPROBE_MAX_BUFFER_BYTES`. Defaults, ranges, canonical
   output claims, and the no-auto-retry manual recovery procedure are in
   [`SKILL.md`](SKILL.md#bounded-narration-io-and-manual-recovery).
+
+Cartesia fallback is positive-allowlisted, not status-only: ElevenLabs credit
+exhaustion is accepted only for its current HTTP 402
+`payment_required`/`insufficient_credits` envelope or its documented legacy
+HTTP 400/401 `detail.status: quota_exceeded` shape. All malformed, contradictory,
+auth/configuration/input, unknown, and wrong-status/type/code envelopes fail
+closed. See the [current error envelope](https://elevenlabs.io/docs/eleven-api/resources/errors)
+and [legacy 400/401 guidance](https://elevenlabs.io/docs/help-center/technical/api-error-code-400-or-401).
 - **`SLOWBURNS_OPENROUTER_API_KEY`** — the letterify step, via
   [OpenRouter](https://openrouter.ai) (falls back to `OPENROUTER_API_KEY`).
   Default model `anthropic/claude-sonnet-5`; override with `--model <slug>` or
-  `$SLOWBURNS_MODEL`. The value may be a literal key **or** a 1Password reference
-  (`op://DeLoSecrets/OpenRouter/SLOWBURNS_OPENROUTER_API_KEY`), resolved at
-  runtime via `op read` — so no plaintext key need live on disk.
+  `$SLOWBURNS_MODEL`. Use a 1Password reference
+  (`op://DeLoSecrets/OpenRouter/SLOWBURNS_OPENROUTER_API_KEY`) resolved by
+  `op run`, so no plaintext key need live on disk.
 
 Provide credentials through the process environment only, ideally with an
 `op://DeLoSecrets/...` reference resolved at invocation time. Do not create or
@@ -68,9 +80,9 @@ above, or directly:
 ```bash
 # Node 18+ and ffmpeg required. References are resolved only at invocation.
 op run --env-file <(printf '%s\n' \
-  'ELEVENLABS_API_KEY=op://DeLoSecrets/ElevenLabs/SlowBurns API Key/credential' \
-  'CARTESIA_API_KEY=op://DeLoSecrets/Cartesia/<standard-runtime-key-item>/credential' \
-  'CARTESIA_VOICE_ID=<verified-stock-voice-id>') -- \
+  'ELEVENLABS_API_KEY=op://DeLoSecrets/ElevenLabs/ELEVENLABS_API_KEY' \
+  'CARTESIA_API_KEY=op://DeLoSecrets/Cartesia/CARTESIA_API_KEY' \
+  'CARTESIA_VOICE_ID=98a34ef2-2140-4c28-9c71-663dc4dd7022') -- \
   node scripts/build.mjs --file note.txt --auto-music --out out/letter.mp4
 ```
 
