@@ -162,12 +162,14 @@ export function isCapacityFailure(
         return code === 'quota_exceeded'
           && (!type || type === 'payment_required');
       }
-      // The 429 help documentation also retains the old `detail.status`
-      // capacity names. It is a separate legacy shape: 402 credit exhaustion
-      // remains current-envelope-only, and legacy 5xx stays nonfallback.
-      const legacy429Rule = status === 429 ? ELEVEN_FALLBACK_BY_STATUS.get(status) : undefined;
-      return Boolean(legacy429Rule?.codes.has(code))
-        && (!type || type === legacy429Rule.type);
+      // Legacy availability/capacity envelopes retain distinct 429 and 503
+      // status/code forms. Credit exhaustion remains current-envelope-only at
+      // 402, and any other legacy 5xx stays nonfallback.
+      const legacyRule = (status === 429 || status === 503)
+        ? ELEVEN_FALLBACK_BY_STATUS.get(status)
+        : undefined;
+      return Boolean(legacyRule?.codes.has(code))
+        && (!type || type === legacyRule.type);
     }
     const rule = ELEVEN_FALLBACK_BY_STATUS.get(status);
     if (!rule || !rule.codes.has(code)) return false;

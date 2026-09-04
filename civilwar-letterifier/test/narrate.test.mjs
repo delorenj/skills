@@ -449,7 +449,7 @@ test('legacy Eleven 400/401 quota envelopes fall back only with the exact docume
   }
 });
 
-test('near-miss Eleven credit and legacy quota envelopes fail closed without Cartesia', async () => {
+test('near-miss current and legacy Eleven envelopes fail closed without Cartesia', async () => {
   const rejectedCases = [
     () => elevenErrorResponse(400, {type: 'payment_required', code: 'insufficient_credits'}),
     () => elevenErrorResponse(401, {type: 'payment_required', code: 'insufficient_credits'}),
@@ -466,6 +466,10 @@ test('near-miss Eleven credit and legacy quota envelopes fail closed without Car
     () => elevenErrorResponse(400, {legacyStatus: 'invalid_api_key'}),
     () => elevenErrorResponse(401, {code: 'invalid_api_key', legacyStatus: 'quota_exceeded'}),
     () => elevenErrorResponse(503, {legacyStatus: 'quota_exceeded'}),
+    () => elevenErrorResponse(503, {type: 'authentication_error', legacyStatus: 'service_unavailable'}),
+    () => elevenErrorResponse(503, {legacyStatus: 'not_available'}),
+    () => elevenErrorResponse(503, {legacyStatus: 123}),
+    () => elevenErrorResponse(503, {type: 'service_unavailable', code: 'service_unavailable', legacyStatus: 'maintenance'}),
     () => new Response('{not json', {status: 402, headers: {'content-type': 'application/json'}}),
   ];
   for (const [index, response] of rejectedCases.entries()) {
@@ -930,6 +934,29 @@ test('legacy Eleven 429 detail.status capacity envelopes remain strictly eligibl
         calls.push(url);
         return calls.length === 1
           ? elevenErrorResponse(429, {legacyStatus, requestId: `legacy-${legacyStatus}`})
+          : audioResponse();
+      },
+    });
+    assert.deepEqual(calls, ['https://eleven.test/tts', 'https://cartesia.test/tts/bytes']);
+    assert.equal(receipt.selection.provider, 'cartesia');
+  }
+});
+
+test('legacy Eleven 503 detail.status availability envelopes remain strictly eligible', async () => {
+  for (const [legacyStatus, type] of [
+    ['service_unavailable', undefined],
+    ['service_unavailable', 'service_unavailable'],
+    ['maintenance', undefined],
+    ['maintenance', 'service_unavailable'],
+  ]) {
+    const calls = [];
+    const out = path.join(runDir(`legacy-eleven-503-${legacyStatus}-${type || 'no-type'}`), 'narration.mp3');
+    const receipt = await narrate({
+      text: 'A solemn dispatch.', out, operationId: `legacy-503-${legacyStatus}-${type || 'no-type'}`, config: config(), log: () => {},
+      fetchImpl: async (url) => {
+        calls.push(url);
+        return calls.length === 1
+          ? elevenErrorResponse(503, {type, legacyStatus})
           : audioResponse();
       },
     });

@@ -134,7 +134,9 @@ or `maintenance` at HTTP 503. Current credit exhaustion is eligible only as HTTP
 is eligible only at HTTP 400 or 401 with exact `detail.status: quota_exceeded`
 and no current `detail.code`; its optional type may only be `payment_required`.
 The documented legacy `detail.status` values `too_many_concurrent_requests` and
-`system_busy` remain eligible only at HTTP 429. A present current `detail.code`
+`system_busy` remain eligible only at HTTP 429. Legacy HTTP 503 availability is
+eligible only as `detail.status: service_unavailable` or `maintenance`, with an
+absent or exact `service_unavailable` type. A present current `detail.code`
 must agree with any retained legacy status; an auth, input, malformed, unknown,
 wrong-status/type/code, or contradictory hybrid never falls back. Cartesia
 retains its distinct, top-level structured error schema and its own positive
