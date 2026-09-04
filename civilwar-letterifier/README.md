@@ -69,6 +69,17 @@ Provide credentials through the process environment only, ideally with an
 persist a dotenv file. The letter's sign-off is written by the model (cohesive
 with the content); set the name with `--signer` (default `J.`).
 
+The direct `narration.mp3` default and the Remotion handoff generate receipt,
+claim, and atomic-temp runtime sidecars. Those exact runtime paths are ignored
+without hiding source or evidence elsewhere. Verify the patterns with:
+
+```bash
+git check-ignore -v -- narration.mp3 narration.mp3.receipt.json \
+  narration.mp3.narration.lock .narration.mp3.example.tmp.mp3 \
+  remotion/public/narration.mp3.receipt.json \
+  remotion/public/narration.mp3.narration.lock
+```
+
 ## Two layers
 
 **1. Letterify (just prose).** Type `/civilwar <text>` and get the letter back.

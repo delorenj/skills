@@ -36,11 +36,15 @@ export const DEFAULT_NARRATION_LIMITS = Object.freeze(Object.fromEntries(
 // code allowlist. A status alone, a provider-shaped error from the wrong
 // service, or an auth/config/input-shaped contradiction is not enough to risk
 // a second synthesis request.
-const ELEVEN_FALLBACK_BY_STATUS = new Map([
+const ELEVEN_CURRENT_FALLBACK_BY_STATUS = new Map([
   [402, {type: 'payment_required', codes: new Set(['insufficient_credits'])}],
   [429, {type: 'rate_limit_error', codes: new Set([
-    'rate_limit_exceeded', 'concurrent_limit_exceeded', 'too_many_concurrent_requests', 'system_busy',
+    'rate_limit_exceeded', 'concurrent_limit_exceeded',
   ])}],
+  [503, {type: 'service_unavailable', codes: new Set(['service_unavailable', 'maintenance'])}],
+]);
+const ELEVEN_LEGACY_FALLBACK_BY_STATUS = new Map([
+  [429, {type: 'rate_limit_error', codes: new Set(['too_many_concurrent_requests', 'system_busy'])}],
   [503, {type: 'service_unavailable', codes: new Set(['service_unavailable', 'maintenance'])}],
 ]);
 const ELEVEN_LEGACY_QUOTA_STATUSES = new Set([400, 401]);
@@ -89,31 +93,44 @@ function safeErrorToken(value) {
   return typeof value === 'string' && /^[a-z][a-z0-9_]{0,127}$/.test(value) ? value : undefined;
 }
 
+function isPlainRecord(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
 function responseHeader(response, name) {
   return typeof response?.headers?.get === 'function' ? response.headers.get(name) : undefined;
 }
 
 function providerErrorDetails(provider, body) {
   if (provider === 'eleven') {
-    const detail = body?.detail;
-    if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return {};
+    // Error policy may only use a direct, plain JSON-shaped envelope. Never
+    // allow inherited/prototype fields to turn an otherwise empty body into a
+    // billable fallback decision.
+    if (!isPlainRecord(body) || !Object.prototype.hasOwnProperty.call(body, 'detail')) return {};
+    const detail = body.detail;
+    if (!isPlainRecord(detail)) return {};
     // A present-but-malformed current `code` must fail closed rather than
     // silently falling back to the legacy field.
     const hasType = Object.prototype.hasOwnProperty.call(detail, 'type');
     const hasCurrentCode = Object.prototype.hasOwnProperty.call(detail, 'code');
     const hasLegacyStatus = Object.prototype.hasOwnProperty.call(detail, 'status');
-    const currentCode = safeErrorToken(detail.code);
-    const legacyCode = safeErrorToken(detail.status);
+    const type = hasType ? safeErrorToken(detail.type) : undefined;
+    const currentCode = hasCurrentCode ? safeErrorToken(detail.code) : undefined;
+    const legacyCode = hasLegacyStatus ? safeErrorToken(detail.status) : undefined;
     return {
-      type: safeErrorToken(detail.type),
+      type,
       typePresent: hasType,
       code: hasCurrentCode ? currentCode : legacyCode,
-      legacyStatus: !hasCurrentCode && typeof detail.status === 'string',
+      legacyStatus: !hasCurrentCode && hasLegacyStatus && typeof detail.status === 'string',
       // Current envelopes may retain `status` for backwards compatibility, but
       // it must agree exactly with `code`. A malformed or contradictory hybrid
       // must never borrow eligibility from either envelope generation.
       contradictory: hasCurrentCode && hasLegacyStatus && currentCode !== legacyCode,
-      requestId: safeRequestId(detail.request_id),
+      requestId: Object.prototype.hasOwnProperty.call(detail, 'request_id')
+        ? safeRequestId(detail.request_id)
+        : undefined,
     };
   }
   return {
@@ -165,13 +182,11 @@ export function isCapacityFailure(
       // Legacy availability/capacity envelopes retain distinct 429 and 503
       // status/code forms. Credit exhaustion remains current-envelope-only at
       // 402, and any other legacy 5xx stays nonfallback.
-      const legacyRule = (status === 429 || status === 503)
-        ? ELEVEN_FALLBACK_BY_STATUS.get(status)
-        : undefined;
+      const legacyRule = ELEVEN_LEGACY_FALLBACK_BY_STATUS.get(status);
       return Boolean(legacyRule?.codes.has(code))
         && (!type || type === legacyRule.type);
     }
-    const rule = ELEVEN_FALLBACK_BY_STATUS.get(status);
+    const rule = ELEVEN_CURRENT_FALLBACK_BY_STATUS.get(status);
     if (!rule || !rule.codes.has(code)) return false;
     // Current `detail.code` responses must identify the matching type.
     return type === rule.type;

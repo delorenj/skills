@@ -5,6 +5,18 @@ remotion/public/narration.mp3
 remotion/public/music.mp3
 remotion/public/ambient.mp3
 remotion/public/.letter.txt
+# Narration runtime state for the direct default and Remotion handoff only.
+/narration.mp3
+/narration.mp3.receipt.json
+/narration.mp3.narration.lock
+/.narration.mp3.*.tmp.mp3
+/.narration.mp3.receipt.json.*.tmp
+/.narration.mp3.narration.lock.*.tmp
+/remotion/public/narration.mp3.receipt.json
+/remotion/public/narration.mp3.narration.lock
+/remotion/public/.narration.mp3.*.tmp.mp3
+/remotion/public/.narration.mp3.receipt.json.*.tmp
+/remotion/public/.narration.mp3.narration.lock.*.tmp
 assets/music/*
 !assets/music/.gitkeep
 assets/sfx/*

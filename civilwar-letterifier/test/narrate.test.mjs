@@ -51,6 +51,22 @@ function jsonResponse(status, body, requestId = 'safe-request-id') {
   });
 }
 
+async function withInheritedObjectProperty(name, value, operation) {
+  const previous = Object.getOwnPropertyDescriptor(Object.prototype, name);
+  Object.defineProperty(Object.prototype, name, {
+    configurable: true,
+    enumerable: false,
+    value,
+    writable: true,
+  });
+  try {
+    return await operation();
+  } finally {
+    if (previous) Object.defineProperty(Object.prototype, name, previous);
+    else delete Object.prototype[name];
+  }
+}
+
 function elevenErrorResponse(status, {type, code, legacyStatus, requestId = 'safe-request-id', message = 'provider message'} = {}) {
   const detail = {type, message, request_id: requestId};
   if (code !== undefined) detail.code = code;
@@ -482,6 +498,43 @@ test('near-miss current and legacy Eleven envelopes fail closed without Cartesia
       }),
       (error) => error.provider === 'eleven' && error.fallbackClass === 'nonretryable',
     );
+    assert.deepEqual(calls, ['https://eleven.test/tts']);
+  }
+});
+
+test('Eleven fallback classification ignores inherited non-enumerable error fields', async () => {
+  const inheritedCases = [
+    {
+      body: {detail: {code: 'insufficient_credits'}},
+      name: 'type',
+      status: 402,
+      value: 'payment_required',
+    },
+    {
+      body: {detail: {}},
+      name: 'status',
+      status: 400,
+      value: 'quota_exceeded',
+    },
+    {
+      body: {},
+      name: 'detail',
+      status: 401,
+      value: {status: 'quota_exceeded'},
+    },
+  ];
+  for (const [index, inherited] of inheritedCases.entries()) {
+    const calls = [];
+    await withInheritedObjectProperty(inherited.name, inherited.value, async () => {
+      await assert.rejects(
+        narrate({
+          text: 'A solemn dispatch.', out: path.join(runDir(`inherited-envelope-${index}`), 'narration.mp3'),
+          operationId: `inherited-envelope-${index}`, config: config(), log: () => {},
+          fetchImpl: async (url) => { calls.push(url); return jsonResponse(inherited.status, inherited.body); },
+        }),
+        (error) => error.provider === 'eleven' && error.fallbackClass === 'nonretryable',
+      );
+    });
     assert.deepEqual(calls, ['https://eleven.test/tts']);
   }
 });
@@ -939,6 +992,27 @@ test('legacy Eleven 429 detail.status capacity envelopes remain strictly eligibl
     });
     assert.deepEqual(calls, ['https://eleven.test/tts', 'https://cartesia.test/tts/bytes']);
     assert.equal(receipt.selection.provider, 'cartesia');
+  }
+});
+
+test('current and legacy Eleven 429 codes cannot cross error-envelope families', async () => {
+  const rejectedCases = [
+    () => elevenErrorResponse(429, {type: 'rate_limit_error', code: 'too_many_concurrent_requests'}),
+    () => elevenErrorResponse(429, {type: 'rate_limit_error', code: 'system_busy'}),
+    () => elevenErrorResponse(429, {type: 'rate_limit_error', legacyStatus: 'rate_limit_exceeded'}),
+    () => elevenErrorResponse(429, {type: 'rate_limit_error', legacyStatus: 'concurrent_limit_exceeded'}),
+  ];
+  for (const [index, response] of rejectedCases.entries()) {
+    const calls = [];
+    await assert.rejects(
+      narrate({
+        text: 'A solemn dispatch.', out: path.join(runDir(`crossed-429-${index}`), 'narration.mp3'),
+        operationId: `crossed-429-${index}`, config: config(), log: () => {},
+        fetchImpl: async (url) => { calls.push(url); return response(); },
+      }),
+      (error) => error.provider === 'eleven' && error.fallbackClass === 'nonretryable',
+    );
+    assert.deepEqual(calls, ['https://eleven.test/tts']);
   }
 });
 
