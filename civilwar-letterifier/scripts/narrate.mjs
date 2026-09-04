@@ -99,12 +99,14 @@ function providerErrorDetails(provider, body) {
     if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return {};
     // A present-but-malformed current `code` must fail closed rather than
     // silently falling back to the legacy field.
+    const hasType = Object.prototype.hasOwnProperty.call(detail, 'type');
     const hasCurrentCode = Object.prototype.hasOwnProperty.call(detail, 'code');
     const hasLegacyStatus = Object.prototype.hasOwnProperty.call(detail, 'status');
     const currentCode = safeErrorToken(detail.code);
     const legacyCode = safeErrorToken(detail.status);
     return {
       type: safeErrorToken(detail.type),
+      typePresent: hasType,
       code: hasCurrentCode ? currentCode : legacyCode,
       legacyStatus: !hasCurrentCode && typeof detail.status === 'string',
       // Current envelopes may retain `status` for backwards compatibility, but
@@ -130,7 +132,7 @@ function classifiedProviderError(provider, response, body) {
   const details = providerErrorDetails(provider, body);
   const status = Number.isInteger(response.status) ? response.status : undefined;
   const fallbackClass = isCapacityFailure(
-    provider, status, details.code, details.type, details.legacyStatus, details.contradictory,
+    provider, status, details.code, details.type, details.legacyStatus, details.contradictory, details.typePresent,
   )
     ? 'capacity_or_availability'
     : 'nonretryable';
@@ -143,8 +145,13 @@ function classifiedProviderError(provider, response, body) {
   });
 }
 
-export function isCapacityFailure(provider, status, code, type, legacyStatus = false, contradictory = false) {
+export function isCapacityFailure(
+  provider, status, code, type, legacyStatus = false, contradictory = false, typePresent = false,
+) {
   if (!Number.isInteger(status) || !safeErrorToken(code)) return false;
+  // A legacy envelope may omit `type`, but it cannot make a malformed present
+  // type look absent. This keeps all malformed provider shapes fail-closed.
+  if (typePresent && !safeErrorToken(type)) return false;
   if (provider === 'eleven') {
     if (contradictory) return false;
     // ElevenLabs' legacy 400/401 quota envelope uses `detail.status` rather

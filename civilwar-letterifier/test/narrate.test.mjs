@@ -461,6 +461,7 @@ test('near-miss Eleven credit and legacy quota envelopes fail closed without Car
     () => elevenErrorResponse(402, {legacyStatus: 'quota_exceeded'}),
     () => elevenErrorResponse(400, {type: 'authentication_error', legacyStatus: 'quota_exceeded'}),
     () => elevenErrorResponse(401, {type: 'authentication_error', legacyStatus: 'quota_exceeded'}),
+    () => elevenErrorResponse(401, {type: 123, legacyStatus: 'quota_exceeded'}),
     () => elevenErrorResponse(429, {legacyStatus: 'quota_exceeded'}),
     () => elevenErrorResponse(400, {legacyStatus: 'invalid_api_key'}),
     () => elevenErrorResponse(401, {code: 'invalid_api_key', legacyStatus: 'quota_exceeded'}),
