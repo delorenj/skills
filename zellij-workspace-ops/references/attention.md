@@ -131,6 +131,26 @@ It is wired to Claude Code's `Notification` hook (mark) and `UserPromptSubmit` (
 and follows the hook contract: never blocks, never fails a turn, no-op + exit 0 outside
 zellij.
 
+**The blink must not change the tab's width.** The first version wrapped the name in
+three glyphs a side and toggled the whole thing on and off — `🔔🔔🔔 Deckard 🔔🔔🔔` is
+21 columns, `Deckard` is 7, so a marked tab shoved every tab after it 14 columns
+sideways four times a second. Now it appends **one** glyph and the blink *swaps* it for
+a partner of identical width (`🔔` ⇄ `⚫`), so the bar never reflows.
+
+That makes East_Asian_Width the binding constraint, and it is easy to break by eye:
+
+| glyph | codepoint | EAW | safe as a marker? |
+|---|---|---|---|
+| `🔔` `🔴` `✅` `🟠` `⚫` `🔕` | U+1F514, U+1F534, U+2705, U+1F7E0, U+26AB, U+1F515 | **W** | yes — exactly 2 columns |
+| `⚠️` `▫️` | U+26A0/U+25AB **+ VS16** | ambiguous | **no** — narrow base; terminals disagree on 1 vs 2 |
+| `·` | U+00B7 | A | no — usually 1 column |
+| `　` | U+3000 | F | 2 columns and invisible, but it is trailing whitespace and liable to be trimmed |
+
+`⚠️` was in the original set and was itself a jitter source; `🟠` replaced it. Check any
+replacement with
+`python3 -c "import unicodedata;print(unicodedata.east_asian_width('X'))"` and require
+`W`. The partner glyph is `ZELLIJ_NOTIFY_BLINK_ALT`.
+
 This lands exactly on the ceiling described above — a name change, not a glow. That is
 the honest maximum without owning the renderer. To go past it you must replace the
 tab-bar plugin itself (fork `zellij:tab-bar`, or adopt zj-radar / zellaude below).
