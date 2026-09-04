@@ -5,14 +5,21 @@ returns is an aside for the compose agent, and every failure degrades to
 `status: unavailable` with a caveat instead of stopping the run. Memories the
 skill wrote itself (context `activity-report:<audience>`) are excluded from
 the listing so a report never quotes the previous report back as a fact.
+
+Retain is the one write, and it is verified: the CLI's "Stored 1 memory units"
+counts documents, not facts, so the document's memory_unit_count is read back
+and an empty extraction is retried under the same id.
 """
 from __future__ import annotations
 
 import json
 import os
 import subprocess
+import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-from .common import AcceptanceError, ConfigError, eprint, parse_iso, read_json, to_iso_z
+from .common import AUDIENCES, AcceptanceError, ConfigError, eprint, parse_iso, read_json, to_iso_z
 from .config import hindsight_bank, load_project
 from .render import parse, split_raw, to_prose
 
@@ -162,61 +169,163 @@ def collect(project, window) -> dict:
 
 
 AUDIENCE_WORD = {"internal": "Internal", "external": "Client-facing"}
+RETAIN_TRIES = 3
+RETAIN_BACKOFF = (20, 40)      # seconds before the second and the third try
+DOCUMENT_TIMEOUT = 30
 
 
-def retain_text(project, audience: str, raw_text: str, window_end) -> str:
+def _bounds(window) -> tuple[datetime | None, datetime | None]:
+    """(start, end) as aware datetimes from a Window, a digest window dict, or a bare end value."""
+    if isinstance(window, dict):
+        start, end = window.get("start"), window.get("end")
+    else:
+        start, end = getattr(window, "start", None), getattr(window, "end", window)
+
+    def as_dt(value):
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str):
+            try:
+                return parse_iso(value)
+            except ValueError:
+                return None
+        return None
+    return as_dt(start), as_dt(end)
+
+
+def timeline_dater(start, end, tz: str):
+    """A function from a project-local `HH:MM` to the calendar date it belongs
+    to inside the window, so a timeline fact carries its own date instead of
+    depending on the lead sentence. One date when the window sits inside a
+    day; across one midnight a clock at or after the window's own start clock
+    is the first day and an earlier one the second (the timeline is in order
+    and the window is at most a day). Longer windows return None and the
+    sentence keeps its bare clock."""
+    if start is None or end is None:
+        return lambda at: None
+    try:
+        zone = ZoneInfo(tz)
+    except Exception:  # noqa: BLE001 - validated at config time; never fail a retain over it
+        return lambda at: None
+    first, last = start.astimezone(zone), end.astimezone(zone)
+    span = (last.date() - first.date()).days
+    start_clock = first.hour * 60 + first.minute
+
+    def date_for(at: str) -> str | None:
+        try:
+            hours, minutes = at.split(":")
+            clock = int(hours) * 60 + int(minutes)
+        except ValueError:
+            return None
+        if span == 0:
+            return first.date().isoformat()
+        if span == 1:
+            return (first.date() if clock >= start_clock else last.date()).isoformat()
+        return None
+    return date_for
+
+
+def retain_text(project, audience: str, raw_text: str, window) -> str:
     """The prose rendition Hindsight is given (see render.to_prose); raw.txt
     itself only when it does not parse as a report."""
     try:
         title, body = split_raw(raw_text)
     except AcceptanceError:
         return raw_text
-    when = window_end if isinstance(window_end, str) else to_iso_z(window_end)
+    start, end = _bounds(window)
+    when = to_iso_z(end) if end is not None else "unknown"
     name = getattr(project, "name", None) or project.slug
     lead = (f"{AUDIENCE_WORD.get(audience, audience)} activity report for {name} ({project.slug}), "
             f"window ending {when}")
-    return to_prose(title, parse(body), lead=lead)
+    return to_prose(title, parse(body), lead=lead, dates=timeline_dater(start, end, getattr(project, "tz", "UTC")))
 
 
-def doc_id_for(project, audience: str, label: str, run_id: str | None, attempt: int = 1) -> str:
-    """One Hindsight document per run (and per manual attempt), not per window.
-    Hindsight retains by delta: chunks a document id already holds are never
-    re-extracted ("No chunk changes detected"), and its extractor answers with
-    zero facts on a fair share of calls (2026-09-03: about half, on the same
-    text). So a document whose first extraction came back empty cannot be
-    repaired under the same id; a new run, or `--attempt N`, gets a new one."""
-    base = f"{CONTEXT_PREFIX}{project.slug}:{audience}:{label}"
-    if isinstance(run_id, str) and run_id:
-        base = f"{base}:{run_id[:8]}"
-    return f"{base}:a{attempt}" if attempt and attempt > 1 else base
+def doc_id_for(project, audience: str, label: str) -> str:
+    """One Hindsight document per window. A re-run of the same window replaces
+    it (Hindsight's default update_mode), and a retry after an empty
+    extraction re-extracts in full: the delta skip only covers chunks a
+    successful retain stored, and a zero-fact retain stores none."""
+    return f"{CONTEXT_PREFIX}{project.slug}:{audience}:{label}"
 
 
-def retain(project, audience: str, raw_text: str, window_end, label: str, run_id: str | None = None,
-           attempt: int = 1) -> bool:
-    """Store the report, as prose, in the project's bank. False (with a warning) on any failure; never raises."""
+def retain_audiences(project) -> list[str]:
+    """Which audiences are written to memory; internal only unless configured.
+    The client-facing text is spin by design and is not the record."""
+    value = (project.config.get("hindsight") or {}).get("retain_audiences")
+    return [a for a in value if a in AUDIENCES] if isinstance(value, list) else ["internal"]
+
+
+def unit_count(bank: str, doc_id: str) -> int | None:
+    """memory_unit_count of a document: the only truthful measure of a retain.
+    The CLI answers "Stored 1 memory units" for an extraction that stored none."""
+    body = _json(_run([HINDSIGHT_BIN, "document", "get", bank, doc_id, "-o", "json"], DOCUMENT_TIMEOUT))
+    count = body.get("memory_unit_count") if isinstance(body, dict) else None
+    return count if isinstance(count, int) and not isinstance(count, bool) else None
+
+
+def retain(project, audience: str, raw_text: str, window, label: str, tries: int = RETAIN_TRIES,
+           sleep=time.sleep) -> dict:
+    """Store the report, as prose, in the project's bank and verify it landed
+    as facts. Never raises; every failure is a warning and `retained: False`.
+
+    Hindsight's extractor answers with zero facts on a fair share of calls
+    (measured 2026-09-03/04 on this host: a quarter to a half of all retains),
+    so one retain is not a retain. Each try re-retains the same document id
+    and reads memory_unit_count back; the run moves on after `tries` empties.
+    """
+    result = {"retained": False, "bank": None, "doc_id": None, "units": None, "attempts": 0, "reason": None}
     cfg = project.config.get("hindsight") or {}
     if cfg.get("retain") is False:
-        eprint(f"activity-report: retain disabled for {project.slug} (hindsight.retain=false)")
-        return False
-    if not isinstance(raw_text, str) or not raw_text.strip():
-        eprint("activity-report: retain skipped: empty report text")
-        return False
+        result["reason"] = "hindsight.retain is false"
+    elif audience not in retain_audiences(project):
+        result["reason"] = f"{audience} is not in hindsight.retain_audiences {retain_audiences(project)}"
+    elif not isinstance(raw_text, str) or not raw_text.strip():
+        result["reason"] = "empty report text"
+    if result["reason"]:
+        eprint(f"activity-report: retain skipped: {result['reason']}")
+        return result
     try:
         bank = hindsight_bank(project)
     except ConfigError as exc:
+        result["reason"] = str(exc)
         eprint(f"activity-report: retain skipped: {exc}")
-        return False
-    timestamp = window_end if isinstance(window_end, str) else to_iso_z(window_end)
-    args = [HINDSIGHT_BIN, "memory", "retain", bank, retain_text(project, audience, raw_text, window_end),
-            "--context", f"{CONTEXT_PREFIX}{audience}",
-            "--doc-id", doc_id_for(project, audience, label, run_id, attempt),
-            "--timestamp", timestamp]
-    try:
-        _run(args, RETAIN_TIMEOUT)
-    except (HindsightFailed, Exception) as exc:  # noqa: BLE001
-        eprint(f"activity-report: retain failed (warning): {exc}")
-        return False
-    return True
+        return result
+    _start, end = _bounds(window)
+    doc_id = doc_id_for(project, audience, label)
+    result.update({"bank": bank, "doc_id": doc_id})
+    args = [HINDSIGHT_BIN, "memory", "retain", bank, retain_text(project, audience, raw_text, window),
+            "--context", f"{CONTEXT_PREFIX}{audience}", "--doc-id", doc_id]
+    if end is not None:
+        args += ["--timestamp", to_iso_z(end)]
+    tries = max(1, int(tries or 1))
+    for attempt in range(1, tries + 1):
+        result["attempts"] = attempt
+        if attempt > 1:
+            sleep(RETAIN_BACKOFF[min(attempt - 2, len(RETAIN_BACKOFF) - 1)])
+        try:
+            _run(args, RETAIN_TIMEOUT)
+        except (HindsightFailed, Exception) as exc:  # noqa: BLE001 - memory never stops the run
+            result["reason"] = str(exc)
+            eprint(f"activity-report: retain try {attempt}/{tries} failed: {exc}")
+            continue
+        try:
+            units = unit_count(bank, doc_id)
+        except (HindsightFailed, Exception) as exc:  # noqa: BLE001
+            result["reason"] = f"stored, but the unit count could not be read: {exc}"
+            eprint(f"activity-report: retain (warning): {result['reason']}")
+            return result
+        result["units"] = units
+        if units is None:
+            result["reason"] = "stored, but the document reports no memory_unit_count"
+            eprint(f"activity-report: retain (warning): {result['reason']}")
+            return result
+        if units > 0:
+            result.update({"retained": True, "reason": None})
+            return result
+        result["reason"] = f"extraction stored 0 units on try {attempt}/{tries}"
+        eprint(f"activity-report: retain try {attempt}/{tries}: 0 units for {doc_id}")
+    eprint(f"activity-report: retain failed (warning): {result['reason']} (the event is published; memory is not)")
+    return result
 
 
 def retain_cmd(args) -> int:
@@ -234,14 +343,16 @@ def retain_cmd(args) -> int:
         raise ConfigError(f"{args.digest} is not a digest (no window/label)")
     if digest.get("audience") != args.audience:
         raise ConfigError(f"{args.digest} is a {digest.get('audience')} digest, not {args.audience}")
-    run_id = digest.get("run_id") if isinstance(digest.get("run_id"), str) else None
-    attempt = int(getattr(args, "attempt", 1) or 1)
-    ok = retain(project, args.audience, raw_text, digest["window"]["end"], digest["label"], run_id, attempt)
-    doc_id = doc_id_for(project, args.audience, digest["label"], run_id, attempt)
+    tries = int(getattr(args, "tries", RETAIN_TRIES) or RETAIN_TRIES)
+    result = retain(project, args.audience, raw_text, digest["window"], digest["label"], tries=tries)
     if args.json:
-        print(json.dumps({"retained": ok, "bank": hindsight_bank(project), "doc_id": doc_id}))
-    elif ok:
-        print(f"retained  {hindsight_bank(project)}  {doc_id}")
+        print(json.dumps(result))
+    elif result["retained"]:
+        print(f"retained  {result['bank']}  {result['doc_id']}  units={result['units']}  tries={result['attempts']}")
+    elif result["doc_id"]:
+        print(f"retain    NOT verified for {result['doc_id']}: {result['reason']}")
     else:
-        print(f"retain    skipped or failed for {doc_id} (see stderr)")
-    return 0
+        print(f"retain    skipped: {result['reason']}")
+    # Warning-level for the runner (it logs a non-zero exit and goes on), but a
+    # hand repair should see the failure in its exit code.
+    return 0 if result["retained"] or not result["doc_id"] else 1

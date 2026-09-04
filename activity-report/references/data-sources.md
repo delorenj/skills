@@ -158,19 +158,26 @@ Lists page with `per_page=100` and `next_cursor`.
   memory; every fact in the report must trace to Candystore, git or the board. Any
   failure is `status: unavailable` with a caveat; the run never stops for it.
 - `retain` stores the finished report, as prose (`render.to_prose`: metric rows
-  and timeline lines become sentences, because the extractor returns no facts
-  for the raw grammar), with `--context activity-report:<audience>`,
-  `--doc-id activity-report:<slug>:<audience>:<label>:<run id, 8 chars>` and
-  `--timestamp <window end>`; it warns and returns false on failure. The id is
-  per run on purpose. Hindsight retains by delta: chunks an existing document id
-  already holds are never re-extracted, and on 2026-09-03 its extractor
-  (OpenRouter preset `hindsight-retain`) returned zero facts on about half of
-  its calls for the same text while the CLI still reported `Stored 1 memory
-  units`. A document whose first extraction came back empty therefore cannot be
-  repaired under its own id. To repair one by hand, re-run
-  `activity-report retain ... --attempt 2` (a fresh id, suffix `:a2`) and read
-  the fact count from the API container: `docker logs hindsight 2>&1 | grep -A1
-  'STREAMING RETAIN COMPLETE'` names the document and its unit count.
+  and timeline lines become sentences, each timeline sentence carrying its
+  calendar date, because the extractor returns no facts for the raw grammar),
+  with `--context activity-report:<audience>`,
+  `--doc-id activity-report:<slug>:<audience>:<label>` and `--timestamp <window
+  end>`. One document per window: a re-run of the window replaces it. Only the
+  audiences in `hindsight.retain_audiences` (default `["internal"]`) are
+  written; the client-facing text is spin by design, not the record.
+- **A retain is verified, not believed.** The CLI answers `Stored 1 memory
+  units` whether or not extraction produced a fact, so after every retain the
+  skill reads `hindsight document get <bank> <doc-id> -o json` and its
+  `memory_unit_count`. Zero means the extractor (OpenRouter preset
+  `hindsight-retain`) answered empty, which it did for a quarter to a half of
+  all retains on this host on 2026-09-03/04; the skill then retains the same
+  document id again, up to `--tries` (default 3, 20 s then 40 s apart). That
+  is safe and effective because Hindsight's delta skip only covers chunks a
+  successful retain stored, and an empty retain stores none, so the retry is a
+  full re-extraction. The run log ends the step with `units=<n> tries=<k>`, or
+  `NOT verified` and the reason; the run itself never fails over memory. To
+  repair a window by hand, re-run `activity-report retain --audience internal
+  <raw.txt> --digest <digest.json> [--tries 5]` and read the count it prints.
 
 ## Tokens
 

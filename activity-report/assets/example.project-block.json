@@ -8,7 +8,7 @@
     "extra_repo_paths: absolute paths of other checkouts whose commits belong to this project. The .project.json repo is always included; worktrees are found automatically.",
     "schedule.at: HH:MM local time for the nightly timer. install-timer writes it into activity-report@<slug>.timer.d/schedule.conf.",
     "window.cap_hours: the longest window one report covers; when the previous report is older than this, basis becomes cap_24h. window.min_minutes: a window shorter than this makes collect exit 4 (nothing to do) unless --force.",
-    "hindsight.bank: the memory bank name, null = the repo basename. hindsight.recall: read facts about the window into the digest. hindsight.retain: store the raw report after a successful emit.",
+    "hindsight.bank: the memory bank name, null = the repo basename. hindsight.recall: read facts about the window into the digest. hindsight.retain: store the report (as prose, verified by memory_unit_count, retried on an empty extraction) after a successful emit. hindsight.retain_audiences: which audiences are written to memory; internal only by default, the client-facing text being spin rather than the record.",
     "board.api_key_ref: an op:// reference for the board API key, never a value. board.exposure_labels: the two labels that mark a ticket client-visible (always surfaced) or internal-only (never named to the client). board.max_live_fetches: cap on per-ticket lookups per run.",
     "compose.model: a model id passed as `claude --model`, null = the CLI default. compose.timeout_minutes: wall clock for one compose pass; the systemd unit allows 90 minutes for the whole run.",
     "lint.extra_identifiers: more ticket prefixes the external lint refuses (a second board, a vendor's tracker). lint.banned_terms: words that must never reach the client, matched whole and case-insensitively.",
@@ -22,7 +22,7 @@
     "extra_repo_paths": [],
     "schedule": {"at": "03:00"},
     "window": {"cap_hours": 24, "min_minutes": 60},
-    "hindsight": {"bank": null, "recall": true, "retain": true},
+    "hindsight": {"bank": null, "recall": true, "retain": true, "retain_audiences": ["internal"]},
     "board": {
       "api_key_ref": "op://DeLoSecrets/<item>/<field>",
       "exposure_labels": {"external": "xp:external", "internal": "xp:internal"},

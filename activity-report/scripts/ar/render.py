@@ -140,13 +140,20 @@ def _sentence(text: str) -> str:
     return t if t[-1] in ".!?:;" else t + "."
 
 
-def to_prose(title: str, blocks: list[Block], lead: str | None = None) -> str:
+def _timeline_sentence(at: str, text: str, dates) -> str:
+    date = dates(at) if dates else None
+    body = strip_bold(text).strip()
+    return f"On {date} at {at}, {body}" if date else f"At {at}, {body}"
+
+
+def to_prose(title: str, blocks: list[Block], lead: str | None = None, dates=None) -> str:
     """Plain sentences from the portal grammar. Hindsight's extractor returns no
     facts for metric tables and `HH:MM` timeline lines (measured 2026-09-03:
-    the prose section of a report yielded 6 facts, its table and timeline
-    section 0), so retain sends this instead of raw.txt: one `label: value.`
-    per metric row, `At HH:MM, ...` per timeline entry, a sentence per bullet,
-    headings as `Heading:` lead-ins, bold markers dropped."""
+    grammar-shaped text stored 0 units in 4 of 4 retains, prose stored facts in
+    4 of 9), so retain sends this instead of raw.txt: one `label: value.` per
+    metric row, `On <date> at HH:MM, ...` per timeline entry (`dates` maps a
+    clock to its calendar date; without it, `At HH:MM, ...`), a sentence per
+    bullet, headings as `Heading:` lead-ins, bold markers dropped."""
     paras: list[str] = []
     if lead:
         paras.append(_sentence(lead))
@@ -159,7 +166,7 @@ def to_prose(title: str, blocks: list[Block], lead: str | None = None) -> str:
         elif block.kind == "metrics":
             paras.append(" ".join(_sentence(f"{strip_bold(k).strip()}: {strip_bold(v).strip()}") for k, v in block.items))
         elif block.kind == "timeline":
-            paras.append(" ".join(_sentence(f"At {at}, {strip_bold(text).strip()}") for at, text in block.items))
+            paras.append(" ".join(_sentence(_timeline_sentence(at, text, dates)) for at, text in block.items))
         elif block.kind == "bullets":
             paras.append(" ".join(_sentence(item) for item in block.items))
         else:

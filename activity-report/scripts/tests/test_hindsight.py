@@ -56,19 +56,27 @@ PAGE_2 = [item("2026-09-02T08:00:00+00:00", "x" * 700, fact_type="experience"),
 
 
 class FakeCli:
-    def __init__(self, pages=None, recall=None, list_rc=0, recall_rc=0, retain_rc=0, missing=False):
+    def __init__(self, pages=None, recall=None, list_rc=0, recall_rc=0, retain_rc=0, get_rc=0, units=None, missing=False):
         self.pages = pages if pages is not None else [PAGE_1, PAGE_2, []]
         self.recall = recall if recall is not None else RECALL
-        self.rcs = {"list": list_rc, "recall": recall_rc, "retain": retain_rc}
+        self.rcs = {"list": list_rc, "recall": recall_rc, "get": get_rc}
+        # per successive retain call (the last value repeats); an int applies to every call
+        self.retain_rcs = list(retain_rc) if isinstance(retain_rc, (list, tuple)) else [retain_rc]
+        # memory_unit_count per successive `document get` (the last value repeats)
+        self.units = list(units) if units is not None else [5]
         self.missing = missing
         self.calls: list[list[str]] = []
+
+    @staticmethod
+    def _next(seq):
+        return seq.pop(0) if len(seq) > 1 else seq[0]
 
     def __call__(self, args, **kw):
         self.calls.append(list(args))
         if self.missing:
             raise FileNotFoundError(args[0])
         verb = args[2]
-        rc = self.rcs[verb]
+        rc = self._next(self.retain_rcs) if verb == "retain" else self.rcs[verb]
         if rc:
             return subprocess.CompletedProcess(args, rc, stdout="", stderr="error: bank exploded\n")
         if verb == "list":
@@ -78,7 +86,9 @@ class FakeCli:
             return subprocess.CompletedProcess(args, 0, stdout=json.dumps({"items": page, "limit": limit, "offset": offset, "total": 9}), stderr="")
         if verb == "recall":
             return subprocess.CompletedProcess(args, 0, stdout=json.dumps(self.recall), stderr="")
-        return subprocess.CompletedProcess(args, 0, stdout="stored\n", stderr="")
+        if verb == "get":
+            return subprocess.CompletedProcess(args, 0, stdout=json.dumps({"id": args[4], "memory_unit_count": self._next(self.units)}), stderr="")
+        return subprocess.CompletedProcess(args, 0, stdout=json.dumps({"success": True, "items_count": 1, "message": "Stored 1 memory units"}), stderr="")
 
 
 class CollectTests(unittest.TestCase):
@@ -149,61 +159,117 @@ class CollectTests(unittest.TestCase):
 
 
 class RetainTests(unittest.TestCase):
-    def test_retain_text_is_prose_not_grammar(self):
-        raw = ("# First **draft** invoice landed\n## The window\n| Sessions | 97 (57 ended) |\n| Commits | 46 |\n"
-               "## Timeline\n20:56 a24fd10 feat(surface): field proving\n02:12 draft **5444** read back\n"
-               "## Still open\n- JIMB-169 held in review\n- nothing closed.\nPlain paragraph")
-        text = hindsight.retain_text(project(), "external", raw, "2026-09-03T00:35:54Z")
+    RAW = ("# First **draft** invoice landed\n## The window\n| Sessions | 97 (57 ended) |\n| Commits | 46 |\n"
+           "## Timeline\n20:56 a24fd10 feat(surface): field proving\n02:12 draft **5444** read back\n"
+           "## Still open\n- JIMB-169 held in review\n- nothing closed.\nPlain paragraph")
+    WIN = {"start": "2026-09-02T00:35:54Z", "end": "2026-09-03T00:35:54Z"}   # 09-01 20:35 -> 09-02 20:35 New York
+
+    def test_retain_text_is_prose_with_dated_timeline(self):
+        text = hindsight.retain_text(project(), "external", self.RAW, self.WIN)
         self.assertEqual(text.split("\n\n"), [
             "Client-facing activity report for James Brennan (james-brennan), window ending 2026-09-03T00:35:54Z.",
             "First draft invoice landed.",
             "The window:",
             "Sessions: 97 (57 ended). Commits: 46.",
             "Timeline:",
-            "At 20:56, a24fd10 feat(surface): field proving. At 02:12, draft 5444 read back.",
+            "On 2026-09-01 at 20:56, a24fd10 feat(surface): field proving. On 2026-09-02 at 02:12, draft 5444 read back.",
             "Still open:",
             "JIMB-169 held in review. nothing closed.",
             "Plain paragraph.",
         ])
         self.assertNotIn("|", text)
         self.assertNotIn("**", text)
+        # a bare end value (no start) keeps the bare clock
+        self.assertIn("At 09:00, x.", hindsight.retain_text(project(), "internal", "# T\n## Timeline\n09:00 x", "2026-09-03T00:00:00Z"))
         # text that is not a report goes through untouched
-        self.assertEqual(hindsight.retain_text(project(), "internal", "just a note", "2026-09-03T00:00:00Z"), "just a note")
+        self.assertEqual(hindsight.retain_text(project(), "internal", "just a note", self.WIN), "just a note")
 
-    def test_retain_arguments(self):
-        cli = FakeCli()
+    def test_timeline_dater(self):
+        same_day = hindsight.timeline_dater(parse_iso("2026-09-02T13:00:00Z"), parse_iso("2026-09-02T22:00:00Z"), "America/New_York")
+        self.assertEqual(same_day("10:15"), "2026-09-02")
+        self.assertIsNone(same_day("nope"))
+        across = hindsight.timeline_dater(parse_iso(self.WIN["start"]), parse_iso(self.WIN["end"]), "America/New_York")
+        self.assertEqual(across("20:35"), "2026-09-01")
+        self.assertEqual(across("23:59"), "2026-09-01")
+        self.assertEqual(across("20:34"), "2026-09-02")
+        self.assertEqual(across("00:00"), "2026-09-02")
+        longer = hindsight.timeline_dater(parse_iso("2026-09-01T00:00:00Z"), parse_iso("2026-09-04T00:00:00Z"), "UTC")
+        self.assertIsNone(longer("10:00"))
+        self.assertIsNone(hindsight.timeline_dater(None, None, "UTC")("10:00"))
+
+    def test_retain_arguments_and_verification(self):
+        cli = FakeCli(units=[17])
+        sleeps: list[int] = []
         with mock.patch.object(hindsight.subprocess, "run", cli):
-            ok = hindsight.retain(project(), "internal", "# Title\n\nBody", window().end, "2026-09-03T0300")
-        self.assertTrue(ok)
+            result = hindsight.retain(project(), "internal", "# Title\n\nBody", window(), "2026-09-03T0300", sleep=sleeps.append)
         prose = ("Internal activity report for James Brennan (james-brennan), window ending 2026-09-03T00:00:00Z."
                  "\n\nTitle.\n\nBody.")
-        self.assertEqual(cli.calls, [["hindsight", "memory", "retain", "james-brennan", prose,
-                                      "--context", "activity-report:internal",
-                                      "--doc-id", "activity-report:james-brennan:internal:2026-09-03T0300",
-                                      "--timestamp", "2026-09-03T00:00:00Z"]])
-        cli = FakeCli()
-        with mock.patch.object(hindsight.subprocess, "run", cli):
-            hindsight.retain(project(), "internal", "# Title\n\nBody", window().end, "2026-09-03T0300",
-                             run_id="9b6e3b86-5b5e-4040-bbbe-c8fb6d258575")
-        self.assertEqual(cli.calls[0][cli.calls[0].index("--doc-id") + 1],
-                         "activity-report:james-brennan:internal:2026-09-03T0300:9b6e3b86")
-        self.assertEqual(hindsight.doc_id_for(project(), "external", "L", "9b6e3b86-x", attempt=3),
-                         "activity-report:james-brennan:external:L:9b6e3b86:a3")
-        self.assertEqual(hindsight.doc_id_for(project(), "external", "L", None, attempt=1),
-                         "activity-report:james-brennan:external:L")
+        doc_id = "activity-report:james-brennan:internal:2026-09-03T0300"
+        self.assertEqual(cli.calls, [
+            ["hindsight", "memory", "retain", "james-brennan", prose, "--context", "activity-report:internal",
+             "--doc-id", doc_id, "--timestamp", "2026-09-03T00:00:00Z"],
+            ["hindsight", "document", "get", "james-brennan", doc_id, "-o", "json"],
+        ])
+        self.assertEqual(result, {"retained": True, "bank": "james-brennan", "doc_id": doc_id, "units": 17, "attempts": 1,
+                                  "reason": None})
+        self.assertEqual(sleeps, [])
+        # one document per window: no run id, no attempt suffix
+        self.assertEqual(hindsight.doc_id_for(project(), "external", "L"), "activity-report:james-brennan:external:L")
 
-    def test_retain_never_raises(self):
+    def test_retain_retries_the_same_id_on_zero_units(self):
+        cli = FakeCli(units=[0, 0, 7])
+        sleeps: list[int] = []
+        with mock.patch.object(hindsight, "eprint"), mock.patch.object(hindsight.subprocess, "run", cli):
+            result = hindsight.retain(project(), "internal", "# T\n\nB", window(), "L", sleep=sleeps.append)
+        retains = [c for c in cli.calls if c[1] == "memory"]
+        self.assertEqual(len(retains), 3)
+        self.assertEqual({c[c.index("--doc-id") + 1] for c in retains}, {"activity-report:james-brennan:internal:L"})
+        self.assertEqual(sleeps, [20, 40])
+        self.assertEqual((result["retained"], result["units"], result["attempts"], result["reason"]), (True, 7, 3, None))
+
+    def test_retain_gives_up_after_tries(self):
+        cli = FakeCli(units=[0])
+        sleeps: list[int] = []
+        with mock.patch.object(hindsight, "eprint") as err, mock.patch.object(hindsight.subprocess, "run", cli):
+            result = hindsight.retain(project(), "internal", "# T\n\nB", window(), "L", tries=2, sleep=sleeps.append)
+        self.assertEqual(len([c for c in cli.calls if c[1] == "memory"]), 2)
+        self.assertEqual(sleeps, [20])
+        self.assertEqual((result["retained"], result["units"], result["attempts"]), (False, 0, 2))
+        self.assertIn("0 units on try 2/2", result["reason"])
+        self.assertIn("memory is not", err.call_args.args[0])
+        # a failing CLI call is retried too
+        cli = FakeCli(retain_rc=[2, 0], units=[4])
+        with mock.patch.object(hindsight, "eprint"), mock.patch.object(hindsight.subprocess, "run", cli):
+            result = hindsight.retain(project(), "internal", "# T\n\nB", window(), "L", sleep=lambda s: None)
+        self.assertEqual((result["retained"], result["units"], result["attempts"]), (True, 4, 2))
+        # an unreadable count is reported, not retried
+        cli = FakeCli(get_rc=1)
+        with mock.patch.object(hindsight, "eprint"), mock.patch.object(hindsight.subprocess, "run", cli):
+            result = hindsight.retain(project(), "internal", "# T\n\nB", window(), "L", sleep=lambda s: None)
+        self.assertEqual((result["retained"], result["units"], result["attempts"]), (False, None, 1))
+        self.assertIn("could not be read", result["reason"])
+
+    def test_retain_never_raises_and_respects_config(self):
         with mock.patch.object(hindsight, "eprint") as err:
-            with mock.patch.object(hindsight.subprocess, "run", FakeCli(retain_rc=2)):
-                self.assertFalse(hindsight.retain(project(), "external", "body", "2026-09-03T00:00:00Z", "L"))
-            self.assertIn("retain failed (warning)", err.call_args.args[0])
             with mock.patch.object(hindsight.subprocess, "run", FakeCli(missing=True)):
-                self.assertFalse(hindsight.retain(project(), "external", "body", "2026-09-03T00:00:00Z", "L"))
+                result = hindsight.retain(project(), "internal", "body", "2026-09-03T00:00:00Z", "L", sleep=lambda s: None)
+            self.assertEqual((result["retained"], result["attempts"]), (False, 3))
+            self.assertIn("is not on PATH", err.call_args.args[0])
             cli = FakeCli()
             with mock.patch.object(hindsight.subprocess, "run", cli):
-                self.assertFalse(hindsight.retain(project(retain=False), "internal", "body", "2026-09-03T00:00:00Z", "L"))
-                self.assertFalse(hindsight.retain(project(), "internal", "   ", "2026-09-03T00:00:00Z", "L"))
+                self.assertEqual(hindsight.retain(project(retain=False), "internal", "body", "2026-09-03T00:00:00Z", "L")["reason"],
+                                 "hindsight.retain is false")
+                self.assertEqual(hindsight.retain(project(), "internal", "   ", "2026-09-03T00:00:00Z", "L")["reason"],
+                                 "empty report text")
+                # the client-facing text is spin, not the record: not retained unless configured
+                self.assertIn("not in hindsight.retain_audiences",
+                              hindsight.retain(project(), "external", "body", "2026-09-03T00:00:00Z", "L")["reason"])
             self.assertEqual(cli.calls, [])
+            with mock.patch.object(hindsight.subprocess, "run", cli):
+                result = hindsight.retain(project(retain_audiences=["internal", "external"]), "external", "body",
+                                          "2026-09-03T00:00:00Z", "L")
+            self.assertTrue(result["retained"])
+            self.assertEqual(cli.calls[0][cli.calls[0].index("--doc-id") + 1], "activity-report:james-brennan:external:L")
 
     def test_retain_cmd(self):
         tmp = tempfile.mkdtemp(prefix="ar-hs-")
@@ -212,18 +278,25 @@ class RetainTests(unittest.TestCase):
         with open(raw, "w", encoding="utf-8") as fh:
             fh.write("# Report\n\nline\n")
         with open(digest, "w", encoding="utf-8") as fh:
-            json.dump({"audience": "internal", "label": "2026-09-03T0300", "window": {"end": "2026-09-03T00:00:00Z"},
+            json.dump({"audience": "internal", "label": "2026-09-03T0300",
+                       "window": {"start": "2026-09-02T00:00:00Z", "end": "2026-09-03T00:00:00Z"},
                        "run_id": "9b6e3b86-5b5e-4040-bbbe-c8fb6d258575"}, fh)
-        cli = FakeCli()
-        args = mock.Mock(project="james-brennan", audience="internal", raw=raw, digest=digest, json=True, attempt=1)
+        cli = FakeCli(units=[3])
+        args = mock.Mock(project="james-brennan", audience="internal", raw=raw, digest=digest, json=True, tries=3)
         with mock.patch.object(hindsight, "load_project", return_value=project()), \
                 mock.patch.object(hindsight.subprocess, "run", cli), mock.patch("sys.stdout") as out:
             self.assertEqual(hindsight.retain_cmd(args), 0)
         printed = json.loads("".join(c.args[0] for c in out.write.call_args_list))
         self.assertEqual(printed, {"retained": True, "bank": "james-brennan",
-                                   "doc_id": "activity-report:james-brennan:internal:2026-09-03T0300:9b6e3b86"})
+                                   "doc_id": "activity-report:james-brennan:internal:2026-09-03T0300",
+                                   "units": 3, "attempts": 1, "reason": None})
         self.assertTrue(cli.calls[0][4].endswith("\n\nReport.\n\nline."), cli.calls[0][4])
         self.assertNotIn("# Report", cli.calls[0][4])
+        # an unverified retain exits 1 (the runner logs it as a warning; a hand repair sees it)
+        with mock.patch.object(hindsight, "load_project", return_value=project()), mock.patch.object(hindsight, "eprint"), \
+                mock.patch.object(hindsight.subprocess, "run", FakeCli(units=[0])), mock.patch("sys.stdout"), \
+                mock.patch.object(hindsight.time, "sleep"):
+            self.assertEqual(hindsight.retain_cmd(args), 1)
         args.audience = "external"
         with mock.patch.object(hindsight, "load_project", return_value=project()):
             with self.assertRaises(ConfigError):

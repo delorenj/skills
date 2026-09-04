@@ -115,13 +115,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--dry-run", action="store_true", help="validate and print the row; write nothing")
     p.set_defaults(func=_dispatch("portal", "portal_cmd"))
 
-    p = sub.add_parser("retain", help="store the raw report in the project's Hindsight bank")
+    p = sub.add_parser("retain", help="store the report, as prose, in the project's Hindsight bank and verify it landed as facts")
     _common(p); _audience(p)
     p.add_argument("raw")
     p.add_argument("--digest", required=True)
-    p.add_argument("--attempt", type=int, default=1,
-                   help="manual repair: 2+ retains under a fresh document id (Hindsight never re-extracts "
-                        "chunks an existing id already holds, even when its first extraction stored nothing)")
+    p.add_argument("--tries", type=int, default=3,
+                   help="retains of the same document id before giving up; each is verified by reading the "
+                        "document's memory_unit_count back (default 3, with 20 s then 40 s between tries)")
     p.set_defaults(func=_dispatch("hindsight", "retain_cmd"))
 
     p = sub.add_parser("ensure-labels", help="create the xp:external / xp:internal labels on the board")

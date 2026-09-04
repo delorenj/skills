@@ -24,7 +24,7 @@ DEFAULTS: dict = {
     "extra_repo_paths": [],
     "schedule": {"at": "03:00"},
     "window": {"cap_hours": 24, "min_minutes": 60},
-    "hindsight": {"bank": None, "recall": True, "retain": True},
+    "hindsight": {"bank": None, "recall": True, "retain": True, "retain_audiences": ["internal"]},
     "board": {
         "api_key_ref": None,
         "exposure_labels": {"external": "xp:external", "internal": "xp:internal"},
@@ -183,6 +183,9 @@ def validate_config(config: dict) -> None:
         if not isinstance(portal, dict) or not portal.get("project_id"):
             raise ConfigError(f"{CONFIG_KEY}.portal must be null or carry project_id")
         portal.setdefault("kind", "automatic-ai")
+    retain_audiences = (config.get("hindsight") or {}).get("retain_audiences")
+    if not isinstance(retain_audiences, list) or any(a not in AUDIENCES for a in retain_audiences):
+        raise ConfigError(f"{CONFIG_KEY}.hindsight.retain_audiences must be a list drawn from {list(AUDIENCES)}")
     board = config.get("board") or {}
     labels = board.get("exposure_labels") or {}
     if not labels.get("external") or not labels.get("internal") or labels["external"] == labels["internal"]:

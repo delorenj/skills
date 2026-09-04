@@ -2,7 +2,7 @@
 name: activity-report
 description: Produce a periodic project update for one pjangler project and one declared audience (internal or external), from Candystore, git, the ticket board and Hindsight, rendered as plain text, markdown and a self-contained HTML artifact, and emitted as one bloodbank.project.activity.recorded event. Use for "daily update", "client update", "internal update", "what did we ship", "periodic update", "activity report", "portal update", the nightly 03:00 run, a catch-up for a skipped window, or re-writing an update that lint refused. Do NOT use for the Surface operations payload (apps/surface, no free text), for roadmap checkpoints, for deploys, or for Bloodbank schema work (bloodbank-integration).
 metadata:
-  version: "0.1.2"
+  version: "0.1.3"
 ---
 
 # activity-report
@@ -51,7 +51,7 @@ where `<label>` is the window end in the project zone as `YYYY-MM-DDTHHMM`.
 | emit | `emit E --out J [--dry-run]` | `bb-emit --check`, then `--strict` publish |
 | verify | `verify --run-id R [--audience A]` | the projection has the event |
 | portal | `portal E [--dry-run]` | the row exists with the right visibility |
-| retain | `retain --audience A RAW --digest D` | the report is in the project's memory |
+| retain | `retain --audience A RAW --digest D` | the report's facts are in the project's memory: `units=<n>` read back, empty extractions retried; internal only by default |
 
 `--dry-run` (or `ACTIVITY_REPORT_DRY=1`) still emits the event, flagged
 `generator.dry_run: true`, so a parallel night is visible in Candystore; it skips
