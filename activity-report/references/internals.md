@@ -108,7 +108,7 @@ ensure_labels(project, confirm: bool) -> dict ; ensure_labels_cmd(args) -> int
 
 # hindsight.py
 collect(project, window) -> dict                 # the digest "hindsight" block; never raises
-retain_text(project, audience, raw_text, window) -> str ; timeline_dater(start, end, tz) -> (HH:MM -> date|None) ; doc_id_for(project, audience, label) -> str ; retain_audiences(project) -> list[str] ; unit_count(bank, doc_id) -> int|None ; retain(project, audience, raw_text, window, label, tries=3, sleep=time.sleep) -> dict  # {retained, bank, doc_id, units, attempts, reason} ; retain_cmd(args) -> int
+retain_text(project, audience, raw_text, window) -> str ; timeline_dater(start, end, tz) -> (HH:MM -> date|None) ; doc_id_for(project, audience, label) -> str ; retain_audiences(project) -> list[str] ; unit_count(bank, doc_id) -> int|None ; unit_floor(text) -> int ; retain(project, audience, raw_text, window, label, tries=3, sleep=time.sleep) -> dict  # {retained, bank, doc_id, units, floor, attempts, reason} ; retain_cmd(args) -> int
 
 # tokens.py
 collect(scope, window) -> dict                   # the digest "tokens" block

@@ -172,6 +172,7 @@ AUDIENCE_WORD = {"internal": "Internal", "external": "Client-facing"}
 RETAIN_TRIES = 3
 RETAIN_BACKOFF = (20, 40)      # seconds before the second and the third try
 DOCUMENT_TIMEOUT = 30
+FLOOR_WORDS = 150              # a retain must store at least one unit per this many words
 
 
 def _bounds(window) -> tuple[datetime | None, datetime | None]:
@@ -263,6 +264,14 @@ def unit_count(bank: str, doc_id: str) -> int | None:
     return count if isinstance(count, int) and not isinstance(count, bool) else None
 
 
+def unit_floor(text: str) -> int:
+    """The fewest memory units a retain of `text` may store and count as a
+    retain. Zero is not the only failure: the same 767-word report stored 2,
+    21, 4 and 23 units on four consecutive tries (2026-09-04), and 2 facts
+    from a day's report is an extraction that quit, not a quiet day."""
+    return max(1, len(text.split()) // FLOOR_WORDS)
+
+
 def retain(project, audience: str, raw_text: str, window, label: str, tries: int = RETAIN_TRIES,
            sleep=time.sleep) -> dict:
     """Store the report, as prose, in the project's bank and verify it landed
@@ -273,7 +282,7 @@ def retain(project, audience: str, raw_text: str, window, label: str, tries: int
     so one retain is not a retain. Each try re-retains the same document id
     and reads memory_unit_count back; the run moves on after `tries` empties.
     """
-    result = {"retained": False, "bank": None, "doc_id": None, "units": None, "attempts": 0, "reason": None}
+    result = {"retained": False, "bank": None, "doc_id": None, "units": None, "floor": None, "attempts": 0, "reason": None}
     cfg = project.config.get("hindsight") or {}
     if cfg.get("retain") is False:
         result["reason"] = "hindsight.retain is false"
@@ -293,8 +302,9 @@ def retain(project, audience: str, raw_text: str, window, label: str, tries: int
     _start, end = _bounds(window)
     doc_id = doc_id_for(project, audience, label)
     result.update({"bank": bank, "doc_id": doc_id})
-    args = [HINDSIGHT_BIN, "memory", "retain", bank, retain_text(project, audience, raw_text, window),
-            "--context", f"{CONTEXT_PREFIX}{audience}", "--doc-id", doc_id]
+    text = retain_text(project, audience, raw_text, window)
+    result["floor"] = floor = unit_floor(text)
+    args = [HINDSIGHT_BIN, "memory", "retain", bank, text, "--context", f"{CONTEXT_PREFIX}{audience}", "--doc-id", doc_id]
     if end is not None:
         args += ["--timestamp", to_iso_z(end)]
     tries = max(1, int(tries or 1))
@@ -319,11 +329,11 @@ def retain(project, audience: str, raw_text: str, window, label: str, tries: int
             result["reason"] = "stored, but the document reports no memory_unit_count"
             eprint(f"activity-report: retain (warning): {result['reason']}")
             return result
-        if units > 0:
+        if units >= floor:
             result.update({"retained": True, "reason": None})
             return result
-        result["reason"] = f"extraction stored 0 units on try {attempt}/{tries}"
-        eprint(f"activity-report: retain try {attempt}/{tries}: 0 units for {doc_id}")
+        result["reason"] = f"extraction stored {units} units (floor {floor}) on try {attempt}/{tries}"
+        eprint(f"activity-report: retain try {attempt}/{tries}: {units} units for {doc_id}, floor {floor}")
     eprint(f"activity-report: retain failed (warning): {result['reason']} (the event is published; memory is not)")
     return result
 
@@ -348,7 +358,7 @@ def retain_cmd(args) -> int:
     if args.json:
         print(json.dumps(result))
     elif result["retained"]:
-        print(f"retained  {result['bank']}  {result['doc_id']}  units={result['units']}  tries={result['attempts']}")
+        print(f"retained  {result['bank']}  {result['doc_id']}  units={result['units']} (floor {result['floor']})  tries={result['attempts']}")
     elif result["doc_id"]:
         print(f"retain    NOT verified for {result['doc_id']}: {result['reason']}")
     else:

@@ -168,13 +168,16 @@ Lists page with `per_page=100` and `next_cursor`.
 - **A retain is verified, not believed.** The CLI answers `Stored 1 memory
   units` whether or not extraction produced a fact, so after every retain the
   skill reads `hindsight document get <bank> <doc-id> -o json` and its
-  `memory_unit_count`. Zero means the extractor (OpenRouter preset
-  `hindsight-retain`) answered empty, which it did for a quarter to a half of
-  all retains on this host on 2026-09-03/04; the skill then retains the same
-  document id again, up to `--tries` (default 3, 20 s then 40 s apart). That
+  `memory_unit_count`. Fewer units than one per 150 words of the retained
+  text (`unit_floor`) means the extractor (OpenRouter preset
+  `hindsight-retain`) quit: it answered empty for a quarter to a half of all
+  retains on this host on 2026-09-03, and stored 2, 21, 4 and 23 units for
+  the same 767-word report on four consecutive tries on 2026-09-04. The skill
+  then retains the same document id again, up to `--tries` (default 3, 20 s
+  then 40 s apart). That
   is safe and effective because Hindsight's delta skip only covers chunks a
   successful retain stored, and an empty retain stores none, so the retry is a
-  full re-extraction. The run log ends the step with `units=<n> tries=<k>`, or
+  full re-extraction. The run log ends the step with `units=<n> (floor <f>) tries=<k>`, or
   `NOT verified` and the reason; the run itself never fails over memory. To
   repair a window by hand, re-run `activity-report retain --audience internal
   <raw.txt> --digest <digest.json> [--tries 5]` and read the count it prints.

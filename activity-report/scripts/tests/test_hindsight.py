@@ -210,8 +210,8 @@ class RetainTests(unittest.TestCase):
              "--doc-id", doc_id, "--timestamp", "2026-09-03T00:00:00Z"],
             ["hindsight", "document", "get", "james-brennan", doc_id, "-o", "json"],
         ])
-        self.assertEqual(result, {"retained": True, "bank": "james-brennan", "doc_id": doc_id, "units": 17, "attempts": 1,
-                                  "reason": None})
+        self.assertEqual(result, {"retained": True, "bank": "james-brennan", "doc_id": doc_id, "units": 17, "floor": 1,
+                                  "attempts": 1, "reason": None})
         self.assertEqual(sleeps, [])
         # one document per window: no run id, no attempt suffix
         self.assertEqual(hindsight.doc_id_for(project(), "external", "L"), "activity-report:james-brennan:external:L")
@@ -227,6 +227,18 @@ class RetainTests(unittest.TestCase):
         self.assertEqual(sleeps, [20, 40])
         self.assertEqual((result["retained"], result["units"], result["attempts"], result["reason"]), (True, 7, 3, None))
 
+    def test_retain_floor_scales_with_the_text(self):
+        self.assertEqual(hindsight.unit_floor("short note"), 1)
+        long_report = "# Title\n\n" + " ".join(f"word{i}" for i in range(760))
+        self.assertEqual(hindsight.unit_floor(hindsight.retain_text(project(), "internal", long_report, window())), 5)
+        # 2 units from a day-long report is a failed extraction, not a quiet day: retried, then accepted at 6
+        cli = FakeCli(units=[2, 6])
+        sleeps: list[int] = []
+        with mock.patch.object(hindsight, "eprint"), mock.patch.object(hindsight.subprocess, "run", cli):
+            result = hindsight.retain(project(), "internal", long_report, window(), "L", sleep=sleeps.append)
+        self.assertEqual((result["retained"], result["units"], result["floor"], result["attempts"]), (True, 6, 5, 2))
+        self.assertEqual(sleeps, [20])
+
     def test_retain_gives_up_after_tries(self):
         cli = FakeCli(units=[0])
         sleeps: list[int] = []
@@ -235,7 +247,7 @@ class RetainTests(unittest.TestCase):
         self.assertEqual(len([c for c in cli.calls if c[1] == "memory"]), 2)
         self.assertEqual(sleeps, [20])
         self.assertEqual((result["retained"], result["units"], result["attempts"]), (False, 0, 2))
-        self.assertIn("0 units on try 2/2", result["reason"])
+        self.assertIn("0 units (floor 1) on try 2/2", result["reason"])
         self.assertIn("memory is not", err.call_args.args[0])
         # a failing CLI call is retried too
         cli = FakeCli(retain_rc=[2, 0], units=[4])
@@ -289,7 +301,7 @@ class RetainTests(unittest.TestCase):
         printed = json.loads("".join(c.args[0] for c in out.write.call_args_list))
         self.assertEqual(printed, {"retained": True, "bank": "james-brennan",
                                    "doc_id": "activity-report:james-brennan:internal:2026-09-03T0300",
-                                   "units": 3, "attempts": 1, "reason": None})
+                                   "units": 3, "floor": 1, "attempts": 1, "reason": None})
         self.assertTrue(cli.calls[0][4].endswith("\n\nReport.\n\nline."), cli.calls[0][4])
         self.assertNotIn("# Report", cli.calls[0][4])
         # an unverified retain exits 1 (the runner logs it as a warning; a hand repair sees it)
