@@ -127,9 +127,48 @@ is the tab **name**. `scripts/zellij-notify` uses `rename-tab-by-id`, which:
 - still works when **no client is attached**, which matters because
   `go-to-tab-name` and `close-tab` are silent no-ops in that state.
 
-It is wired to Claude Code's `Notification` hook (mark) and `UserPromptSubmit` (clear),
-and follows the hook contract: never blocks, never fails a turn, no-op + exit 0 outside
-zellij.
+### The three-state model
+
+Since 2026-09-04 the tab bar carries agent *presence*, not just alerts:
+
+| state | glyph | behaviour | hook |
+|---|---|---|---|
+| working | 🟢 | **blinks forever** | `UserPromptSubmit`, `SubagentStart` |
+| attention | 🔔 | flash on arrival, then steady; **clears on focus** | `Notification` |
+| error | 🔴 | flash on arrival, then steady | `StopFailure` |
+| idle | — | no marker | `Stop` → `--clear` |
+
+The organising rule: **motion means busy, stillness means waiting on you.** Only
+`working` blinks forever — if everything blinked, nothing would read as urgent.
+
+Three deliberate asymmetries, each of which looks like a bug until you know why:
+
+- **`attention` clears when you navigate to the tab; `error` does not.** Arriving *is*
+  the acknowledgement for "answer me", but an unresolved failure should survive a glance
+  and a move-on.
+- **`working` never clobbers `attention` or `error`.** A tool call firing mid-turn must
+  not erase the bell that says "answer me".
+- **`PostToolUseFailure` is NOT wired to red.** It fires on any tool error — a failed
+  grep, a non-zero exit — and would paint the bar red constantly. `StopFailure` is the
+  turn itself failing, which is what "it died" actually means.
+
+Blinking forever cannot be done by a fire-and-forget hook, so one flock-guarded daemon
+per session renders every marked tab. The costs that shape it were measured:
+
+| call | cost | why it matters |
+|---|---|---|
+| `rename-tab-by-id` | **~2ms** | fire-and-forget, no reply awaited — blinking is nearly free |
+| `list-tabs --state` | **~103ms** | socket round trip; gives names **and** the ACTIVE column |
+
+So the daemon queries zellij only when it must (clear-a-bell-on-focus, or reconcile
+every 60 ticks) and re-renames a tab only when the computed name *changes*. A session
+where everything is merely `working` makes **zero** queries. Given this box's history of
+being wedged by sustained polling, that conditionality is the point.
+
+**Trap, cost an hour:** `read` returns non-zero at EOF even when it *did* populate the
+variables — which a file written without a trailing newline always hits. A
+`read ... || continue` in the render loop therefore skipped every tab and painted
+nothing, silently. Gate on the value, never on `read`'s exit status.
 
 **The blink must not change the tab's width.** The first version wrapped the name in
 three glyphs a side and toggled the whole thing on and off — `🔔🔔🔔 Deckard 🔔🔔🔔` is
