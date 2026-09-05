@@ -30,6 +30,17 @@ changelog, skill routing, and backfill coordination.
 | Topology/event visualization | Candybar |
 | Voice/transcription/TTS interface | HeyMa |
 
+## Platform skills
+
+The control plane authors these; each is also available standalone. Load the
+matching one rather than re-deriving its decisions here.
+
+| Load when | Skill |
+|---|---|
+| Adding or renaming a Plane label, choosing between a label and a state, wiring automation that writes to a board, scaffolding or reconciling a project board | `board-taxonomy` |
+| Landing a change forward across the component repos | `merge-forward` |
+| Publishing or composing skill packs | `skillex-skill-registry` |
+
 ## Event and command spine
 
 - **Events are facts.** Producers publish `bloodbank.evt.*`; the
