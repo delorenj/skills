@@ -157,7 +157,13 @@ function providerReceiptDiagnostics(provider, response, body) {
         || safeRequestId(responseHeader(response, 'request-id')),
     };
   }
-  if (!isPlainRecord(body)) return diagnostics;
+  if (!isPlainRecord(body)) {
+    return {
+      ...diagnostics,
+      requestId: safeRequestId(responseHeader(response, 'x-request-id'))
+        || safeRequestId(responseHeader(response, 'request-id')),
+    };
+  }
   const own = (name) => Object.prototype.hasOwnProperty.call(body, name);
   const bodyRequestId = own('request_id')
     ? body.request_id

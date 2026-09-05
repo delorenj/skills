@@ -791,6 +791,36 @@ test('Cartesia failure fails closed and never leaves a final artifact', async ()
   assert.doesNotMatch(receiptBody, /"(?:message|authorization)":/);
 });
 
+test('Cartesia non-plain error bodies retain only safe header request IDs', async () => {
+  const cases = [
+    {name: 'safe', requestId: 'cartesia.header-1', expectedRequestId: 'cartesia.header-1'},
+    {name: 'unsafe', requestId: 'cartesia header/secret', expectedRequestId: undefined},
+  ];
+  for (const {name, requestId, expectedRequestId} of cases) {
+    const calls = [];
+    const out = path.join(runDir(`cartesia-non-plain-${name}`), 'narration.mp3');
+    await assert.rejects(
+      narrate({
+        text: 'A solemn dispatch.', out, operationId: `cartesia-non-plain-${name}`,
+        config: config(), log: () => {},
+        fetchImpl: async (url) => {
+          calls.push(url);
+          return calls.length === 1
+            ? elevenErrorResponse(503, {type: 'service_unavailable', code: 'service_unavailable'})
+            : jsonResponse(502, [], requestId);
+        },
+      }),
+      (error) => error.provider === 'cartesia' && error.fallbackClass === 'nonretryable',
+    );
+    assert.deepEqual(calls, ['https://eleven.test/tts', 'https://cartesia.test/tts/bytes']);
+    const receiptBody = fs.readFileSync(`${out}.receipt.json`, 'utf8');
+    const attempt = JSON.parse(receiptBody).attempts[1];
+    assert.equal(attempt.http_status, 502);
+    assert.equal(attempt.request_id, expectedRequestId);
+    if (expectedRequestId === undefined) assert.equal(receiptBody.includes(requestId), false);
+  }
+});
+
 test('ambiguous transport keeps its operation lock and cannot double-generate', async () => {
   const dir = runDir('idempotency');
   const out = path.join(dir, 'narration.mp3');
