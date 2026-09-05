@@ -438,6 +438,17 @@ test('current Eleven 402 insufficient-credit envelope falls back once and recove
   });
   assert.deepEqual(calls, ['https://eleven.test/tts', 'https://cartesia.test/tts/bytes']);
   assert.equal(initial.selection.provider, 'cartesia');
+  assert.equal(isDecodableMp3(out), true);
+  assert.deepEqual(initial.attempts[0], {
+    provider: 'eleven',
+    model: 'eleven_multilingual_v2',
+    voice: 'HvjKMFO0rjuPaM2f997g',
+    fallback_class: 'capacity_or_availability',
+    request_id: 'safe-request-id',
+    http_status: 402,
+    error_type: 'payment_required',
+    error_code: 'insufficient_credits',
+  });
 
   const recovered = await narrate({
     text: 'A solemn dispatch.', out, operationId: 'current-insufficient-credits', config: config(), log: () => {},
@@ -462,6 +473,16 @@ test('legacy Eleven 400/401 quota envelopes fall back only with the exact docume
     });
     assert.deepEqual(calls, ['https://eleven.test/tts', 'https://cartesia.test/tts/bytes']);
     assert.equal(receipt.selection.provider, 'cartesia');
+    assert.deepEqual(receipt.attempts[0], {
+      provider: 'eleven',
+      model: 'eleven_multilingual_v2',
+      voice: 'HvjKMFO0rjuPaM2f997g',
+      fallback_class: 'capacity_or_availability',
+      request_id: 'safe-request-id',
+      http_status: status,
+      ...(type ? {error_type: type} : {}),
+      error_code: 'quota_exceeded',
+    });
   }
 });
 
@@ -525,10 +546,11 @@ test('Eleven fallback classification ignores inherited non-enumerable error fiel
   ];
   for (const [index, inherited] of inheritedCases.entries()) {
     const calls = [];
+    const out = path.join(runDir(`inherited-envelope-${index}`), 'narration.mp3');
     await withInheritedObjectProperty(inherited.name, inherited.value, async () => {
       await assert.rejects(
         narrate({
-          text: 'A solemn dispatch.', out: path.join(runDir(`inherited-envelope-${index}`), 'narration.mp3'),
+          text: 'A solemn dispatch.', out,
           operationId: `inherited-envelope-${index}`, config: config(), log: () => {},
           fetchImpl: async (url) => { calls.push(url); return jsonResponse(inherited.status, inherited.body); },
         }),
@@ -536,26 +558,94 @@ test('Eleven fallback classification ignores inherited non-enumerable error fiel
       );
     });
     assert.deepEqual(calls, ['https://eleven.test/tts']);
+    const attempt = JSON.parse(fs.readFileSync(`${out}.receipt.json`, 'utf8')).attempts[0];
+    assert.equal(attempt.http_status, inherited.status);
+    assert.equal(Object.hasOwn(attempt, 'error_type'), false);
+    assert.equal(Object.hasOwn(attempt, 'error_code'), index === 0);
+    if (index === 0) assert.equal(attempt.error_code, 'insufficient_credits');
+  }
+});
+
+test('failed-attempt diagnostics omit invalid status and malformed safe-token candidates', async () => {
+  const malformedCases = [
+    {name: 'cased', status: 402, type: 'Payment_Required', code: 'INSUFFICIENT_CREDITS'},
+    {name: 'whitespace', status: 402, type: ' payment_required ', code: ' insufficient_credits '},
+    {name: 'oversized', status: 402, type: `a${'b'.repeat(128)}`, code: `c${'d'.repeat(128)}`},
+    {name: 'invalid-http-status', status: 99, type: 'payment_required', code: 'insufficient_credits'},
+  ];
+  for (const {name, status, type, code} of malformedCases) {
+    const calls = [];
+    const out = path.join(runDir(`malformed-diagnostics-${name}`), 'narration.mp3');
+    const body = {detail: {type, code, request_id: 'safe-malformed-request'}};
+    const response = status === 99
+      ? {
+        ok: false,
+        status,
+        headers: new Headers({'content-type': 'application/json', 'x-request-id': 'safe-malformed-request'}),
+        arrayBuffer: async () => Buffer.from(JSON.stringify(body)),
+      }
+      : jsonResponse(status, body, 'safe-malformed-request');
+    await assert.rejects(
+      narrate({
+        text: 'A solemn dispatch.', out, operationId: `malformed-diagnostics-${name}`,
+        config: config(), log: () => {},
+        fetchImpl: async (url) => { calls.push(url); return response; },
+      }),
+      (error) => error.provider === 'eleven' && error.fallbackClass === 'nonretryable',
+    );
+    assert.deepEqual(calls, ['https://eleven.test/tts']);
+    const attempt = JSON.parse(fs.readFileSync(`${out}.receipt.json`, 'utf8')).attempts[0];
+    assert.equal(Object.hasOwn(attempt, 'http_status'), status !== 99);
+    assert.equal(Object.hasOwn(attempt, 'error_type'), status === 99);
+    assert.equal(Object.hasOwn(attempt, 'error_code'), status === 99);
   }
 });
 
 test('Eleven auth/input failure is nonretryable and never calls Cartesia', async () => {
   const calls = [];
   const out = path.join(runDir('nonretryable'), 'narration.mp3');
+  const text = 'PRIVATE DISPATCH MUST NOT PERSIST';
   const providerMessage = 'PRIVATE PROVIDER MESSAGE MUST NOT PERSIST';
+  const nestedBody = 'PRIVATE RAW BODY MUST NOT PERSIST';
+  const credentialShaped = `sk_${'live'}_${'x'.repeat(48)}`;
   await assert.rejects(
     narrate({
-      text: 'A solemn dispatch.', out, operationId: 'nonretryable', config: config(), log: () => {},
+      text, out, operationId: 'nonretryable', config: config(), log: () => {},
       fetchImpl: async (url) => {
         calls.push(url);
-        return elevenErrorResponse(401, {type: 'authentication_error', code: 'invalid_api_key', message: providerMessage});
+        return jsonResponse(401, {
+          detail: {
+            type: 'authentication_error',
+            code: 'invalid_api_key',
+            request_id: 'unsafe request/id',
+            message: providerMessage,
+            body: {raw: nestedBody},
+            api_key: credentialShaped,
+          },
+        }, 'eleven.auth-request-1');
       },
     }),
     (error) => error.fallbackClass === 'nonretryable',
   );
   assert.deepEqual(calls, ['https://eleven.test/tts']);
   assert.equal(fs.existsSync(out), false);
-  assert.doesNotMatch(fs.readFileSync(`${out}.receipt.json`, 'utf8'), new RegExp(providerMessage));
+  const receiptBody = fs.readFileSync(`${out}.receipt.json`, 'utf8');
+  const receipt = JSON.parse(receiptBody);
+  assert.equal(receipt.state, 'primary_failed');
+  assert.deepEqual(receipt.attempts[0], {
+    provider: 'eleven',
+    model: 'eleven_multilingual_v2',
+    voice: 'HvjKMFO0rjuPaM2f997g',
+    fallback_class: 'nonretryable',
+    request_id: 'eleven.auth-request-1',
+    http_status: 401,
+    error_type: 'authentication_error',
+    error_code: 'invalid_api_key',
+  });
+  for (const forbidden of [text, providerMessage, nestedBody, credentialShaped]) {
+    assert.equal(receiptBody.includes(forbidden), false);
+  }
+  assert.doesNotMatch(receiptBody, /"(?:message|body|api_key)":/);
 });
 
 test('auth, config, input, and other 4xx errors never fall back even with capacity-looking codes', async () => {
@@ -660,6 +750,8 @@ test('unclassified 5xx errors fail closed, while structured availability falls b
 test('Cartesia failure fails closed and never leaves a final artifact', async () => {
   const calls = [];
   const out = path.join(runDir('cartesia-failure'), 'narration.mp3');
+  const providerMessage = 'PRIVATE CARTESIA MESSAGE MUST NOT PERSIST';
+  const credentialShaped = `sk_${'car'}_${'x'.repeat(48)}`;
   await assert.rejects(
     narrate({
       text: 'A solemn dispatch.', out, operationId: 'cartesia-failure', config: config(), log: () => {},
@@ -667,13 +759,36 @@ test('Cartesia failure fails closed and never leaves a final artifact', async ()
         calls.push(url);
         return calls.length === 1
           ? elevenErrorResponse(503, {type: 'service_unavailable', code: 'service_unavailable'})
-          : cartesiaErrorResponse(401, 'unauthorized');
+          : jsonResponse(401, {
+            error_type: 'authentication_error',
+            error_code: 'unauthorized',
+            request_id: 'cartesia.failure-1',
+            message: providerMessage,
+            authorization: credentialShaped,
+          }, 'cartesia.failure-1');
       },
     }),
     (error) => error.provider === 'cartesia',
   );
   assert.equal(calls.length, 2);
   assert.equal(fs.existsSync(out), false);
+  const receiptBody = fs.readFileSync(`${out}.receipt.json`, 'utf8');
+  const receipt = JSON.parse(receiptBody);
+  assert.equal(receipt.state, 'failed');
+  assert.deepEqual(receipt.attempts[1], {
+    provider: 'cartesia',
+    model: 'sonic-3.6',
+    voice: 'verified-by-runtime-config',
+    fallback_class: 'nonretryable',
+    request_id: 'cartesia.failure-1',
+    http_status: 401,
+    error_type: 'authentication_error',
+    error_code: 'unauthorized',
+  });
+  for (const forbidden of [providerMessage, credentialShaped]) {
+    assert.equal(receiptBody.includes(forbidden), false);
+  }
+  assert.doesNotMatch(receiptBody, /"(?:message|authorization)":/);
 });
 
 test('ambiguous transport keeps its operation lock and cannot double-generate', async () => {

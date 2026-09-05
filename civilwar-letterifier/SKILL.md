@@ -149,6 +149,19 @@ invalid audio, or an ambiguous transport outcome. The adapter writes a temporary
 MP3, validates it with `ffprobe`, then atomically publishes it with a sanitized
 receipt sidecar.
 
+Each failed entry in `receipt.attempts` is a strict allowlist: the existing
+`provider`, `model`, `voice`, `fallback_class`, and sanitized `request_id`, plus
+optional `http_status`, `error_type`, and `error_code`. The status is retained
+only when it is an integer from 100 through 599; type/code values are retained
+only as lowercase tokens matching `[a-z][a-z0-9_]{0,127}`. For legacy
+ElevenLabs envelopes, `error_code` is the effective `detail.status` value.
+Provider messages, raw/nested bodies, headers, URLs, transcripts, credentials,
+and arbitrary or inherited fields are never copied. These are optional fields
+within receipt schema version 1, so older receipts remain readable; a missing
+tuple never authorizes a retry or a broader fallback inference. For manual
+diagnosis, inspect only `.state`, `.attempts`, and `.selection` with `jq`, then
+reconcile a sanitized `request_id` against the provider before changing policy.
+
 Fallback is dark until both variables are present in the invocation environment:
 `CARTESIA_API_KEY` (standard `sk_car_...`, never `sk_car_admin_...`) and an explicit
 `CARTESIA_VOICE_ID`. The reviewed SlowBurns stock fallback configuration is Clyde

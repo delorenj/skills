@@ -56,6 +56,7 @@ const CARTESIA_FALLBACK_CODES_BY_STATUS = new Map([
   [504, new Set(['capacity_exceeded', 'concurrency_limited', 'service_unavailable'])],
 ]);
 const RETAINED_LOCK_REASONS = new Set(['ambiguous_transport', 'receipt_integrity', 'invalid_audio', 'ambiguous_retry']);
+const FAILED_ATTEMPT_DIAGNOSTICS = new WeakMap();
 
 export class NarrationError extends Error {
   constructor(message, {provider, status, code, fallbackClass, requestId} = {}) {
@@ -91,6 +92,10 @@ function safeRequestId(value) {
 
 function safeErrorToken(value) {
   return typeof value === 'string' && /^[a-z][a-z0-9_]{0,127}$/.test(value) ? value : undefined;
+}
+
+function safeHttpStatus(value) {
+  return Number.isInteger(value) && value >= 100 && value <= 599 ? value : undefined;
 }
 
 function isPlainRecord(value) {
@@ -139,6 +144,34 @@ function providerErrorDetails(provider, body) {
   };
 }
 
+function providerReceiptDiagnostics(provider, response, body) {
+  const diagnostics = {httpStatus: safeHttpStatus(response?.status)};
+  if (provider === 'eleven') {
+    const details = providerErrorDetails(provider, body);
+    return {
+      ...diagnostics,
+      errorType: details.type,
+      errorCode: details.code,
+      requestId: details.requestId
+        || safeRequestId(responseHeader(response, 'x-request-id'))
+        || safeRequestId(responseHeader(response, 'request-id')),
+    };
+  }
+  if (!isPlainRecord(body)) return diagnostics;
+  const own = (name) => Object.prototype.hasOwnProperty.call(body, name);
+  const bodyRequestId = own('request_id')
+    ? body.request_id
+    : (own('requestId') ? body.requestId : undefined);
+  return {
+    ...diagnostics,
+    errorType: own('error_type') ? safeErrorToken(body.error_type) : undefined,
+    errorCode: own('error_code') ? safeErrorToken(body.error_code) : undefined,
+    requestId: safeRequestId(bodyRequestId)
+      || safeRequestId(responseHeader(response, 'x-request-id'))
+      || safeRequestId(responseHeader(response, 'request-id')),
+  };
+}
+
 function requestIdFrom(response, provider, body) {
   return providerErrorDetails(provider, body).requestId
     || safeRequestId(responseHeader(response, 'x-request-id'))
@@ -153,13 +186,15 @@ function classifiedProviderError(provider, response, body) {
   )
     ? 'capacity_or_availability'
     : 'nonretryable';
-  return new NarrationError(`${provider} narration request failed${status ? ` (${status})` : ''}.`, {
+  const error = new NarrationError(`${provider} narration request failed${status ? ` (${status})` : ''}.`, {
     provider,
     status,
     code: details.code,
     fallbackClass,
     requestId: details.requestId || requestIdFrom(response, provider, body),
   });
+  FAILED_ATTEMPT_DIAGNOSTICS.set(error, providerReceiptDiagnostics(provider, response, body));
+  return error;
 }
 
 export function isCapacityFailure(
@@ -538,9 +573,14 @@ function readReceipt(file) {
   }
 }
 
-function providerReceipt(provider, model, voice, fallbackClass, requestId) {
+function providerReceipt(provider, model, voice, fallbackClass, requestId, {
+  httpStatus, errorType, errorCode,
+} = {}) {
   return Object.fromEntries(Object.entries({
     provider, model, voice, fallback_class: fallbackClass, request_id: safeRequestId(requestId),
+    http_status: safeHttpStatus(httpStatus),
+    error_type: safeErrorToken(errorType),
+    error_code: safeErrorToken(errorCode),
   }).filter(([, value]) => value !== undefined));
 }
 
@@ -825,7 +865,12 @@ export async function narrate({
       const primaryError = error instanceof NarrationError
         ? error
         : new NarrationError('ElevenLabs narration failed.', {provider: 'eleven', fallbackClass: 'nonretryable'});
-      receipt.attempts.push(providerReceipt('eleven', ELEVEN_MODEL, ELEVEN_VOICE_ID, primaryError.fallbackClass, primaryError.requestId));
+      const primaryDiagnostics = FAILED_ATTEMPT_DIAGNOSTICS.get(primaryError);
+      receipt.attempts.push(providerReceipt(
+        'eleven', ELEVEN_MODEL, ELEVEN_VOICE_ID, primaryError.fallbackClass,
+        primaryDiagnostics ? primaryDiagnostics.requestId : primaryError.requestId,
+        primaryDiagnostics,
+      ));
       receipt.state = 'primary_failed';
       writeJsonAtomic(finalReceipt, receipt);
       if (primaryError.fallbackClass !== 'capacity_or_availability') {
@@ -848,7 +893,12 @@ export async function narrate({
         const cartesiaError = fallbackError instanceof NarrationError
           ? fallbackError
           : new NarrationError('Cartesia narration failed.', {provider: 'cartesia', fallbackClass: 'nonretryable'});
-        receipt.attempts.push(providerReceipt('cartesia', CARTESIA_MODEL, resolvedConfig.cartesiaVoiceId, cartesiaError.fallbackClass, cartesiaError.requestId));
+        const cartesiaDiagnostics = FAILED_ATTEMPT_DIAGNOSTICS.get(cartesiaError);
+        receipt.attempts.push(providerReceipt(
+          'cartesia', CARTESIA_MODEL, resolvedConfig.cartesiaVoiceId, cartesiaError.fallbackClass,
+          cartesiaDiagnostics ? cartesiaDiagnostics.requestId : cartesiaError.requestId,
+          cartesiaDiagnostics,
+        ));
         receipt.state = 'failed';
         writeJsonAtomic(finalReceipt, receipt);
         fs.rmSync(finalOut, {force: true});
