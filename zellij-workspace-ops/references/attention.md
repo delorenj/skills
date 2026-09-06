@@ -120,61 +120,84 @@ a pane — see `layouts/agent-orchestrator.kdl`. Do not put it in `load_plugins`
 ### What actually works cross-tab
 
 The only stock-zellij mechanism that changes how **one** tab looks from **any other** tab
-is the tab **name**. `scripts/zellij-notify` uses `rename-tab-by-id`, which:
+is the tab **name**. The painter uses `rename-tab-by-id`, which:
 
 - mutates a tab by stable id **without stealing focus** — yanking focus off whatever the
   user is doing would be worse than no alert;
 - still works when **no client is attached**, which matters because
   `go-to-tab-name` and `close-tab` are silent no-ops in that state.
 
-### The three-state model
+### What paints it — one state machine, many surfaces
 
-Since 2026-09-04 the tab bar carries agent *presence*, not just alerts:
+Superseded on 2026-09-05. The first version was a per-session daemon driven by
+`~/.claude/settings.json` hooks, which meant it ran **its own state machine** — and,
+being wired into one CLI's settings file, a codex pane could never light up at all no
+matter what codex did.
 
-| state | glyph | behaviour | hook |
-|---|---|---|---|
-| working | 🟢 | **blinks forever** | `UserPromptSubmit`, `SubagentStart` |
-| attention | 🔔 | flash on arrival, then steady; **clears on focus** | `Notification` |
-| error | 🔴 | flash on arrival, then steady | `StopFailure` |
-| idle | — | no marker | `Stop` → `--clear` |
+Bloodbank already has the real thing: the **Agent State Machine** (`asm:*` in Redis,
+`services/agent-hooks/core/asm.lua`). Every CLI's hooks propose signals into it, a
+15s sweeper contributes the two facts the bus can never carry, and `asm.lua` arbitrates
+under EVAL. The tab painter is now a **surface**: it reads `asm:*` and renames tabs.
 
-The organising rule: **motion means busy, stillness means waiting on you.** Only
-`working` blinks forever — if everything blinked, nothing would read as urgent.
+**Do not build a second projector.** Two folds of one event stream are two answers to
+one question, and they will disagree — that is exactly how the hook-era painter ended
+up blind to codex while claiming to be agent-agnostic.
+
+| ASM state | glyph | behaviour |
+|---|---|---|
+| `starting` `working` `tool_running` `delegating` | 🟢 | **blinks forever** |
+| `awaiting_human` | 🔔 | steady; **clears on focus** |
+| `failed` `stale` | 🔴 | steady |
+| `idle` `unknown` `gone` | — | no marker |
+
+The organising rule: **motion means busy, stillness means waiting on you.** Only the
+active states blink — if everything blinked, nothing would read as urgent.
+
+A tab holds several panes, so it shows the **worst** of them by precedence
+(`awaiting_human` > red > active). One agent asking a question must not be hidden by its
+neighbour merely working.
 
 Three deliberate asymmetries, each of which looks like a bug until you know why:
 
-- **`attention` clears when you navigate to the tab; `error` does not.** Arriving *is*
-  the acknowledgement for "answer me", but an unresolved failure should survive a glance
-  and a move-on.
-- **`working` never clobbers `attention` or `error`.** A tool call firing mid-turn must
-  not erase the bell that says "answer me".
-- **`PostToolUseFailure` is NOT wired to red.** It fires on any tool error — a failed
-  grep, a non-zero exit — and would paint the bar red constantly. `StopFailure` is the
-  turn itself failing, which is what "it died" actually means.
+- **`awaiting_human` clears when you navigate to the tab; `failed` does not.** Arriving
+  *is* the acknowledgement for "answer me", but an unresolved failure should survive a
+  glance and a move-on. The painter fires this as an `ack` **signal** through `asm.lua`
+  rather than writing the state — a surface may propose, never decide.
+- **Mid-turn traffic never clobbers `awaiting_human`.** A tool call firing must not erase
+  the bell. But *starting new work* does clear it: being approved and carrying on is
+  proof the human already unblocked you.
+- **A discovered-but-silent agent is `unknown`, never `idle`.** Silence really does
+  suggest rest — but that is an inference, and some CLIs have no hooks wired at all.
 
-Blinking forever cannot be done by a fire-and-forget hook, so one flock-guarded daemon
-per session renders every marked tab. The costs that shape it were measured:
+`stale` and `gone` are the states that make the bar honest, and neither has a triggering
+hook by definition: `gone` is `/proc/<pid>` vanishing, which is not an event. Without
+`asm-sweep.timer` running, dead agents stay frozen at their last state and the bar
+quietly lies.
+
+The costs that shape the painter were measured:
 
 | call | cost | why it matters |
 |---|---|---|
 | `rename-tab-by-id` | **~2ms** | fire-and-forget, no reply awaited — blinking is nearly free |
-| `list-tabs --state` | **~103ms** | socket round trip; gives names **and** the ACTIVE column |
+| `list-panes --tab` | **~104ms** | tab→pane topology; refreshed every 10 frames, not every frame |
+| `list-panes --json` | **~4700ms** | resolves every pane's command out of `ps`. **Never** use it here |
+| `list-tabs --state` | **~103ms** | gives the ACTIVE column; only called when a bell is outstanding |
 
-So the daemon queries zellij only when it must (clear-a-bell-on-focus, or reconcile
-every 60 ticks) and re-renames a tab only when the computed name *changes*. A session
-where everything is merely `working` makes **zero** queries. Given this box's history of
+So it re-renames a tab only when the computed name actually *changes*, and it blocks on
+a `SUBSCRIBE asm:transitions` read whose timeout **is** the frame interval — every wake
+either delivers a real transition or is the next blink. Given this box's history of
 being wedged by sustained polling, that conditionality is the point.
 
 **Trap, cost an hour:** `read` returns non-zero at EOF even when it *did* populate the
 variables — which a file written without a trailing newline always hits. A
-`read ... || continue` in the render loop therefore skipped every tab and painted
-nothing, silently. Gate on the value, never on `read`'s exit status.
+`read ... || continue` in a render loop therefore skips every tab and paints nothing,
+silently. Gate on the value, never on `read`'s exit status.
 
 **The blink must not change the tab's width.** The first version wrapped the name in
 three glyphs a side and toggled the whole thing on and off — `🔔🔔🔔 Deckard 🔔🔔🔔` is
 21 columns, `Deckard` is 7, so a marked tab shoved every tab after it 14 columns
 sideways four times a second. Now it appends **one** glyph and the blink *swaps* it for
-a partner of identical width (`🔔` ⇄ `⚫`), so the bar never reflows.
+a partner of identical width (`🟢` ⇄ `⚫`), so the bar never reflows.
 
 That makes East_Asian_Width the binding constraint, and it is easy to break by eye:
 
@@ -188,7 +211,7 @@ That makes East_Asian_Width the binding constraint, and it is easy to break by e
 `⚠️` was in the original set and was itself a jitter source; `🟠` replaced it. Check any
 replacement with
 `python3 -c "import unicodedata;print(unicodedata.east_asian_width('X'))"` and require
-`W`. The partner glyph is `ZELLIJ_NOTIFY_BLINK_ALT`.
+`W`. The partner glyph is `TABPAINT_BLINK_ALT`.
 
 This lands exactly on the ceiling described above — a name change, not a glow. That is
 the honest maximum without owning the renderer. To go past it you must replace the
@@ -200,15 +223,21 @@ tab-bar plugin itself (fork `zellij:tab-bar`, or adopt zj-radar / zellaude below
 |---|---|
 | Inside the pane: `$ZELLIJ_PANE_ID`, `$ZELLIJ_SESSION_NAME` | **Yes** — authoritative |
 | `deckard.evt.attention` (NATS) | **Yes** — `zellij_pane_id`, `zellij_session_name` |
-| `bloodbank.evt.agent.>` (NATS) | **No** |
+| `bloodbank.evt.agent.>` (NATS) | **Yes**, since 2026-09-04 — `zellij_origin()` in the agent-hooks publisher |
+| `asm:a:{scope}` (Redis) | **Yes** — `zellij_pane` / `zellij_session` fields, plus `asm:idx:pane:{sess}:{pane}` |
 
-A field census over 85 live bloodbank envelopes, grepping every field name for
-`pane|tab|zellij|pid|tty|mux`, found **nothing**. There, `data.working_directory` plus
-`actor.cli` is the only attribution — which cannot separate two tabs in the same repo.
+A field census over 85 live envelopes, grepping every field name for
+`pane|tab|zellij|pid|tty|mux`, once found **nothing** — attribution was
+`data.working_directory` plus `actor.cli`, which cannot separate two tabs in the same
+repo. `zellij_origin()` fixed that for every surface at once.
 
-**The highest-leverage upstream fix is to publish `zellij_pane_id` on the main
-bloodbank envelope.** One change makes attribution exact for every surface at once: the
-Stream Deck, the Nanoleaf wall, and any tab animator.
+**But the pane is not the agent's identity, and this was settled by measurement, not
+taste.** Pane presence is not a per-process invariant: over 12h of live events, 33 of 90
+codex correlation-sessions contained *both* paned and unpaned events, and codex
+`session.started` was 0/9 paned against 635/734 paned tool events. Headless hermes is
+0/1292. So the ASM keys on the agent **process** (`cli:p:pid.starttime`) and carries the
+pane as a field plus a secondary index. A pane-keyed store files one agent's tool events
+and its session events in two different rows.
 
 ## Existing notification paths
 
@@ -220,10 +249,12 @@ Already working, and worth reusing rather than duplicating:
 | `nlp hook notification` → Redis → Nanoleaf hex | **physical light wall** |
 | deckard attention hook → `deckard.evt.attention` → amber key | Stream Deck |
 | `zellij pipe zellij-attention::waiting::$ZELLIJ_PANE_ID` | **dead** — plugin never loaded |
+| `bin/asm-tabpaint` → `asm:*` → tab glyph | **the tab bar**, since 2026-09-05 |
 
-One event stream already feeds a Stream Deck and a light wall. **The tab bar is the
-third consumer that was never written.** Prefer subscribing to the existing stream over
-inventing a fourth path.
+Each of these grew its own fold of the same stream — the Nanoleaf wall reconciles
+`nlp:*` keys, Deckard keeps a private redb store, the tab painter had `agentstate:*`.
+That is four state machines for one question. The ASM exists to be the one; point a new
+surface at `asm:*` rather than inventing a fifth path.
 
 Note `bloodbank.agent.session.ended` is misleadingly named: the Claude adapter maps
 its `Stop` hook to it, and `Stop` fires at the end of *every* assistant turn. It means
