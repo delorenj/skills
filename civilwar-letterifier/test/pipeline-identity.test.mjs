@@ -599,7 +599,7 @@ test('build removes published props when its post-rename directory fsync fails',
     const providerCapture = path.join(root, 'provider-calls.jsonl');
     const fsyncCapture = path.join(root, 'fsync-fault.jsonl');
     const preload = path.join(root, 'fsync-fault-preload.mjs');
-    fs.writeFileSync(preload, `import fs from 'node:fs';\nconst originalFsync = fs.fsyncSync.bind(fs);\nfs.fsyncSync = (fd) => {\n  if (fs.fstatSync(fd).isDirectory()) {\n    fs.appendFileSync(process.env.SLOWBURNS_FSYNC_CAPTURE, 'directory-fsync\\n');\n    const error = new Error('injected props directory fsync failure');\n    error.code = 'EIO';\n    throw error;\n  }\n  return originalFsync(fd);\n};\nglobalThis.fetch = async (url) => { fs.appendFileSync(process.env.SLOWBURNS_PROVIDER_CAPTURE, String(url) + '\\n'); throw new Error('provider calls are forbidden in this fixture'); };\n`);
+    fs.writeFileSync(preload, `import fs from 'node:fs';\nimport path from 'node:path';\nconst originalFsync = fs.fsyncSync.bind(fs);\nconst originalRm = fs.rmSync.bind(fs);\nlet durabilityFaulted = false;\nfs.fsyncSync = (fd) => {\n  if (fs.fstatSync(fd).isDirectory()) {\n    durabilityFaulted = true;\n    fs.appendFileSync(process.env.SLOWBURNS_FSYNC_CAPTURE, JSON.stringify({marker: 'props_directory_fsync', code: 'EIO'}) + '\\n');\n    const error = new Error('props_directory_fsync_failed');\n    error.name = 'InjectedDurabilityError';\n    error.code = 'EIO';\n    error.marker = 'f015_props_post_rename';\n    throw error;\n  }\n  return originalFsync(fd);\n};\nfs.rmSync = (file, options) => {\n  if (durabilityFaulted && path.resolve(file) === path.resolve(process.env.SLOWBURNS_PROPS_PATH)) {\n    originalRm(file, options);\n    fs.appendFileSync(process.env.SLOWBURNS_FSYNC_CAPTURE, JSON.stringify({marker: 'props_cleanup', code: 'EACCES'}) + '\\n');\n    const error = new Error('props_cleanup_failed');\n    error.name = 'InjectedCleanupError';\n    error.code = 'EACCES';\n    error.marker = 'f016_props_cleanup';\n    throw error;\n  }\n  return originalRm(file, options);\n};\nprocess.on('uncaughtException', (error) => {\n  process.stderr.write(JSON.stringify({marker: error.marker, name: error.name, code: error.code, message: error.message}) + '\\n');\n  process.exitCode = 1;\n});\nglobalThis.fetch = async (url) => { fs.appendFileSync(process.env.SLOWBURNS_PROVIDER_CAPTURE, String(url) + '\\n'); throw new Error('provider calls are forbidden in this fixture'); };\n`);
     const env = {
       ...process.env,
       PATH: `${fakeBin}:${process.env.PATH}`,
@@ -609,10 +609,12 @@ test('build removes published props when its post-rename directory fsync fails',
       SLOWBURNS_RENDER_CAPTURE: renderCapture,
       SLOWBURNS_PROVIDER_CAPTURE: providerCapture,
       SLOWBURNS_FSYNC_CAPTURE: fsyncCapture,
+      SLOWBURNS_PROPS_PATH: narration.propsPath,
     };
 
-    assert.throws(
-      () => execFileSync(process.execPath, [
+    let buildError;
+    try {
+      execFileSync(process.execPath, [
         path.join(root, 'scripts', 'build.mjs'),
         '--text', text,
         '--out', out,
@@ -620,11 +622,28 @@ test('build removes published props when its post-rename directory fsync fails',
         '--claim-operation-id', identity.claimOperationId,
         '--no-music',
         '--no-ambient',
-      ], {cwd: root, env, stdio: 'pipe'}),
-      (error) => error.status !== 0,
-    );
+      ], {cwd: root, env, stdio: 'pipe'});
+    } catch (error) {
+      buildError = error;
+    }
 
-    assert.equal(fs.readFileSync(fsyncCapture, 'utf8'), 'directory-fsync\n');
+    assert.ok(buildError, 'injected durability failure must reject the build');
+    const surfacedFailure = JSON.parse(buildError.stderr.toString('utf8').trim());
+    assert.deepEqual(surfacedFailure, {
+      marker: 'f015_props_post_rename',
+      name: 'InjectedDurabilityError',
+      code: 'EIO',
+      message: 'props_directory_fsync_failed',
+    });
+    assert.equal(buildError.stderr.toString('utf8').includes(root), false, 'sanitized failure exposed a fixture path');
+    assert.equal(buildError.stderr.toString('utf8').includes(text), false, 'sanitized failure exposed transcript text');
+    assert.deepEqual(
+      fs.readFileSync(fsyncCapture, 'utf8').trim().split('\n').map((line) => JSON.parse(line)),
+      [
+        {marker: 'props_directory_fsync', code: 'EIO'},
+        {marker: 'props_cleanup', code: 'EACCES'},
+      ],
+    );
     assert.equal(fs.existsSync(narration.propsPath), false, 'post-rename fsync failure retained transcript props');
     assert.deepEqual(fs.readFileSync(outside), outsideBytes);
     assert.equal(fs.readlinkSync(foreignLink), outside);
