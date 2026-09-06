@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import {isDecodableMp3, narrate, resolveConfig} from '../scripts/narrate.mjs';
+import {isDecodableMp3, narrate, resolveConfig, resolveJobNarrationPaths} from '../scripts/narrate.mjs';
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'slowburns-narrate-test-'));
 const sampleMp3 = path.join(tempRoot, 'sample.mp3');
@@ -43,6 +43,121 @@ function config(overrides = {}) {
 function lockPathFor(out) {
   return `${path.resolve(out)}.narration.lock`;
 }
+
+test('job narration identities isolate identical text without touching legacy global state', async () => {
+  const workRoot = runDir('job-identity-isolation');
+  const legacyRoot = path.join(workRoot, 'remotion', 'public');
+  fs.mkdirSync(legacyRoot, {recursive: true});
+  const legacy = new Map([
+    [path.join(legacyRoot, 'narration.mp3'), Buffer.from('legacy-audio-byte-sentinel')],
+    [path.join(legacyRoot, 'narration.mp3.receipt.json'), Buffer.from('{"schema_version":1,"operation":"legacy","state":"primary_failed","attempts":[]}\n')],
+    [path.join(legacyRoot, 'narration.mp3.narration.lock'), Buffer.from('{"schema_version":2,"phase":"claimed_pre_provider","owner_pid":1,"owner_host":"legacy-host"}\n')],
+  ]);
+  for (const [file, bytes] of legacy) fs.writeFileSync(file, bytes);
+
+  const first = resolveJobNarrationPaths({
+    workRoot,
+    jobId: 'job-alpha',
+    claimOperationId: 'claim-one',
+  });
+  const second = resolveJobNarrationPaths({
+    workRoot,
+    jobId: 'job-bravo',
+    claimOperationId: 'claim-two',
+  });
+
+  for (const key of ['out', 'receiptPath', 'lockPath', 'operationId']) {
+    assert.notEqual(first[key], second[key], `${key} must bind the admitted job and claim`);
+  }
+  for (const target of [first.out, first.receiptPath, first.lockPath, second.out, second.receiptPath, second.lockPath]) {
+    const relative = path.relative(path.resolve(workRoot), target);
+    assert.ok(relative && !relative.startsWith('..') && !path.isAbsolute(relative), `${target} must stay below the work root`);
+  }
+  const calls = [];
+  for (const target of [first, second]) {
+    await narrate({
+      text: 'The same dispatch for two different jobs.',
+      out: target.out,
+      receiptPath: target.receiptPath,
+      operationId: target.operationId,
+      config: config(),
+      log: () => {},
+      fetchImpl: async (url) => {
+        calls.push(url);
+        return audioResponse();
+      },
+    });
+  }
+  assert.deepEqual(calls, ['https://eleven.test/tts', 'https://eleven.test/tts']);
+  assert.notEqual(
+    JSON.parse(fs.readFileSync(first.receiptPath, 'utf8')).operation,
+    JSON.parse(fs.readFileSync(second.receiptPath, 'utf8')).operation,
+  );
+  assert.equal(fs.existsSync(first.out), true);
+  assert.equal(fs.existsSync(second.out), true);
+  assert.equal(fs.existsSync(first.lockPath), false);
+  assert.equal(fs.existsSync(second.lockPath), false);
+
+  const retry = resolveJobNarrationPaths({workRoot, jobId: 'job-alpha', claimOperationId: 'claim-one'});
+  assert.deepEqual(retry, first, 'the same admitted claim must resolve the same durable identities');
+  await narrate({
+    text: 'The same dispatch for two different jobs.',
+    out: retry.out,
+    receiptPath: retry.receiptPath,
+    operationId: retry.operationId,
+    config: config(),
+    log: () => {},
+    fetchImpl: async () => { throw new Error('recovery must not call a provider'); },
+  });
+  assert.equal(calls.length, 2);
+  for (const [file, bytes] of legacy) assert.deepEqual(fs.readFileSync(file), bytes);
+});
+
+test('a stale same-claim pre-provider lock remains a zero-call manual recovery boundary', async () => {
+  const workRoot = runDir('stale-pre-provider-manual-boundary');
+  const target = resolveJobNarrationPaths({workRoot, jobId: 'job-locked', claimOperationId: 'claim-locked'});
+  fs.mkdirSync(path.dirname(target.lockPath), {recursive: true});
+  const retained = Buffer.from('{"schema_version":2,"phase":"claimed_pre_provider","created_at":"2020-01-01T00:00:00.000Z","owner_pid":999999,"owner_host":"dead-host"}\n');
+  fs.writeFileSync(target.lockPath, retained);
+  let providerCalls = 0;
+  await assert.rejects(
+    narrate({
+      text: 'This claim must remain locked for an operator.',
+      out: target.out,
+      receiptPath: target.receiptPath,
+      operationId: target.operationId,
+      config: config(),
+      log: () => {},
+      fetchImpl: async () => { providerCalls += 1; return audioResponse(); },
+    }),
+    (error) => error.fallbackClass === 'operation_locked',
+  );
+  assert.equal(providerCalls, 0);
+  assert.deepEqual(fs.readFileSync(target.lockPath), retained);
+});
+
+test('job narration identity hashes path-like input and rejects noncanonical control data', () => {
+  const workRoot = runDir('job-identity-path-safety');
+  const first = resolveJobNarrationPaths({workRoot, jobId: '../job', claimOperationId: '../../claim'});
+  const second = resolveJobNarrationPaths({workRoot, jobId: '..\\job', claimOperationId: '..\\..\\claim'});
+  assert.notEqual(first.directory, second.directory, 'distinct raw identities must not collide after path normalization');
+  for (const target of [first.directory, second.directory]) {
+    const relative = path.relative(path.resolve(workRoot), target);
+    assert.ok(relative && !relative.startsWith('..') && !path.isAbsolute(relative));
+  }
+  assert.throws(
+    () => resolveJobNarrationPaths({workRoot, jobId: 'job\u0000escape', claimOperationId: 'claim'}),
+    (error) => error.fallbackClass === 'configuration',
+  );
+
+  const outside = runDir('job-identity-symlink-outside');
+  fs.mkdirSync(path.dirname(first.directory), {recursive: true});
+  fs.symlinkSync(outside, first.directory, 'dir');
+  assert.throws(
+    () => resolveJobNarrationPaths({workRoot, jobId: '../job', claimOperationId: '../../claim'}),
+    (error) => error.fallbackClass === 'configuration',
+  );
+});
 
 function jsonResponse(status, body, requestId = 'safe-request-id') {
   return new Response(JSON.stringify(body), {

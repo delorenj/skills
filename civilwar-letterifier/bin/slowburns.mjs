@@ -32,6 +32,8 @@
  *   --ambient <file>    Use a specific ambient track
  *   --font <style>      script (default) | dispatch
  *   --out <file>        Override the output path
+ *   --job-id <id>       Bind narration state to an orchestrated job (with claim id)
+ *   --claim-operation-id <id> Bind narration state to the admitted claim
  *   --keep-letter       (default behavior) also write the letter text beside the video
  *   -h, --help
  *
@@ -70,6 +72,8 @@ Options:
   --ambient <file>  Use a specific ambient track
   --font <style>    script (default) | dispatch
   --out <file>      Override the output path (default ./out/slowburns-<ts>.mp4)
+  --job-id <id>     Bind narration state to an orchestrated job (requires claim id)
+  --claim-operation-id <id> Bind narration state to the admitted claim
   -h, --help
 
 Defaults: letterify on, music on, ambient on. Output lands in ./out.`;
@@ -98,6 +102,7 @@ function parseArgs(argv) {
   const positional = [];
   const takesValue = new Set([
     '--text', '--letterfile', '--letter', '--mode', '--model', '--signer', '--music', '--ambient', '--font', '--out',
+    '--job-id', '--claim-operation-id',
   ]);
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -219,6 +224,9 @@ async function main() {
     process.exit(1);
   }
   if (sourceText !== undefined && !sourceText.trim()) fail('Input text is empty.');
+  if (Boolean(o['job-id']) !== Boolean(o['claim-operation-id'])) {
+    fail('--job-id and --claim-operation-id must be supplied together.');
+  }
 
   if (!['standard', 'field-note', 'full', 'executive'].includes(o.mode)) {
     fail(`Unknown --mode "${o.mode}" (use standard | field-note | full | executive).`);
@@ -257,6 +265,7 @@ async function main() {
     '--text', note,
     '--out', outFile,
     '--font', o.font === 'dispatch' ? 'dispatch' : 'script',
+    ...(o['job-id'] ? ['--job-id', o['job-id'], '--claim-operation-id', o['claim-operation-id']] : []),
     ...musicArgs,
     ...ambientArgs,
   ]);

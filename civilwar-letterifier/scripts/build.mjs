@@ -36,9 +36,11 @@
  * for rendering, the remotion/ project deps (auto-installed on first run).
  */
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
+import {resolveJobNarrationPaths} from './narrate.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -51,9 +53,13 @@ function arg(name, def) {
   const v = process.argv[i + 1];
   return v && !v.startsWith('--') ? v : true; // bare flag -> true
 }
-function run(cmd, args, cwd) {
+function run(cmd, args, cwd, {input} = {}) {
   console.log(`\n$ ${cmd} ${args.join(' ')}`);
-  execFileSync(cmd, args, {cwd: cwd || ROOT, stdio: 'inherit'});
+  execFileSync(cmd, args, {
+    cwd: cwd || ROOT,
+    stdio: input === undefined ? 'inherit' : ['pipe', 'inherit', 'inherit'],
+    input,
+  });
 }
 
 // --- Deterministic scaffolding --------------------------------------------
@@ -122,26 +128,41 @@ function pickAmbientTrack(dir) {
   return path.join(dir, chosen);
 }
 const outFile = path.resolve(arg('out', path.join(ROOT, 'out', 'letter.mp4')));
+const jobId = arg('job-id');
+const claimOperationId = arg('claim-operation-id');
+if ((jobId && jobId !== true) !== (claimOperationId && claimOperationId !== true)) {
+  console.error('Error: --job-id and --claim-operation-id must be supplied together.');
+  process.exit(1);
+}
 const introPad = parseFloat(arg('intro-pad', '3.5'));
 const outroPad = parseFloat(arg('outro-pad', '4'));
 const accentColor = arg('accent', '#5a2a16');
 const fontStyle = arg('font') === 'dispatch' ? 'dispatch' : 'script';
 
-fs.mkdirSync(PUBLIC, {recursive: true});
+fs.mkdirSync(path.dirname(outFile), {recursive: true});
+const localOutputIdentity = crypto.createHash('sha256').update(outFile).digest('hex');
+const narration = resolveJobNarrationPaths({
+  workRoot: path.dirname(outFile),
+  jobId: jobId && jobId !== true ? jobId : 'local-render',
+  claimOperationId: claimOperationId && claimOperationId !== true
+    ? claimOperationId
+    : `output-${localOutputIdentity}`,
+});
+fs.mkdirSync(narration.publicDir, {recursive: true});
 
 // --- 1. Narration ---------------------------------------------------------
 // narrate.mjs uses the fixed Eleven narrator and an explicitly configured
 // Cartesia fallback voice; no provider retry loop is permitted.
-const letterTxt = path.join(PUBLIC, '.letter.txt');
-fs.writeFileSync(letterTxt, letterText);
 run('node', [
   path.join(ROOT, 'scripts', 'narrate.mjs'),
-  '--file', letterTxt,
-  '--out', path.join(PUBLIC, 'narration.mp3'),
-]);
+  '--stdin',
+  '--out', narration.out,
+  '--receipt', narration.receiptPath,
+  '--operation-id', narration.operationId,
+], ROOT, {input: letterText});
 
 // --- 2. Music bed ---------------------------------------------------------
-const musicDest = path.join(PUBLIC, 'music.mp3');
+const musicDest = path.join(narration.publicDir, 'music.mp3');
 let hasMusic = false;
 if (noMusic) {
   console.log('\nMusic disabled (--no-music). Voice only.');
@@ -171,7 +192,7 @@ if (noMusic) {
 // Always-on field atmosphere, layered beneath everything for the whole film,
 // independent of whether a music bed was selected. Resolved from --ambient or,
 // by default, from assets/sfx/.
-const ambientDest = path.join(PUBLIC, 'ambient.mp3');
+const ambientDest = path.join(narration.publicDir, 'ambient.mp3');
 let hasAmbient = false;
 if (noAmbient) {
   console.log('\nAmbient bed disabled (--no-ambient).');
@@ -207,8 +228,8 @@ const props = {
   outroPad,
   accentColor,
 };
-const propsPath = path.join(REMOTION, 'props.json');
-fs.writeFileSync(propsPath, JSON.stringify(props, null, 2));
+const propsPath = narration.propsPath;
+fs.writeFileSync(propsPath, JSON.stringify(props, null, 2), {mode: 0o600});
 console.log(`\nWrote props -> ${propsPath}`);
 
 // --- 4. Render ------------------------------------------------------------
@@ -216,7 +237,14 @@ if (!fs.existsSync(path.join(REMOTION, 'node_modules'))) {
   console.log('\nInstalling Remotion deps (first run only)…');
   run('npm', ['install'], REMOTION);
 }
-fs.mkdirSync(path.dirname(outFile), {recursive: true});
-run('npx', ['remotion', 'render', 'CivilWarLetter', outFile, `--props=${propsPath}`], REMOTION);
+try {
+  run('npx', [
+    'remotion', 'render', 'CivilWarLetter', outFile,
+    `--props=${propsPath}`,
+    `--public-dir=${narration.publicDir}`,
+  ], REMOTION);
+} finally {
+  fs.rmSync(propsPath, {force: true});
+}
 
 console.log(`\n✅ Done. Your dispatch awaits: ${outFile}`);

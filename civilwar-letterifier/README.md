@@ -69,9 +69,22 @@ Provide credentials through the process environment only, ideally with an
 persist a dotenv file. The letter's sign-off is written by the model (cohesive
 with the content); set the name with `--signer` (default `J.`).
 
-The direct `narration.mp3` default and the Remotion handoff generate receipt,
-claim, and atomic-temp runtime sidecars. Those exact runtime paths are ignored
-without hiding source or evidence elsewhere. Verify the patterns with:
+An orchestrated render carries its canonical job ID and admitted claim-operation
+ID through the CLI and build. Their length-framed SHA-256 identity owns one
+namespace below the MP4's runtime directory:
+`.slowburns-narration/v1/<identity>/`. Narration audio, receipt, lock, atomic
+temporary files, Remotion public assets, and ephemeral props never use the
+tracked skill tree or another job's namespace. The operation hash additionally
+binds the exact text. Direct human CLI calls remain compatible and derive a
+stable local identity from the absolute output path instead of using a shared
+`default` operation.
+
+Legacy `remotion/public/narration.*` files are never consulted, replaced, or
+cleaned by this path. The SlowBurns daemon removes only the exact namespace of a
+terminalized render; any renderer/narrator ambiguity retains that claim-local
+state for operator reconciliation. The direct `narration.mp3` adapter default
+still generates receipt, claim, and atomic-temp sidecars. Those runtime paths
+are ignored without hiding source or evidence elsewhere. Verify the patterns with:
 
 ```bash
 git check-ignore -v -- narration.mp3 narration.mp3.receipt.json \

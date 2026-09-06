@@ -622,6 +622,64 @@ function canonicalizePath(file) {
   }
 }
 
+function canonicalizeWorkRoot(workRoot) {
+  if (typeof workRoot !== 'string' || !workRoot) {
+    throw new NarrationError('Narration work root must be a nonempty string.', {fallbackClass: 'configuration'});
+  }
+  const absolute = path.resolve(workRoot);
+  const suffix = [];
+  let existing = absolute;
+  while (!fs.existsSync(existing)) {
+    const parent = path.dirname(existing);
+    if (parent === existing) break;
+    suffix.unshift(path.basename(existing));
+    existing = parent;
+  }
+  try {
+    return path.join(fs.realpathSync(existing), ...suffix);
+  } catch {
+    return absolute;
+  }
+}
+
+function boundedIdentity(value, name) {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 256 || /[\0-\x1f\x7f]/.test(value)) {
+    throw new NarrationError(`${name} must be a nonempty, bounded identity without control characters.`, {
+      fallbackClass: 'configuration',
+    });
+  }
+  return value;
+}
+
+/**
+ * Resolve the one narration namespace owned by an admitted SlowBurns claim.
+ * Caller-controlled identities are length-framed and hashed; they never become
+ * path components or durable plaintext. The same job + claim resolves the same
+ * namespace, while any distinct pair resolves a collision-resistant sibling.
+ */
+export function resolveJobNarrationPaths({workRoot, jobId, claimOperationId}) {
+  const root = canonicalizeWorkRoot(workRoot);
+  const job = boundedIdentity(jobId, 'Narration job id');
+  const claim = boundedIdentity(claimOperationId, 'Narration claim operation id');
+  const framedIdentity = JSON.stringify([Buffer.byteLength(job, 'utf8'), job, Buffer.byteLength(claim, 'utf8'), claim]);
+  const identity = sha256(framedIdentity);
+  const directory = canonicalizeWorkRoot(path.join(root, '.slowburns-narration', 'v1', identity));
+  const relative = path.relative(root, directory);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new NarrationError('Narration identity resolved outside its work root.', {fallbackClass: 'configuration'});
+  }
+  const out = path.join(directory, 'public', 'narration.mp3');
+  return {
+    directory,
+    publicDir: path.dirname(out),
+    out,
+    receiptPath: `${out}.receipt.json`,
+    lockPath: `${out}.narration.lock`,
+    propsPath: path.join(directory, 'props.json'),
+    operationId: `slowburns-job-v1-${identity}`,
+  };
+}
+
 function resolveNarrationPaths(out, receiptPath) {
   const finalOut = canonicalizePath(out);
   const finalReceipt = canonicalizePath(receiptPath);
@@ -927,8 +985,9 @@ function arg(name, def) {
 
 async function main() {
   const file = arg('file');
-  const text = file ? fs.readFileSync(file, 'utf8').trim() : arg('text');
-  if (!text) throw new NarrationError('Pass --file <letter.txt> or --text "...".');
+  const useStdin = process.argv.includes('--stdin');
+  const text = useStdin ? fs.readFileSync(0, 'utf8').trim() : (file ? fs.readFileSync(file, 'utf8').trim() : arg('text'));
+  if (!text) throw new NarrationError('Pass --stdin, --file <letter.txt>, or --text "...".');
   const out = arg('out', 'narration.mp3');
   const receipt = await narrate({text, out, operationId: arg('operation-id', 'default'), receiptPath: arg('receipt', `${out}.receipt.json`)});
   console.log(`Saved narration -> ${out} (${receipt.selection.provider})`);

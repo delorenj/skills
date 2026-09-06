@@ -62,7 +62,8 @@ user text
    │  Layer 1 — YOU write the period prose (the only creative/agentic step)
    ▼
 the note ──► scripts/build.mjs ──► out/letter.mp4
-               │  1. ElevenLabs narration (Cartesia capacity fallback) → remotion/public/narration.mp3
+               │  1. ElevenLabs narration (Cartesia capacity fallback)
+               │     → <output-dir>/.slowburns-narration/v1/<job+claim hash>/public/narration.mp3
                │  2. music bed (drop-in or auto-generated, optional)
                │  2b. ambient bed (assets/sfx, always-on atmosphere)
                │  3. props.json  (date auto-generated; signature/title fixed)
@@ -204,15 +205,30 @@ before `ffprobe` or a full SHA-256 read; an over-limit file is retained as
 limit, and hash identities in the lock. Its completed receipt is not repaired or
 rewritten.
 
+For an orchestrated render, `--job-id` and `--claim-operation-id` travel
+together from the SlowBurns daemon through the CLI and build. The two exact,
+length-framed values are SHA-256 hashed into a path-safe namespace below the
+job MP4's runtime directory; the narration operation then binds that identity
+plus the exact letter text. Identical text in two jobs therefore cannot share
+audio, receipt, lock, temporary, props, or Remotion public state. A retry of the
+same admitted claim resolves the same paths. Direct human CLI builds without
+those internal arguments remain supported through a deterministic identity
+bound to the absolute output path. The old shared
+`remotion/public/narration.*` paths are legacy state and are never read,
+overwritten, or removed by this flow.
+
 There is **no automatic stale-lock cleanup**. For a manual recovery, first inspect
 the sanitized phase and receipt. The only possible manual-clear candidate is a
-`claimed_pre_provider` lock unchanged for at least 10 minutes, after confirming
-the recorded owner PID is dead on the recorded host and that no final artifact
-exists. Any `*_request_started`, `*_headers_received`, `*_body_read_*`,
-`*_audio_validation_*`, or receipt-integrity phase requires provider/request and
-billing reconciliation (using only a safe request ID when present), artifact
-inspection, and explicit operator removal after that investigation. Never delete
-an ambiguous claim to make the CLI retry automatically.
+`claimed_pre_provider` lock unchanged for at least 10 minutes, whose recorded
+host is the current host, whose recorded owner PID is dead, and whose exact
+namespace has no audio artifact or receipt indicating provider dispatch. A
+young lock, live owner, foreign host, any artifact, or any
+`*_request_started`, `*_headers_received`, `*_body_read_*`,
+`*_audio_validation_*`, or receipt-integrity phase stays locked. Provider-boundary
+state requires provider/request and billing reconciliation (using only a safe
+request ID when present), artifact inspection, and explicit operator removal
+after that investigation. Never delete an ambiguous claim merely to make the
+CLI retry.
 
 ### Music
 
