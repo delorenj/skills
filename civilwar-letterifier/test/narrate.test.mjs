@@ -113,6 +113,72 @@ test('job narration identities isolate identical text without touching legacy gl
   for (const [file, bytes] of legacy) assert.deepEqual(fs.readFileSync(file), bytes);
 });
 
+test('20-iteration identical-text cross-job isolation stress is deterministic and legacy-safe', async () => {
+  const workRoot = runDir('job-identity-committed-stress');
+  const legacyRoot = path.join(workRoot, 'remotion', 'public');
+  fs.mkdirSync(legacyRoot, {recursive: true});
+  const legacy = new Map([
+    [path.join(legacyRoot, 'narration.mp3'), Buffer.from('legacy-stress-audio-byte-sentinel')],
+    [path.join(legacyRoot, 'narration.mp3.receipt.json'), Buffer.from('{"schema_version":1,"operation":"legacy-stress","state":"primary_failed","attempts":[]}\n')],
+    [path.join(legacyRoot, 'narration.mp3.narration.lock'), Buffer.from('{"schema_version":2,"phase":"claimed_pre_provider","owner_pid":1,"owner_host":"legacy-stress-host"}\n')],
+  ]);
+  for (const [file, bytes] of legacy) fs.writeFileSync(file, bytes);
+
+  const transcript = 'One identical dispatch shared by every isolated stress case.';
+  const pathKeys = ['directory', 'publicDir', 'out', 'receiptPath', 'lockPath', 'propsPath'];
+  const seen = Object.fromEntries([...pathKeys, 'operationId'].map((key) => [key, new Set()]));
+  const receiptOperations = new Set();
+  let providerCalls = 0;
+
+  for (let iteration = 0; iteration < 20; iteration += 1) {
+    const targets = ['alpha', 'bravo'].map((side) => resolveJobNarrationPaths({
+      workRoot,
+      jobId: `job-${iteration}-${side}`,
+      claimOperationId: `claim-${iteration}-${side}`,
+    }));
+
+    for (const key of [...pathKeys, 'operationId']) {
+      assert.notEqual(targets[0][key], targets[1][key], `${key} collided within iteration ${iteration}`);
+    }
+
+    for (const target of targets) {
+      for (const key of pathKeys) {
+        const relative = path.relative(path.resolve(workRoot), target[key]);
+        assert.ok(
+          relative && !relative.startsWith('..') && !path.isAbsolute(relative),
+          `${key} escaped the work root during iteration ${iteration}`,
+        );
+        assert.equal(seen[key].has(target[key]), false, `${key} collided across stress identities`);
+        seen[key].add(target[key]);
+      }
+      assert.equal(seen.operationId.has(target.operationId), false, 'operationId collided across stress identities');
+      seen.operationId.add(target.operationId);
+
+      await narrate({
+        text: transcript,
+        out: target.out,
+        receiptPath: target.receiptPath,
+        operationId: target.operationId,
+        config: config(),
+        log: () => {},
+        fetchImpl: async (url) => {
+          assert.equal(url, 'https://eleven.test/tts');
+          providerCalls += 1;
+          return audioResponse();
+        },
+      });
+      assert.equal(fs.existsSync(target.out), true);
+      assert.equal(fs.existsSync(target.lockPath), false);
+      receiptOperations.add(JSON.parse(fs.readFileSync(target.receiptPath, 'utf8')).operation);
+    }
+  }
+
+  assert.equal(providerCalls, 40, 'each isolated narration must make exactly one fake primary call');
+  assert.equal(receiptOperations.size, 40, 'receipt operation hashes must bind all 40 identities');
+  for (const key of [...pathKeys, 'operationId']) assert.equal(seen[key].size, 40);
+  for (const [file, bytes] of legacy) assert.deepEqual(fs.readFileSync(file), bytes);
+});
+
 test('a stale same-claim pre-provider lock remains a zero-call manual recovery boundary', async () => {
   const workRoot = runDir('stale-pre-provider-manual-boundary');
   const target = resolveJobNarrationPaths({workRoot, jobId: 'job-locked', claimOperationId: 'claim-locked'});
