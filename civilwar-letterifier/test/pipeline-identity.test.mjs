@@ -309,3 +309,157 @@ test('direct build refuses changed text for completed output-bound narration wit
     fs.rmSync(root, {recursive: true, force: true});
   }
 });
+
+test('build rejects a nested public symlink before provider or outside writes', () => {
+  const root = fixture('build-public-symlink');
+  try {
+    copy(path.join(ROOT, 'scripts', 'build.mjs'), path.join(root, 'scripts', 'build.mjs'));
+    copy(path.join(ROOT, 'scripts', 'narrate.mjs'), path.join(root, 'scripts', 'narrate.mjs'));
+    fs.mkdirSync(path.join(root, 'remotion', 'node_modules'), {recursive: true});
+
+    const workRoot = path.join(root, 'runtime');
+    fs.mkdirSync(workRoot);
+    const out = path.join(workRoot, 'job-symlink.mp4');
+    const identity = {jobId: 'job-symlink', claimOperationId: 'claim-symlink'};
+    const narration = resolveJobNarrationPaths({workRoot, ...identity});
+    fs.mkdirSync(narration.directory, {recursive: true});
+    const outside = path.join(root, 'outside-sentinel');
+    fs.mkdirSync(outside);
+    const sentinel = path.join(outside, 'sentinel.bin');
+    const sentinelBytes = Buffer.from('outside-must-remain-byte-identical');
+    fs.writeFileSync(sentinel, sentinelBytes);
+    fs.symlinkSync(outside, narration.publicDir, 'dir');
+
+    const audioFixture = path.join(root, 'valid.mp3');
+    execFileSync('ffmpeg', [
+      '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=0.15',
+      '-q:a', '9', '-acodec', 'libmp3lame', audioFixture,
+    ]);
+    const providerCapture = path.join(root, 'provider-calls.jsonl');
+    const preload = path.join(root, 'provider-preload.mjs');
+    fs.writeFileSync(preload, `import fs from 'node:fs';\nconst audio = Buffer.from(${JSON.stringify(fs.readFileSync(audioFixture).toString('base64'))}, 'base64');\nglobalThis.fetch = async (url) => { fs.appendFileSync(process.env.SLOWBURNS_PROVIDER_CAPTURE, String(url) + '\\n'); return new Response(audio, {status: 200, headers: {'content-type': 'audio/mpeg'}}); };\n`);
+
+    const fakeBin = path.join(root, 'fake-bin');
+    fs.mkdirSync(fakeBin);
+    const renderCapture = path.join(root, 'render-calls.jsonl');
+    const fakeNpx = path.join(fakeBin, 'npx');
+    fs.writeFileSync(fakeNpx, `#!${process.execPath}\nimport fs from 'node:fs';\nfs.appendFileSync(process.env.SLOWBURNS_RENDER_CAPTURE, 'render\\n');\n`);
+    fs.chmodSync(fakeNpx, 0o755);
+    const env = {
+      ...process.env,
+      PATH: `${fakeBin}:${process.env.PATH}`,
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --import=${preload}`.trim(),
+      ELEVENLABS_API_KEY: 'eleven-test-key',
+      CARTESIA_API_KEY: 'sk_car_1234567890abcdefghij',
+      CARTESIA_VOICE_ID: 'fixture-cartesia-voice',
+      SLOWBURNS_PROVIDER_CAPTURE: providerCapture,
+      SLOWBURNS_RENDER_CAPTURE: renderCapture,
+    };
+    let rejected = false;
+    try {
+      execFileSync(process.execPath, [
+        path.join(root, 'scripts', 'build.mjs'),
+        '--text', 'No byte may cross the nested public symlink.',
+        '--out', out,
+        '--job-id', identity.jobId,
+        '--claim-operation-id', identity.claimOperationId,
+        '--no-music',
+        '--no-ambient',
+      ], {cwd: root, env, stdio: 'pipe'});
+    } catch {
+      rejected = true;
+    }
+
+    assert.deepEqual(fs.readFileSync(sentinel), sentinelBytes);
+    assert.deepEqual(
+      fs.readdirSync(outside).sort(),
+      ['sentinel.bin'],
+      'build wrote narration state through the nested public symlink',
+    );
+    assert.equal(fs.existsSync(providerCapture), false, 'symlink rejection must precede provider dispatch');
+    assert.equal(fs.existsSync(renderCapture), false, 'symlink rejection must precede render');
+    assert.equal(rejected, true, 'nested public symlink must fail closed');
+  } finally {
+    fs.rmSync(root, {recursive: true, force: true});
+  }
+});
+
+test('build removes transcript props when dependency installation fails and retry reuses narration', () => {
+  const root = fixture('build-install-failure-props');
+  try {
+    copy(path.join(ROOT, 'scripts', 'build.mjs'), path.join(root, 'scripts', 'build.mjs'));
+    copy(path.join(ROOT, 'scripts', 'narrate.mjs'), path.join(root, 'scripts', 'narrate.mjs'));
+    fs.mkdirSync(path.join(root, 'remotion'), {recursive: true});
+
+    const workRoot = path.join(root, 'runtime');
+    fs.mkdirSync(workRoot);
+    const out = path.join(workRoot, 'job-install-failure.mp4');
+    const identity = {jobId: 'job-install-failure', claimOperationId: 'claim-install-failure'};
+    const narration = resolveJobNarrationPaths({workRoot, ...identity});
+    const audioFixture = path.join(root, 'valid.mp3');
+    execFileSync('ffmpeg', [
+      '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=0.15',
+      '-q:a', '9', '-acodec', 'libmp3lame', audioFixture,
+    ]);
+    const providerCapture = path.join(root, 'provider-calls.jsonl');
+    const preload = path.join(root, 'provider-preload.mjs');
+    fs.writeFileSync(preload, `import fs from 'node:fs';\nconst audio = Buffer.from(${JSON.stringify(fs.readFileSync(audioFixture).toString('base64'))}, 'base64');\nglobalThis.fetch = async (url) => { fs.appendFileSync(process.env.SLOWBURNS_PROVIDER_CAPTURE, String(url) + '\\n'); return new Response(audio, {status: 200, headers: {'content-type': 'audio/mpeg'}}); };\n`);
+
+    const fakeBin = path.join(root, 'fake-bin');
+    fs.mkdirSync(fakeBin);
+    const installCapture = path.join(root, 'install-calls.jsonl');
+    const renderCapture = path.join(root, 'render-calls.jsonl');
+    const fakeNpm = path.join(fakeBin, 'npm');
+    fs.writeFileSync(fakeNpm, `#!${process.execPath}\nimport fs from 'node:fs';\nfs.appendFileSync(process.env.SLOWBURNS_INSTALL_CAPTURE, 'install\\n');\nprocess.exit(17);\n`);
+    fs.chmodSync(fakeNpm, 0o755);
+    const fakeNpx = path.join(fakeBin, 'npx');
+    fs.writeFileSync(fakeNpx, `#!${process.execPath}\nimport fs from 'node:fs';\nconst args = process.argv.slice(2);\nfs.appendFileSync(process.env.SLOWBURNS_RENDER_CAPTURE, 'render\\n');\nfs.writeFileSync(args[3], 'fake-video');\n`);
+    fs.chmodSync(fakeNpx, 0o755);
+    const env = {
+      ...process.env,
+      PATH: `${fakeBin}:${process.env.PATH}`,
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --import=${preload}`.trim(),
+      ELEVENLABS_API_KEY: 'eleven-test-key',
+      CARTESIA_API_KEY: 'sk_car_1234567890abcdefghij',
+      CARTESIA_VOICE_ID: 'fixture-cartesia-voice',
+      SLOWBURNS_PROVIDER_CAPTURE: providerCapture,
+      SLOWBURNS_INSTALL_CAPTURE: installCapture,
+      SLOWBURNS_RENDER_CAPTURE: renderCapture,
+    };
+    const args = [
+      path.join(root, 'scripts', 'build.mjs'),
+      '--text', 'Transcript-bearing props must not survive install failure.',
+      '--out', out,
+      '--job-id', identity.jobId,
+      '--claim-operation-id', identity.claimOperationId,
+      '--no-music',
+      '--no-ambient',
+    ];
+
+    assert.throws(
+      () => execFileSync(process.execPath, args, {cwd: root, env, stdio: 'pipe'}),
+      (error) => error.status !== 0,
+    );
+    assert.equal(fs.readFileSync(providerCapture, 'utf8').trim().split('\n').length, 1);
+    assert.equal(fs.readFileSync(installCapture, 'utf8'), 'install\n');
+    assert.equal(fs.existsSync(renderCapture), false);
+    assert.equal(fs.existsSync(narration.propsPath), false, 'install failure retained transcript-bearing props');
+    assert.equal(fs.existsSync(narration.out), true, 'completed narration audio must remain recoverable');
+    assert.equal(fs.existsSync(narration.receiptPath), true, 'completed narration receipt must remain recoverable');
+    assert.equal(fs.existsSync(narration.lockPath), false, 'successful narration must release its operation lock');
+
+    fs.mkdirSync(path.join(root, 'remotion', 'node_modules'));
+    execFileSync(process.execPath, args, {cwd: root, env, stdio: 'pipe'});
+    assert.equal(
+      fs.readFileSync(providerCapture, 'utf8').trim().split('\n').length,
+      1,
+      'same-text retry must recover without another provider call',
+    );
+    assert.equal(fs.readFileSync(renderCapture, 'utf8'), 'render\n');
+    assert.equal(fs.existsSync(narration.propsPath), false);
+    assert.equal(fs.existsSync(narration.out), true);
+    assert.equal(fs.existsSync(narration.receiptPath), true);
+  } finally {
+    fs.rmSync(root, {recursive: true, force: true});
+  }
+});

@@ -258,18 +258,26 @@ fs.writeFileSync(propsPath, JSON.stringify(props, null, 2), {mode: 0o600});
 console.log(`\nWrote props -> ${propsPath}`);
 
 // --- 4. Render ------------------------------------------------------------
-if (!fs.existsSync(path.join(REMOTION, 'node_modules'))) {
-  console.log('\nInstalling Remotion deps (first run only)…');
-  run('npm', ['install'], REMOTION);
-}
+let renderFailure;
 try {
+  if (!fs.existsSync(path.join(REMOTION, 'node_modules'))) {
+    console.log('\nInstalling Remotion deps (first run only)…');
+    run('npm', ['install'], REMOTION);
+  }
   run('npx', [
     'remotion', 'render', 'CivilWarLetter', outFile,
     `--props=${propsPath}`,
     `--public-dir=${narration.publicDir}`,
   ], REMOTION);
+} catch (error) {
+  renderFailure = error;
+  throw error;
 } finally {
-  fs.rmSync(propsPath, {force: true});
+  try {
+    fs.rmSync(propsPath, {force: true});
+  } catch (cleanupError) {
+    if (!renderFailure) throw cleanupError;
+  }
 }
 
 console.log(`\n✅ Done. Your dispatch awaits: ${outFile}`);

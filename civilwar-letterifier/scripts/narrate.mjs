@@ -669,9 +669,20 @@ export function resolveJobNarrationPaths({workRoot, jobId, claimOperationId}) {
     throw new NarrationError('Narration identity resolved outside its work root.', {fallbackClass: 'configuration'});
   }
   const out = path.join(directory, 'public', 'narration.mp3');
+  const publicDir = path.dirname(out);
+  if (fs.existsSync(publicDir)) {
+    const publicStat = fs.lstatSync(publicDir);
+    const canonicalPublic = publicStat.isSymbolicLink() ? undefined : fs.realpathSync(publicDir);
+    const publicRelative = canonicalPublic ? path.relative(directory, canonicalPublic) : '..';
+    if (!publicStat.isDirectory() || !publicRelative || publicRelative.startsWith('..') || path.isAbsolute(publicRelative)) {
+      throw new NarrationError('Narration public directory must be a contained, non-symlink directory.', {
+        fallbackClass: 'configuration',
+      });
+    }
+  }
   return {
     directory,
-    publicDir: path.dirname(out),
+    publicDir,
     out,
     receiptPath: `${out}.receipt.json`,
     lockPath: `${out}.narration.lock`,
