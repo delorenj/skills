@@ -147,6 +147,11 @@ wrong-status/type/code, or contradictory hybrid never falls back. Cartesia
 retains its distinct, top-level structured error schema and its own positive
 allowlist.
 
+For ElevenLabs, a recognized provider error type repeated at the response top
+level must not conflict with the nested `detail` cause. A mixed-scope auth,
+authorization, validation, or other recognized error versus an eligible quota
+tuple fails closed; genuinely unknown top-level metadata remains inert.
+
 Bare, malformed, generic, auth/configuration/voice/model/input, or otherwise
 unclassified responses — including generic 5xx responses — fail closed. It is
 never a retry path and never follows another 4xx, malformed output, oversized or

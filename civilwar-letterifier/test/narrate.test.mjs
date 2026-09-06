@@ -767,6 +767,164 @@ test('legacy Eleven 400/401 quota code wrapper falls back exactly once and recor
   }
 });
 
+test('recognized top-level provider failures contradict nested legacy quota without Cartesia or usable audio', async () => {
+  const conflicts = [
+    {name: 'invalid-key', type: 'authentication_error', code: 'invalid_api_key'},
+    {name: 'missing-key', type: 'authentication_error', code: 'missing_api_key'},
+    {name: 'permission', type: 'authorization_error', code: 'insufficient_permissions'},
+    {name: 'validation', type: 'validation_error', code: 'invalid_parameters'},
+    {name: 'bad-request', type: 'invalid_request', code: 'bad_request'},
+  ];
+  for (const status of [400, 401]) for (const conflict of conflicts) {
+    const calls = [];
+    const requestId = `safe-mixed-scope-${status}-${conflict.name}`;
+    const operationId = `mixed-scope-${conflict.name}-quota-${status}`;
+    const out = path.join(runDir(operationId), 'narration.mp3');
+    const body = {
+      type: conflict.type,
+      code: conflict.code,
+      detail: {type: 'invalid_request', code: 'quota_exceeded', request_id: requestId},
+    };
+    assert.equal(Object.getPrototypeOf(body), Object.prototype);
+    assert.equal(Object.hasOwn(body, 'type'), true);
+    assert.equal(Object.hasOwn(body, 'code'), true);
+    assert.equal(Object.hasOwn(body, 'detail'), true);
+
+    let failure;
+    try {
+      await narrate({
+        text: 'A solemn dispatch.', out, operationId,
+        config: config(), log: () => {},
+        fetchImpl: async (url) => {
+          calls.push(url);
+          return calls.length === 1
+            ? jsonResponse(status, body, requestId)
+            : audioResponse(validAudio, `unexpected-cartesia-${status}`);
+        },
+      });
+    } catch (error) {
+      failure = error;
+    }
+
+    assert.deepEqual(calls, ['https://eleven.test/tts'], `HTTP ${status} must not call Cartesia`);
+    assert.equal(failure?.provider, 'eleven');
+    assert.equal(failure?.fallbackClass, 'nonretryable');
+    assert.equal(fs.existsSync(out), false);
+    assert.deepEqual(JSON.parse(fs.readFileSync(`${out}.receipt.json`, 'utf8')), {
+      schema_version: 1,
+      operation: crypto.createHash('sha256')
+        .update(`${operationId}\u0000A solemn dispatch.`)
+        .digest('hex'),
+      state: 'primary_failed',
+      attempts: [{
+        provider: 'eleven',
+        model: 'eleven_multilingual_v2',
+        voice: 'HvjKMFO0rjuPaM2f997g',
+        fallback_class: 'nonretryable',
+        request_id: requestId,
+        http_status: status,
+        error_type: 'invalid_request',
+        error_code: 'quota_exceeded',
+      }],
+    });
+  }
+});
+
+test('recognized top-level nonfallback types stay contradictory with unknown or malformed codes', async () => {
+  const conflicts = [
+    {name: 'unknown-auth-code', type: 'authentication_error', code: 'future_auth_failure'},
+    {name: 'unknown-validation-code', type: 'validation_error', code: 'future_validation_failure'},
+    {name: 'malformed-auth-code', type: 'authentication_error', code: ' Invalid_API_Key '},
+    {name: 'non-string-validation-code', type: 'validation_error', code: {name: 'invalid_parameters'}},
+  ];
+  for (const conflict of conflicts) {
+    const calls = [];
+    const out = path.join(runDir(`mixed-scope-${conflict.name}`), 'narration.mp3');
+    let failure;
+    try {
+      await narrate({
+        text: 'A solemn dispatch.', out, operationId: `mixed-scope-${conflict.name}`,
+        config: config(), log: () => {},
+        fetchImpl: async (url) => {
+          calls.push(url);
+          return calls.length === 1
+            ? jsonResponse(401, {
+              type: conflict.type,
+              code: conflict.code,
+              detail: {type: 'invalid_request', code: 'quota_exceeded'},
+            })
+            : audioResponse();
+        },
+      });
+    } catch (error) {
+      failure = error;
+    }
+    assert.deepEqual(calls, ['https://eleven.test/tts'], conflict.name);
+    assert.equal(failure?.provider, 'eleven');
+    assert.equal(failure?.fallbackClass, 'nonretryable');
+    assert.equal(fs.existsSync(out), false);
+  }
+});
+
+test('nested recognized auth defeats a top-level quota tuple for both legacy HTTP statuses', async () => {
+  for (const status of [400, 401]) {
+    const calls = [];
+    const out = path.join(runDir(`mixed-scope-quota-auth-${status}`), 'narration.mp3');
+    await assert.rejects(
+      narrate({
+        text: 'A solemn dispatch.', out, operationId: `mixed-scope-quota-auth-${status}`,
+        config: config(), log: () => {},
+        fetchImpl: async (url) => {
+          calls.push(url);
+          return jsonResponse(status, {
+            type: 'invalid_request',
+            code: 'quota_exceeded',
+            detail: {type: 'authentication_error', code: 'invalid_api_key'},
+          }, `safe-inverse-${status}`);
+        },
+      }),
+      (error) => error.provider === 'eleven' && error.fallbackClass === 'nonretryable',
+    );
+    assert.deepEqual(calls, ['https://eleven.test/tts']);
+    assert.equal(fs.existsSync(out), false);
+    const receipt = JSON.parse(fs.readFileSync(`${out}.receipt.json`, 'utf8'));
+    assert.deepEqual(receipt.attempts[0], {
+      provider: 'eleven',
+      model: 'eleven_multilingual_v2',
+      voice: 'HvjKMFO0rjuPaM2f997g',
+      fallback_class: 'nonretryable',
+      request_id: `safe-inverse-${status}`,
+      http_status: status,
+      error_type: 'authentication_error',
+      error_code: 'invalid_api_key',
+    });
+  }
+});
+
+test('unknown top-level metadata does not veto an exact nested legacy quota tuple', async () => {
+  for (const status of [400, 401]) {
+    const calls = [];
+    const out = path.join(runDir(`unknown-top-level-metadata-${status}`), 'narration.mp3');
+    const receipt = await narrate({
+      text: 'A solemn dispatch.', out, operationId: `unknown-top-level-metadata-${status}`,
+      config: config(), log: () => {},
+      fetchImpl: async (url) => {
+        calls.push(url);
+        return calls.length === 1
+          ? jsonResponse(status, {
+            type: 'response_metadata',
+            code: 'quota_summary',
+            detail: {type: 'invalid_request', code: 'quota_exceeded'},
+          })
+          : audioResponse();
+      },
+    });
+    assert.deepEqual(calls, ['https://eleven.test/tts', 'https://cartesia.test/tts/bytes']);
+    assert.equal(receipt.selection.provider, 'cartesia');
+    assert.equal(isDecodableMp3(out), true);
+  }
+});
+
 test('legacy Eleven quota-code wrapper near misses fail closed without Cartesia or usable audio', async () => {
   const rejectedCases = [
     {name: 'invalid-api-key-code', status: 401, body: {detail: {type: 'invalid_request', code: 'invalid_api_key'}}},

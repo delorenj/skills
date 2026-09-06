@@ -48,6 +48,15 @@ const ELEVEN_LEGACY_FALLBACK_BY_STATUS = new Map([
   [503, {type: 'service_unavailable', codes: new Set(['service_unavailable', 'maintenance'])}],
 ]);
 const ELEVEN_LEGACY_QUOTA_STATUSES = new Set([400, 401]);
+const ELEVEN_RECOGNIZED_CAPACITY_CODES = new Set([
+  'rate_limit_exceeded', 'concurrent_limit_exceeded', 'too_many_concurrent_requests', 'system_busy',
+]);
+const ELEVEN_RECOGNIZED_AVAILABILITY_CODES = new Set(['service_unavailable', 'maintenance']);
+const ELEVEN_RECOGNIZED_ERROR_TYPES = new Set([
+  'validation_error', 'invalid_request', 'authentication_error', 'payment_required',
+  'authorization_error', 'not_found', 'conflict', 'rate_limit_error', 'internal_error',
+  'service_unavailable',
+]);
 const CARTESIA_FALLBACK_CODES_BY_STATUS = new Map([
   [429, new Set(['quota_exceeded', 'concurrency_limited', 'capacity_exceeded'])],
   [500, new Set(['capacity_exceeded', 'concurrency_limited', 'service_unavailable'])],
@@ -104,6 +113,30 @@ function isPlainRecord(value) {
   return prototype === Object.prototype || prototype === null;
 }
 
+function ownDataField(record, name) {
+  const descriptor = Object.getOwnPropertyDescriptor(record, name);
+  if (!descriptor) return {present: false, value: undefined};
+  return {
+    present: true,
+    value: Object.prototype.hasOwnProperty.call(descriptor, 'value') ? descriptor.value : undefined,
+  };
+}
+
+function recognizedElevenErrorSemantic(type, code) {
+  if (!safeErrorToken(type) || !ELEVEN_RECOGNIZED_ERROR_TYPES.has(type)) return undefined;
+  if ((type === 'invalid_request' && code === 'quota_exceeded')
+    || (type === 'payment_required' && code === 'insufficient_credits')) return 'quota';
+  if (type === 'rate_limit_error' && ELEVEN_RECOGNIZED_CAPACITY_CODES.has(code)) return 'capacity';
+  if (type === 'service_unavailable' && ELEVEN_RECOGNIZED_AVAILABILITY_CODES.has(code)) {
+    return 'availability';
+  }
+  // A known provider error type is itself meaningful even when a newer,
+  // missing, or malformed code cannot be retained. Unknown top-level metadata
+  // types remain inert; known error types cannot contradict an eligible nested
+  // cause and silently authorize another synthesis request.
+  return type;
+}
+
 function responseHeader(response, name) {
   return typeof response?.headers?.get === 'function' ? response.headers.get(name) : undefined;
 }
@@ -113,29 +146,38 @@ function providerErrorDetails(provider, body) {
     // Error policy may only use a direct, plain JSON-shaped envelope. Never
     // allow inherited/prototype fields to turn an otherwise empty body into a
     // billable fallback decision.
-    if (!isPlainRecord(body) || !Object.prototype.hasOwnProperty.call(body, 'detail')) return {};
-    const detail = body.detail;
+    if (!isPlainRecord(body)) return {};
+    const detailField = ownDataField(body, 'detail');
+    if (!detailField.present) return {};
+    const detail = detailField.value;
     if (!isPlainRecord(detail)) return {};
     // A present-but-malformed current `code` must fail closed rather than
     // silently falling back to the legacy field.
-    const hasType = Object.prototype.hasOwnProperty.call(detail, 'type');
-    const hasCurrentCode = Object.prototype.hasOwnProperty.call(detail, 'code');
-    const hasLegacyStatus = Object.prototype.hasOwnProperty.call(detail, 'status');
-    const type = hasType ? safeErrorToken(detail.type) : undefined;
-    const currentCode = hasCurrentCode ? safeErrorToken(detail.code) : undefined;
-    const legacyCode = hasLegacyStatus ? safeErrorToken(detail.status) : undefined;
+    const typeField = ownDataField(detail, 'type');
+    const currentCodeField = ownDataField(detail, 'code');
+    const legacyStatusField = ownDataField(detail, 'status');
+    const type = typeField.present ? safeErrorToken(typeField.value) : undefined;
+    const currentCode = currentCodeField.present ? safeErrorToken(currentCodeField.value) : undefined;
+    const legacyCode = legacyStatusField.present ? safeErrorToken(legacyStatusField.value) : undefined;
+    const topTypeField = ownDataField(body, 'type');
+    const topCodeField = ownDataField(body, 'code');
+    const topSemantic = recognizedElevenErrorSemantic(
+      topTypeField.present ? safeErrorToken(topTypeField.value) : undefined,
+      topCodeField.present ? safeErrorToken(topCodeField.value) : undefined,
+    );
+    const detailSemantic = recognizedElevenErrorSemantic(type, currentCode);
     return {
       type,
-      typePresent: hasType,
-      code: hasCurrentCode ? currentCode : legacyCode,
-      legacyStatus: !hasCurrentCode && hasLegacyStatus && typeof detail.status === 'string',
+      typePresent: typeField.present,
+      code: currentCodeField.present ? currentCode : legacyCode,
+      legacyStatus: !currentCodeField.present && legacyStatusField.present
+        && typeof legacyStatusField.value === 'string',
       // Current envelopes may retain `status` for backwards compatibility, but
       // it must agree exactly with `code`. A malformed or contradictory hybrid
       // must never borrow eligibility from either envelope generation.
-      contradictory: hasCurrentCode && hasLegacyStatus && currentCode !== legacyCode,
-      requestId: Object.prototype.hasOwnProperty.call(detail, 'request_id')
-        ? safeRequestId(detail.request_id)
-        : undefined,
+      contradictory: (currentCodeField.present && legacyStatusField.present && currentCode !== legacyCode)
+        || Boolean(topSemantic && detailSemantic && topSemantic !== detailSemantic),
+      requestId: safeRequestId(ownDataField(detail, 'request_id').value),
     };
   }
   return {
