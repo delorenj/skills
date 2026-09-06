@@ -68,8 +68,10 @@ business but that board's: `bug`, `docs`, `spike`, `security`.
 3. **A colon means machine-readable and closed.** Bare words are descriptive and
    open. This is checkable: any colon label not in the table above is either a
    mistake or an axis someone forgot to declare.
-4. **Colour encodes the axis, not the value.** Directly prevents the
-   three-colours-of-`bug` failure.
+4. **Colour encodes the axis, not the value** — one family per axis, one shade
+   per value within it. Not hypothetical tidiness: by the time the set was
+   closed, `lifecycle:triaged` had already reached two colours (teal on JIMB,
+   amber on 33GOD), exactly the way `bug` reached three.
 5. **Cap the functional set at ~8.** The cost was never filtering — 75 labels
    filter fine. It is that every agent re-invents a name it cannot look up.
    Eight is memorizable. Descriptive labels can grow freely per project.
@@ -101,8 +103,10 @@ bb-board-scaffold --to DELO,DNET --apply
 bb-board-scaffold --from JIMB --all --apply
 ```
 
-It clones the reference board's state machine and the functional labels. It only
-adds and aligns:
+It clones the reference board's state machine and provisions the functional
+labels.
+
+**States** it only adds and aligns:
 
 - never deletes a state, and never reorders one it did not create;
 - never touches `default` or `is_triage` — a board must have exactly one default
@@ -110,8 +114,16 @@ adds and aligns:
 - refuses a board reporting zero states, which is the signature of a
   soft-deleted project, not an empty one.
 
+**Labels** it adds, and **recolours where they have drifted**. Colour is
+cosmetic — unlike a state's group it can be corrected without moving anything —
+so this is what actually keeps one name to one colour across 25 boards. Any
+colon label outside the closed set is reported as `? undeclared colon labels`
+and never touched: deleting a label strips it from every ticket carrying it,
+and that does not come back.
+
 33GOD and JIMB hold byte-identical 9-state machines and either is a sound
-reference.
+reference. Note that `--all` excludes the reference board itself, so its own
+labels go unreconciled; follow with `bb-board-scaffold --to <ref> --apply`.
 
 ## The ack chip, as a worked example
 
@@ -149,3 +161,13 @@ labels the agent had added itself untouched.
   the declared axes.
 - **CANDY and CANDYS accept nothing** — zero states, and a label create 409s as
   a duplicate while GET reports count 0. They are soft-deleted, not empty.
+- **Thirteen undeclared colon labels are still live**, reported by the
+  scaffolder's lint and left alone because deleting one strips it from its
+  tickets. JIMB carries `phase:0/1/2`, `scope:proposed|gated|exploratory|
+  completed`, `sprint:shadow-foundation`, `violation:quiet|amber-attention`;
+  DECK carries `blocked-by:M0`, `needs:hardware`, `risk:unverified`; INFR
+  carries `project:DeLoContainers`, `stack:media`. `phase:`, `scope:` and
+  `blocked-by:` are Rule 1 violations — position wearing a label — and want
+  migrating into the state machine. `needs:` and `risk:` are declared open axes
+  and are fine. The rest are undeclared axes someone should either declare or
+  demote to bare words.
