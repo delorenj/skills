@@ -78,6 +78,7 @@ wt switch -x claude -c feature-b -- 'Fix the pagination bug'
 - **Non-interactive:** pass `-y` to skip approval prompts (`wt remove -y`, `wt switch -c foo -y`).
 - **Discover worktree paths** with `wt list --format json`, never by hardcoding — the template owns layout.
 - **`wt step commit`/`squash`/`merge` with uncommitted changes try LLM commit messages**, which need `[commit.generation]` in user config (unset on this fleet). Commit your own work first, then `wt merge` runs clean.
+- **Worktree side effects:** Hindsight bank resolution is worktree-safe (hooks anchor to the main repo via `--git-common-dir`), but agent CLI session history is keyed on the absolute path — each worktree is a separate `--resume` space, and its history dangles once the worktree is removed. Treat worktree sessions as ephemeral. Full policy: the 33GOD `worktrees` skill.
 - Logs for a misbehaving command: `-v` (info) or `-vv` (debug + subprocess logs in `.git/wt/logs/`).
 
 ## Project hooks (optional, per-repo)
