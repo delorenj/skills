@@ -730,6 +730,123 @@ test('legacy Eleven 400/401 quota envelopes fall back only with the exact docume
   }
 });
 
+test('legacy Eleven 400/401 quota code wrapper falls back exactly once and records only sanitized diagnostics', async () => {
+  for (const status of [400, 401]) {
+    const calls = [];
+    const requestId = status === 401
+      ? '7b2bba80e47a4dc6b8554c2192899576'
+      : 'safe-legacy-quota-400';
+    const out = path.join(runDir(`legacy-quota-code-${status}`), 'narration.mp3');
+    const receipt = await narrate({
+      text: 'A solemn dispatch.', out, operationId: `legacy-quota-code-${status}`,
+      config: config(), log: () => {},
+      fetchImpl: async (url) => {
+        calls.push(url);
+        return calls.length === 1
+          ? jsonResponse(status, {
+            detail: {type: 'invalid_request', code: 'quota_exceeded', request_id: requestId},
+          }, requestId)
+          : audioResponse(validAudio, `cartesia-${status}`);
+      },
+    });
+
+    assert.deepEqual(calls, ['https://eleven.test/tts', 'https://cartesia.test/tts/bytes']);
+    assert.equal(isDecodableMp3(out), true);
+    assert.equal(receipt.selection.provider, 'cartesia');
+    assert.equal(receipt.selection.fallback_class, 'capacity_or_availability');
+    assert.deepEqual(receipt.attempts[0], {
+      provider: 'eleven',
+      model: 'eleven_multilingual_v2',
+      voice: 'HvjKMFO0rjuPaM2f997g',
+      fallback_class: 'capacity_or_availability',
+      request_id: requestId,
+      http_status: status,
+      error_type: 'invalid_request',
+      error_code: 'quota_exceeded',
+    });
+  }
+});
+
+test('legacy Eleven quota-code wrapper near misses fail closed without Cartesia or usable audio', async () => {
+  const rejectedCases = [
+    {name: 'invalid-api-key-code', status: 401, body: {detail: {type: 'invalid_request', code: 'invalid_api_key'}}},
+    {name: 'authentication-type', status: 401, body: {detail: {type: 'authentication_error', code: 'quota_exceeded'}}},
+    {name: 'permission-code', status: 401, body: {detail: {type: 'invalid_request', code: 'insufficient_permissions'}}},
+    {name: 'permission-type', status: 403, body: {detail: {type: 'authorization_error', code: 'quota_exceeded'}}},
+    {name: 'input-code', status: 400, body: {detail: {type: 'invalid_request', code: 'invalid_parameters'}}},
+    {name: 'validation-type', status: 400, body: {detail: {type: 'validation_error', code: 'quota_exceeded'}}},
+    {name: 'wrong-status-402', status: 402, body: {detail: {type: 'invalid_request', code: 'quota_exceeded'}}},
+    {name: 'wrong-status-429', status: 429, body: {detail: {type: 'invalid_request', code: 'quota_exceeded'}}},
+    {name: 'missing-type', status: 401, body: {detail: {code: 'quota_exceeded'}}},
+    {name: 'payment-type', status: 401, body: {detail: {type: 'payment_required', code: 'quota_exceeded'}}},
+    {name: 'cased-type', status: 401, body: {detail: {type: 'Invalid_Request', code: 'quota_exceeded'}}},
+    {name: 'cased-code', status: 401, body: {detail: {type: 'invalid_request', code: 'Quota_Exceeded'}}},
+    {name: 'spaced-type', status: 401, body: {detail: {type: ' invalid_request ', code: 'quota_exceeded'}}},
+    {name: 'spaced-code', status: 401, body: {detail: {type: 'invalid_request', code: ' quota_exceeded '}}},
+    {name: 'numeric-type', status: 401, body: {detail: {type: 1, code: 'quota_exceeded'}}},
+    {name: 'object-code', status: 401, body: {detail: {type: 'invalid_request', code: {value: 'quota_exceeded'}}}},
+    {name: 'array-detail', status: 401, body: {detail: ['invalid_request', 'quota_exceeded']}},
+    {name: 'primitive-detail', status: 401, body: {detail: 'quota_exceeded'}},
+    {name: 'array-body', status: 401, body: [{detail: {type: 'invalid_request', code: 'quota_exceeded'}}]},
+    {name: 'null-body', status: 401, body: null},
+    {
+      name: 'polluted-looking-code',
+      status: 401,
+      body: JSON.parse('{"detail":{"type":"invalid_request","__proto__":{"code":"quota_exceeded"}}}'),
+    },
+    {
+      name: 'contradictory-legacy-status',
+      status: 401,
+      body: {detail: {type: 'invalid_request', code: 'quota_exceeded', status: 'invalid_api_key'}},
+    },
+  ];
+
+  for (const {name, status, body} of rejectedCases) {
+    const calls = [];
+    const out = path.join(runDir(`rejected-quota-code-${name}`), 'narration.mp3');
+    await assert.rejects(
+      narrate({
+        text: 'A solemn dispatch.', out, operationId: `rejected-quota-code-${name}`,
+        config: config(), log: () => {},
+        fetchImpl: async (url) => {
+          calls.push(url);
+          return jsonResponse(status, body, 'safe-near-miss-request');
+        },
+      }),
+      (error) => error.provider === 'eleven' && error.fallbackClass === 'nonretryable',
+    );
+    assert.deepEqual(calls, ['https://eleven.test/tts'], name);
+    assert.equal(fs.existsSync(out), false, name);
+  }
+});
+
+test('legacy Eleven quota-code wrapper ignores inherited type and code fields', async () => {
+  const inheritedCases = [
+    {name: 'type', value: 'invalid_request', body: {detail: {code: 'quota_exceeded'}}},
+    {name: 'code', value: 'quota_exceeded', body: {detail: {type: 'invalid_request'}}},
+    {name: 'detail', value: {type: 'invalid_request', code: 'quota_exceeded'}, body: {}},
+  ];
+  for (const [index, inherited] of inheritedCases.entries()) {
+    const calls = [];
+    const out = path.join(runDir(`inherited-quota-code-${index}`), 'narration.mp3');
+    await withInheritedObjectProperty(inherited.name, inherited.value, async () => {
+      await assert.rejects(
+        narrate({
+          text: 'A solemn dispatch.', out, operationId: `inherited-quota-code-${index}`,
+          config: config(), log: () => {},
+          fetchImpl: async (url) => {
+            calls.push(url);
+            return jsonResponse(401, inherited.body, 'safe-inherited-request');
+          },
+        }),
+        (error) => error.provider === 'eleven' && error.fallbackClass === 'nonretryable',
+      );
+    });
+    assert.deepEqual(calls, ['https://eleven.test/tts']);
+    assert.equal(fs.existsSync(out), false);
+  }
+});
+
 test('near-miss current and legacy Eleven envelopes fail closed without Cartesia', async () => {
   const rejectedCases = [
     () => elevenErrorResponse(400, {type: 'payment_required', code: 'insufficient_credits'}),

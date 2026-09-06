@@ -227,6 +227,13 @@ export function isCapacityFailure(
       return Boolean(legacyRule?.codes.has(code))
         && (!type || type === legacyRule.type);
     }
+    // Some legacy 400/401 responses expose the documented quota cause through
+    // the current `code` field while retaining the legacy `invalid_request`
+    // wrapper. This exact tuple is quota-specific; `invalid_request` alone is
+    // never sufficient to authorize a second provider call.
+    if (ELEVEN_LEGACY_QUOTA_STATUSES.has(status)
+      && type === 'invalid_request'
+      && code === 'quota_exceeded') return true;
     const rule = ELEVEN_CURRENT_FALLBACK_BY_STATUS.get(status);
     if (!rule || !rule.codes.has(code)) return false;
     // Current `detail.code` responses must identify the matching type.

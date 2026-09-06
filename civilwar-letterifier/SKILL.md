@@ -134,6 +134,10 @@ or `maintenance` at HTTP 503. Current credit exhaustion is eligible only as HTTP
 [400/401 quota shape](https://elevenlabs.io/docs/help-center/technical/api-error-code-400-or-401)
 is eligible only at HTTP 400 or 401 with exact `detail.status: quota_exceeded`
 and no current `detail.code`; its optional type may only be `payment_required`.
+The legacy API may instead expose that same quota cause as the exact wrapper
+`detail.type: invalid_request` plus `detail.code: quota_exceeded` at HTTP 400 or
+401. That tuple is also eligible, but `invalid_request` is never a general
+fallback type and no other status/code pairing inherits its eligibility.
 The documented legacy `detail.status` values `too_many_concurrent_requests` and
 `system_busy` remain eligible only at HTTP 429. Legacy HTTP 503 availability is
 eligible only as `detail.status: service_unavailable` or `maintenance`, with an
