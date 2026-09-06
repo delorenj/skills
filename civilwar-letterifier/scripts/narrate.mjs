@@ -165,13 +165,18 @@ function providerErrorDetails(provider, body) {
       topTypeField.present ? safeErrorToken(topTypeField.value) : undefined,
       topCodeField.present ? safeErrorToken(topCodeField.value) : undefined,
     );
-    const detailSemantic = recognizedElevenErrorSemantic(type, currentCode);
+    const usesLegacyStatus = !currentCodeField.present && legacyStatusField.present
+      && typeof legacyStatusField.value === 'string';
+    const detailSemantic = usesLegacyStatus
+      && legacyCode === 'quota_exceeded'
+      && (!type || type === 'payment_required')
+      ? 'quota'
+      : recognizedElevenErrorSemantic(type, currentCode);
     return {
       type,
       typePresent: typeField.present,
       code: currentCodeField.present ? currentCode : legacyCode,
-      legacyStatus: !currentCodeField.present && legacyStatusField.present
-        && typeof legacyStatusField.value === 'string',
+      legacyStatus: usesLegacyStatus,
       // Current envelopes may retain `status` for backwards compatibility, but
       // it must agree exactly with `code`. A malformed or contradictory hybrid
       // must never borrow eligibility from either envelope generation.

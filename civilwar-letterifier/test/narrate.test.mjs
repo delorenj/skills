@@ -866,6 +866,55 @@ test('recognized top-level nonfallback types stay contradictory with unknown or 
   }
 });
 
+test('recognized top-level errors contradict nested legacy status-only quota without Cartesia or audio', async () => {
+  const conflicts = [
+    {name: 'auth-missing-code', type: 'authentication_error'},
+    {name: 'authorization-unknown-code', type: 'authorization_error', code: 'future_authorization_failure'},
+    {name: 'validation-malformed-code', type: 'validation_error', code: {name: 'invalid_parameters'}},
+  ];
+  for (const status of [400, 401]) for (const conflict of conflicts) {
+    const calls = [];
+    const requestId = `safe-status-scope-${status}-${conflict.name}`;
+    const out = path.join(runDir(`mixed-status-scope-${status}-${conflict.name}`), 'narration.mp3');
+    let failure;
+    try {
+      await narrate({
+        text: 'A solemn dispatch.', out, operationId: `mixed-status-scope-${status}-${conflict.name}`,
+        config: config(), log: () => {},
+        fetchImpl: async (url) => {
+          calls.push(url);
+          return calls.length === 1
+            ? jsonResponse(status, {
+              type: conflict.type,
+              ...(Object.hasOwn(conflict, 'code') ? {code: conflict.code} : {}),
+              detail: {status: 'quota_exceeded', request_id: requestId},
+            }, requestId)
+            : audioResponse();
+        },
+      });
+    } catch (error) {
+      failure = error;
+    }
+
+    assert.deepEqual(calls, ['https://eleven.test/tts'], conflict.name);
+    assert.equal(failure?.provider, 'eleven');
+    assert.equal(failure?.fallbackClass, 'nonretryable');
+    assert.equal(fs.existsSync(out), false);
+    const receiptBody = fs.readFileSync(`${out}.receipt.json`, 'utf8');
+    assert.deepEqual(JSON.parse(receiptBody).attempts[0], {
+      provider: 'eleven',
+      model: 'eleven_multilingual_v2',
+      voice: 'HvjKMFO0rjuPaM2f997g',
+      fallback_class: 'nonretryable',
+      request_id: requestId,
+      http_status: status,
+      error_code: 'quota_exceeded',
+    });
+    assert.equal(receiptBody.includes(conflict.type), false);
+    if (typeof conflict.code === 'string') assert.equal(receiptBody.includes(conflict.code), false);
+  }
+});
+
 test('nested recognized auth defeats a top-level quota tuple for both legacy HTTP statuses', async () => {
   for (const status of [400, 401]) {
     const calls = [];
@@ -902,11 +951,15 @@ test('nested recognized auth defeats a top-level quota tuple for both legacy HTT
 });
 
 test('unknown top-level metadata does not veto an exact nested legacy quota tuple', async () => {
-  for (const status of [400, 401]) {
+  const detailShapes = [
+    {name: 'code', detail: {type: 'invalid_request', code: 'quota_exceeded'}},
+    {name: 'status', detail: {status: 'quota_exceeded'}},
+  ];
+  for (const status of [400, 401]) for (const shape of detailShapes) {
     const calls = [];
-    const out = path.join(runDir(`unknown-top-level-metadata-${status}`), 'narration.mp3');
+    const out = path.join(runDir(`unknown-top-level-metadata-${status}-${shape.name}`), 'narration.mp3');
     const receipt = await narrate({
-      text: 'A solemn dispatch.', out, operationId: `unknown-top-level-metadata-${status}`,
+      text: 'A solemn dispatch.', out, operationId: `unknown-top-level-metadata-${status}-${shape.name}`,
       config: config(), log: () => {},
       fetchImpl: async (url) => {
         calls.push(url);
@@ -914,7 +967,7 @@ test('unknown top-level metadata does not veto an exact nested legacy quota tupl
           ? jsonResponse(status, {
             type: 'response_metadata',
             code: 'quota_summary',
-            detail: {type: 'invalid_request', code: 'quota_exceeded'},
+            detail: shape.detail,
           })
           : audioResponse();
       },
