@@ -463,3 +463,91 @@ test('build removes transcript props when dependency installation fails and retr
     fs.rmSync(root, {recursive: true, force: true});
   }
 });
+
+test('build never follows job-owned writable leaf symlinks outside the narration namespace', () => {
+  const root = fixture('build-leaf-symlinks');
+  try {
+    copy(path.join(ROOT, 'scripts', 'build.mjs'), path.join(root, 'scripts', 'build.mjs'));
+    copy(path.join(ROOT, 'scripts', 'narrate.mjs'), path.join(root, 'scripts', 'narrate.mjs'));
+    fs.mkdirSync(path.join(root, 'remotion', 'node_modules'), {recursive: true});
+
+    const workRoot = path.join(root, 'runtime');
+    fs.mkdirSync(workRoot);
+    const out = path.join(workRoot, 'job-leaf-symlinks.mp4');
+    const identity = {jobId: 'job-leaf-symlinks', claimOperationId: 'claim-leaf-symlinks'};
+    const narration = resolveJobNarrationPaths({workRoot, ...identity});
+    fs.mkdirSync(narration.publicDir, {recursive: true});
+    execFileSync('ffmpeg', [
+      '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=0.15',
+      '-q:a', '9', '-acodec', 'libmp3lame', narration.out,
+    ]);
+    const text = 'No job-owned leaf may follow a foreign symlink.';
+    const audio = fs.readFileSync(narration.out);
+    fs.writeFileSync(narration.receiptPath, `${JSON.stringify({
+      schema_version: 1,
+      operation: crypto.createHash('sha256').update(`${narration.operationId}\0${text}`).digest('hex'),
+      state: 'complete',
+      attempts: [],
+      selection: {provider: 'eleven', model: 'eleven_multilingual_v2', voice_id: 'fixture', reason: 'primary'},
+      audio_sha256: crypto.createHash('sha256').update(audio).digest('hex'),
+    })}\n`);
+
+    const outside = path.join(root, 'outside-sentinels');
+    fs.mkdirSync(outside);
+    const sentinels = [
+      ['props.json', narration.propsPath, path.join(outside, 'props-sentinel.bin'), Buffer.from('props-sentinel')],
+      ['music.mp3', path.join(narration.publicDir, 'music.mp3'), path.join(outside, 'music-sentinel.bin'), Buffer.from('music-sentinel')],
+      ['ambient.mp3', path.join(narration.publicDir, 'ambient.mp3'), path.join(outside, 'ambient-sentinel.bin'), Buffer.from('ambient-sentinel')],
+    ];
+    for (const [, leaf, target, bytes] of sentinels) {
+      fs.writeFileSync(target, bytes);
+      fs.symlinkSync(target, leaf);
+    }
+    const musicInput = path.join(root, 'music-input.mp3');
+    const ambientInput = path.join(root, 'ambient-input.mp3');
+    fs.writeFileSync(musicInput, 'replacement-music');
+    fs.writeFileSync(ambientInput, 'replacement-ambient');
+
+    const fakeBin = path.join(root, 'fake-bin');
+    fs.mkdirSync(fakeBin);
+    const renderCapture = path.join(root, 'render-calls.jsonl');
+    const providerCapture = path.join(root, 'provider-calls.jsonl');
+    const fakeNpx = path.join(fakeBin, 'npx');
+    fs.writeFileSync(fakeNpx, `#!${process.execPath}\nimport fs from 'node:fs';\nfs.appendFileSync(process.env.SLOWBURNS_RENDER_CAPTURE, 'render\\n');\n`);
+    fs.chmodSync(fakeNpx, 0o755);
+    const fetchGuard = path.join(root, 'provider-fetch-guard.mjs');
+    fs.writeFileSync(fetchGuard, `import fs from 'node:fs';\nglobalThis.fetch = async (url) => { fs.appendFileSync(process.env.SLOWBURNS_PROVIDER_CAPTURE, String(url) + '\\n'); throw new Error('provider calls are forbidden in this fixture'); };\n`);
+    const env = {
+      ...process.env,
+      PATH: `${fakeBin}:${process.env.PATH}`,
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --import=${fetchGuard}`.trim(),
+      ELEVENLABS_API_KEY: 'eleven-test-key',
+      SLOWBURNS_RENDER_CAPTURE: renderCapture,
+      SLOWBURNS_PROVIDER_CAPTURE: providerCapture,
+    };
+    let rejected = false;
+    try {
+      execFileSync(process.execPath, [
+        path.join(root, 'scripts', 'build.mjs'),
+        '--text', text,
+        '--out', out,
+        '--job-id', identity.jobId,
+        '--claim-operation-id', identity.claimOperationId,
+        '--music', musicInput,
+        '--ambient', ambientInput,
+      ], {cwd: root, env, stdio: 'pipe'});
+    } catch {
+      rejected = true;
+    }
+
+    const changed = sentinels
+      .filter(([, , target, bytes]) => !fs.readFileSync(target).equals(bytes))
+      .map(([name]) => name);
+    assert.deepEqual(changed, [], 'build followed writable leaf symlinks outside the claim namespace');
+    assert.equal(rejected, true, 'unsafe writable leaves must fail closed');
+    assert.equal(fs.existsSync(providerCapture), false, 'leaf validation must precede provider dispatch');
+    assert.equal(fs.existsSync(renderCapture), false, 'unsafe writable leaves must never render');
+  } finally {
+    fs.rmSync(root, {recursive: true, force: true});
+  }
+});

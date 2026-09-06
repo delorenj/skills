@@ -92,6 +92,83 @@ function run(cmd, args, cwd, {input} = {}) {
   });
 }
 
+function lstatIfPresent(file) {
+  try {
+    return fs.lstatSync(file);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return undefined;
+    throw error;
+  }
+}
+
+function assertSafeWritableLeaf(file, label) {
+  const stat = lstatIfPresent(file);
+  if (stat && (stat.isSymbolicLink() || !stat.isFile())) {
+    throw new Error(`Unsafe ${label} state; refusing to follow or replace a non-file leaf.`);
+  }
+}
+
+function fsyncRegularFile(file, label) {
+  let fd;
+  try {
+    fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
+    if (!fs.fstatSync(fd).isFile()) {
+      throw new Error(`Unsafe ${label} temporary state; expected a regular file.`);
+    }
+    fs.fsyncSync(fd);
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
+}
+
+function publishTempFile(temp, destination, label) {
+  fsyncRegularFile(temp, label);
+  assertSafeWritableLeaf(destination, label);
+  fs.renameSync(temp, destination);
+  let directoryFd;
+  try {
+    directoryFd = fs.openSync(
+      path.dirname(destination),
+      fs.constants.O_RDONLY | (fs.constants.O_DIRECTORY || 0) | (fs.constants.O_NOFOLLOW || 0),
+    );
+    fs.fsyncSync(directoryFd);
+  } finally {
+    if (directoryFd !== undefined) fs.closeSync(directoryFd);
+  }
+}
+
+function copyFileAtomic(source, destination, label) {
+  assertSafeWritableLeaf(destination, label);
+  const temp = path.join(path.dirname(destination), `.${path.basename(destination)}.${crypto.randomUUID()}.tmp`);
+  try {
+    fs.copyFileSync(source, temp, fs.constants.COPYFILE_EXCL);
+    publishTempFile(temp, destination, label);
+  } finally {
+    fs.rmSync(temp, {force: true});
+  }
+}
+
+function writeFileAtomic(destination, data, label) {
+  assertSafeWritableLeaf(destination, label);
+  const temp = path.join(path.dirname(destination), `.${path.basename(destination)}.${crypto.randomUUID()}.tmp`);
+  let fd;
+  try {
+    fd = fs.openSync(
+      temp,
+      fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | (fs.constants.O_NOFOLLOW || 0),
+      0o600,
+    );
+    fs.writeFileSync(fd, data);
+    fs.fsyncSync(fd);
+    fs.closeSync(fd);
+    fd = undefined;
+    publishTempFile(temp, destination, label);
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+    fs.rmSync(temp, {force: true});
+  }
+}
+
 // --- Deterministic scaffolding --------------------------------------------
 // The title card + date line never come from the agent. The signature is NOT
 // here — it's part of the letterified note (the model writes its own cohesive
@@ -173,7 +250,20 @@ const narration = resolveJobNarrationPaths({
     ? narrationIdentity.claimOperationId
     : `output-${localOutputIdentity}`,
 });
+const propsPath = narration.propsPath;
+const musicDest = path.join(narration.publicDir, 'music.mp3');
+const ambientDest = path.join(narration.publicDir, 'ambient.mp3');
+for (const [file, label] of [
+  [propsPath, 'render props'],
+  [musicDest, 'music'],
+  [ambientDest, 'ambient'],
+]) assertSafeWritableLeaf(file, label);
 fs.mkdirSync(narration.publicDir, {recursive: true});
+for (const [file, label] of [
+  [propsPath, 'render props'],
+  [musicDest, 'music'],
+  [ambientDest, 'ambient'],
+]) assertSafeWritableLeaf(file, label);
 
 // --- 1. Narration ---------------------------------------------------------
 // narrate.mjs uses the fixed Eleven narrator and an explicitly configured
@@ -187,25 +277,30 @@ run('node', [
 ], ROOT, {input: letterText});
 
 // --- 2. Music bed ---------------------------------------------------------
-const musicDest = path.join(narration.publicDir, 'music.mp3');
 let hasMusic = false;
 if (noMusic) {
   console.log('\nMusic disabled (--no-music). Voice only.');
 } else if (musicPath && musicPath !== true) {
-  fs.copyFileSync(path.resolve(musicPath), musicDest);
+  copyFileAtomic(path.resolve(musicPath), musicDest, 'music');
   hasMusic = true;
   console.log(`\nUsing drop-in music: ${musicPath}`);
 } else if (autoMusic) {
-  run('node', [
-    path.join(ROOT, 'scripts', 'make-music.mjs'),
-    '--out', musicDest,
-    '--seconds', '22',
-  ]);
+  const musicTemp = path.join(narration.publicDir, `.music.mp3.${crypto.randomUUID()}.tmp`);
+  try {
+    run('node', [
+      path.join(ROOT, 'scripts', 'make-music.mjs'),
+      '--out', musicTemp,
+      '--seconds', '22',
+    ]);
+    publishTempFile(musicTemp, musicDest, 'music');
+  } finally {
+    fs.rmSync(musicTemp, {force: true});
+  }
   hasMusic = true;
 } else {
   const randomTrack = pickRandomTrack(path.join(ROOT, 'assets', 'music'));
   if (randomTrack) {
-    fs.copyFileSync(randomTrack, musicDest);
+    copyFileAtomic(randomTrack, musicDest, 'music');
     hasMusic = true;
     console.log(`\nUsing random music: ${randomTrack}`);
   } else {
@@ -217,18 +312,17 @@ if (noMusic) {
 // Always-on field atmosphere, layered beneath everything for the whole film,
 // independent of whether a music bed was selected. Resolved from --ambient or,
 // by default, from assets/sfx/.
-const ambientDest = path.join(narration.publicDir, 'ambient.mp3');
 let hasAmbient = false;
 if (noAmbient) {
   console.log('\nAmbient bed disabled (--no-ambient).');
 } else if (ambientPath && ambientPath !== true) {
-  fs.copyFileSync(path.resolve(ambientPath), ambientDest);
+  copyFileAtomic(path.resolve(ambientPath), ambientDest, 'ambient');
   hasAmbient = true;
   console.log(`\nUsing drop-in ambient bed: ${ambientPath}`);
 } else {
   const ambientTrack = pickAmbientTrack(path.join(ROOT, 'assets', 'sfx'));
   if (ambientTrack) {
-    fs.copyFileSync(ambientTrack, ambientDest);
+    copyFileAtomic(ambientTrack, ambientDest, 'ambient');
     hasAmbient = true;
     console.log(`\nUsing ambient bed: ${ambientTrack}`);
   } else {
@@ -253,8 +347,7 @@ const props = {
   outroPad,
   accentColor,
 };
-const propsPath = narration.propsPath;
-fs.writeFileSync(propsPath, JSON.stringify(props, null, 2), {mode: 0o600});
+writeFileAtomic(propsPath, JSON.stringify(props, null, 2), 'render props');
 console.log(`\nWrote props -> ${propsPath}`);
 
 // --- 4. Render ------------------------------------------------------------
