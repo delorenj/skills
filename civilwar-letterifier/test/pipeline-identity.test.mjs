@@ -551,3 +551,97 @@ test('build never follows job-owned writable leaf symlinks outside the narration
     fs.rmSync(root, {recursive: true, force: true});
   }
 });
+
+test('build removes published props when its post-rename directory fsync fails', () => {
+  const root = fixture('build-props-directory-fsync');
+  try {
+    copy(path.join(ROOT, 'scripts', 'build.mjs'), path.join(root, 'scripts', 'build.mjs'));
+    copy(path.join(ROOT, 'scripts', 'narrate.mjs'), path.join(root, 'scripts', 'narrate.mjs'));
+    fs.mkdirSync(path.join(root, 'remotion', 'node_modules'), {recursive: true});
+
+    const workRoot = path.join(root, 'runtime');
+    fs.mkdirSync(workRoot);
+    const out = path.join(workRoot, 'job-props-fsync.mp4');
+    const identity = {jobId: 'job-props-fsync', claimOperationId: 'claim-props-fsync'};
+    const narration = resolveJobNarrationPaths({workRoot, ...identity});
+    fs.mkdirSync(narration.publicDir, {recursive: true});
+    execFileSync('ffmpeg', [
+      '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=0.15',
+      '-q:a', '9', '-acodec', 'libmp3lame', narration.out,
+    ]);
+    const text = 'Published transcript props must remain cleanup-owned through directory fsync.';
+    const audioBefore = fs.readFileSync(narration.out);
+    const operation = crypto.createHash('sha256').update(`${narration.operationId}\0${text}`).digest('hex');
+    fs.writeFileSync(narration.receiptPath, `${JSON.stringify({
+      schema_version: 1,
+      operation,
+      state: 'complete',
+      attempts: [],
+      selection: {provider: 'eleven', model: 'eleven_multilingual_v2', voice_id: 'fixture', reason: 'primary'},
+      audio_sha256: crypto.createHash('sha256').update(audioBefore).digest('hex'),
+    })}\n`);
+
+    const outside = path.join(root, 'outside-sentinel.bin');
+    const outsideBytes = Buffer.from('outside-sentinel-must-remain-unchanged');
+    fs.writeFileSync(outside, outsideBytes);
+    const foreignLink = path.join(narration.directory, 'foreign-sentinel-link');
+    fs.symlinkSync(outside, foreignLink);
+
+    const fakeBin = path.join(root, 'fake-bin');
+    fs.mkdirSync(fakeBin);
+    const installCapture = path.join(root, 'install-calls.jsonl');
+    const renderCapture = path.join(root, 'render-calls.jsonl');
+    for (const [name, captureEnv] of [['npm', 'SLOWBURNS_INSTALL_CAPTURE'], ['npx', 'SLOWBURNS_RENDER_CAPTURE']]) {
+      const executable = path.join(fakeBin, name);
+      fs.writeFileSync(executable, `#!${process.execPath}\nimport fs from 'node:fs';\nfs.appendFileSync(process.env.${captureEnv}, '${name}\\n');\n`);
+      fs.chmodSync(executable, 0o755);
+    }
+    const providerCapture = path.join(root, 'provider-calls.jsonl');
+    const fsyncCapture = path.join(root, 'fsync-fault.jsonl');
+    const preload = path.join(root, 'fsync-fault-preload.mjs');
+    fs.writeFileSync(preload, `import fs from 'node:fs';\nconst originalFsync = fs.fsyncSync.bind(fs);\nfs.fsyncSync = (fd) => {\n  if (fs.fstatSync(fd).isDirectory()) {\n    fs.appendFileSync(process.env.SLOWBURNS_FSYNC_CAPTURE, 'directory-fsync\\n');\n    const error = new Error('injected props directory fsync failure');\n    error.code = 'EIO';\n    throw error;\n  }\n  return originalFsync(fd);\n};\nglobalThis.fetch = async (url) => { fs.appendFileSync(process.env.SLOWBURNS_PROVIDER_CAPTURE, String(url) + '\\n'); throw new Error('provider calls are forbidden in this fixture'); };\n`);
+    const env = {
+      ...process.env,
+      PATH: `${fakeBin}:${process.env.PATH}`,
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --import=${preload}`.trim(),
+      ELEVENLABS_API_KEY: 'eleven-test-key',
+      SLOWBURNS_INSTALL_CAPTURE: installCapture,
+      SLOWBURNS_RENDER_CAPTURE: renderCapture,
+      SLOWBURNS_PROVIDER_CAPTURE: providerCapture,
+      SLOWBURNS_FSYNC_CAPTURE: fsyncCapture,
+    };
+
+    assert.throws(
+      () => execFileSync(process.execPath, [
+        path.join(root, 'scripts', 'build.mjs'),
+        '--text', text,
+        '--out', out,
+        '--job-id', identity.jobId,
+        '--claim-operation-id', identity.claimOperationId,
+        '--no-music',
+        '--no-ambient',
+      ], {cwd: root, env, stdio: 'pipe'}),
+      (error) => error.status !== 0,
+    );
+
+    assert.equal(fs.readFileSync(fsyncCapture, 'utf8'), 'directory-fsync\n');
+    assert.equal(fs.existsSync(narration.propsPath), false, 'post-rename fsync failure retained transcript props');
+    assert.deepEqual(fs.readFileSync(outside), outsideBytes);
+    assert.equal(fs.readlinkSync(foreignLink), outside);
+    assert.equal(fs.existsSync(providerCapture), false);
+    assert.equal(fs.existsSync(installCapture), false);
+    assert.equal(fs.existsSync(renderCapture), false);
+    assert.deepEqual(fs.readFileSync(narration.out), audioBefore);
+    const recoveredReceipt = JSON.parse(fs.readFileSync(narration.receiptPath, 'utf8'));
+    assert.equal(recoveredReceipt.state, 'complete');
+    assert.equal(recoveredReceipt.operation, operation);
+    assert.equal(recoveredReceipt.audio_sha256, crypto.createHash('sha256').update(audioBefore).digest('hex'));
+    assert.deepEqual(
+      fs.readdirSync(narration.directory).filter((entry) => entry.startsWith('.props.json.') && entry.endsWith('.tmp')),
+      [],
+      'props atomic temp leaked after fsync failure',
+    );
+  } finally {
+    fs.rmSync(root, {recursive: true, force: true});
+  }
+});

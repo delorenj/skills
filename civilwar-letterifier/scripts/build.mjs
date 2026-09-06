@@ -347,12 +347,12 @@ const props = {
   outroPad,
   accentColor,
 };
-writeFileAtomic(propsPath, JSON.stringify(props, null, 2), 'render props');
-console.log(`\nWrote props -> ${propsPath}`);
-
-// --- 4. Render ------------------------------------------------------------
-let renderFailure;
+let buildFailure;
 try {
+  writeFileAtomic(propsPath, JSON.stringify(props, null, 2), 'render props');
+  console.log(`\nWrote props -> ${propsPath}`);
+
+  // --- 4. Render ----------------------------------------------------------
   if (!fs.existsSync(path.join(REMOTION, 'node_modules'))) {
     console.log('\nInstalling Remotion deps (first run only)…');
     run('npm', ['install'], REMOTION);
@@ -363,13 +363,13 @@ try {
     `--public-dir=${narration.publicDir}`,
   ], REMOTION);
 } catch (error) {
-  renderFailure = error;
+  buildFailure = error;
   throw error;
 } finally {
   try {
     fs.rmSync(propsPath, {force: true});
   } catch (cleanupError) {
-    if (!renderFailure) throw cleanupError;
+    if (!buildFailure) throw cleanupError;
   }
 }
 
