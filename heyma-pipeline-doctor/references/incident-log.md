@@ -8,6 +8,34 @@ that does not learn is just documentation.
 
 ---
 
+## 2026-09-06 · configured recording hotkey did nothing · *dispatcher absent behind a live target*
+
+**Signature.** `Ctrl+\` did nothing even though `custom3` had a non-empty
+`<Control>backslash` binding, its command worked from a terminal, the Wax tray
+was registered, and the doctor's static `hotkey-bound` check passed after seeing
+the expected command. Other GNOME custom shortcuts were inert too.
+
+**Cause.** `org.gnome.SettingsDaemon.MediaKeys.service` had exited cleanly on
+2026-08-24 alongside the other GNOME Settings Daemon plugins and had no D-Bus
+owner. Its owning `org.gnome.SettingsDaemon.MediaKeys.target` remained active,
+so checking the target or the dconf values produced false confidence. The
+journal containing the original stop event had already rotated; the surviving
+unit timestamps prove the shared exit but not what initiated it.
+
+**Recovery.** Restart the owning target, not the service (the packaged service
+sets `RefuseManualStart=true`):
+
+```bash
+systemctl --user restart org.gnome.SettingsDaemon.MediaKeys.target
+```
+
+**Fix.** The doctor now requires both an active MediaKeys service and its live
+D-Bus owner. The binding check separately accepts either the notification
+wrapper or a direct `wax rec toggle` command, because command preference is not
+evidence that GNOME can dispatch it.
+
+**Checks that now catch it:** `hotkey-dispatcher`, `hotkey-bound`.
+
 ## August 22, 2026 · GDM restart stranded a 23-hour capture · *audio graph teardown*
 
 **Signature.** The tray returned yellow after the graphical session restarted.

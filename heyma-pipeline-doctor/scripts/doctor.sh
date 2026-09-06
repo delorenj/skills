@@ -552,18 +552,41 @@ chk_tray_icons_present() {
   done
   return 0
 }
+chk_hotkey_dispatcher() {
+  local unit="org.gnome.SettingsDaemon.MediaKeys.service"
+  if systemctl --user is-active --quiet "$unit" &&
+     busctl --user list --no-legend 2>/dev/null |
+       awk '$1 == "org.gnome.SettingsDaemon.MediaKeys" { found=1 } END { exit !found }'; then
+    return 0
+  fi
+  echo "GNOME MediaKeys has no live dispatcher even though its target may still say active. Configured shortcuts cannot fire. Restore: systemctl --user restart org.gnome.SettingsDaemon.MediaKeys.target"
+  return 1
+}
 chk_hotkey_bound() {
   timeout 8 python3 <<'PY' 2>/dev/null && return 0
-import subprocess, sys
+import os, shlex, subprocess, sys
 b = "org.gnome.settings-daemon.plugins.media-keys"
 p = subprocess.run(["gsettings","get",b,"custom-keybindings"],capture_output=True,text=True).stdout
 g = lambda s,k: subprocess.run(["gsettings","get",f"{b}.custom-keybinding:{s}",k],
                                capture_output=True,text=True).stdout.strip().strip("'")
 paths = [y.strip().strip("'") for y in p.replace("[","").replace("]","").split(",") if y.strip()]
-sys.exit(0 if any("wax-toggle" in g(x,"command") and g(x,"binding") for x in paths) else 1)
+
+def invokes_wax_toggle(command):
+    try:
+        argv = shlex.split(command)
+    except ValueError:
+        return False
+    if not argv:
+        return False
+    executable = os.path.basename(argv[0])
+    return ((executable == "wax-toggle" and len(argv) == 1) or
+            (executable == "wax" and argv[1:] == ["rec", "toggle"]))
+
+sys.exit(0 if any(invokes_wax_toggle(g(x,"command")) and g(x,"binding")
+                  for x in paths) else 1)
 PY
   # There is no evdev fallback: wax/hotkey.py does not exist despite the design doc.
-  echo "no GNOME keybinding wired to wax-toggle, and there is no evdev listener to fall back on. Recording becomes tray-menu / CLI only."
+  echo "no enabled GNOME keybinding invokes wax-toggle or 'wax rec toggle', and there is no evdev listener to fall back on. Recording becomes tray-menu / CLI only."
   return 2
 }
 
@@ -732,6 +755,7 @@ banner "Desktop"
 layer desktop
 check tray-registered    "tray registered on the SNI bus"  "no icon"
 check tray-icons-present "all three icon assets present"   "missing asset"
+check hotkey-dispatcher  "GNOME hotkey dispatcher running" "shortcuts inert"
 check hotkey-bound       "record hotkey bound"             "no hotkey"
 
 banner "Deploy & tests"
