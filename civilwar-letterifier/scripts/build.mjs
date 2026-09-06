@@ -53,6 +53,36 @@ function arg(name, def) {
   const v = process.argv[i + 1];
   return v && !v.startsWith('--') ? v : true; // bare flag -> true
 }
+function failIdentity(message) {
+  console.error(`Error: ${message}`);
+  process.exit(1);
+}
+function parseNarrationIdentityArgs(argv) {
+  const values = {};
+  for (const [key, flag] of [['jobId', '--job-id'], ['claimOperationId', '--claim-operation-id']]) {
+    const positions = [];
+    for (let i = 0; i < argv.length; i += 1) {
+      if (argv[i] === flag) positions.push(i);
+      if (argv[i].startsWith(`${flag}=`)) {
+        failIdentity(`${flag} must be supplied once as ${flag} <value>.`);
+      }
+    }
+    if (positions.length > 1) failIdentity(`${flag} must not be repeated.`);
+    if (positions.length === 0) continue;
+    const value = argv[positions[0] + 1];
+    if (value === undefined || value.startsWith('--')) {
+      failIdentity(`${flag} needs a value.`);
+    }
+    if (value.trim().length === 0 || value.length > 256 || /[\0-\x1f\x7f]/.test(value)) {
+      failIdentity(`${flag} must be a nonempty, bounded identity without control characters.`);
+    }
+    values[key] = value;
+  }
+  if (Boolean(values.jobId) !== Boolean(values.claimOperationId)) {
+    failIdentity('--job-id and --claim-operation-id must be supplied together.');
+  }
+  return values.jobId ? values : null;
+}
 function run(cmd, args, cwd, {input} = {}) {
   console.log(`\n$ ${cmd} ${args.join(' ')}`);
   execFileSync(cmd, args, {
@@ -128,12 +158,7 @@ function pickAmbientTrack(dir) {
   return path.join(dir, chosen);
 }
 const outFile = path.resolve(arg('out', path.join(ROOT, 'out', 'letter.mp4')));
-const jobId = arg('job-id');
-const claimOperationId = arg('claim-operation-id');
-if ((jobId && jobId !== true) !== (claimOperationId && claimOperationId !== true)) {
-  console.error('Error: --job-id and --claim-operation-id must be supplied together.');
-  process.exit(1);
-}
+const narrationIdentity = parseNarrationIdentityArgs(process.argv.slice(2));
 const introPad = parseFloat(arg('intro-pad', '3.5'));
 const outroPad = parseFloat(arg('outro-pad', '4'));
 const accentColor = arg('accent', '#5a2a16');
@@ -143,9 +168,9 @@ fs.mkdirSync(path.dirname(outFile), {recursive: true});
 const localOutputIdentity = crypto.createHash('sha256').update(outFile).digest('hex');
 const narration = resolveJobNarrationPaths({
   workRoot: path.dirname(outFile),
-  jobId: jobId && jobId !== true ? jobId : 'local-render',
-  claimOperationId: claimOperationId && claimOperationId !== true
-    ? claimOperationId
+  jobId: narrationIdentity?.jobId || 'local-render',
+  claimOperationId: narrationIdentity?.claimOperationId
+    ? narrationIdentity.claimOperationId
     : `output-${localOutputIdentity}`,
 });
 fs.mkdirSync(narration.publicDir, {recursive: true});

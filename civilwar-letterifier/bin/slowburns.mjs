@@ -100,6 +100,8 @@ function loadEnvLocal() {
 function parseArgs(argv) {
   const o = {mode: 'standard', font: 'script'};
   const positional = [];
+  const identityOptions = new Set(['--job-id', '--claim-operation-id']);
+  const seenIdentityOptions = new Set();
   const takesValue = new Set([
     '--text', '--letterfile', '--letter', '--mode', '--model', '--signer', '--music', '--ambient', '--font', '--out',
     '--job-id', '--claim-operation-id',
@@ -112,8 +114,16 @@ function parseArgs(argv) {
     else if (a === '--no-ambient') o.noAmbient = true;
     else if (a === '--keep-letter') o.keepLetter = true; // default-on; accepted for clarity
     else if (takesValue.has(a)) {
+      if (identityOptions.has(a) && seenIdentityOptions.has(a)) fail(`Option ${a} must not be repeated.`);
       const v = argv[++i];
       if (v === undefined) fail(`Option ${a} needs a value.`);
+      if (identityOptions.has(a)) {
+        if (v.startsWith('--')) fail(`Option ${a} needs a value.`);
+        if (v.trim().length === 0 || v.length > 256 || /[\0-\x1f\x7f]/.test(v)) {
+          fail(`Option ${a} needs a nonempty, bounded value without control characters.`);
+        }
+        seenIdentityOptions.add(a);
+      }
       o[a.slice(2)] = v;
     } else if (a.startsWith('--')) fail(`Unknown option: ${a}`);
     else positional.push(a);

@@ -66,6 +66,44 @@ test('CLI threads the canonical job and claim identity into build', () => {
     const localArgv = JSON.parse(fs.readFileSync(localCapture, 'utf8'));
     assert.equal(localArgv.includes('--job-id'), false);
     assert.equal(localArgv.includes('--claim-operation-id'), false);
+
+    const invalidIdentities = [
+      ['--job-id', '--claim-operation-id', 'claim-one'],
+      ['--claim-operation-id', '--job-id', 'job-alpha'],
+      ['--job-id', '', '--claim-operation-id', 'claim-one'],
+      ['--claim-operation-id', '', '--job-id', 'job-alpha'],
+      ['--job-id', '', '--claim-operation-id', ''],
+      ['--job-id', '   ', '--claim-operation-id', '  '],
+      ['--job-id', '--option-looking-job', '--claim-operation-id', '--option-looking-claim'],
+      ['--job-id', 'job\nalpha', '--claim-operation-id', 'claim-one'],
+      ['--job-id', 'j'.repeat(257), '--claim-operation-id', 'claim-one'],
+      ['--job-id', 'job-alpha'],
+      ['--claim-operation-id', 'claim-one'],
+      ['--job-id', 'job-alpha', '--job-id', 'job-bravo', '--claim-operation-id', 'claim-one'],
+      ['--job-id', 'job-alpha', '--claim-operation-id', 'claim-one', '--claim-operation-id', 'claim-two'],
+      ['--job-id', 'job-alpha', '--claim-operation-id'],
+    ];
+    for (const [index, identityArgs] of invalidIdentities.entries()) {
+      const invalidCapture = path.join(root, `invalid-cli-${index}.json`);
+      assert.throws(
+        () => execFileSync(process.execPath, [
+          path.join(root, 'bin', 'slowburns.mjs'),
+          '--text', 'A direct invalid identity invocation.',
+          '--raw',
+          '--no-music',
+          '--no-ambient',
+          '--out', path.join(root, `invalid-cli-${index}.mp4`),
+          ...identityArgs,
+        ], {
+          cwd: root,
+          env: {...process.env, SLOWBURNS_TEST_CAPTURE: invalidCapture},
+          stdio: 'pipe',
+        }),
+        (error) => error.status !== 0,
+        `explicit malformed CLI identity case ${index} must fail`,
+      );
+      assert.equal(fs.existsSync(invalidCapture), false, `CLI case ${index} reached build`);
+    }
   } finally {
     fs.rmSync(root, {recursive: true, force: true});
   }
@@ -150,6 +188,43 @@ test('build keeps narration and Remotion inputs inside the job runtime namespace
     assert.match(localRelative, /^\.slowburns-narration[/\\]v1[/\\][a-f0-9]{64}[/\\]public[/\\]narration\.mp3$/);
     assert.notEqual(localNarrationOut, narrationOut, 'direct outputs receive deterministic output-bound local namespaces');
     for (const [file, bytes] of legacy) assert.deepEqual(fs.readFileSync(file), bytes);
+
+    const invalidIdentities = [
+      ['--job-id', '--claim-operation-id', 'claim-one'],
+      ['--claim-operation-id', '--job-id', 'job-alpha'],
+      ['--job-id', '', '--claim-operation-id', 'claim-one'],
+      ['--claim-operation-id', '', '--job-id', 'job-alpha'],
+      ['--job-id', '', '--claim-operation-id', ''],
+      ['--job-id', '   ', '--claim-operation-id', '  '],
+      ['--job-id', '--option-looking-job', '--claim-operation-id', '--option-looking-claim'],
+      ['--job-id', 'job\nalpha', '--claim-operation-id', 'claim-one'],
+      ['--job-id', 'j'.repeat(257), '--claim-operation-id', 'claim-one'],
+      ['--job-id', 'job-alpha'],
+      ['--claim-operation-id', 'claim-one'],
+      ['--job-id', 'job-alpha', '--job-id', 'job-bravo', '--claim-operation-id', 'claim-one'],
+      ['--job-id', 'job-alpha', '--claim-operation-id', 'claim-one', '--claim-operation-id', 'claim-two'],
+      ['--job-id', 'job-alpha', '--claim-operation-id'],
+    ];
+    let capturedBytes = fs.readFileSync(capture);
+    for (const [index, identityArgs] of invalidIdentities.entries()) {
+      assert.throws(
+        () => execFileSync(process.execPath, [
+          path.join(root, 'scripts', 'build.mjs'),
+          '--text', 'An invalid identity must never be narrated.',
+          '--out', path.join(workRoot, `invalid-build-${index}.mp4`),
+          '--no-music',
+          '--no-ambient',
+          ...identityArgs,
+        ], {
+          cwd: root,
+          env: {...process.env, PATH: `${fakeBin}:${process.env.PATH}`, SLOWBURNS_TEST_CAPTURE: capture},
+          stdio: 'pipe',
+        }),
+        (error) => error.status !== 0,
+        `explicit malformed build identity case ${index} must fail`,
+      );
+      assert.deepEqual(fs.readFileSync(capture), capturedBytes, `build case ${index} reached narration or render`);
+    }
   } finally {
     fs.rmSync(root, {recursive: true, force: true});
   }
