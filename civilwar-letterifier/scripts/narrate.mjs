@@ -907,6 +907,11 @@ export async function narrate({
         fallbackClass: 'ambiguous_retry',
       });
     }
+    if (existing?.state === 'complete') {
+      throw new NarrationError('Completed narration belongs to a different transcript operation; refusing replacement.', {
+        fallbackClass: 'operation_mismatch',
+      });
+    }
     if (existing && existing.state !== 'complete') {
       throw new NarrationError('An unfinished narration receipt already exists for this output; refusing implicit retry.', {
         fallbackClass: 'ambiguous_retry',

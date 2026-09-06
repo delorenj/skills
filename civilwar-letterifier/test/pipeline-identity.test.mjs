@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {fileURLToPath} from 'node:url';
+import {resolveJobNarrationPaths} from '../scripts/narrate.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -148,6 +150,86 @@ test('build keeps narration and Remotion inputs inside the job runtime namespace
     assert.match(localRelative, /^\.slowburns-narration[/\\]v1[/\\][a-f0-9]{64}[/\\]public[/\\]narration\.mp3$/);
     assert.notEqual(localNarrationOut, narrationOut, 'direct outputs receive deterministic output-bound local namespaces');
     for (const [file, bytes] of legacy) assert.deepEqual(fs.readFileSync(file), bytes);
+  } finally {
+    fs.rmSync(root, {recursive: true, force: true});
+  }
+});
+
+test('direct build refuses changed text for completed output-bound narration without rendering or provider use', () => {
+  const root = fixture('build-transcript-integrity');
+  try {
+    copy(path.join(ROOT, 'scripts', 'build.mjs'), path.join(root, 'scripts', 'build.mjs'));
+    copy(path.join(ROOT, 'scripts', 'narrate.mjs'), path.join(root, 'scripts', 'narrate.mjs'));
+    fs.mkdirSync(path.join(root, 'remotion', 'node_modules'), {recursive: true});
+
+    const workRoot = path.join(root, 'runtime');
+    fs.mkdirSync(workRoot);
+    const out = path.join(workRoot, 'fixed-direct-output.mp4');
+    const outputIdentity = crypto.createHash('sha256').update(path.resolve(out)).digest('hex');
+    const narration = resolveJobNarrationPaths({
+      workRoot,
+      jobId: 'local-render',
+      claimOperationId: `output-${outputIdentity}`,
+    });
+    fs.mkdirSync(narration.publicDir, {recursive: true});
+    execFileSync('ffmpeg', [
+      '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=0.15',
+      '-q:a', '9', '-acodec', 'libmp3lame', narration.out,
+    ]);
+    const textA = 'Transcript A owns this direct output narration.';
+    const textB = 'Transcript B must not render over narration A.';
+    const audio = fs.readFileSync(narration.out);
+    fs.writeFileSync(narration.receiptPath, `${JSON.stringify({
+      schema_version: 1,
+      operation: crypto.createHash('sha256').update(`${narration.operationId}\0${textA}`).digest('hex'),
+      state: 'complete',
+      attempts: [],
+      selection: {provider: 'eleven', model: 'eleven_multilingual_v2', voice_id: 'fixture', reason: 'primary'},
+      audio_sha256: crypto.createHash('sha256').update(audio).digest('hex'),
+    })}\n`);
+
+    const fakeBin = path.join(root, 'fake-bin');
+    fs.mkdirSync(fakeBin);
+    const renderCapture = path.join(root, 'render-calls.jsonl');
+    const providerCapture = path.join(root, 'provider-calls.jsonl');
+    const fakeNpx = path.join(fakeBin, 'npx');
+    fs.writeFileSync(fakeNpx, `#!${process.execPath}\nimport fs from 'node:fs';\nconst args = process.argv.slice(2);\nfs.appendFileSync(process.env.SLOWBURNS_RENDER_CAPTURE, JSON.stringify(args) + '\\n');\nfs.writeFileSync(args[3], 'fake-video');\n`);
+    fs.chmodSync(fakeNpx, 0o755);
+    const fetchGuard = path.join(root, 'provider-fetch-guard.mjs');
+    fs.writeFileSync(fetchGuard, `import fs from 'node:fs';\nglobalThis.fetch = async (url) => { fs.appendFileSync(process.env.SLOWBURNS_PROVIDER_CAPTURE, String(url) + '\\n'); throw new Error('provider calls are forbidden in this fixture'); };\n`);
+    const env = {
+      ...process.env,
+      PATH: `${fakeBin}:${process.env.PATH}`,
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --import=${fetchGuard}`.trim(),
+      ELEVENLABS_API_KEY: 'eleven-test-key',
+      CARTESIA_API_KEY: 'sk_car_1234567890abcdefghij',
+      CARTESIA_VOICE_ID: 'fixture-cartesia-voice',
+      SLOWBURNS_RENDER_CAPTURE: renderCapture,
+      SLOWBURNS_PROVIDER_CAPTURE: providerCapture,
+    };
+    const buildArgs = (text) => [
+      path.join(root, 'scripts', 'build.mjs'),
+      '--text', text,
+      '--out', out,
+      '--no-music',
+      '--no-ambient',
+    ];
+
+    execFileSync(process.execPath, buildArgs(textA), {cwd: root, env, stdio: 'pipe'});
+    assert.equal(fs.readFileSync(renderCapture, 'utf8').trim().split('\n').length, 1);
+    assert.equal(fs.existsSync(providerCapture), false, 'exact-text recovery must not call a provider');
+    const audioBeforeMismatch = fs.readFileSync(narration.out);
+    const receiptBeforeMismatch = fs.readFileSync(narration.receiptPath);
+
+    assert.throws(
+      () => execFileSync(process.execPath, buildArgs(textB), {cwd: root, env, stdio: 'pipe'}),
+      (error) => error.status !== 0,
+    );
+    assert.equal(fs.existsSync(providerCapture), false, 'changed text must fail before provider dispatch');
+    assert.equal(fs.readFileSync(renderCapture, 'utf8').trim().split('\n').length, 1, 'changed text must not render');
+    assert.deepEqual(fs.readFileSync(narration.out), audioBeforeMismatch);
+    assert.deepEqual(fs.readFileSync(narration.receiptPath), receiptBeforeMismatch);
+    assert.equal(fs.existsSync(narration.lockPath), false);
   } finally {
     fs.rmSync(root, {recursive: true, force: true});
   }

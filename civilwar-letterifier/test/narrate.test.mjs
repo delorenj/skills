@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -177,6 +178,68 @@ test('20-iteration identical-text cross-job isolation stress is deterministic an
   assert.equal(receiptOperations.size, 40, 'receipt operation hashes must bind all 40 identities');
   for (const key of [...pathKeys, 'operationId']) assert.equal(seen[key].size, 40);
   for (const [file, bytes] of legacy) assert.deepEqual(fs.readFileSync(file), bytes);
+});
+
+test('completed narration rejects changed text without provider or durable-state mutation', async () => {
+  const workRoot = runDir('completed-transcript-mismatch');
+  const directOutput = path.join(workRoot, 'direct-cli-output.mp4');
+  const directOutputIdentity = crypto.createHash('sha256').update(path.resolve(directOutput)).digest('hex');
+  const identities = [
+    {name: 'direct CLI output identity', jobId: 'local-render', claimOperationId: `output-${directOutputIdentity}`},
+    {name: 'admitted job claim identity', jobId: 'job-transcript-integrity', claimOperationId: 'claim-transcript-integrity'},
+  ];
+
+  for (const identity of identities) {
+    const target = resolveJobNarrationPaths({workRoot, ...identity});
+    let providerCalls = 0;
+    await narrate({
+      text: 'Transcript A owns this completed audio.',
+      out: target.out,
+      receiptPath: target.receiptPath,
+      operationId: target.operationId,
+      config: config(),
+      log: () => {},
+      fetchImpl: async () => {
+        providerCalls += 1;
+        return audioResponse();
+      },
+    });
+
+    await narrate({
+      text: 'Transcript A owns this completed audio.',
+      out: target.out,
+      receiptPath: target.receiptPath,
+      operationId: target.operationId,
+      config: config(),
+      log: () => {},
+      fetchImpl: async () => { throw new Error('exact-text recovery must not call a provider'); },
+    });
+    assert.equal(providerCalls, 1, `${identity.name} exact-text recovery must be provider-free`);
+
+    const audioBeforeMismatch = fs.readFileSync(target.out);
+    const receiptBeforeMismatch = fs.readFileSync(target.receiptPath);
+    assert.equal(fs.existsSync(target.lockPath), false);
+
+    await assert.rejects(
+      narrate({
+        text: 'Transcript B must never render over audio A.',
+        out: target.out,
+        receiptPath: target.receiptPath,
+        operationId: target.operationId,
+        config: config(),
+        log: () => {},
+        fetchImpl: async () => {
+          providerCalls += 1;
+          return audioResponse(alternateValidAudio);
+        },
+      }),
+      (error) => error.fallbackClass === 'operation_mismatch',
+    );
+    assert.equal(providerCalls, 1, `${identity.name} changed text must make zero provider calls`);
+    assert.deepEqual(fs.readFileSync(target.out), audioBeforeMismatch);
+    assert.deepEqual(fs.readFileSync(target.receiptPath), receiptBeforeMismatch);
+    assert.equal(fs.existsSync(target.lockPath), false, `${identity.name} mismatch must not retain a new lock`);
+  }
 });
 
 test('a stale same-claim pre-provider lock remains a zero-call manual recovery boundary', async () => {
