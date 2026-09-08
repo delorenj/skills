@@ -82,7 +82,8 @@ pipeline-status:
 
 ### Codex CLI (OpenAI)
 ```bash
-# One-shot task
+# One-shot task — omit --model so Codex uses the currently supported
+# subscription model from ~/.codex/config.toml
 exec workdir:/path/to/repo command:"codex exec --approve-for-me 'Your task description'"
 
 # Background for longer work
@@ -95,7 +96,7 @@ exec workdir:/path/to/repo command:"codex exec --dangerously-bypass-approvals-an
 exec pty:true workdir:/path/to/repo command:"codex review --base origin/main"
 ```
 
-**Key:** Codex needs a git repo. Model: `gpt-5.3-codex`. Config: `~/.codex/config.toml`.
+**Key:** Codex needs a git repo. Treat `~/.codex/config.toml` as the supported-model SSOT; do not pin a stale model name in automation. On ChatGPT OAuth, retired names such as `gpt-5.3-codex` can return HTTP 400 even when Codex itself is healthy.
 
 ### Claude Flow (Multi-Agent Orchestration)
 ```bash
