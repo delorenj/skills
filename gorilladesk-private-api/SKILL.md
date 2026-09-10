@@ -207,19 +207,65 @@ is invisible to every test you can write without touching GorillaDesk.
 | status *Confirmed* | `bKZdorgVkw` | `1` |
 | status *Unconfirmed* | `an4gkmYwJq` | `0` |
 
-The private ids are already in the public payload, under names that do not
-announce themselves:
+The private CUSTOMER id is already in the public payload, under a name that does
+not announce itself:
 
-- **`work_order_number`** on a job *is* the private job id. It reads like a
-  document number.
 - **`customer.profile_url`** ends in the private customer id
   (`https://v3.gorilladesk.com/customers/16777`).
+
+**A JOB'S PRIVATE ID IS NOT.** This page said `work_order_number` *is* the
+private job id until 2026-09-10, and that is wrong in a way worth stating
+precisely, because it was wrong for a second time after being corrected once.
+
+A job has **three** ids:
+
+| | example | who answers to it |
+|---|---|---|
+| public hashid | `vKY1EVzMYj` | `api.gorilladesk.com/v1` |
+| `work_order_number` | `90029` | the private backend's **`event.id`** |
+| `job.id` | `90032` | `ab2.gorilladesk.com/api` — **this one** |
+
+Verified live: `GET jobs/90029` → 404; `GET jobs/90032` → 200, returning
+`{"job": {"id": "90032"}, "event": {"id": "90029"}}`.
+
+Both counters run over the same range, so on older jobs they frequently
+coincide — which is why the first correction (hashid → work order number, made
+2026-08-28 when the capability probe 404'd) stopped the 404s and looked settled.
+Seven jobs created together on 2026-09-10 sat at +3 and the status write 404'd
+again.
+
+**The 404 is the lucky outcome.** A work order number is often a VALID job id
+belonging to a *different* visit — 90032 was one job's event and another job's
+id — so the failure mode is sometimes HTTP 200 against the wrong job, read back
+as success because the read-back reads the job you believe you wrote.
+
+**There is no lookup from event id to job id.** `events/<id>`, `jobs/event/<id>`,
+`jobs?event_id=`, `jobs/search`, `customers/<id>/jobs` and every list shape
+(limit/offset, page/per_page, draw/start/length, date ranges) answer 404 or 422.
+Only `GET jobs/<job_id>` answers, and the public job payload has no URL field to
+read the private id off. So `relay.adapters.crm_private.resolve_job_id` scans
+neighbouring ids and accepts a candidate **only when that row's own `event.id`
+is the work order asked for** — confirmation, not inference. A wrong candidate
+is rejected by its own payload. It refuses rather than guessing.
+
+Two places must use it and both did the wrong thing: the closeout write path,
+and `relay-testbed` — whose `clean` deleted by work order number, which answers
+**200 while removing nothing**, so every board load silently doubled the day and
+`relay:schedule` read fourteen jobs on a board that places seven.
 
 Sending a public id to the private backend gives **404 Not Found**; sending a
 public status id gives **422 `{"message": ["Status is invalid."]}`**. Both are
 opaque strings from the same vendor, so a fixture that uses one value for both
 passes and the whole suite stays green — 1,729 tests did, against a write path
 that had never worked and could not have.
+
+That is not a story about the past. **A fixture can only catch what it can
+express.** Every fixture in the relay suite used one integer for both job id
+spaces, so the 2026-09-10 defect was invisible to 3,000 passing tests for the
+same reason the 2026-08-28 one was invisible to 1,729. When a bug turns on two
+values being different, make the fake model the difference with a non-zero
+offset, make the wrong id fail the way it fails live, and have the fake drive
+the real resolution function rather than a copy of it.
 
 The full private status list is `GET /api/job/statuses`: also `3` Reschedule,
 `4` Pending Confirmation, `5` Canceled, `6` Recurrence, `7` Pending Booking,
