@@ -91,15 +91,23 @@ delohome displays list-display-inputs office
 Fire OS over ADB on `192.168.1.3:5555`. The RSA keypair **is** the credential: whoever
 holds the private key can run arbitrary shell on that TV forever with no further prompt.
 
+ADB is authorized (2026-09-13). The device reports `model AFTHA001`, name `hailey`.
+
 **Power on is `KEYCODE_WAKEUP`, not `KEYCODE_POWER`.** POWER is a toggle — sending it to a
 set that is already awake turns it *off*, which is the opposite of what "turn it on" should
 ever do. WAKEUP is idempotent.
 
 `mWakefulness` from `dumpsys power` is the reliable awake signal.
 
-Package names are store-verified, not device-verified — what is actually installed can only
-be confirmed with `delohome displays list-display-apps 'living room'` once ADB is
-authorized. Fire OS differs from stock Android TV; Prime Video is preinstalled and primary.
+Package names are **device-verified** as of 2026-09-13, read off this set's own
+`pm list packages`. Two store-verified guesses were wrong here, which is why the list is
+now taken from the device: `com.wbd.stream` (the current Max package everywhere else) is
+not installed — this TV ships the older `com.hbo.hbonow` — and Spotify is an
+Amazon-wrapped `com.amazon.spotify.mediabrowserservice`, not `com.spotify.tv.android`.
+
+**Prime Video has no package at all on this device.** It is served through the launcher
+rather than as an app, so there is deliberately no `prime` entry; adding one would produce
+a launch that silently does nothing.
 
 ## Two surfaces, one screen
 
@@ -117,6 +125,18 @@ Xbox One (living room), PS5 (bedroom) and the SHIELD are in the house map as
 `sources_hdmi`, with aliases, IPs and MACs. **`hdmi_input` is `null` for all three**, and
 deliberately so: which port a box sits on can only be read off a panel we can talk to, and
 guessing switches the TV to a dead input.
+
+What the panel reports over CEC (`dumpsys hdmi_control`), read 2026-09-13:
+
+| Port | Device |
+|---|---|
+| 1 (ARC) | `Bose TV Spkr` — a soundbar, not otherwise in the house map |
+| 4 | `Living Room S…` — a playback device, almost certainly the SHIELD |
+| 2, 3 | nothing reporting; the Xbox was presumably off |
+
+`dumpsys tv_input` separately exposes input ids `HW4`–`HW7` and `HDMI400008`. Those do
+**not** map one-to-one onto the CEC port numbers, so the association is still unconfirmed
+and `hdmi_input` stays null. Turning the Xbox on and re-reading CEC would settle it.
 
 So "put on the Xbox" is **not yet satisfiable**. It needs two things that do not exist yet:
 the panel paired so inputs can be enumerated, and a tool that exposes `House.find_source()`
