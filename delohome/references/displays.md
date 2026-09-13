@@ -16,7 +16,7 @@ delohome displays display-status bedroom
 | `samsung_bedroom` | bedroom | UN65RU8000FXZA | `samsung_ws` | **paired, live** |
 | `lg_office` | office | OLED48CXPUB (CX 48" OLED, fw 5.6.2) | `lg_webos` | not paired |
 | `lg_ava` | ava | 43UP8000PUA (fw 6.5.3) | `lg_webos` | not paired |
-| `firetv_living` | living_room | Hisense Fire TV | `firetv_adb` | not authorized |
+| `firetv_living` | living_room | Hisense Fire TV (AFTHA001) | `firetv_adb` | **authorized, live** |
 
 Pairing procedures are in [setup.md](./setup.md).
 
