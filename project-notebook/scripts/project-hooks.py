@@ -14,6 +14,7 @@ import posixpath
 import secrets
 import shlex
 import stat
+import subprocess
 import sys
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
@@ -433,10 +434,32 @@ def _dedicated_owned_group(group: dict[str, Any], event: str) -> bool:
     )
 
 
+def _hub_owned(event: str) -> bool:
+    """The central registry remains the owner while a concern is paused."""
+    if os.environ.get("BB_HOOK_HUB") == "off":
+        return False
+    helper = Path.home() / ".agents/hooks/hub/ownership.py"
+    if not helper.is_file():
+        return False
+    concern = "project-notebook-start" if event == "SessionStart" else "project-notebook-end"
+    try:
+        return subprocess.run(
+            [sys.executable, str(helper), concern, "--cli", "claude"],
+            capture_output=True, timeout=1, check=False,
+        ).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def _install_projection(live: dict[str, Any], fragment: dict[str, Any]) -> dict[str, Any]:
-    merged = copy.deepcopy(live)
+    owned_events = {event for event in EVENT_ORDER if _hub_owned(event)}
+    merged = _uninstall_projection(live, owned_events)
+    if len(owned_events) == len(EVENT_ORDER):
+        return merged
     hooks = merged.setdefault("hooks", {})
     for event in EVENT_ORDER:
+        if event in owned_events:
+            continue
         canonical_group = fragment["hooks"][event][0]
         canonical_hook = canonical_group["hooks"][0]
         groups = hooks.setdefault(event, [])
@@ -469,12 +492,14 @@ def _install_projection(live: dict[str, Any], fragment: dict[str, Any]) -> dict[
     return merged
 
 
-def _uninstall_projection(live: dict[str, Any]) -> dict[str, Any]:
+def _uninstall_projection(
+    live: dict[str, Any], events: Sequence[str] = EVENT_ORDER
+) -> dict[str, Any]:
     merged = copy.deepcopy(live)
     hooks = merged.get("hooks")
     if not isinstance(hooks, dict):
         return merged
-    for event in EVENT_ORDER:
+    for event in events:
         groups = hooks.get(event)
         if not isinstance(groups, list):
             continue
@@ -528,6 +553,11 @@ def _check_findings(live: dict[str, Any], fragment: dict[str, Any]) -> list[dict
 
     for event in EVENT_ORDER:
         entries = owned[event]
+        if _hub_owned(event):
+            if entries:
+                findings.append({"kind": "duplicate", "event": event, "count": len(entries),
+                                 "message": "central hook hub owns this concern; remove native copies"})
+            continue
         if not entries:
             findings.append(
                 {"kind": "missing", "event": event, "message": "canonical hook is absent"}

@@ -208,8 +208,25 @@ def invoke(entry: pwd.struct_passwd, launcher: Path, payload: bytes) -> int:
     return 0
 
 
+def hub_owned(home: Path) -> bool:
+    if os.environ.get("BB_HOOK_HUB") == "off":
+        return False
+    helper = home / ".agents/hooks/hub/ownership.py"
+    if not helper.is_file():
+        return False
+    try:
+        return subprocess.run(
+            [sys.executable, "-I", str(helper), "project-notebook-end", "--cli", "claude"],
+            capture_output=True, timeout=0.5, check=False,
+        ).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def main() -> int:
     entry = canonical_identity()
+    if hub_owned(Path(entry.pw_dir)):
+        return 0
     validate_node_binary()
     launcher = resolve_launcher(entry)
     payload = sys.stdin.buffer.read(STREAM_LIMIT_BYTES)

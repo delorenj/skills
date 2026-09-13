@@ -91,3 +91,5 @@ the 1,048,576-byte request ceiling was exceeded. Valid-size input is sent over
 stdin with an explicit child timeout shorter than the outer hook timeout.
 Resolution, validation, input, timeout, and PJangler failures are bounded and
 fail open without creating wrapper-local state.
+
+When the Bloodbank hub owns `project-notebook-start` or `project-notebook-end`, installation removes only that event’s native notebook copy and `check` accepts the centralized owner. A paused hub concern stays owned. Without hub ownership, the standalone Claude projection remains available. Legacy wrappers also defer to the central owner, while supervised hub children execute normally.

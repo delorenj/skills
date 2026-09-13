@@ -49,6 +49,12 @@ class ProjectHooksTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
+        environment = mock.patch.dict(os.environ, {
+            "BB_HOOK_OWNERSHIP": str(self.root / "uninstalled-ownership.json"),
+            "BB_HOOK_HUB": "",
+        })
+        environment.start()
+        self.addCleanup(environment.stop)
         self.claude = self.root / ".claude"
         self.claude.mkdir(mode=0o700)
         self.target = self.claude / "settings.json"
@@ -192,6 +198,37 @@ class ProjectHooksTests(unittest.TestCase):
             check=False,
             env=environment,
         )
+
+    def test_hub_owned_install_retires_only_native_notebook_copies(self) -> None:
+        foreign = {"matcher": "preserved", "hooks": [{"command": "foreign-command"}]}
+        live = {"theme": "dark", "hooks": {
+            "SessionStart": [copy.deepcopy(foreign), *self.master["hooks"]["SessionStart"]],
+            "SessionEnd": copy.deepcopy(self.master["hooks"]["SessionEnd"]),
+        }}
+        with mock.patch.object(PROJECTOR, "_hub_owned", return_value=True):
+            projected = PROJECTOR._install_projection(live, self.master)
+            self.assertEqual(projected, {"theme": "dark", "hooks": {"SessionStart": [foreign]}})
+            self.assertEqual(PROJECTOR._install_projection(projected, self.master), projected)
+            self.assertEqual(PROJECTOR._check_findings(projected, self.master), [])
+            self.assertEqual({row["kind"] for row in PROJECTOR._check_findings(live, self.master)}, {"duplicate"})
+
+    def test_hub_owned_one_event_preserves_other_standalone_fallback(self) -> None:
+        with mock.patch.object(PROJECTOR, "_hub_owned", side_effect=lambda event: event == "SessionStart"):
+            projected = PROJECTOR._install_projection({}, self.master)
+        self.assertEqual(projected, {"hooks": {"SessionEnd": self.master["hooks"]["SessionEnd"]}})
+
+    def test_legacy_wrapper_defers_to_hub_but_hub_child_runs(self) -> None:
+        fake_home, _ = self.make_fake_pj()
+        helper = fake_home / ".agents/hooks/hub/ownership.py"
+        helper.parent.mkdir(parents=True)
+        helper.write_text("raise SystemExit(0)\n")
+        for wrapper in ("session-start.sh", "session-end.sh"):
+            native = self.run_wrapper(wrapper, fake_home, b"{}")
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b"")
+            supervised = self.run_wrapper(wrapper, fake_home, b"{}", extra_environment={"BB_HOOK_HUB": "off"})
+            self.assertEqual(supervised.returncode, 0, supervised.stderr)
+            self.assertTrue(supervised.stdout, supervised.stderr)
 
     def test_master_fragment_and_wrappers_are_exact(self) -> None:
         self.assertEqual(MASTER_PATH.read_bytes(), FRAGMENT_PATH.read_bytes())
