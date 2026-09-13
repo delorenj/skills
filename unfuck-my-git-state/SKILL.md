@@ -7,6 +7,11 @@ description: Diagnose and recover broken Git state and worktree metadata with a 
 
 Recover a repo without making the blast radius worse.
 
+This is for damaged Git metadata and refs. A healthy repository with an
+overgrown `.gitignore` or files already tracked despite the effective ignore
+stack belongs to `gitignore-maintenance`; do not escalate ordinary index parity
+into `.git/` surgery.
+
 ## Core Rules
 
 1. Snapshot first. Do not "just try stuff."

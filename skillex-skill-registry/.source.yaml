@@ -4,9 +4,9 @@ origin:
   source: 33god-platform
   upstream: git@github.com:delorenj/33GOD.git
   upstream_version: main
-  upstream_commit: c091266b5e666c772655e4fd396484840b7945b0
-  upstream_tree: 2323987abd1e5176cb93080b8182a0405f4d34b6
+  upstream_commit: eb0a92b10d7c132bb92d9adf7268f9d08b39f621
+  upstream_tree: 98c7d81e59a8818799f479c5e270f1c93af58da2
   upstream_path: 33god-platform/skills/skillex-skill-registry
-  extracted_at: "2026-09-01T15:55:42+00:00"
-  digest: sha256:8594175f74bc75ce409dd9718053b28030a30747b67e647c87b46947eefef5e7
+  extracted_at: "2026-09-13T17:44:11+00:00"
+  digest: sha256:9beaa6030560e143f65b58a5d29ca01235d70a31e8fee519a43cea8769be9456
 modified_locally: false

@@ -2,7 +2,7 @@
 pipeline-status:
   - new
 ---
-# Project-scoped agent hooks & skill fan-out (per-dev, committed)
+# Project-scoped agent hooks & skill fan-out (canonical source committed)
 
 The layer that gives **every dev who clones the repo** — and each of their agent CLIs
 (Claude Code, Codex, Hermes, Kimi) — the *same* hooks and skills, without anyone hand-wiring
@@ -31,7 +31,7 @@ project configs should invoke `~/.agents/hooks/bloodbank/publish.py --client <ag
 
 | SSOT (hand-edited) | Fans out to | Engine |
 |---|---|---|
-| `.agents/hooks/hooks.master.json` | Claude (committed settings) · Codex (injected) · Hermes (adapter) | `.agents/hooks/sync.py` |
+| `.agents/hooks/hooks.master.json` | Claude (local generated settings) · Codex (injected) · Hermes (adapter) | `.agents/hooks/sync.py` |
 | `.agents/skills.json` (project skill manifest — `packs[]` + `skills[]`) | The six supported agent CLI skill dirs in the project (`.claude/skills`, `.codex/skills`, `.gemini/skills`, `.copilot/skills`, `.opencode/skills`, `.kimi-code/skills`) | `provision-packs.py` then `sync-skills.py --scope project` |
 
 Both follow the same rules: **one source → generated per-CLI dialects, idempotent (zero bytes
@@ -42,7 +42,7 @@ generated config; edit the SSOT and re-run.
 
 | Agent | Target | Scope | When |
 |---|---|---|---|
-| Claude Code | committed `.claude/settings.json` `hooks` (uses `$CLAUDE_PROJECT_DIR`) | project, committed | nothing to do — every clone has it |
+| Claude Code | generated `.claude/settings.json` `hooks` (uses `$CLAUDE_PROJECT_DIR`) | project, local | `mise enter` regenerates it from `.agents/` |
 | Codex | `~/.codex/hooks.json` (absolute-path entries, marker = repo path) | per-user, injected | `enter` injects, `leave` removes, `*.caf-bak` |
 | Hermes | runtime `config.yaml` `hooks:` + `shell-hooks-allowlist.json`, via an **adapter** | per-deployment | `enter` merges (pyyaml, idempotent, backed up) |
 
@@ -105,7 +105,7 @@ isn't blocked.
 ## Adopting it in a repo (checklist)
 
 1. Copy `.agents/hooks/` from CAF: `hooks.master.json`, `sync.py`, `lib/` (`local-config.sh`,
-   `hook-guard.sh`), `hindsight/`, `hermes/hindsight-hook.sh`, `README.md`. Adjust the pinned
+  `hook-guard.sh`), `hindsight/`, `hermes/hindsight-hook.sh`, `README.md`. Adjust the pinned
    bank in `hermes/hindsight-hook.sh` and any project-name references.
 2. Copy `hindsight-setup.sh` and `.agents/local.example.json`. Also ensure `.agents/skills.json` exists for your project's skill dependencies.
 3. Wire `mise.toml` (see [mise-conventions.md](mise-conventions.md) → agent-hooks additions):
@@ -114,6 +114,8 @@ isn't blocked.
    `hooks.master.json` → `hooks-sync` and on `.agents/skills.json` → `skills-sync`; tasks
    `hooks-sync` / `hooks-check` (CI gate) / `hooks-uninstall` / `skills-provision-packs` /
    `skills-sync` (`depends = ["skills-provision-packs"]`) / `hindsight-setup`.
-4. `.gitignore`: `.agents/local.json`, `.kimi-code/`, `.env`.
-5. Run `mise run hooks-sync` and commit the generated `.claude/settings.json` alongside the master.
-6. CI runs `mise run hooks-check` (fails on committed-Claude drift).
+4. `.gitignore`: `.agents/local.json`, `/.agents/skills`, `.env`, and `.env.*`
+   with the `.env.op` exception. Client roots are global-ignore policy.
+5. Run `mise run hooks-sync`; commit only the `.agents/` source, never the
+   generated `.claude/settings.json` projection.
+6. `mise run hooks-check` verifies the local projection against the committed source.

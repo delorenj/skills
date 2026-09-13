@@ -3,10 +3,10 @@ origin:
   type: vendored
   source: pjangler
   upstream: git@github.com:delorenj/pjangler.git
-  upstream_version: v1.4.2
-  upstream_commit: dbafc00435bdc34f99936477742f1e42cad9e5d9
-  upstream_tree: 519daf16a3ffd0d5e39f08634093a42b457bdbc7
+  upstream_version: c505a0889f21eaf025c14d575e4e9531f4a4ef3f
+  upstream_commit: c505a0889f21eaf025c14d575e4e9531f4a4ef3f
+  upstream_tree: 3f3855edb21a38016a7576cf4efc150bf109d259
   upstream_path: skills/pjangler-parity-rules
-  extracted_at: "2026-09-01T15:55:42+00:00"
-  digest: sha256:4529424a3189255bc03b1651d0e84357f40cf28c873bba725bae0de0dcc0d8a1
+  extracted_at: "2026-09-13T17:42:55+00:00"
+  digest: sha256:595e74d030ed32a78061a49dce074508288b765eb40d1a283408c7abae003d35
 modified_locally: false

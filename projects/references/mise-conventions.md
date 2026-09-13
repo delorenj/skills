@@ -114,8 +114,10 @@ legacy name; `pj migrate` writes the new script and removes the old one. Pack me
 `references/skill-packs.md`.
 
 `enter`/`leave` hook commands must never hard-fail the shell (the engine exits 0 on internal
-error); only `hooks-check` returns nonzero, for CI. `.gitignore` must add `.agents/local.json`
-(per-dev opt-out) and `.kimi-code/` (generated mirror) alongside `.env`.
+error); only `hooks-check` returns nonzero, for CI. `.gitignore` adds
+`.agents/local.json` (per-dev opt-out), `/.agents/skills`, and `.env` rules.
+Client mirrors such as `.kimi-code/` belong to the effective global ignore and
+must not be unignored or duplicated in the repo contract.
 
 ## Common tasks
 

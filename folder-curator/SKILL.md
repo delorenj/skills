@@ -1,7 +1,6 @@
 ---
 name: folder-curator
 description: Curate any watched directory with a purpose-bound ruleset — classify, rename (datetime prefix), enrich (YAML frontmatter), and route each incoming file to its home; keep a cross-medium recency/context stack (newest on top); and evolve the ruleset itself. Driven by a per-directory contract (.curator/taxonomy.yaml) declaring the directory's purpose and categories; ships with an Automatic AI client/prospect profile (threads/, workshop/, client_dropbox/). Use when a file lands in a curated or watched directory and needs naming, frontmatter, or placement; to organize, file, sort, triage, or curate documents, transcripts, emails, voice notes, or work products; to normalize filenames/frontmatter; to regenerate the context stack (_context-stack.md); to quarantine an uploaded credential; or to propose and apply a taxonomy change. Do NOT use to author the n8n workflow or node (use delonet-n8n-architecture), define Bloodbank schemas (bloodbank-integration), or for BMAD artifacts under _bmad-output/.
-pipeline-status: new
 ---
 
 # Folder Curator
@@ -53,7 +52,14 @@ folder-curator --client-root . normalize --apply    # writes it
 
 ### Triage — recursively reconcile the whole tree
 
-`triage` walks the entire directory (git-aware: it honors `.gitignore`, so generated trees like `runtime/`, `.curator/`, `node_modules/` are never touched) and reconciles everything at once — relocating files you dropped in the wrong folder, renaming to canonical form, enriching, and quarantining secrets. **Always dry-run first.**
+`triage` walks the entire directory (git-aware: it honors Git's effective
+ignore stack, including `.gitignore`, `.git/info/exclude`, and
+`core.excludesFile`, so generated trees like `runtime/`, `.curator/`, and
+`node_modules/` are never touched) and reconciles everything at once —
+relocating files you dropped in the wrong folder, renaming to canonical form,
+enriching, and quarantining secrets. **Always dry-run first.** If that effective
+policy is bloated, missing, or contradicted by tracked files, use
+`gitignore-maintenance`; Folder Curator consumes the policy and does not own it.
 
 ```bash
 folder-curator --client-root . triage            # dry-run: what it WOULD do
@@ -106,3 +112,4 @@ The shipped default profile's categories (flat, at the directory root; override 
 - **Defining/validating Bloodbank event schemas** → `bloodbank-integration`.
 - **Infra paths, rclone remotes, container/service names** → `delonet-conventions`.
 - **BMAD planning/implementation artifacts** under `_bmad-output/` — never intake or reorganize those.
+- **Git ignore policy or tracked-ignore index cleanup** → `gitignore-maintenance`.

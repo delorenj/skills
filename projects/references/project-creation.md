@@ -30,6 +30,19 @@ identity inferred from a summary line. A valid Plane binding has `state:
 linked` and a live-resolved identifier/board id. Never persist
 `ticket_provider.board_url`; construct a URL transiently when presenting it.
 
+CommonProject never copies the developer's global Git ignore. It preserves any
+existing `.gitignore` and adds only the portable repository contract: `.env`,
+`.env.*`, the committed `.env.op` exception, `.agents/local.json`, and the
+generated `.agents/skills` projection. Backup/editor artifacts and client roots
+such as `.claude/` and `.codex/` remain machine-wide policy; `.agents/` is the
+only canonical agent-config tree committed by the project.
+
+For an existing repository, run `gitignore-maintenance` after structural
+bootstrap. Its effective-ignore audit distinguishes repo rules from the global
+source and lists tracked matches with provenance. Review those paths before the
+skill performs any explicit `git rm --cached`, commit, and push; pjangler itself
+does not mutate the index.
+
 Read and parse the raw manifest before mutation. Malformed JSON aborts with the
 manifest and all other state byte-unchanged. Hold one project lock across
 read/validation, the live Plane check-or-create, and atomic manifest

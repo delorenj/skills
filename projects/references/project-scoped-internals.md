@@ -24,7 +24,7 @@ Live implementation: `~/code/CoachingAgentFramework/.agents/hooks/`
 | Lock file / ambiguity engine | yes (`hooks.mappings.lock.json`) | **no** — too few hooks to need it |
 | Install driver | `mise run deploy` (explicit) | `mise enter` → install, `mise leave` → uninstall |
 | Catalog unit | canonical CloudEvents `type` + `role` | a `lifecycle` (user_prompt / post_tool / session_end) |
-| Scope | machine-global (`~/.claude`, `~/.codex`) | committed-per-repo + per-dev injected |
+| Scope | machine-global (`~/.claude`, `~/.codex`) | committed `.agents/` source + local per-dev projections |
 
 Bloodbank's current install target is `~/.agents/hooks/bloodbank/publish.py --client <agent> --hook <event>`.
 This project-scoped variant can point at that command, but should not fork or re-template the publisher.
@@ -35,11 +35,11 @@ are non-negotiable in either variant.
 
 ## The three dialects it adds
 
-- **`claude_settings` (committed, zero-bootstrap).** Generate the `hooks` key of
-  the repo's committed `.claude/settings.json`, using `$CLAUDE_PROJECT_DIR/...`
-  paths (Claude expands them at runtime). Committing it *is* the install — no
-  per-dev step. `sync` owns the whole `hooks` key. `--check` compares the committed
-  file to a fresh render → CI drift gate.
+- **`claude_settings` (local generated projection).** Generate the `hooks` key
+  of the repo's globally ignored `.claude/settings.json`, using
+  `$CLAUDE_PROJECT_DIR/...` paths (Claude expands them at runtime). `mise enter`
+  installs it from the committed `.agents/hooks/hooks.master.json`; `sync` owns
+  the whole `hooks` key and `--check` compares the local file to a fresh render.
 
 - **`codex_hooks` (per-user injection, enter/leave).** Codex has no project-scoped
   hook file; hooks live only in the per-user `~/.codex/hooks.json` (shared with
@@ -72,9 +72,9 @@ yet must be *individually overridable*.
 
 ### 1. Per-dev opt-out without git churn — a runtime guard
 
-A committed Claude `hooks` block is identical for everyone, so you can't subtract a
-hook per-dev by editing it (that dirties git, and Claude has no "disable"
-semantic). Solution: **the committed command is a guard wrapper.**
+The generated Claude `hooks` block is identical for everyone, so local edits
+would be overwritten and Claude has no "disable" semantic. Solution: **the
+generated command is a guard wrapper controlled from canonical `.agents/`.**
 
 ```
 $CLAUDE_PROJECT_DIR/.agents/hooks/lib/hook-guard.sh <hook-id> <real-hook-script>

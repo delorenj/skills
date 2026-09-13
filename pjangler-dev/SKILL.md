@@ -12,6 +12,11 @@ For *using* pjangler to create a 33god project — bootstrapping CommonProject, 
 
 For the generic SSOT config fan-out engine (master→multi-dialect propagation, lock files, generated-config drift) that pjangler recipes may consume, use the **`agent-config-fanout`** skill.
 
+For repository ignore simplification or tracked-ignored index reconciliation,
+use **`gitignore-maintenance`**. CommonProject owns only a small portable repo
+contract and must never copy `core.excludesFile`; pjangler parity may remove
+exact legacy lines it generated, but it must never run bulk `git rm --cached`.
+
 ## Architecture Overview
 
 ```

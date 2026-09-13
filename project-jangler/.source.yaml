@@ -3,10 +3,10 @@ origin:
   type: vendored
   source: pjangler
   upstream: git@github.com:delorenj/pjangler.git
-  upstream_version: 5f27761fb1c0b298146cb3eeae30f3687e448f97
-  upstream_commit: 5f27761fb1c0b298146cb3eeae30f3687e448f97
-  upstream_tree: cb74b7a5dec0f14bd1e5c13269c528805620cd98
+  upstream_version: c505a0889f21eaf025c14d575e4e9531f4a4ef3f
+  upstream_commit: c505a0889f21eaf025c14d575e4e9531f4a4ef3f
+  upstream_tree: 77c8b2ede50b762d9cd4694950092aa0bca35cdc
   upstream_path: skills/project-jangler
-  extracted_at: "2026-09-01T15:58:01+00:00"
-  digest: sha256:727420ec4d4e48661b6b2a5c35c634ed9f247a7a50e11ddc5e255e943f03f2fc
+  extracted_at: "2026-09-13T17:42:55+00:00"
+  digest: sha256:7aa00c54592bbe82fea11f981ea09aff618413abc96aa2c54346bac9f99f7c07
 modified_locally: false

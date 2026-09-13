@@ -842,9 +842,12 @@ def convert_pdf(path: Path) -> str | None:
 
 
 def _git_tracked_files(root: Path):
-    """Files git would consider: tracked + untracked, MINUS .gitignore. None if not a git repo.
-    This is what keeps triage out of generated trees (runtime/, .curator/, node_modules/, …)
-    without having to enumerate them — the repo's own .gitignore is the source of truth."""
+    """Files visible after Git's complete effective ignore stack.
+
+    This includes repository rules, clone-local excludes, and
+    ``core.excludesFile``; return ``None`` outside a Git repository. Generated,
+    vendor, and runtime trees can therefore follow Git policy without that
+    policy being duplicated here."""
     try:
         r = subprocess.run(
             ["git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
@@ -857,8 +860,8 @@ def _git_tracked_files(root: Path):
 
 
 def iter_triage_files(client_root: Path, contract: dict):
-    """Yield candidate files under client_root. In a git repo, start from what git tracks
-    (honoring .gitignore), then prune ignored/hidden dirs, generated files, sidecars, and
+    """Yield candidate files under client_root. In a git repo, start from what Git tracks
+    (honoring its effective ignore stack), then prune ignored/hidden dirs, generated files, sidecars, and
     protected front-door files (profile.md, AGENTS.md, …). Falls back to os.walk otherwise."""
     tconf = contract.get("triage", {})
     ignore_dirs = set(contract.get("ignore_dirs", [])) | set(tconf.get("skip_dirs", []))

@@ -40,6 +40,7 @@ matching one rather than re-deriving its decisions here.
 | Adding or renaming a Plane label, choosing between a label and a state, wiring automation that writes to a board, scaffolding or reconciling a project board | `board-taxonomy` |
 | Landing a change forward across the component repos | `merge-forward` |
 | Publishing or composing skill packs | `skillex-skill-registry` |
+| Simplifying repository ignores or reconciling already-tracked paths against the effective global ignore | `gitignore-maintenance` |
 
 ## Event and command spine
 
@@ -66,6 +67,12 @@ any producer, consumer, webhook, subject, projection, or command route.
 3. If a change affects more than one component, add a pipeline changelog entry.
 4. If old repos/configs can drift, add or update a backfill check.
 5. Route implementation details to the component skill or repo AGENTS.md.
+
+Repository hygiene crosses two owners: PJangler/CommonProject emit only the
+portable repo contract, while Skillex distributes `gitignore-maintenance` for
+effective-ignore and Git-index reconciliation. `.agents/` is the canonical
+agent-config tree; client roots are local projections governed by the
+operator's global ignore. Never copy `core.excludesFile` into a repository.
 
 ## Commands
 

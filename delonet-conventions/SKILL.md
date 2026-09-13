@@ -59,6 +59,19 @@ wired by **pjangler** out of the CommonProject + hermes-agent-template copier te
 > `~/.agents/hooks/hindsight/` and Bloodbank under `~/.agents/hooks/bloodbank/`.
 > Per-agent configs may differ, but they should invoke those shared entrypoints.
 
+## Git ignore policy
+
+Resolve the active machine-wide file with
+`git config --show-origin --path --get core.excludesFile`; never assume a
+particular path or copy it into a repository. It owns personal invariants such
+as backup/editor debris and generated client roots. Repository `.gitignore`
+files retain only portable project contracts. `.agents/` is canonical;
+`.claude/`, `.codex/`, and equivalent roots are local projections.
+
+Use `gitignore-maintenance` to simplify a repo or reconcile already-tracked
+ignored files. That workflow audits the complete effective stack, preserves
+local copies, and uses explicit index paths before commit/push.
+
 ## Tooling and Package Management
 
 Mise is my tooling and package versioning utility of choice.

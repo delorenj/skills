@@ -1,8 +1,7 @@
 ---
 name: agent-config-fanout
 description: |
-  Keep one hand-edited master config and generate per-agent CLI configs from it. Covers SSOT fan-out for agent hooks and skills: master-to-dialect propagation, ambiguity lock files, drift checks, skill packs, and the Bloodbank services/agent-hooks reference implementation. Use for hooks.master.json, hooks.mappings.lock.json, generated-config drift, fan-out, SSOT, agent hooks, inherit_global, .agents/skills.json, sync.py, sync-skills.py, provision-packs.py, skills-provision-packs, project-scoped hooks, skill fan-out, and new agent CLI dialects. Also use for skill packs: packs[], pack.toml, SHA256SUMS, sealed/immutable packs, payload verification, pack version resolution, include/exclude, and the six supported CLI skill dirs. Do NOT use for using pjangler to create projects or adoption checklists (33god-projects), event schemas or Bloodbank topology (bloodbank-integration), versioning (mise-versioning), or single-target config.
-pipeline-status: new
+  Keep one hand-edited master config and generate per-agent CLI configs from it. Covers SSOT fan-out for agent hooks and skills: master-to-dialect propagation, ambiguity lock files, drift checks, skill packs, and the Bloodbank services/agent-hooks reference implementation. Use for hooks.master.json, hooks.mappings.lock.json, generated-config drift, fan-out, SSOT, agent hooks, inherit_global, .agents/skills.json, sync.py, sync-skills.py, provision-packs.py, skills-provision-packs, project-scoped hooks, skill fan-out, and new agent CLI dialects. Also use for skill packs: packs[], pack.toml, SHA256SUMS, sealed/immutable packs, payload verification, pack version resolution, include/exclude, and the six supported CLI skill dirs. Do NOT use for using pjangler to create projects or adoption checklists (33god-projects), repository ignore/index parity (gitignore-maintenance), event schemas or Bloodbank topology (bloodbank-integration), versioning (mise-versioning), or single-target config.
 ---
 
 # Agent Config Fan-out
@@ -12,6 +11,10 @@ Route here when the job is to propagate **one hand-edited master config** into t
 ## Operating Principles
 
 - **One hand-edited source of truth.** The master file (e.g. `hooks.master.json`) is the only artifact edited by hand. Every per-target config and machine map is generated.
+- **`.agents/` is the committed canonical tree.** Client roots such as
+  `.claude/` and `.codex/` are generated local projections. Do not add repo
+  unignore rules to promote them into source; use `gitignore-maintenance` when
+  historical projections are already tracked.
 - **Ambiguity is detected, resolved once, and remembered.** Divergent mappings across targets become lock-file entries (`hooks.mappings.lock.json`). Re-syncs apply them automatically.
 - **Generated output is deterministic and idempotent.** A `--check` gate must return zero changed bytes when the master is unchanged.
 - **Consumers fall back to an embedded default.** A generated map going missing must not break the consumer; generated values merge over a small embedded fallback.
@@ -28,7 +31,7 @@ Route here when the job is to propagate **one hand-edited master config** into t
 | Operate or extend the bloodbank `services/agent-hooks` reference instance — add an agent CLI, edit `hooks.master.json`, fix drift | [references/ssot-fanout-reference.md](references/ssot-fanout-reference.md) | [references/ssot-fanout-gotchas.md](references/ssot-fanout-gotchas.md) |
 | Output drifts, sync isn't idempotent, an ambiguity won't clear, a merge ate sibling hooks | [references/ssot-fanout-gotchas.md](references/ssot-fanout-gotchas.md) | the matching engine/reference topic |
 | Declare, resolve, seal, or verify a **skill pack** (`packs[]`, `pack.toml`, `SHA256SUMS`), or wire `provision-packs.py` / `skills-provision-packs` — the ENGINE contract | [references/skill-packs.md](references/skill-packs.md) | `skillex pack render` / `skillex pack verify` |
-| **Operate the registry itself** — what is in `~/code/skillex` today, cut/bump/seal a pack, curate `all-skills/` and `skill-sets/`, fix a broken `.agents/skills.json`, decode a `pj audit` failure | → **`skillex-skill-registry`** at `/home/delorenj/code/33GOD/skills/skillex-skill-registry/` | this skill only for the fan-out engine mechanics |
+| **Operate the registry itself** — what is in `~/code/skillex` today, cut/bump/seal a pack, curate `all-skills/` and `sets/`, fix a broken `.agents/skills.json`, decode a `pj audit` failure | → **`skillex-skill-registry`** at `/home/delorenj/code/33GOD/skills/skillex-skill-registry/` | this skill only for the fan-out engine mechanics |
 | Adopt the per-dev, committed project-scoped hook + skill fan-out layer in a repo | → **33god-projects** `references/project-scoped-hooks.md` | this skill only for the generic engine mechanics |
 
 ## Cross-Cutting Rules
@@ -44,5 +47,6 @@ Route here when the job is to propagate **one hand-edited master config** into t
 - **Project bootstrap decisions** (when to adopt hooks, per-repo checklist, `mise enter/leave` adoption) → `33god-projects`.
 - **Event schemas or Bloodbank topology** the hooks emit/consume → `bloodbank-integration`.
 - **Versioning many files in parity** → `mise-versioning`.
+- **Global/repository ignore policy or already-tracked generated projections** → `gitignore-maintenance`.
 - **Single-target config** with no dialect/ambiguity dimension → template directly; the master/lock machinery is overkill.
 - **Raw hook script bodies** that shape/publish individual events → owned by the canonical publisher and client adapters, not this propagation skill.

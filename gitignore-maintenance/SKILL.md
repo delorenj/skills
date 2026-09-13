@@ -30,6 +30,19 @@ an ignore rule affects untracked files, never files already in Git.
   `git rm -r --cached .` for this workflow. Never temporarily remove
   `.gitignore`.
 
+## Integration ownership
+
+- **CommonProject/PJangler (new repos)** preserve existing `.gitignore` content
+  and append only the portable repository contract. They never copy
+  `core.excludesFile` or make client-specific agent roots canonical.
+- **PJangler parity (structural upgrades)** may remove only exact legacy
+  `.gitignore` lines it previously generated. It must not untrack files.
+- **This skill (existing repos)** owns effective-rule provenance, repo
+  simplification, reviewed index reconciliation, local-copy proof, and the
+  commit/push handoff.
+- **Skillex (distribution)** selects this skill in `sets/min-global`; projects
+  consume the global projection and do not vendor another copy.
+
 ## 1. Preflight and audit
 
 Read repository instructions first, then run from the target repository:

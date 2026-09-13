@@ -12,6 +12,11 @@ For _using_ pjangler to create a 33god project — bootstrapping CommonProject, 
 
 For the generic SSOT config fan-out engine (master→multi-dialect propagation, lock files, generated-config drift) that pjangler recipes may consume, use the **`agent-config-fanout`** skill.
 
+For repository ignore simplification or tracked-ignored index reconciliation,
+use **`gitignore-maintenance`**. CommonProject owns only a small portable repo
+contract and must never copy `core.excludesFile`; pjangler parity may remove
+exact legacy lines it generated, but it must never run bulk `git rm --cached`.
+
 If pjangler templates or recipes touch agent memory/event hooks, keep them as consumers of the canonical mounts: `~/.agents/hooks/hindsight/` for Hindsight and `~/.agents/hooks/bloodbank/publish.py --client <agent> --hook <event>` for Bloodbank. Do not scaffold per-agent Bloodbank publishers in CommonProject or Hermes templates.
 
 ## Architecture Overview

@@ -1,7 +1,7 @@
 ---
 name: skillex-skill-registry
 description: |
-  Operate the Skillex skill registry at ~/code/skillex: author, version, render, seal and verify PACKS; curate all-skills/ and skill-sets/; declare packs and skills in .agents/skills.json. Use when cutting or upgrading a pack, running skillex pack render/verify/manifest, editing a global or project .agents/skills.json, resolving packs[] vs skills[] precedence and redundant entries, wiring the mise skills-sync and skills-provision-packs tasks, or fixing pj audit failures on skills.project-manifest. Triggers: skillex, skill pack, packs[], pack.toml, SHA256SUMS, sealed pack, payload_files, all-skills, skill-sets, skills.schema.json, inherit_global, PJ_SKILLS_REGISTRY_ROOT, provision-packs.py, sync-skills.py, accept-registry-matches, bmad pack. Do NOT use for: SSOT fan-out engine mechanics or hooks.master.json (agent-config-fanout); SKILL.md content or topology (skill-creator); pjangler Commands/Recipes (project-jangler); project bootstrap (33god-projects); ~/.hermes/skills overlay (33god-agent-fleet-operations).
+  Operate the Skillex registry at ~/code/skillex: curate all-skills/ and sets/, author/verify sealed packs, and resolve global or project .agents/skills.json manifests. Use for skillex vendor or pack commands, packs[] versus skills[] precedence, pack.toml, SHA256SUMS, inherit_global, provision-packs.py, sync-skills.py, and pj skills.project-manifest failures. Do NOT use for fan-out engine mechanics (agent-config-fanout), SKILL.md content (skill-creator), repository ignore/index parity (gitignore-maintenance), PJangler implementation (project-jangler), project bootstrap (33god-projects), or the Hermes runtime skill overlay (agent-fleet-operations).
 ---
 
 # Skillex Skill Registry
@@ -21,10 +21,11 @@ The generic SSOT fan-out ENGINE (master→dialect propagation, lock files, drift
 | Skills not appearing in a CLI; mise tasks; the six CLI dirs; retired dirs; `--prune-retired` | [references/fanout.md](./references/fanout.md) |
 | `pj audit` / `pj migrate` on `skills.project-manifest`; `--accept-registry-matches` | [references/pjangler-integration.md](./references/pjangler-integration.md) |
 | Something is broken and you need symptom → cause → fix → why | [references/gotchas.md](./references/gotchas.md) |
+| Install or globally distribute `gitignore-maintenance` | Add its catalog directory to `sets/min-global`, sync, then use the skill for repo/index work |
 
 ## Operating Principles
 
-- **Three roles, one catalog.** `packs/` are SOURCES, `skill-sets/` are SELECTIONS, `all-skills/` is the CATALOG. Confusing them is the root of most registry damage.
+- **Three roles, one catalog.** `packs/` are SOURCES, `sets/` are SELECTIONS, `all-skills/` is the CATALOG. Confusing them is the root of most registry damage.
 - **Never edit a repo's `.mise/scripts/*.py`.** Those are byte-compared against the pjangler CommonProject template. Edit the template, propagate, re-audit.
 - **Resolution is offline by construction.** `pj audit` and `skillex pack manifest` NEVER clone or fetch. Only `sync-skills.py` may clone, and only when no checkout exists at all.
 - **Sealing is opt-in and one-way.** A manifest may TIGHTEN a pack's seal, never loosen it.
@@ -36,7 +37,7 @@ The generic SSOT fan-out ENGINE (master→dialect propagation, lock files, drift
 ```
 ~/code/skillex/                      git@github.com:delorenj/skillex.git
 ├── all-skills/<name>/SKILL.md       CATALOG — one real dir per skill, the SSoT
-├── skill-sets/<set>/<name>          SELECTIONS — symlinks into all-skills/ (or 33GOD/skills/)
+├── sets/<set>/<name>                SELECTIONS — symlinks into all-skills/ (or 33GOD/skills/)
 ├── packs/<name>/pack.toml           SOURCE — flat pack
 ├── packs/<name>/<version>/          SOURCE — versioned pack (pack.toml + SHA256SUMS)
 └── skills.schema.json               canonical $schema target
@@ -91,7 +92,7 @@ Want a skill available everywhere?
 ├─ It is one skill, hand-maintained      → add to `skills[]` in ~/.agents/skills.json
 ├─ It is a coherent bundle you ship      → cut a pack, declare it in `packs[]`
 └─ It is a curated loadout of existing
-   catalog skills                        → skill-sets/<set>/ symlinks (NOT a pack)
+   catalog skills                        → sets/<set>/ symlinks (NOT a pack)
 
 A declared pack is not showing up?
 ├─ Does it resolve?                      → `skillex pack manifest … --verify` (prints the root)
@@ -119,5 +120,6 @@ A declared pack is not showing up?
 - **Authoring SKILL.md content** — topology (standalone/member/hub), `references/` taxonomy, description keyword density, gotcha prose style → `skill-creator`.
 - **Developing pjangler itself** — Commands, Recipes, the CLI/MCP server, template authoring → `project-jangler`.
 - **Bootstrapping a 33god project** — `pj init`, `.project.json`, Hermes PM provisioning, adoption checklists → `33god-projects`.
+- **Simplifying `.gitignore` or reconciling already-tracked ignored paths** — resolve the effective ignore stack, review provenance, and perform explicit index cleanup → `gitignore-maintenance`.
 - **Hermes fleet operations** — `~/.hermes/fleet.env`, `config.yaml` `skills.external_dirs`, systemd units, and what lives inside the `~/.hermes/skills` overlay → `33god-agent-fleet-operations`.
 - **mise task syntax in general** → `mise-tasks`; **version parity across many files** → `mise-versioning`.

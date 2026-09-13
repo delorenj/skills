@@ -26,6 +26,10 @@ Every 33god/DeLoNET repo is assembled by **pjangler** out of two copier template
   `agents/hermes/pm/runtime/` is ignored local state, not a profile symlink or
   nested runtime repository.
 - **mise is mandatory and uniform.** Every repo gets the same `mise.toml` contract.
+- **Repository ignores stay small and portable.** CommonProject preserves an
+  existing `.gitignore` and adds only repo-owned secret/local-projection rules.
+  Machine-wide backup, editor, and client-CLI patterns stay in the effective
+  global ignore; `.agents/` is the only canonical agent-config tree in Git.
 - **Agents are memory- and event-wired by default.** Hindsight recall/retain + Bloodbank emit/consume are part of provisioning. Machine-global Hindsight scripts live in one folder (`~/.agents/hooks/hindsight`), and machine-global Bloodbank lifecycle hooks invoke one publisher (`~/.agents/hooks/bloodbank/publish.py --client <agent> --hook <event>`).
 - **Hooks and skills fan out from the repo, per-dev.** A repo that adopts the project-scoped agent layer commits one hooks SSOT + one skill manifest (`.agents/skills.json`, declaring `packs[]` and/or `skills[]`) and lets `mise enter` run `provision-packs.py` then `sync-skills.py` to securely install them into each dev's six supported local CLIs (see [references/project-scoped-hooks.md](references/project-scoped-hooks.md); pack mechanics → **agent-config-fanout** `references/skill-packs.md`).
 - **Templates are version-locked.** pjangler runs the vendored submodule unless `PJANGLER_HERMES_TEMPLATE` overrides it for template development.
@@ -42,6 +46,7 @@ Every 33god/DeLoNET repo is assembled by **pjangler** out of two copier template
 | Understand what the project side asks Hermes to provision | [references/hermes-project-agent-request.md](references/hermes-project-agent-request.md) |
 | Update shared Hermes fleet defaults, run a fleet self-check, or backfill existing PM agents | → **agent-fleet-operations** |
 | Build or operate the generic master→multi-dialect fan-out engine | → **agent-config-fanout** |
+| Simplify `.gitignore` or reconcile files already tracked despite the effective ignore stack | → **gitignore-maintenance** |
 | Develop pjangler itself (Commands/Recipes/MCP) | → **project-jangler** |
 
 ## The standard lifecycle (at a glance)
@@ -57,6 +62,9 @@ Every 33god/DeLoNET repo is assembled by **pjangler** out of two copier template
 
 - `AGENTS.md` is the source of truth; `CLAUDE.md` and `GEMINI.md` are symlinks to it.
 - Secrets live in `.env.op` (1Password references); `mise enter` runs `op inject -i .env.op > .env`. Never commit `.env`.
+- Client-specific roots such as `.claude/` and `.codex/` are generated local
+  projections, not canonical project state. Never add repo unignore rules for
+  them; edit `.agents/` and regenerate.
 - No code changes in a hermes-managed repo without an active ticket on the repo board (`ALLOW_NO_TICKET=1` is the emergency bypass).
 - Board creation is outward-facing — confirm before running provisioning that hits a live workspace.
 - Manifest mutation is transactional: malformed `.project.json` aborts
@@ -75,5 +83,6 @@ Every 33god/DeLoNET repo is assembled by **pjangler** out of two copier template
 - **Plane live issue operations** → `project-lifecycle`.
 - **Bloodbank event schema naming / topology** → `bloodbank-integration`.
 - **General DeLoNET host conventions** → `delonet-conventions`.
+- **Gitignore simplification and tracked-ignored parity** → `gitignore-maintenance`.
 - **Hindsight API usage / bank routing mechanics beyond agent-hook wiring** → `hindsight`.
 - **BMAD workflow execution** (PRD, stories, dev-story, sprint) → the `bmad-*` skills/agents.

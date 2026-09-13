@@ -22,7 +22,13 @@ Worktrunk makes git worktrees as easy as branches. Worktrees are addressed by **
 worktree-path = "{{ repo_path }}/.worktrees/{{ branch | sanitize }}"
 ```
 
-Every `wt switch --create` lands the worktree at `<repo>/.worktrees/<branch>` (slashes in branch names become `-`). Do not override this per-repo. `.worktrees/` is in the machine-wide gitignore (`~/.config/git/ignore`), so worktrees never dirty `git status`.
+Every `wt switch --create` lands the worktree at `<repo>/.worktrees/<branch>`
+(slashes in branch names become `-`). Do not override this per-repo.
+`.worktrees/` belongs in the effective machine-wide ignore, resolved with
+`git config --show-origin --path --get core.excludesFile`, so worktrees never
+dirty `git status`. Do not duplicate or hard-code the global file in a repo; if
+the probe fails or a worktree path is already tracked, use
+`gitignore-maintenance`.
 
 ## Core loop
 
