@@ -163,6 +163,8 @@ exec pty:true workdir:/path/to/repo command:"auggie --ask 'Explain the auth flow
 **Best for:** Code generation, refactoring, codebase-aware tasks. Has workspace indexing for deep context.
 **Note:** First run in a new workspace triggers an indexing step. Use `--print` from workspace root to index.
 
+**Pitfall — false-success on exhausted credits:** `auggie -p` can print an out-of-credits warning and still exit `0` without performing the task. Treat the requested artifact or diff as the success criterion, not the process exit code. If the artifact is absent, fall back to another provider; do not report the Augment run as successful.
+
 ### OpenClaw Sub-Agents (Built-in)
 ```python
 # Spawn a coding sub-agent on a free provider
