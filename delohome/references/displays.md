@@ -138,10 +138,18 @@ What the panel reports over CEC (`dumpsys hdmi_control`), read 2026-09-13:
 The `HDMI<n>0000x` ids encode the CEC physical address — `HDMI400008` is `0x4000` (port 4),
 `HDMI300004` is `0x3000` (port 3).
 
-**The Xbox is almost certainly on port 3, but it is not CEC-visible.** Powering it on made
-`HDMI300004` appear in `tv_input` while adding nothing to the CEC device list — so it
-registers an input but does not speak CEC. That is strong circumstantial evidence, not
-proof, so `hdmi_input` stays null until a switch is actually observed.
+**The Xbox is on `HDMI400008` (port 4). Confirmed by observation, and it contradicted the
+obvious inference.** Powering the Xbox on made `HDMI300004` appear in `tv_input`, which
+looked like a clean signal that it sat on port 3. It did not. With the owner switching to
+the Xbox on the remote, the panel's own logcat named the live input as
+`HDMIInputService/HDMI400008` — port 4 — three times and nothing else. The `HDMI300004`
+appearance was coincidence.
+
+CEC labels port 4 `Living Room S`, a Playback device, which reads like the SHIELD and is
+misleading. Trust the observation over the label: when the Xbox was the live input, the
+SHIELD was simultaneously unresponsive to a cast connect, and the Xbox was up and pinging.
+
+The SHIELD's port is still unknown. Repeat the exercise with it awake and the Xbox off.
 
 **Do NOT try to switch inputs with a TIF passthrough intent on Fire OS.** The obvious
 
@@ -158,9 +166,10 @@ The reliable read is `mCurrentInputId` from `dumpsys tv_input` — so the cheape
 map a port is to have someone select the input on the remote and then read it back, rather
 than switching blind.
 
-So "put on the Xbox" is **not yet satisfiable**. It needs two things that do not exist yet:
-the panel paired so inputs can be enumerated, and a tool that exposes `House.find_source()`
-(the model and resolution are implemented and tested; nothing calls them). Neither the Xbox
+"Put on the Xbox" is now **one step from working**: the input is known and the panel is
+authorized, but no tool exposes `House.find_source()` yet — the model and resolution are
+implemented and tested, and nothing calls them. Note that switching still cannot use a TIF
+passthrough intent (above); the working mechanism has not been established. Neither the Xbox
 (`xbox_smartglass`, UDP 5050) nor the PS5 (`ps5_remoteplay`, UDP 9302, wake needs PSN
 registration and a PIN) has a client implemented.
 
