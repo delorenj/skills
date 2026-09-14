@@ -161,20 +161,64 @@ after the device has negotiated; before that it can be truncated or absent.
 The PS5's panel is the bedroom Samsung, which reports no input list at all, so its
 `hdmi_input` stays null.
 
-**Do NOT try to switch inputs with a TIF passthrough intent on Fire OS.** The obvious
+## Putting a source on the screen
+
+**You do not drive the panel's input. You wake the source and let HDMI one-touch-play do
+it** — the source asserts `<Active Source>` and the TV follows.
+
+```bash
+delohome displays current-source 'living room'          # what is live now
+delohome displays select-source 'living room' shield    # put the SHIELD on screen
+```
+
+`select-source` wakes the device and then watches the panel's CEC active-source register
+until it actually changes, so it reports what happened rather than assuming.
+
+Wake mechanism is per-source; there is no common one:
+
+| Source | Wake | Status |
+|---|---|---|
+| SHIELD | a cast connect — even one that **times out** is enough, the attempt brings it up | works |
+| Xbox | SmartGlass power-on packet carrying the console's Live ID | not implemented |
+| PS5 | PSN registration + PIN | not implemented |
+
+A plain wake-on-LAN magic packet does **not** wake an Xbox — tried against the real
+console, which never asserted Active Source in 60s. SmartGlass discovery on udp/5050 also
+went unanswered in standby, so the Live ID is not obtainable that way. `select-source`
+refuses the Xbox with that explanation rather than reporting a switch that did not happen.
+
+### Reading which input is live
+
+`mActiveSource` from `dumpsys hdmi_control` is the **only** reliable answer. The TV itself
+is `(0x00, 0x0000)`; a source reports its own physical address.
+
+Two things that look like they answer this and do not:
+
+- `dumpsys tv_input` has no current-input field at all. Its per-input `state` means
+  connected / standby, never "selected".
+- `logcat` does mention input ids, but **`logcat -d -t N` returns the last N _lines_, not
+  recent ones**. A stale sample from an earlier session is indistinguishable from a live
+  one, and is exactly how the Xbox and SHIELD ports came to be recorded transposed.
+
+### Why the direct routes do not work
+
+**The TIF passthrough intent is claimed by Amazon.**
 
     am start -a android.intent.action.VIEW -d 'content://android.media.tv/passthrough/<inputId>'
 
-does not reach the HDMI input. Amazon claims that URI —
-`cmd package resolve-activity` shows it resolving to
-`com.amazon.tv.livetv.TvChannelsPlayerActivityAlias` — so it opens Amazon's Live TV
-surface and lands on whatever live-TV provider is configured. Tried once on the real set:
-it launched Fubo instead of switching inputs. Restore with `KEYCODE_BACK` then
-`KEYCODE_HOME`.
+`cmd package resolve-activity` shows that URI resolving to
+`com.amazon.tv.livetv.TvChannelsPlayerActivityAlias`, so it opens Live TV and lands on
+whatever provider is configured. Tried on the real set: it launched Fubo. Restore with
+`KEYCODE_BACK` then `KEYCODE_HOME`.
 
-The reliable read is `mCurrentInputId` from `dumpsys tv_input` — so the cheapest way to
-map a port is to have someone select the input on the remote and then read it back, rather
-than switching blind.
+**Naming the activity explicitly is denied.** `am start -n
+com.amazon.tv.inputpreference.service/com.amazon.tv.inputpreference.player.PassthroughPlayerActivity`
+returns a permission denial. (Note the class is under `inputpreference.player`, not
+`inputpreference.service.player`, so the `.shorthand` form expands wrong and reports
+"does not exist" — a different error that looks like the same problem.)
+
+**`KEYCODE_TV_INPUT` (178) opens the quick-settings overlay**, not a dedicated input
+picker, so it would need blind DPAD navigation.
 
 "Put on the Xbox" is now **one step from working**: the input is known and the panel is
 authorized, but no tool exposes `House.find_source()` yet — the model and resolution are
