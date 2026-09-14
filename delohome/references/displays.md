@@ -14,7 +14,7 @@ delohome displays display-status bedroom
 | Panel | Room | Model | Protocol | State |
 |---|---|---|---|---|
 | `samsung_bedroom` | bedroom | UN65RU8000FXZA | `samsung_ws` | **paired, live** |
-| `lg_office` | office | OLED48CXPUB (CX 48" OLED, fw 5.6.2) | `lg_webos` | not paired |
+| `lg_office` | office | OLED48CXPUB (CX 48" OLED, fw 5.6.2) | `lg_webos` | **paired, live** |
 | `lg_ava` | ava | 43UP8000PUA (fw 6.5.3) | `lg_webos` | not paired |
 | `firetv_living` | living_room | Hisense Fire TV (AFTHA001) | `firetv_adb` | **authorized, live** |
 
@@ -76,12 +76,29 @@ TV verbatim. The client clamps both ends.
 `system/getSystemInfo` is the one endpoint answered *before* registration; everything else
 returns `401 insufficient permissions (not registered)`.
 
-LG is the only panel that reports its inputs, which makes it the discovery route for the
-`hdmi_input` values that are currently null:
+The office CX is paired (2026-09-14). LG is the only panel that reports its inputs, and it
+does so far more cleanly than the Fire TV — real ids, labels, and a `connected` flag:
 
 ```bash
 delohome displays list-display-inputs office
 ```
+
+```
+id      label   port  connected  appId
+HDMI_1  HDMI 1  1     False      com.webos.app.hdmi1
+HDMI_2  HDMI 2  2     False      com.webos.app.hdmi2
+HDMI_3  HDMI 3  3     True       com.webos.app.hdmi3      <- the only thing plugged in
+HDMI_4  HDMI 4  4     False      com.webos.app.hdmi4
+AV_1    AV      1     False      com.webos.app.externalinput.av1
+```
+
+`display_status` reports `current_input` as the webOS app id (`com.webos.app.hdmi3`), so
+"what is it showing" is answerable directly here — no CEC register reading, unlike the
+Fire TV.
+
+`WebOsTv.toast(message)` is implemented and works (verified on the real set) but is not
+exposed as a tool. It is the cheapest way to identify which physical TV you are talking
+to.
 
 `display-key` raises for LG — it has no raw key channel here. Use `display-input`,
 `display-launch-app` or `display-volume`.
