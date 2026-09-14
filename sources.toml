@@ -1,0 +1,55 @@
+# Prepared upstream declaration for explicit skillex migrate onboarding.
+# The authoritative installed declaration is all-skills/sources.toml.
+# Migration preserves existing canonical bytes and their recorded upstream pins.
+# Versions below select future explicit offline vendor sync operations; no clone
+# or fetch is performed by Skillex. Machine checkout paths belong in local
+# sources.local.toml configuration or SKILLEX_SOURCE_<ID> environment variables.
+
+version = 1
+
+[[source]]
+name = "pjangler"
+repo = "git@github.com:delorenj/pjangler.git"
+version = "c505a0889f21eaf025c14d575e4e9531f4a4ef3f"
+checkout = "pjangler"
+
+[[source]]
+name = "bloodbank"
+repo = "git@github.com:delorenj/bloodbank.git"
+version = "main"
+checkout = "bloodbank"
+
+[[source]]
+name = "momo"
+repo = "git@github.com:delorenj/momo.git"
+version = "main"
+checkout = "momo"
+subdir = ""
+
+[[source.skills]]
+name = "momo"
+dir = "skill"
+
+[[source]]
+name = "33god-platform"
+repo = "git@github.com:delorenj/33GOD.git"
+version = "main"
+checkout = "33GOD"
+subdir = "33god-platform/skills"
+
+[[source]]
+name = "krebs"
+repo = "git@github.com:delorenj/33GOD.git"
+version = "main"
+checkout = "33GOD"
+subdir = "krebs/skills"
+
+
+# Locally adapted skill; the existing provenance retains modified_locally=true.
+# The v1.2.3 Git tree confirms skills/ego-browser. No upstream copy is applied.
+[[source]]
+name = "ego-lite"
+repo = "https://github.com/citrolabs/ego-lite"
+version = "v1.2.3"
+checkout = "ego-lite"
+skills = ["ego-browser"]

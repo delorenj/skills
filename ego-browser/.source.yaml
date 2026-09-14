@@ -1,6 +1,7 @@
 # Provenance for this skill. Managed by skill_ssot.py.
 origin:
   type: vendored
+  source: ego-lite
   upstream: https://github.com/citrolabs/ego-lite
   upstream_version: v1.2.3
   extracted_at: 2026-08-14T00:00:00+00:00
