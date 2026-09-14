@@ -178,6 +178,15 @@ after the device has negotiated; before that it can be truncated or absent.
 The PS5's panel is the bedroom Samsung, which reports no input list at all, so its
 `hdmi_input` stays null.
 
+**Input id formats differ per panel and must not be conflated.** webOS uses `HDMI_3`;
+Fire OS uses `HDMI300004`, which encodes the CEC physical address. The physical-address
+check is Fire-OS-only and correctly rejects a webOS id.
+
+`big-chungus` — the host DeLoHome itself runs on — sits on the office CX's `HDMI_3`. It is
+a `workstation` kind: always on, nothing to wake, and no CEC. Worth knowing if the display
+ever goes dark after a mode change: HDMI 2.1 FRL link training between the RTX 3090 and
+this set has failed before at 3840x2160@119.88, dropping the CRTC.
+
 ## Putting a source on the screen
 
 **You do not drive the panel's input. You wake the source and let HDMI one-touch-play do
@@ -191,6 +200,16 @@ delohome displays select-source 'living room' shield    # put the SHIELD on scre
 `select-source` wakes the device and then watches the panel's CEC active-source register
 until it actually changes, so it reports what happened rather than assuming.
 
+**On an LG, none of that applies** — webOS exposes `set_input`, so the panel is simply
+told to switch. Direct, immediate, no polling:
+
+```bash
+delohome displays select-source office 'big chungus'   # -> HDMI_3 via webOS set_input
+```
+
+That route exists only because it is an LG. The Fire OS panel refuses the equivalent, which
+is why the living room needs one-touch-play at all.
+
 Wake mechanism is per-source; there is no common one:
 
 | Source | Wake | Status |
@@ -198,6 +217,7 @@ Wake mechanism is per-source; there is no common one:
 | SHIELD | a cast connect — even one that **times out** is enough, the attempt brings it up | works |
 | Xbox | SmartGlass power-on packet carrying the console's Live ID | not implemented |
 | PS5 | PSN registration + PIN | not implemented |
+| big-chungus | nothing to wake — it is the host, and a desktop GPU does not assert CEC | n/a, use `set_input` |
 
 A plain wake-on-LAN magic packet does **not** wake an Xbox — tried against the real
 console, which never asserted Active Source in 60s. SmartGlass discovery on udp/5050 also
