@@ -134,9 +134,29 @@ What the panel reports over CEC (`dumpsys hdmi_control`), read 2026-09-13:
 | 4 | `Living Room S…` — a playback device, almost certainly the SHIELD |
 | 2, 3 | nothing reporting; the Xbox was presumably off |
 
-`dumpsys tv_input` separately exposes input ids `HW4`–`HW7` and `HDMI400008`. Those do
-**not** map one-to-one onto the CEC port numbers, so the association is still unconfirmed
-and `hdmi_input` stays null. Turning the Xbox on and re-reading CEC would settle it.
+`dumpsys tv_input` separately exposes `HW4`–`HW7` plus `HDMI300004` and `HDMI400008`.
+The `HDMI<n>0000x` ids encode the CEC physical address — `HDMI400008` is `0x4000` (port 4),
+`HDMI300004` is `0x3000` (port 3).
+
+**The Xbox is almost certainly on port 3, but it is not CEC-visible.** Powering it on made
+`HDMI300004` appear in `tv_input` while adding nothing to the CEC device list — so it
+registers an input but does not speak CEC. That is strong circumstantial evidence, not
+proof, so `hdmi_input` stays null until a switch is actually observed.
+
+**Do NOT try to switch inputs with a TIF passthrough intent on Fire OS.** The obvious
+
+    am start -a android.intent.action.VIEW -d 'content://android.media.tv/passthrough/<inputId>'
+
+does not reach the HDMI input. Amazon claims that URI —
+`cmd package resolve-activity` shows it resolving to
+`com.amazon.tv.livetv.TvChannelsPlayerActivityAlias` — so it opens Amazon's Live TV
+surface and lands on whatever live-TV provider is configured. Tried once on the real set:
+it launched Fubo instead of switching inputs. Restore with `KEYCODE_BACK` then
+`KEYCODE_HOME`.
+
+The reliable read is `mCurrentInputId` from `dumpsys tv_input` — so the cheapest way to
+map a port is to have someone select the input on the remote and then read it back, rather
+than switching blind.
 
 So "put on the Xbox" is **not yet satisfiable**. It needs two things that do not exist yet:
 the panel paired so inputs can be enumerated, and a tool that exposes `House.find_source()`
