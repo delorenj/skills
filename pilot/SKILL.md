@@ -1,6 +1,6 @@
 ---
 name: pilot
-description: Drive Plane boards from the command line with `px` (alias of `pilot`), the 33GOD Plane CLI. Use whenever a task involves reading or writing tickets on a Plane board from a repo — listing what's in scope, creating a todo or backlog item, dumping a board's states and labels, or checking which board the current repo is bound to. Also the way to file an idea about the CLI itself: `px idea "..."` puts a feature request straight into Pilot's own backlog, which is how this tool evolves. Triggers include "what's on the board", "add a todo", "create a ticket", "file this to the backlog", "what board is this repo on", "export the board schema", "px", "pilot". Prefer this over hand-rolled curl against the Plane API — it already resolves the board binding, credentials, and retry behavior. Do NOT use for GitHub issues, for Plane workspace administration, or for orchestrating work across a board (that is the momo skill).
+description: Drive Plane boards from the command line with `px` (alias of `pilot`), the 33GOD Plane CLI. Use whenever a task involves reading or writing tickets on a Plane board from a repo, or standing up a new board — listing what's in scope, creating a todo or backlog item, capturing a board's schema (states, labels, modules, feature toggles) and replaying it onto a fresh board in seconds instead of ten minutes of clicking, or checking which board the current repo is bound to. Also the way to file an idea about the CLI itself: `px idea "..."` puts a feature request straight into Pilot's own backlog, which is how this tool evolves. Triggers include "what's on the board", "add a todo", "create a ticket", "file this to the backlog", "what board is this repo on", "export the board schema", "set up a new board", "copy this board's setup", "new project board", "px", "pilot". Prefer this over hand-rolled curl against the Plane API — it already resolves the board binding, credentials, and retry behavior. Do NOT use for GitHub issues, for Plane workspace administration, or for orchestrating work across a board (that is the momo skill).
 pipeline-status: new
 ---
 
@@ -28,7 +28,11 @@ px task create "<title>" --state "In Progress"
 px idea "<text>"                # file an idea about px itself
 px idea list                    # read the idea box
 
-px schema export [-f FILE]      # dump states + labels as json
+px schema export [-f FILE]      # capture this board's schema
+px schema import -f FILE        # apply a schema (--dry-run / --prune)
+px board list                   # boards in the workspace
+px board create -n NAME -i ID [-f FILE]
+px board delete --force
 px whoami                       # show the resolved board binding
 ```
 
@@ -81,13 +85,37 @@ px idea "wish px could bulk-close every issue in a completed cycle" \
 Then carry on and solve your task another way. The point is that the roadmap
 becomes a product of real usage rather than guesswork.
 
+## Standing up a new board
+
+This is what `px` is for. Setting up a board by hand is ~10 minutes of clicking
+through feature toggles, default states, labels and modules. Instead:
+
+```bash
+px schema export -f schema.json                    # capture a board you like
+px board create -n "New Thing" -i NEW -f schema.json   # replay it, ~3 seconds
+```
+
+**`schema import` is an upsert keyed on name, never a replace.** It is
+idempotent — running it twice writes nothing the second time. Anything on the
+board that the schema doesn't mention is reported as `extra` and left alone
+unless you pass `--prune`. Run `--dry-run` first; it prints the exact plan and
+changes nothing.
+
+Covers states, labels, modules, and the project feature toggles
+(`module_view`, `cycle_view`, `issue_views_view`, `intake_view`, timezone).
+Does **not** cover estimates or views — those are absent from Plane's public
+v1 API entirely, so no tool can set them this way.
+
+Two things that will confuse you if you hit them raw:
+
+- **`Triage` cannot be a custom state name.** Plane reserves it for the intake
+  feature and returns an opaque `500`. `px` reports this in plain words.
+- **A "fresh" board is not empty** — Plane seeds five default states, so schema
+  import reconciles with them rather than creating duplicates.
+
 ## What isn't built yet
 
-`px schema import` is deliberately absent. Its semantics are genuinely
-undecided — idempotent upsert vs. replace-the-world, and what should happen to
-tickets sitting in a state that an imported schema removes. Running it returns
-a clear error pointing at the idea box rather than guessing and destroying a
-board. `spike` and a triage pipeline are likewise deferred until there's a real
-need recorded.
+`spike` (PX-3) and a triage pipeline (PX-4) are still open questions, tracked
+in the idea box rather than guessed at. `px board set` doesn't exist.
 
 If you need one of these, say so through `px idea` — that's the mechanism.
