@@ -49,8 +49,9 @@ Binding resolves in this order, highest first:
 
 1. flags (`--workspace`, `--board`, `--base`)
 2. env (`PLANE_WORKSPACE`, `PLANE_BOARD`, `PLANE_BASE`)
-3. `~/.config/pilot/config.json`
-4. **repo-root `.project.json` → `ticket_provider`** ← the normal path
+3. **repo-root `.project.json` → `ticket_provider`** ← the normal path
+4. `~/.config/pilot/config.json` (`defaultWorkspace` / `defaultBoard` — these
+   are fallbacks for when no repo binding exists, NOT overrides)
 5. defaults (`https://plane.delo.sh`)
 
 Step 4 is the one that matters: `.project.json` is the SSOT the whole fleet
@@ -91,9 +92,14 @@ This is what `px` is for. Setting up a board by hand is ~10 minutes of clicking
 through feature toggles, default states, labels and modules. Instead:
 
 ```bash
-px schema export -f schema.json                    # capture a board you like
-px board create -n "New Thing" -i NEW -f schema.json   # replay it, ~3 seconds
+px schema export -f ~/.config/pilot/default.schema.json  # capture a board you like
+px board create -n "New Thing" -i NEW                    # ~3 seconds, fully set up
 ```
+
+`board create` applies `~/.config/pilot/default.schema.json` automatically, so
+no `-f` is needed for the normal case. Pass `-f FILE` for a one-off schema, or
+`--no-schema` for Plane's bare defaults. `schema import` with no `-f` uses the
+same default.
 
 **`schema import` is an upsert keyed on name, never a replace.** It is
 idempotent — running it twice writes nothing the second time. Anything on the
