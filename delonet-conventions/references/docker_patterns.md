@@ -40,7 +40,7 @@ This means adding a new service requires ZERO DNS changes. Just add Traefik labe
 
 ### Managing DNS via Cloudflare API
 
-**API Token:** The token with DNS edit permissions is in `secrets.zsh` (the commented-out value `8uS4nHflVYMGq6m6YysHWQLKRVZMk83A-Z0gQOtg`). The active `CLOUDFLARE_API_TOKEN` is for Traefik's DNS challenge only and lacks DNS edit scope.
+**API token:** Use `op://DeLoSecrets/Cloudflare/globalAPIToken` for global access. Resolve it into process memory; never paste a token into source. The old documentation token is archived at `op://DeLoSecrets/ayw4tjww4gmkt45pa6aujrs43i/credential`; its validity has not been verified.
 
 **Zone ID:** `eabc163cde3e31680f10fc313aecdda3`
 

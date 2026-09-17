@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
-# Auto-detect Hindsight bank ID from git repo name.
-# Usage: hindsight memory recall "$(./scripts/hs-bank-id.sh)" "query"
-# Or:    BANK=$(./scripts/hs-bank-id.sh) && hindsight memory recall "$BANK" "query"
+# Resolve the task bank through the canonical machine hook implementation.
+# Run from the task working directory, including linked worktrees.
 set -euo pipefail
-basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "general"
+resolver="${HOME}/.agents/hooks/lib/hindsight-bank.sh"
+if [[ ! -r "$resolver" ]]; then
+  printf 'Hindsight bank resolver is unavailable: %s\n' "$resolver" >&2
+  exit 1
+fi
+source "$resolver"
+resolve_bank

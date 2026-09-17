@@ -11,19 +11,32 @@ Persistent, structured memory via the official Hindsight CLI (`v0.4.14`). Store 
 
 ## Bank Detection
 
-Auto-detect bank from git repo name:
+Use the same resolver as the installed hooks, from the task's working directory:
 
 ```bash
-BANK=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "general")
+BANK=$(bash ~/.agents/skills/hindsight/scripts/hs-bank-id.sh)
+hindsight memory recall "$BANK" "<what you're about to work on>"
 ```
 
-Or use the helper: `BANK=$(./scripts/hs-bank-id.sh)`
+The helper delegates to `~/.agents/hooks/lib/hindsight-bank.sh`. Its precedence
+is: main checkout `.hindsight/bank`, `HINDSIGHT_BANK`, origin repository name,
+main checkout basename, then CWD basename outside Git. It anchors worktrees
+through `--git-common-dir`; do not duplicate this logic with `--show-toplevel`
+or fall back to `general`.
+
+Recall other relevant banks when useful: `infra` for homelab work, `docker` for
+containers, and `33GOD` (exact case) for the platform. Never use the retired
+`33god`, `33god-core`, or `33god-infra` names. Use `hindsight bank list` for the
+actual bank inventory; `pjangler projects list` lists registered projects.
+
+Hooks handle automatic recall and retention. Use manual recall for missing
+context; do not treat recalled facts as newer than current source or evidence.
 
 ## CLI Config
 
 - **Binary**: `hindsight` at `~/.local/bin/hindsight` (official v0.4.14)
 - **Config**: `~/.hindsight/config` (TOML: `api_url`, `api_key`)
-- **Endpoint**: `https://api.hs.delo.sh` (resolves to localhost via `/etc/hosts`)
+- **Endpoint**: `https://api.hs.delo.sh` (use the hostname and current routing; never pin a LAN IP)
 - **Reconfigure**: `hindsight configure --api-url <url> --api-key <key>`
 
 ## Core Operations
