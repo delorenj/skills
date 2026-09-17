@@ -1,12 +1,11 @@
-# Provenance for this skill. Managed by `skillex vendor`; do not hand-edit.
 origin:
   type: vendored
   source: 33god-platform
   upstream: git@github.com:delorenj/33GOD.git
   upstream_version: main
-  upstream_commit: 236e742d50e093090dc041e6b15a67a73a7510ba
+  upstream_commit: 2fdd5b8369773327c6b3c815efda50a92d4d5eb9
   upstream_tree: d96cc29435ab2869b70720b39958c04d05cb1974
   upstream_path: 33god-platform/skills/worktrees
-  extracted_at: "2026-09-13T17:42:55+00:00"
+  extracted_at: 2026-09-17T04:45:37.106Z
   digest: sha256:9d6c5f468b935fc66de3f5aa44f565e4695a3627521e2cd6b5550a699ec959ed
 modified_locally: false

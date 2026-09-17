@@ -23,6 +23,9 @@ changelog, skill routing, and backfill coordination.
 | Durable event history, sessions, event summaries | Candystore |
 | Dashboard, live status, tool health | Holocene |
 | Project/agent provisioning, project registry | PJangler |
+| PM planning, delegation and reviewed closeout | Momo shared skill |
+| Managed ticket attempts, leases, questions, evidence and recovery | Krebs execution authority |
+| Authenticated Plane CLI and provider operations | Pilot (`px`) |
 | Long-running agents, profiles, fleet defaults | Hermes Fleet |
 | Skill packs and agent capability distribution | Skillex |
 | Recall/retain/journal memory hooks | Hindsight |
@@ -56,6 +59,15 @@ matching one rather than re-deriving its decisions here.
   `automaticai` workspace is a tenant slug, not another infrastructure owner.
 - **Identity is declared, not guessed.** `.project.json` → PJangler → the shared
   Hermes registry supplies board-to-repo and agent-to-profile routing.
+
+Managed ticket execution uses `px` → `bb call` → Krebs → Pilot's internal
+provider adapter. A command receipt follows durable intent and provider readback;
+publication alone is not success. Momo supplies the PM playbook under the actual
+host's actor identity. Hermes and interactive hosts supervise runs; they do not
+own a second ticket state machine. Root PM delegates component work to that
+board's owning PM. Read `krebs/docs/execution-contract.md` and the rollout ledger
+before changing managed execution or enabling a board. An installed skill is not
+evidence that native actor enrollment or runtime cutover has passed.
 
 Load [references/event-journey.md](references/event-journey.md) before changing
 any producer, consumer, webhook, subject, projection, or command route.
