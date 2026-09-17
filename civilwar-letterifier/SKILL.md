@@ -20,7 +20,7 @@ When the user types `/civilwar <text>` (or asks to civil-war-ify / Ken-Burns som
 **Inviolable rules:**
 - Preserve the original meaning, names, facts, dates, numbers, requests, and logistics **exactly**. A blocked Jira ticket stays a blocked Jira ticket.
 - **Do not invent facts.** Period-flavored metaphor is welcome; new commitments, dates, or details are not.
-- Mournful field-dispatch register: read over banjo, fiddle, and candlelight. Address a recipient ("My dear colleagues"), sign off as an obedient, beleaguered servant.
+- Mournful field-dispatch register: read over banjo, fiddle, and candlelight. Address a recipient using varied period openings, and close with a wide variety of old-timey ending salutations.
 - Keep professional messages still usable — the manager must learn the actual status.
 
 ### Modes

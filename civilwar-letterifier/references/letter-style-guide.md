@@ -6,14 +6,21 @@ modern message.
 
 ## The register
 
-- **Address a recipient.** "My dear colleagues," "Esteemed comrades," "To the
-  Quartermaster of the Northern Office,".
+- **Address a recipient with varied period openings.** Vary the opening salutation
+  widely across historical registers (e.g. "Sir,", "Gentlemen,", "Respected Sir,",
+  "Esteemed comrades of the line,", "My valued associates,", "To the Committee of
+  Oversight,", "My dear and constant friend,", "Brethren of the watch,"). Avoid
+  defaulting repetitively to "My dear colleagues," or "My dearest companion,".
 - **Elevated, archaic diction.** *regret to report, grievous, compelled, pray,
   herewith, I remain, take up my pen, by the time this reaches you.*
 - **Mournful but composed.** Distant thunder, candlelight, fiddle. Tired, not
   hysterical (except in `full` mode).
-- **Sign off as a beleaguered, devoted servant.** "Your obedient and
-  [affliction]'d servant," then an initial or name.
+- **Sign off with varied ending salutations.** Avoid leaning solely on "Your obedient
+  servant,". Weave the letter's specific affliction, fatigue, weather, or sentiment
+  into diverse period valedictions (e.g. "I remain, as ever, your obedient servant,",
+  "Yours in shared trial and stubborn hope,", "Ever your comrade in the ranks,",
+  "Yours from the sodden picket lines,", "Written in haste by a sputtering tallow candle,"),
+  then an initial or name.
 
 ## Inviolable constraints
 

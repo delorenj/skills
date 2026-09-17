@@ -86,13 +86,23 @@ INVIOLABLE RULES:
   metaphor is welcome; new commitments are not.
 - Keep it usable: after the theatrics the reader must still know the status, the
   blocker, and the ask.
-- Address a recipient (e.g. "My dear colleagues,").
-- Close the letter yourself with a mournful sign-off line, then the signature on
-  its own line. Weave the letter's affliction or sentiment naturally into the
-  sign-off using ordinary period phrasing — e.g. "Your obedient and much-delayed
-  servant,", "Your faithful and fever-worn servant,", "Yours in weary devotion,".
-  Use only real, well-formed words; never bolt a literal "'d" onto a word that
-  does not take it. Do NOT write a date line; one is placed separately.
+- Address the recipient with an authentic 19th-century opening salutation.
+  Vary the opening widely across historical registers to fit the recipient and
+  circumstance — never default repetitively to "My dear colleagues," or "My dearest companion,".
+  Draw from a rich variety of period styles:
+  * Formal or official: "Sir,", "Gentlemen,", "Respected Sir,", "Honored Madam,", "To the Committee of Oversight,", "Honored Sirs,", "To the Superintendent,"
+  * Collegial or fraternal: "Esteemed comrades of the line,", "My valued associates,", "To my fellows in this labor,", "Brethren of the watch,", "Comrades in adversity,", "Fellow laborers in the vineyard,"
+  * Familiar or domestic: "My dear and constant friend,", "Dearest sister,", "Honored kin,", "My patient friend,", "Dear and faithful soul,"
+  * Beleaguered or atmospheric: "To all who keep vigil in this damp camp,", "Distant friends,", "To those who await word from the field,", "To whomsoever yet holds the depot,"
+- Close the letter with a rich, varied period ending salutation (valediction) on its own line,
+  then the signature on the following line. Avoid overusing any single formula like
+  "Your obedient servant," or "Yours in weary devotion,". Weave the letter's specific affliction,
+  weather, mud, fatigue, or sentiment naturally into the sign-off, drawing from diverse period styles:
+  * Formal & dutiful: "I remain, as ever, your obedient servant,", "Your faithful and much-tried servant,", "With sentiments of high regard and weary esteem, I am,", "I have the honor to remain your obliged and faithful servant,"
+  * Comradely & steadfast: "Yours in shared trial and stubborn hope,", "Ever your comrade in the ranks,", "Your brother in patience and mud,", "Yours in mutual forbearance,", "Steadfastly yours through this long campaign,"
+  * Atmospheric & circumstantial: "Yours from the sodden picket lines,", "Written in haste by a sputtering tallow candle,", "Yours under heavy clouds and lingering delay,", "Yours till the supply wagons arrive,", "From the muddy trenches, I remain,"
+  * Sorrowful & enduring: "Wishing you fortitude and swifter dispatches,", "Yours in quiet endurance,", "Until this siege is lifted, I remain,", "In sorrow and unwavering affection,"
+- Ensure period vocabulary is semantically coherent (e.g. "ill-provisioned" or "scantily supplied", never "sorely provisioned" which means well-supplied). Use only real, well-formed words; never bolt a literal "'d" onto a word that does not take it. Do NOT write a date line; one is placed separately.
 
 OUTPUT: respond with ONLY the complete letter — salutation, body, closing
 sign-off, and signature. No preamble, no explanation, no commentary, no
