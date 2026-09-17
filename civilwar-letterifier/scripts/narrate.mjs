@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 /**
- * Produce exactly one durable narration artifact. ElevenLabs is primary; the
- * explicitly bounded Cartesia /tts/bytes path is a capacity-only fallback.
+ * Produce exactly one durable narration artifact.
+ *
+ * The PRIMARY provider is chosen by SLOWBURNS_NARRATION_PRIMARY (`vox` or
+ * `eleven`), defaulting to vox when it is configured -- it is self-hosted, so
+ * it costs nothing per character, and narration is otherwise 96-98% of what a
+ * film costs to make. The explicitly bounded Cartesia /tts/bytes path remains
+ * the capacity-only fallback for whichever primary is chosen.
+ *
  * Credentials are read from the process environment (for example, `op run`).
  */
 import crypto from 'node:crypto';
@@ -17,6 +23,17 @@ export const CARTESIA_MODEL = 'sonic-3.6';
 export const CARTESIA_VERSION = '2026-08-14';
 const CARTESIA_TTS_URL = 'https://api.cartesia.ai/tts/bytes';
 const ELEVEN_TTS_URL = `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`;
+const VOX_TTS_URL = 'https://vox.delo.sh/synthesize';
+const VOX_MODEL = 'voxcpm';
+const VOX_DEFAULT_VOICE = 'carlin';
+// Vox is self-hosted behind a tunnel, so its failures arrive as BODYLESS
+// gateway errors -- a 502 from Traefik, a 504 from the tunnel, a 500 from a
+// box whose GPU is busy. There is no error_code to key on, which is why the
+// vox branch of isCapacityFailure keys on status alone. Every status here
+// means "the machine could not serve this right now", never "this request was
+// wrong": a 4xx that is not 408/429 stays nonretryable and does not buy a
+// second, billable provider call.
+const VOX_FALLBACK_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const MAX_RECEIPT_REQUEST_ID_LENGTH = 160;
 const SHA256_HEX = /^[a-f0-9]{64}$/;
 const LOCK_SCHEMA_VERSION = 2;
@@ -43,6 +60,15 @@ const NARRATION_LIMIT_SPECS = Object.freeze({
   // be the thing that refuses a letter the site already accepted, or the two
   // limits argue and the render host wins an argument it should not be having.
   maxTranscriptChars: {env: 'SLOWBURNS_NARRATION_MAX_TRANSCRIPT_CHARS', defaultValue: 3_000, min: 1, max: 40_000},
+  // Vox gets its own, far longer request budget, and it is not a nicety.
+  // Measured on the live box: 617 characters took 17.3s, so synthesis runs at
+  // roughly 36 chars/sec. The shared 30s default would therefore time out on
+  // any letter past ~1100 characters, and the site admits up to 2600 (~73s).
+  // Three minutes covers that with room for the ~15s JIT compile on the first
+  // call after a restart. A hosted provider streams; a local diffusion model
+  // thinks first, so it cannot share a timeout written for the former.
+  voxRequestTimeoutMs: {env: 'SLOWBURNS_VOX_REQUEST_TIMEOUT_MS', defaultValue: 180_000, min: 1_000, max: 600_000},
+  transcodeTimeoutMs: {env: 'SLOWBURNS_NARRATION_TRANSCODE_TIMEOUT_MS', defaultValue: 60_000, min: 1_000, max: 300_000},
 });
 export const DEFAULT_NARRATION_LIMITS = Object.freeze(Object.fromEntries(
   Object.entries(NARRATION_LIMIT_SPECS).map(([key, spec]) => [key, spec.defaultValue]),
@@ -268,6 +294,11 @@ function classifiedProviderError(provider, response, body) {
 export function isCapacityFailure(
   provider, status, code, type, legacyStatus = false, contradictory = false, typePresent = false,
 ) {
+  // Vox is asked first because it is the only provider whose failures have no
+  // body to inspect: a tunnel or reverse proxy answers 502/504 with HTML or
+  // nothing at all, so the guard below -- which requires an error token -- would
+  // classify a plainly-down box as nonretryable and refuse the fallback.
+  if (provider === 'vox') return Number.isInteger(status) && VOX_FALLBACK_STATUSES.has(status);
   if (!Number.isInteger(status) || !safeErrorToken(code)) return false;
   // A legacy envelope may omit `type`, but it cannot make a malformed present
   // type look absent. This keeps all malformed provider shapes fail-closed.
@@ -335,21 +366,63 @@ export function resolveNarrationLimits(overrides = {}) {
   return limits;
 }
 
+/**
+ * Which provider speaks first.
+ *
+ * This used to be a constant -- ElevenLabs, always -- and the credential check
+ * below was unconditional because of it. A self-hosted engine makes that wrong
+ * in both directions: vox costs nothing per character, so it should be asked
+ * first, and demanding an ElevenLabs key to start a run that will never call
+ * ElevenLabs is a configuration error invented by the code.
+ *
+ * Only the chosen primary's credentials are required. Cartesia stays the
+ * fallback for whichever primary is chosen, and stays optional.
+ */
+const PRIMARY_PROVIDERS = new Set(['vox', 'eleven']);
+
+function resolvePrimaryProvider(config) {
+  const requested = config?.primaryProvider;
+  if (requested && !PRIMARY_PROVIDERS.has(requested)) {
+    throw new NarrationError(
+      `SLOWBURNS_NARRATION_PRIMARY must be one of ${[...PRIMARY_PROVIDERS].join(', ')}.`,
+      {fallbackClass: 'configuration'},
+    );
+  }
+  if (requested) return requested;
+  // Unset: prefer the engine that costs nothing, but only if it is actually
+  // configured. Never silently pick a provider that cannot run.
+  return config?.voxVoice && config?.voxUrl ? 'vox' : 'eleven';
+}
+
 function normalizeNarrationConfig(config) {
-  if (!config?.elevenKey) {
+  const primaryProvider = resolvePrimaryProvider(config);
+  if (primaryProvider === 'eleven' && !config?.elevenKey) {
     throw new NarrationError('Set ELEVENLABS_API_KEY (or ELEVEN_API_KEY).', {provider: 'eleven', fallbackClass: 'configuration'});
   }
+  if (primaryProvider === 'vox' && !(config?.voxUrl && config?.voxVoice)) {
+    throw new NarrationError('Set VOX_TTS_URL and VOX_VOICE to narrate through vox.', {
+      provider: 'vox', fallbackClass: 'configuration',
+    });
+  }
   validateCartesiaKey(config.cartesiaKey);
-  return {...config, limits: resolveNarrationLimits(config.limits)};
+  return {...config, primaryProvider, limits: resolveNarrationLimits(config.limits)};
 }
 
 export function resolveConfig(env = process.env) {
   return normalizeNarrationConfig({
+    primaryProvider: env.SLOWBURNS_NARRATION_PRIMARY,
     elevenKey: env.ELEVENLABS_API_KEY || env.ELEVEN_API_KEY,
     cartesiaKey: env.CARTESIA_API_KEY,
     cartesiaVoiceId: env.CARTESIA_VOICE_ID,
     elevenUrl: env.ELEVENLABS_TTS_URL || ELEVEN_TTS_URL,
     cartesiaUrl: env.CARTESIA_TTS_URL || CARTESIA_TTS_URL,
+    voxUrl: env.VOX_TTS_URL || VOX_TTS_URL,
+    voxVoice: env.VOX_VOICE || VOX_DEFAULT_VOICE,
+    // cfg is classifier-free guidance and steps is the diffusion count. The
+    // service defaults (2.0 / 10) are the tested ones; these exist so a voice
+    // can be tuned without a code change, not because they should be touched.
+    voxCfg: env.VOX_CFG,
+    voxSteps: env.VOX_STEPS,
     limits: Object.fromEntries(Object.entries(NARRATION_LIMIT_SPECS).map(([key, spec]) => [key, env[spec.env]])),
   });
 }
@@ -489,14 +562,16 @@ async function safeErrorBody(transport, provider, config, lock) {
   }
 }
 
-async function requestProviderResponse(provider, url, init, config, fetchImpl, lock) {
+async function requestProviderResponse(provider, url, init, config, fetchImpl, lock, timeoutMs) {
   advanceOperationLock(lock, `${provider}_request_started`);
   const controller = typeof AbortController === 'function' ? new AbortController() : undefined;
   let response;
   try {
     response = await withTimeout(
       () => fetchImpl(url, controller ? {...init, signal: controller.signal} : init),
-      config.limits.requestTimeoutMs,
+      // A hosted provider streams its first byte quickly; a local diffusion
+      // model thinks first and answers once. They cannot share one budget.
+      timeoutMs ?? config.limits.requestTimeoutMs,
       () => controller?.abort(),
     );
   } catch {
@@ -577,6 +652,85 @@ async function requestCartesia(config, text, fetchImpl, lock) {
   return {
     audio: await readProviderBody(transport, 'cartesia', config, lock, 'audio'),
     requestId: requestIdFrom(response, 'cartesia'),
+  };
+}
+
+/**
+ * Vox answers with a 48kHz mono PCM WAV and offers no other container: the
+ * service takes {text, voice, cfg, steps} and nothing else. Everything
+ * downstream of publishAudio assumes MP3 -- isDecodableMp3 asserts the format
+ * outright, the artifact is named .mp3, and Remotion is handed it as such -- so
+ * the conversion happens HERE, inside the provider, rather than by loosening
+ * that assertion. The validation the other two providers face stays exactly as
+ * strict for this one.
+ *
+ * It is also a large saving on its own terms: a 37-second letter is 3.5 MB of
+ * PCM and 439 KB of MP3, measured, in 0.19s.
+ */
+function transcodeWavToMp3(wav, config, ffmpegImpl, lock) {
+  advanceOperationLock(lock, 'vox_transcode_started');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'slowburns-vox-'));
+  const wavPath = path.join(dir, 'narration.wav');
+  const mp3Path = path.join(dir, 'narration.mp3');
+  try {
+    fs.writeFileSync(wavPath, Buffer.from(wav), {mode: 0o600});
+    ffmpegImpl('ffmpeg', [
+      '-nostdin', '-v', 'error', '-y',
+      '-i', wavPath,
+      '-codec:a', 'libmp3lame', '-q:a', '4', '-ac', '1',
+      mp3Path,
+    ], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+      timeout: config.limits.transcodeTimeoutMs,
+      maxBuffer: config.limits.ffprobeMaxBufferBytes,
+    });
+    const mp3 = fs.readFileSync(mp3Path);
+    if (!mp3.length) {
+      throw new NarrationError('Vox narration transcoded to an empty artifact.', {
+        provider: 'vox', fallbackClass: 'invalid_audio',
+      });
+    }
+    advanceOperationLock(lock, 'vox_transcode_finished');
+    return mp3;
+  } catch (error) {
+    if (error instanceof NarrationError) throw error;
+    // A transcode failure is OUR problem, not the provider's, so it must not
+    // be classified as capacity and buy a second billable call.
+    throw new NarrationError('Vox narration could not be transcoded to MP3.', {
+      provider: 'vox', fallbackClass: 'invalid_audio',
+    });
+  } finally {
+    fs.rmSync(dir, {recursive: true, force: true});
+  }
+}
+
+async function requestVox(config, text, fetchImpl, lock, {ffmpegImpl = execFileSync} = {}) {
+  const body = {text, voice: config.voxVoice};
+  if (config.voxCfg !== undefined && config.voxCfg !== null && config.voxCfg !== '') {
+    body.cfg = Number(config.voxCfg);
+  }
+  if (config.voxSteps !== undefined && config.voxSteps !== null && config.voxSteps !== '') {
+    body.steps = Number(config.voxSteps);
+  }
+  const transport = await requestProviderResponse('vox', config.voxUrl, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', Accept: 'audio/wav'},
+    body: JSON.stringify(body),
+  }, config, fetchImpl, lock, config.limits.voxRequestTimeoutMs);
+  const {response} = transport;
+  if (!response.ok) {
+    let errorBody;
+    try {
+      errorBody = await safeErrorBody(transport, 'vox', config, lock);
+    } finally {
+      await releaseProviderResponse(transport);
+    }
+    throw classifiedProviderError('vox', response, errorBody);
+  }
+  const wav = await readProviderBody(transport, 'vox', config, lock, 'audio');
+  return {
+    audio: transcodeWavToMp3(wav, config, ffmpegImpl, lock),
+    requestId: requestIdFrom(response, 'vox'),
   };
 }
 
@@ -938,6 +1092,27 @@ function writeCompletedReceipt(receiptPath, receipt) {
   }
 }
 
+/**
+ * What each primary needs in order to speak, and what it should be recorded as
+ * having used. Everything else in the run -- receipt states, lock phases, error
+ * classification -- was already generic on a provider string; only these three
+ * facts were hardcoded to ElevenLabs.
+ */
+const PRIMARY_PROVIDER_SPECS = {
+  vox: {
+    request: requestVox,
+    model: () => VOX_MODEL,
+    voice: (config) => config.voxVoice,
+    failureMessage: 'Vox narration failed.',
+  },
+  eleven: {
+    request: requestEleven,
+    model: () => ELEVEN_MODEL,
+    voice: () => ELEVEN_VOICE_ID,
+    failureMessage: 'ElevenLabs narration failed.',
+  },
+};
+
 export async function narrate({
   text,
   out,
@@ -946,6 +1121,7 @@ export async function narrate({
   config,
   fetchImpl = fetch,
   ffprobeImpl = execFileSync,
+  ffmpegImpl = execFileSync,
   log = console.log,
 }) {
   const resolvedConfig = normalizeNarrationConfig(config || resolveConfig());
@@ -1010,11 +1186,15 @@ export async function narrate({
     removeStaleOperation(finalOut, finalReceipt);
     const receipt = {schema_version: 1, operation, state: 'primary_started', attempts: []};
     writeJsonAtomic(finalReceipt, receipt);
+    const primaryName = resolvedConfig.primaryProvider;
+    const primarySpec = PRIMARY_PROVIDER_SPECS[primaryName];
+    const primaryModel = primarySpec.model(resolvedConfig);
+    const primaryVoice = primarySpec.voice(resolvedConfig);
     try {
-      const primary = await requestEleven(resolvedConfig, text, fetchImpl, lock);
-      const audioSha256 = publishAudio(primary.audio, finalOut, resolvedConfig, ffprobeImpl, lock, 'eleven');
+      const primary = await primarySpec.request(resolvedConfig, text, fetchImpl, lock, {ffmpegImpl});
+      const audioSha256 = publishAudio(primary.audio, finalOut, resolvedConfig, ffprobeImpl, lock, primaryName);
       receipt.state = 'complete';
-      receipt.selection = providerReceipt('eleven', ELEVEN_MODEL, ELEVEN_VOICE_ID, 'primary', primary.requestId);
+      receipt.selection = providerReceipt(primaryName, primaryModel, primaryVoice, 'primary', primary.requestId);
       receipt.audio_sha256 = audioSha256;
       writeCompletedReceipt(finalReceipt, receipt);
       advanceOperationLock(lock, 'complete_receipt_written');
@@ -1023,10 +1203,10 @@ export async function narrate({
     } catch (error) {
       const primaryError = error instanceof NarrationError
         ? error
-        : new NarrationError('ElevenLabs narration failed.', {provider: 'eleven', fallbackClass: 'nonretryable'});
+        : new NarrationError(primarySpec.failureMessage, {provider: primaryName, fallbackClass: 'nonretryable'});
       const primaryDiagnostics = FAILED_ATTEMPT_DIAGNOSTICS.get(primaryError);
       receipt.attempts.push(providerReceipt(
-        'eleven', ELEVEN_MODEL, ELEVEN_VOICE_ID, primaryError.fallbackClass,
+        primaryName, primaryModel, primaryVoice, primaryError.fallbackClass,
         primaryDiagnostics ? primaryDiagnostics.requestId : primaryError.requestId,
         primaryDiagnostics,
       ));

@@ -33,7 +33,18 @@ scripts use bare `node`); the Remotion render deps auto-install on first run.
 
 ### Keys
 
-- **`ELEVENLABS_API_KEY`** — narration + synthesized music/ambience beds.
+- **`SLOWBURNS_NARRATION_PRIMARY`** — `vox` (default) or `eleven`. Only the
+  chosen primary's credentials are required; a run that will never call
+  ElevenLabs no longer demands an ElevenLabs key to start.
+- **`VOX_TTS_URL`** / **`VOX_VOICE`** — the self-hosted narrator, defaulting to
+  `https://vox.delo.sh/synthesize` and the `carlin` voice. Costs a GPU-second
+  per film rather than a credit per character, which is why it is the default.
+  Optional tuning: `VOX_CFG` (guidance, service default 2.0) and `VOX_STEPS`
+  (diffusion steps, default 10). Vox returns WAV and is transcoded to MP3
+  inside the provider, so ffmpeg is required — it already is, for the render.
+- **`ELEVENLABS_API_KEY`** — only when `SLOWBURNS_NARRATION_PRIMARY=eleven`.
+  Also still used for synthesized music/ambience beds, which are cached on disk
+  and so cost nothing per film.
 - **`CARTESIA_API_KEY`** and **`CARTESIA_VOICE_ID`** — optional, bounded
   narration fallback only. `CARTESIA_API_KEY` must be a standard runtime key
   (`sk_car_...`); admin keys (`sk_car_admin_...`) are rejected before a request.

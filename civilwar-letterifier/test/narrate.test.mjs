@@ -23,6 +23,15 @@ execFileSync('ffmpeg', [
   '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=330:duration=1', '-q:a', '9', '-acodec', 'libmp3lame', largeSampleMp3,
 ]);
 const largeValidAudio = fs.readFileSync(largeSampleMp3);
+// Vox answers with 48kHz mono PCM and offers no other container, so the WAV
+// here is real rather than stubbed -- the transcode is the part of this
+// provider most likely to break, and a fake buffer would not exercise it.
+const sampleWav = path.join(tempRoot, 'sample.wav');
+execFileSync('ffmpeg', [
+  '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=0.2',
+  '-ar', '48000', '-ac', '1', '-acodec', 'pcm_s16le', sampleWav,
+]);
+const validWav = fs.readFileSync(sampleWav);
 
 test.after(() => fs.rmSync(tempRoot, {recursive: true, force: true}));
 
@@ -1992,4 +2001,157 @@ test('bounded ffprobe failure keeps the claim and passes its timeout and buffer 
     (error) => error.fallbackClass === 'operation_locked',
   );
   assert.deepEqual(calls, ['https://eleven.test/tts']);
+});
+
+
+// ---------------------------------------------------------------------------
+// Vox: the self-hosted primary.
+// ---------------------------------------------------------------------------
+
+function voxConfig(overrides = {}) {
+  return {
+    // No elevenKey on purpose: a run that will never call ElevenLabs must not
+    // demand an ElevenLabs credential to start.
+    cartesiaKey: 'sk_car_1234567890abcdefghij',
+    cartesiaVoiceId: 'verified-by-runtime-config',
+    cartesiaUrl: 'https://cartesia.test/tts/bytes',
+    voxUrl: 'https://vox.test/synthesize',
+    voxVoice: 'carlin',
+    ...overrides,
+  };
+}
+
+function wavResponse(audio = validWav, requestId = 'safe-request-id') {
+  return new Response(audio, {status: 200, headers: {'content-type': 'audio/wav', 'x-request-id': requestId}});
+}
+
+test('vox narrates as primary without an ElevenLabs key, and publishes MP3 not WAV', async () => {
+  const workRoot = runDir('vox-primary');
+  const out = path.join(workRoot, 'narration.mp3');
+  const posted = [];
+
+  const receipt = await narrate({
+    text: 'To those who await word from the field.',
+    out,
+    operationId: 'vox-primary',
+    config: voxConfig(),
+    log: () => {},
+    fetchImpl: async (url, init) => {
+      posted.push({url, body: JSON.parse(init.body)});
+      return wavResponse();
+    },
+  });
+
+  assert.equal(receipt.state, 'complete');
+  assert.equal(receipt.selection.provider, 'vox');
+  assert.equal(receipt.selection.voice, 'carlin', 'the receipt must record which voice spoke');
+  assert.equal(posted.length, 1);
+  assert.equal(posted[0].url, 'https://vox.test/synthesize');
+  assert.equal(posted[0].body.voice, 'carlin');
+  assert.equal(posted[0].body.text, 'To those who await word from the field.');
+
+  // The whole point of the transcode: everything downstream asserts MP3.
+  assert.equal(isDecodableMp3(out), true, 'the artifact must be MP3, never the WAV vox returned');
+  const header = fs.readFileSync(out).subarray(0, 4).toString('latin1');
+  assert.notEqual(header, 'RIFF', 'a RIFF header means the WAV was published raw');
+});
+
+test('a bodyless vox gateway failure falls back to cartesia', async () => {
+  const workRoot = runDir('vox-gateway-fallback');
+  const out = path.join(workRoot, 'narration.mp3');
+  const seen = [];
+
+  // This is the realistic failure shape for a self-hosted box behind a tunnel:
+  // HTML or nothing, no error_code to key on. The classifier keys on status
+  // alone for vox precisely so this reaches the fallback.
+  const receipt = await narrate({
+    text: 'A solemn dispatch.',
+    out,
+    operationId: 'vox-gateway',
+    config: voxConfig(),
+    log: () => {},
+    fetchImpl: async (url) => {
+      seen.push(url);
+      if (url.includes('vox.test')) {
+        return new Response('<html>502 Bad Gateway</html>', {status: 502, headers: {'content-type': 'text/html'}});
+      }
+      return audioResponse();
+    },
+  });
+
+  assert.equal(receipt.state, 'complete');
+  assert.equal(receipt.selection.provider, 'cartesia');
+  assert.equal(receipt.attempts.length, 1);
+  assert.equal(receipt.attempts[0].provider, 'vox');
+  assert.equal(receipt.attempts[0].fallback_class, 'capacity_or_availability');
+  assert.equal(seen.length, 2, 'exactly one fallback call');
+});
+
+test('a vox 400 is not capacity and buys no second provider call', async () => {
+  const workRoot = runDir('vox-bad-request');
+  const out = path.join(workRoot, 'narration.mp3');
+  const seen = [];
+
+  await assert.rejects(
+    narrate({
+      text: 'A solemn dispatch.',
+      out,
+      operationId: 'vox-bad-request',
+      config: voxConfig(),
+      log: () => {},
+      fetchImpl: async (url) => {
+        seen.push(url);
+        return new Response('{"detail":"unknown voice"}', {status: 400, headers: {'content-type': 'application/json'}});
+      },
+    }),
+    (error) => error.provider === 'vox' && error.fallbackClass === 'nonretryable',
+  );
+
+  assert.equal(seen.length, 1, 'a request we got wrong must never be retried against a billable provider');
+  assert.equal(fs.existsSync(out), false);
+});
+
+test('a failed transcode is our fault, not the provider\'s, and does not buy a fallback', async () => {
+  const workRoot = runDir('vox-transcode-failure');
+  const out = path.join(workRoot, 'narration.mp3');
+  const seen = [];
+
+  await assert.rejects(
+    narrate({
+      text: 'A solemn dispatch.',
+      out,
+      operationId: 'vox-transcode-failure',
+      config: voxConfig(),
+      log: () => {},
+      fetchImpl: async (url) => { seen.push(url); return wavResponse(); },
+      ffmpegImpl: () => { throw new Error('ffmpeg is not installed'); },
+    }),
+    (error) => error.provider === 'vox' && error.fallbackClass === 'invalid_audio',
+  );
+
+  assert.equal(seen.length, 1, 'a local tooling failure must not be classified as provider capacity');
+});
+
+test('SLOWBURNS_NARRATION_PRIMARY chooses the primary, and eleven still requires its key', async () => {
+  const base = {
+    VOX_TTS_URL: 'https://vox.test/synthesize',
+    VOX_VOICE: 'carlin',
+    CARTESIA_API_KEY: 'sk_car_1234567890abcdefghij',
+    CARTESIA_VOICE_ID: 'verified-by-runtime-config',
+  };
+
+  assert.equal(resolveConfig({...base}).primaryProvider, 'vox', 'vox is the default when configured');
+  assert.equal(
+    resolveConfig({...base, SLOWBURNS_NARRATION_PRIMARY: 'eleven', ELEVENLABS_API_KEY: 'k'}).primaryProvider,
+    'eleven',
+  );
+  assert.throws(
+    () => resolveConfig({...base, SLOWBURNS_NARRATION_PRIMARY: 'eleven'}),
+    (error) => error.fallbackClass === 'configuration',
+    'choosing eleven without its key is still a configuration error',
+  );
+  assert.throws(
+    () => resolveConfig({...base, SLOWBURNS_NARRATION_PRIMARY: 'nonesuch'}),
+    (error) => error.fallbackClass === 'configuration',
+  );
 });
