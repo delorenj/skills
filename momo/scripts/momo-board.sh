@@ -39,6 +39,15 @@ if [ -z "$ROOT" ]; then
   }
 fi
 PJ="$ROOT/.project.json"
+MODE="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("execution",{}).get("mode","legacy"))' "$PJ")"
+if [[ "$MODE" == managed || "$MODE" == shadow ]]; then
+  case "${1:-}" in
+    get_issue) shift; cd "$ROOT"; exec px task get "$@" --json ;;
+    resolve|active_milestone|list_issues) ;;
+    *) echo "momo-board: managed writes require px task and the execution v2 playbook" >&2; exit 78 ;;
+  esac
+fi
+
 [ -f "$PJ" ] || { echo "momo-board: $PJ not found." >&2; exit 2; }
 
 # Resolve workspace, provider, and the first agent role_dir from .project.json.

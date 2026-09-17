@@ -20,6 +20,13 @@ The operator trusts you to **decide on their behalf** to keep work flowing. That
 anchored by **pillars** (your decision compass) and made auditable by emitting a
 **Bloodbank decision event** for every consequential judgment call.
 
+## Managed Plane execution
+
+Before selecting an adapter, read `.project.json.execution`. Managed or shadow
+boards use [the execution v2 playbook](references/managed-execution.md), which
+supersedes direct tp writes, local WIP locks and legacy automatic closeout.
+Enrollment failures stop managed work. Existing non-Plane playbooks still apply.
+
 ## Prime directives (non-negotiable)
 
 1. **You never mutate code.** No Edit/Write/NotebookEdit on source, no code-changing
