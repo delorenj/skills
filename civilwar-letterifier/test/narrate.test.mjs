@@ -45,6 +45,56 @@ function lockPathFor(out) {
   return `${path.resolve(out)}.narration.lock`;
 }
 
+test('an over-long transcript is refused before the lock, the receipt, or a provider call', async () => {
+  // Narration is billed per CHARACTER of this exact string and is 96-98% of the
+  // marginal cost of a film, yet nothing here ever measured it. This is a
+  // backstop for the path the site's own cap cannot see: when a job carries no
+  // letter, the CLI letterifies the raw text on the render host and that
+  // letter's length never reaches the Worker.
+  const workRoot = runDir('transcript-ceiling');
+  const out = path.join(workRoot, 'narration.mp3');
+  let providerCalled = false;
+  const fetchImpl = async () => { providerCalled = true; throw new Error('the provider must not be reached'); };
+
+  await assert.rejects(
+    narrate({
+      text: 'x'.repeat(3_001),
+      out,
+      operationId: 'too-long',
+      config: config(),
+      log: () => {},
+      fetchImpl,
+    }),
+    /Transcript is 3001 characters; the narration ceiling is 3000/,
+  );
+
+  assert.equal(providerCalled, false, 'no provider call may be made');
+  assert.equal(fs.existsSync(lockPathFor(out)), false, 'the refusal must happen before the lock is taken');
+  assert.equal(fs.existsSync(`${out}.receipt.json`), false, 'and before any receipt is written');
+});
+
+test('the transcript ceiling sits ABOVE the site cap so the two never argue', async () => {
+  // The site rejects over 2600 characters (render.ts MAX_LETTER). This ceiling
+  // is deliberately higher: it is a backstop, and it must never be the thing
+  // that refuses a letter the site already accepted -- otherwise the render
+  // host wins an argument it should not be having, after the writer has been
+  // shown their letter.
+  const workRoot = runDir('transcript-ceiling-headroom');
+  const out = path.join(workRoot, 'narration.mp3');
+  let reached = false;
+  const fetchImpl = async () => { reached = true; throw new Error('stop here'); };
+
+  await assert.rejects(narrate({
+    text: 'x'.repeat(2_600),
+    out,
+    operationId: 'site-cap-sized',
+    config: config(),
+    log: () => {},
+    fetchImpl,
+  }));
+  assert.equal(reached, true, 'a letter the site would accept must reach the provider, not be refused here');
+});
+
 test('job narration identities isolate identical text without touching legacy global state', async () => {
   const workRoot = runDir('job-identity-isolation');
   const legacyRoot = path.join(workRoot, 'remotion', 'public');

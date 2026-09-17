@@ -28,6 +28,21 @@ const NARRATION_LIMIT_SPECS = Object.freeze({
   maxErrorBodyBytes: {env: 'SLOWBURNS_NARRATION_MAX_ERROR_BODY_BYTES', defaultValue: 64 * 1024, min: 128, max: 1024 * 1024},
   ffprobeTimeoutMs: {env: 'SLOWBURNS_NARRATION_FFPROBE_TIMEOUT_MS', defaultValue: 5_000, min: 1, max: 30_000},
   ffprobeMaxBufferBytes: {env: 'SLOWBURNS_NARRATION_FFPROBE_MAX_BUFFER_BYTES', defaultValue: 64 * 1024, min: 1_024, max: 1024 * 1024},
+  // The spend ceiling, and the only one that costs money rather than memory.
+  //
+  // Narration is billed per CHARACTER of this exact string, and it is 96-98% of
+  // the marginal cost of a film -- yet nothing here has ever looked at its
+  // length. The site caps it at MAX_LETTER (2600) in
+  // functions/api/slowburns/render.ts and rejects anything longer, but that
+  // cap cannot see every path: when a job carries no letter the orchestrator
+  // stages nothing, --letterfile is omitted, and the CLI letterifies the raw
+  // text here on the render host. That letter's length is never seen by the
+  // Worker at all, and the Worker is a different trust domain besides.
+  //
+  // 3000 rather than 2600: this is a BACKSTOP, not the contract. It must never
+  // be the thing that refuses a letter the site already accepted, or the two
+  // limits argue and the render host wins an argument it should not be having.
+  maxTranscriptChars: {env: 'SLOWBURNS_NARRATION_MAX_TRANSCRIPT_CHARS', defaultValue: 3_000, min: 1, max: 40_000},
 });
 export const DEFAULT_NARRATION_LIMITS = Object.freeze(Object.fromEntries(
   Object.entries(NARRATION_LIMIT_SPECS).map(([key, spec]) => [key, spec.defaultValue]),
@@ -934,6 +949,16 @@ export async function narrate({
   log = console.log,
 }) {
   const resolvedConfig = normalizeNarrationConfig(config || resolveConfig());
+  // Before the lock, before the receipt, before a character is spent. This is
+  // the last place the transcript can be refused for free; everything past here
+  // has either taken a lock or paid a provider.
+  const transcriptChars = [...String(text ?? '')].length;
+  if (transcriptChars > resolvedConfig.limits.maxTranscriptChars) {
+    throw new NarrationError(
+      `Transcript is ${transcriptChars} characters; the narration ceiling is ${resolvedConfig.limits.maxTranscriptChars}.`,
+      {fallbackClass: 'configuration'},
+    );
+  }
   const {finalOut, finalReceipt, lockPath} = resolveNarrationPaths(out, receiptPath);
   const operation = sha256(`${operationId}\0${text}`);
   const lock = acquireOperationLock(finalOut, lockPath, operation);
