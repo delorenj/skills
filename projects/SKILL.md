@@ -15,6 +15,15 @@ Every 33god/DeLoNET repo is assembled by **pjangler** out of two copier template
 
 ## Operating Principles
 
+- **`pj init <name>` CREATES `./<name>`. Bare `pj init` ADOPTS the cwd repo.**
+  Never pass a name from inside a repo you do not intend to rename. Before the
+  PJAN-130 guard landed, `pj init sidepiece` run inside `~/code/33GOD` created no
+  directory at all — it adopted 33GOD, renamed it to "sidepiece" across
+  `.project.json`, `.copier-answers.yml`, every `_bmad` config and the live
+  registry row, and exited 0. init now refuses to rename a registered project or
+  to render over a populated directory without `-f`, and a path-shaped name
+  (`.`, `..`, `a/b`) is rejected outright — `--target-dir` is the flag that takes
+  paths.
 - **`.project.json` is canonical.** Board binding (`ticket_provider` block),
   `repo_path`, `project_slug`, and the `agents` map live there. Plane bindings
   require `state: linked` plus a live identifier/board id; never persist
@@ -70,6 +79,12 @@ Every 33god/DeLoNET repo is assembled by **pjangler** out of two copier template
 - Manifest mutation is transactional: malformed `.project.json` aborts
   byte-unchanged, and one lock spans read/validate/live board check-or-create
   through atomic replacement.
+- **Do not run `sot.project-json` migration from a Git worktree.** The current
+  migration derives `repo_path` and `project_slug` from `targetDir`; a worktree
+  therefore rewrites both to the worktree path/branch slug and may canonicalize
+  away provider metadata. Run it only against the canonical checkout, inspect
+  the full `.project.json` diff, and deliberately transplant a reviewed result
+  to a branch if the canonical checkout cannot be committed directly.
 - Seal target/nested-repo, fleet-registry, profile, and systemd state before a
   PM deploy; verify them directly afterward and require the rerun to converge.
   The full evidence contract is in **agent-fleet-operations**
