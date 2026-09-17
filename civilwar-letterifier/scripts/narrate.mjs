@@ -25,7 +25,60 @@ const CARTESIA_TTS_URL = 'https://api.cartesia.ai/tts/bytes';
 const ELEVEN_TTS_URL = `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`;
 const VOX_TTS_URL = 'https://vox.delo.sh/synthesize';
 const VOX_MODEL = 'voxcpm';
-const VOX_DEFAULT_VOICE = 'carlin';
+/**
+ * The narrator, described rather than cloned.
+ *
+ * VoxCPM takes a parenthetical at the START of the text and uses it to design a
+ * voice with no reference audio. That is the right tool here for a reason that
+ * is not technical: a cloned voice is a real, identifiable person's likeness,
+ * and the narrator of a thing you intend to sell should not be someone who
+ * never agreed to narrate it. A described voice belongs to nobody.
+ *
+ * Kept terse on purpose -- descriptions past ~20 words degrade the output -- and
+ * it describes QUALITIES, never a named impression, which the model filters
+ * unreliably anyway.
+ *
+ * Chosen by measurement, not by ear, against the real 617-character letter.
+ * Five descriptions, two runs each, cfg 3.0 -- pace and pitch, because a
+ * documentary narrator is defined by how slowly and how low he reads:
+ *
+ *   description                              chars/sec        F0
+ *   "...unhurried and grave, pausing..."     16.6-16.7    80-100 Hz   <- this
+ *   "...speaking slowly, with quiet sorrow"  16.6-18.3   104-129 Hz
+ *   "An aged man... very slow and..."        16.8-17.1    94-148 Hz
+ *   "...reading slowly and deliberately..."  17.4-19.1    97-122 Hz
+ *   "Slow, deliberate, mournful..."          14.7-19.0    90-120 Hz
+ *
+ * The winner is not the slowest on its best run -- it is the one whose pace
+ * barely moves (0.1 chars/sec across runs, against 1.7 for the runner-up) and
+ * whose voice sits lowest. Consistency is the scarce quality here, because the
+ * narrator is the same person in every film or he is nobody.
+ *
+ * Note the ceiling: nothing tested reads slower than ~16.6 chars/sec on this
+ * text. Asking harder for "slow" did not help -- "Slow, deliberate" produced
+ * the WIDEST spread of all (14.7-19.0). Pace is bought by describing manner
+ * ("pausing between phrases"), not by insisting on speed.
+ */
+const VOX_DEFAULT_DESCRIPTION = 'A weathered old man, unhurried and grave, pausing between phrases';
+/**
+ * Classifier-free guidance, and it is load-bearing for a DESCRIBED voice in a
+ * way it is not for a cloned one: it sets how hard the model clings to the
+ * description, which is the only thing holding the narrator's identity still.
+ *
+ * Measured on this description, same text, F0 spread across runs:
+ *   cfg 2.0 -> 85-145 Hz   (a different person each film)
+ *   cfg 3.0 -> 100-120 Hz  (spread 21)
+ *   cfg 4.0 -> 103-136 Hz  (spread 33)
+ *   cfg 5.0 -> 108-136 Hz  (spread 27)
+ *
+ * 3.0, and do not lower it. Note what this number can and cannot buy: a
+ * consistent CHARACTER, not an identical voice. If a film-to-film identical
+ * narrator is ever required, design a take with this description and register
+ * it as a voice profile -- the clone is what carries timbre, and a profile
+ * grown from a designed take is still nobody's likeness.
+ */
+const VOX_DEFAULT_CFG = 3.0;
+const VOX_DEFAULT_STEPS = 12;
 // Vox is self-hosted behind a tunnel, so its failures arrive as BODYLESS
 // gateway errors -- a 502 from Traefik, a 504 from the tunnel, a 500 from a
 // box whose GPU is busy. There is no error_code to key on, which is why the
@@ -391,7 +444,7 @@ function resolvePrimaryProvider(config) {
   if (requested) return requested;
   // Unset: prefer the engine that costs nothing, but only if it is actually
   // configured. Never silently pick a provider that cannot run.
-  return config?.voxVoice && config?.voxUrl ? 'vox' : 'eleven';
+  return config?.voxUrl && (config?.voxVoice || config?.voxDescription) ? 'vox' : 'eleven';
 }
 
 function normalizeNarrationConfig(config) {
@@ -399,8 +452,16 @@ function normalizeNarrationConfig(config) {
   if (primaryProvider === 'eleven' && !config?.elevenKey) {
     throw new NarrationError('Set ELEVENLABS_API_KEY (or ELEVEN_API_KEY).', {provider: 'eleven', fallbackClass: 'configuration'});
   }
-  if (primaryProvider === 'vox' && !(config?.voxUrl && config?.voxVoice)) {
-    throw new NarrationError('Set VOX_TTS_URL and VOX_VOICE to narrate through vox.', {
+  if (primaryProvider === 'vox' && !(config?.voxUrl && (config?.voxVoice || config?.voxDescription))) {
+    throw new NarrationError('Set VOX_TTS_URL and either VOX_VOICE_DESCRIPTION or VOX_VOICE to narrate through vox.', {
+      provider: 'vox', fallbackClass: 'configuration',
+    });
+  }
+  // A ')' would close the parenthetical early and the remainder of the
+  // description would be SPOKEN as the opening line of the dispatch. Refuse it
+  // here rather than shipping a film that announces its own stage direction.
+  if (primaryProvider === 'vox' && config?.voxDescription && config.voxDescription.includes(')')) {
+    throw new NarrationError('VOX_VOICE_DESCRIPTION must not contain a closing parenthesis.', {
       provider: 'vox', fallbackClass: 'configuration',
     });
   }
@@ -417,12 +478,13 @@ export function resolveConfig(env = process.env) {
     elevenUrl: env.ELEVENLABS_TTS_URL || ELEVEN_TTS_URL,
     cartesiaUrl: env.CARTESIA_TTS_URL || CARTESIA_TTS_URL,
     voxUrl: env.VOX_TTS_URL || VOX_TTS_URL,
-    voxVoice: env.VOX_VOICE || VOX_DEFAULT_VOICE,
-    // cfg is classifier-free guidance and steps is the diffusion count. The
-    // service defaults (2.0 / 10) are the tested ones; these exist so a voice
-    // can be tuned without a code change, not because they should be touched.
-    voxCfg: env.VOX_CFG,
-    voxSteps: env.VOX_STEPS,
+    // The narrator is DESCRIBED by default and cloned only if asked. VOX_VOICE
+    // is unset unless an operator names a profile; setting both stacks them,
+    // with the profile carrying timbre and the description shifting prosody.
+    voxDescription: env.VOX_VOICE_DESCRIPTION ?? VOX_DEFAULT_DESCRIPTION,
+    voxVoice: env.VOX_VOICE,
+    voxCfg: env.VOX_CFG ?? VOX_DEFAULT_CFG,
+    voxSteps: env.VOX_STEPS ?? VOX_DEFAULT_STEPS,
     limits: Object.fromEntries(Object.entries(NARRATION_LIMIT_SPECS).map(([key, spec]) => [key, env[spec.env]])),
   });
 }
@@ -704,8 +766,25 @@ function transcodeWavToMp3(wav, config, ffmpegImpl, lock) {
   }
 }
 
+/**
+ * What the receipt should record as having spoken.
+ *
+ * A described voice has no name, so the description IS its identity and the
+ * receipt has to carry it verbatim -- otherwise a film cannot be traced back to
+ * the narrator that made it, and the one knob that holds that narrator still is
+ * invisible after the fact.
+ */
+export function voxVoiceLabel(config) {
+  if (config.voxVoice && config.voxDescription) return `${config.voxVoice}+(${config.voxDescription})`;
+  if (config.voxVoice) return config.voxVoice;
+  return `(${config.voxDescription})`;
+}
+
 async function requestVox(config, text, fetchImpl, lock, {ffmpegImpl = execFileSync} = {}) {
-  const body = {text, voice: config.voxVoice};
+  // The parenthetical must lead the text. VoxCPM consumes it only in that
+  // position; anywhere else it is spoken aloud as dialogue.
+  const body = {text: config.voxDescription ? `(${config.voxDescription})${text}` : text};
+  if (config.voxVoice) body.voice = config.voxVoice;
   if (config.voxCfg !== undefined && config.voxCfg !== null && config.voxCfg !== '') {
     body.cfg = Number(config.voxCfg);
   }
@@ -1102,7 +1181,7 @@ const PRIMARY_PROVIDER_SPECS = {
   vox: {
     request: requestVox,
     model: () => VOX_MODEL,
-    voice: (config) => config.voxVoice,
+    voice: voxVoiceLabel,
     failureMessage: 'Vox narration failed.',
   },
   eleven: {

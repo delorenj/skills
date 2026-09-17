@@ -2016,7 +2016,8 @@ function voxConfig(overrides = {}) {
     cartesiaVoiceId: 'verified-by-runtime-config',
     cartesiaUrl: 'https://cartesia.test/tts/bytes',
     voxUrl: 'https://vox.test/synthesize',
-    voxVoice: 'carlin',
+    voxDescription: 'A weathered old man, unhurried and grave, pausing between phrases',
+    voxCfg: 3.0,
     ...overrides,
   };
 }
@@ -2044,11 +2045,21 @@ test('vox narrates as primary without an ElevenLabs key, and publishes MP3 not W
 
   assert.equal(receipt.state, 'complete');
   assert.equal(receipt.selection.provider, 'vox');
-  assert.equal(receipt.selection.voice, 'carlin', 'the receipt must record which voice spoke');
   assert.equal(posted.length, 1);
   assert.equal(posted[0].url, 'https://vox.test/synthesize');
-  assert.equal(posted[0].body.voice, 'carlin');
-  assert.equal(posted[0].body.text, 'To those who await word from the field.');
+
+  // The narrator is DESCRIBED, so nothing is cloned and no profile is named.
+  assert.equal(posted[0].body.voice, undefined, 'a described narrator must not name a voice profile');
+  assert.equal(
+    posted[0].body.text,
+    '(A weathered old man, unhurried and grave, pausing between phrases)To those who await word from the field.',
+    'the parenthetical must LEAD the text -- anywhere else it is spoken aloud',
+  );
+  assert.equal(posted[0].body.cfg, 3.0, 'guidance is what holds the described narrator still');
+
+  // A described voice has no name, so the description is its identity and the
+  // receipt has to carry it or a film cannot be traced to its narrator.
+  assert.equal(receipt.selection.voice, '(A weathered old man, unhurried and grave, pausing between phrases)');
 
   // The whole point of the transcode: everything downstream asserts MP3.
   assert.equal(isDecodableMp3(out), true, 'the artifact must be MP3, never the WAV vox returned');
@@ -2154,4 +2165,52 @@ test('SLOWBURNS_NARRATION_PRIMARY chooses the primary, and eleven still requires
     () => resolveConfig({...base, SLOWBURNS_NARRATION_PRIMARY: 'nonesuch'}),
     (error) => error.fallbackClass === 'configuration',
   );
+});
+
+
+test('a description containing a closing paren is refused, not shipped', async () => {
+  // ')' would close the parenthetical early and the remainder would be spoken
+  // as the opening line of the dispatch -- a film that announces its own stage
+  // direction, which is exactly the `--mode full` bug in a new costume.
+  assert.throws(
+    () => resolveConfig({
+      VOX_TTS_URL: 'https://vox.test/synthesize',
+      VOX_VOICE_DESCRIPTION: 'A grave man (weathered) speaking slowly',
+      CARTESIA_API_KEY: 'sk_car_1234567890abcdefghij',
+      CARTESIA_VOICE_ID: 'verified-by-runtime-config',
+    }),
+    (error) => error.provider === 'vox' && error.fallbackClass === 'configuration',
+  );
+});
+
+test('a named profile and a description stack, and both reach the request', async () => {
+  const workRoot = runDir('vox-stacked');
+  const out = path.join(workRoot, 'narration.mp3');
+  let sent = null;
+
+  const receipt = await narrate({
+    text: 'A solemn dispatch.',
+    out,
+    operationId: 'vox-stacked',
+    config: voxConfig({voxVoice: 'somebody'}),
+    log: () => {},
+    fetchImpl: async (url, init) => { sent = JSON.parse(init.body); return wavResponse(); },
+  });
+
+  assert.equal(sent.voice, 'somebody', 'the profile carries timbre');
+  assert.ok(sent.text.startsWith('(A weathered old man'), 'the description shifts prosody on top of it');
+  assert.equal(receipt.selection.voice, 'somebody+(A weathered old man, unhurried and grave, pausing between phrases)');
+});
+
+test('the shipped defaults describe a narrator rather than cloning a person', async () => {
+  const config = resolveConfig({
+    CARTESIA_API_KEY: 'sk_car_1234567890abcdefghij',
+    CARTESIA_VOICE_ID: 'verified-by-runtime-config',
+  });
+  assert.equal(config.primaryProvider, 'vox');
+  assert.equal(config.voxVoice, undefined, 'no voice profile is cloned by default');
+  assert.ok(config.voxDescription.length > 0);
+  assert.ok(config.voxDescription.split(/\s+/).length <= 20, 'descriptions past ~20 words degrade the output');
+  // Measured: cfg 2.0 drifts 85-145 Hz between runs, cfg 3.0 holds 100-120.
+  assert.equal(config.voxCfg, 3.0, 'lowering guidance makes the narrator a different person each film');
 });

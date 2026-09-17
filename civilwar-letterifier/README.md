@@ -36,12 +36,43 @@ scripts use bare `node`); the Remotion render deps auto-install on first run.
 - **`SLOWBURNS_NARRATION_PRIMARY`** — `vox` (default) or `eleven`. Only the
   chosen primary's credentials are required; a run that will never call
   ElevenLabs no longer demands an ElevenLabs key to start.
-- **`VOX_TTS_URL`** / **`VOX_VOICE`** — the self-hosted narrator, defaulting to
-  `https://vox.delo.sh/synthesize` and the `carlin` voice. Costs a GPU-second
-  per film rather than a credit per character, which is why it is the default.
-  Optional tuning: `VOX_CFG` (guidance, service default 2.0) and `VOX_STEPS`
-  (diffusion steps, default 10). Vox returns WAV and is transcoded to MP3
-  inside the provider, so ffmpeg is required — it already is, for the render.
+- **`VOX_TTS_URL`** — the self-hosted narrator, `https://vox.delo.sh/synthesize`
+  by default. Costs a GPU-second per film rather than a credit per character,
+  which is why it is the default. It returns WAV and is transcoded to MP3 inside
+  the provider, so ffmpeg is required — it already is, for the render.
+- **`VOX_VOICE_DESCRIPTION`** — the narrator, *described* rather than cloned.
+  VoxCPM designs a voice from a parenthetical placed at the start of the text,
+  with no reference audio. This is the default and it is deliberate: a cloned
+  voice is a real, identifiable person's likeness, and the narrator of something
+  you intend to sell should not be someone who never agreed to narrate it. A
+  described voice belongs to nobody.
+
+  Keep it terse — past ~20 words the output degrades — and describe *qualities*,
+  never a named impression ("like so-and-so"), which the model filters
+  unreliably. A `)` in the description is refused outright: it would close the
+  parenthetical early and the remainder would be **spoken** as the opening line
+  of the dispatch.
+- **`VOX_CFG`** — classifier-free guidance, default **3.0**, and load-bearing
+  for a described voice in a way it is not for a clone. It sets how hard the
+  model clings to the description, which is the only thing holding the
+  narrator's identity still between films. Measured, same text, F0 across runs:
+
+  | cfg | F0 range | verdict |
+  | --- | --- | --- |
+  | 2.0 | 85–145 Hz | a different person each film |
+  | 3.0 | 100–120 Hz | consistent low male |
+  | 4.0 | 103–136 Hz | |
+  | 5.0 | 108–136 Hz | |
+
+  Do not lower it. And note what it can and cannot buy: a consistent
+  **character**, not an identical voice. If a film-to-film identical narrator is
+  ever required, design a take with the description and register *that take* as
+  a voice profile — the clone is what carries timbre, and a profile grown from a
+  designed take is still nobody's likeness.
+- **`VOX_VOICE`** — optional. Names a saved profile to clone instead. Setting it
+  alongside a description stacks them: the profile carries timbre, the
+  description shifts prosody.
+- **`VOX_STEPS`** — diffusion steps, default 12.
 - **`ELEVENLABS_API_KEY`** — only when `SLOWBURNS_NARRATION_PRIMARY=eleven`.
   Also still used for synthesized music/ambience beds, which are cached on disk
   and so cost nothing per film.
