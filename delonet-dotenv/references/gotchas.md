@@ -224,7 +224,7 @@ Or wrap it in a project script (`scripts/up.sh`) so the dance is a single comman
 
 ## 11. `op run` doesn't see the references
 
-**Symptom.** `op run --env-file .env.op -- env | grep MY_KEY` shows `MY_KEY=op://DeLoSecrets/...` (the literal reference, not the resolved value).
+**Symptom.** The presence checker reports `MY_KEY` as unresolved because its value still contains an `op://` reference. Do not print the value to diagnose it.
 
 **Cause.** Either:
 - The op CLI is too old (`op --version` < 2.0).

@@ -1,7 +1,7 @@
 ---
 name: 33god-projects
 description: |
-  Create, wire, and maintain 33god/DeLoNET projects. Covers PJangler/CommonProject bootstrap, repo-local `.project.json`, Hermes PM provisioning requests (sentinel duties fold into the PM heartbeat), mise/.env.op, BMAD, Hindsight/Bloodbank hook wiring, and project-scoped hook + skill fan-out adoption. Use when running `pj init`, `pj hermes-agent --yes`, or `mise run init-project`; adding a PM; wiring mise/op inject; installing BMAD; configuring hooks; or adopting `.agents/local.json`, `defer_to_global`, and `hooks.master.json`. Do NOT use for developing pjangler (project-jangler), generic fan-out mechanics (agent-config-fanout), fleet updates/backfills (agent-fleet-operations), live Plane issues, Bloodbank schemas, or host conventions.
+  Create, wire, and maintain 33god/DeLoNET projects. Covers PJangler/CommonProject bootstrap, repo-local `.project.json`, Hermes PM provisioning requests (sentinel duties fold into the PM heartbeat), mise and process-injected .env.op, BMAD, Hindsight/Bloodbank hook wiring, and project-scoped hook + skill fan-out adoption. Use when running `pj init`, `pj hermes-agent --yes`, or `mise run init-project`; adding a PM; wiring mise/op run; installing BMAD; configuring hooks; or adopting `.agents/local.json`, `defer_to_global`, and `hooks.master.json`. Do NOT use for developing pjangler (project-jangler), generic fan-out mechanics (agent-config-fanout), fleet updates/backfills (agent-fleet-operations), live Plane issues, Bloodbank schemas, or host conventions.
 ---
 
 # 33god Project Creation & Wiring
@@ -48,7 +48,7 @@ Every 33god/DeLoNET repo is assembled by **pjangler** out of two copier template
 | You want to… | Read |
 |---|---|
 | Create a new project / bootstrap CommonProject / deploy the PM | [references/project-creation.md](references/project-creation.md) |
-| Set up or fix mise (mise.toml, .mise/scripts, AGENTS.md linking, `op inject .env.op`) | [references/mise-conventions.md](references/mise-conventions.md) |
+| Set up or fix mise (mise.toml, .mise/scripts, AGENTS.md linking, process-scoped `op run`) | [references/mise-conventions.md](references/mise-conventions.md) |
 | Install / re-install BMAD with the standard modules + tools | [references/bmad-init.md](references/bmad-init.md) |
 | Wire an agent's Hindsight memory and Bloodbank emit/consume hooks (harness/global layer) | [references/agent-hooks.md](references/agent-hooks.md) |
 | Adopt the per-dev, committed project-scoped hook + skill fan-out layer (Claude/Codex/Hermes/Kimi, `.agents/local.json` opt-out, `hindsight-setup`) | [references/project-scoped-hooks.md](references/project-scoped-hooks.md) → [references/project-scoped-internals.md](references/project-scoped-internals.md) |
@@ -64,13 +64,13 @@ Every 33god/DeLoNET repo is assembled by **pjangler** out of two copier template
 1. CommonProject  →  mise run init-project        # repo skeleton + Plane board + .project.json + BMAD
 2. pj hermes-agent --yes                          # one PM, real profile, repo board
    └─ sentinel duties ride the PM heartbeat timer (no separate scrum-master)
-3. mise trust && direnv-style `enter`             # links AGENTS.md, op-injects .env.op → .env
+3. mise trust && direnv-style `enter`             # links AGENTS.md; tasks resolve secrets through op run
 ```
 
 ## Cross-cutting rules
 
 - `AGENTS.md` is the source of truth; `CLAUDE.md` and `GEMINI.md` are symlinks to it.
-- Secrets live in `.env.op` (1Password references); `mise enter` runs `op inject -i .env.op > .env`. Never commit `.env`.
+- `.env.op` holds 1Password references. Run secret-consuming tasks with `op run --env-file .env.op -- <command>`; never materialize resolved secrets in `.env` or another file. See `delonet-dotenv` for process injection and presence-only verification.
 - Client-specific roots such as `.claude/` and `.codex/` are generated local
   projections, not canonical project state. Never add repo unignore rules for
   them; edit `.agents/` and regenerate.

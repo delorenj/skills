@@ -52,7 +52,7 @@ Detailed checklist and acceptance criteria:
 ## Defaults
 
 - Canonical global skill root: `/home/delorenj/.agents/skills`
-- PM workflow skill path: `/home/delorenj/.agents/skills/subagent-driven-development/SKILL.md`
+- PM workflow skill path: `/home/delorenj/code/skillex/all-skills/subagent-driven-development/SKILL.md`
 - Fleet self-check reference: `/home/delorenj/.agents/skills/hermes-pm-template-maintenance/references/fleet-self-check.md`
 - Fleet registry source of truth: `/home/delorenj/.hermes/agents-registry.yaml`
 - Template repo: `/home/delorenj/code/33GOD/hermes-agent-template` (also vendored as a pjangler submodule at `~/code/33GOD/pjangler/templates/hermes-agent`; push the template repo, then bump the submodule pointer)
@@ -165,3 +165,13 @@ If operator wants a dedicated template-governor behavior, add to PM SOUL:
 - Trigger phrase: `update template to capture <X>`
 - Required steps: classify -> patch template -> backfill -> verify -> report
 - Success criteria: future agents inherit + existing agents converge.
+
+## Capability selection versus execution
+
+The PM profile can retain `subagent-driven-development` as an available core
+capability while it is absent from the global default set. Availability does
+not mandate delegation or multiple review passes. Use the canonical skill only
+for explicitly requested or otherwise authorized team work; bounded direct
+implementation remains valid. For template repair, inspect the live resolved
+profile source before changing it. Global-loadout cleanup alone does not
+authorize fleet restarts or rewriting runtime profiles.

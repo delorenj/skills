@@ -104,7 +104,7 @@ Full table with provenance and edge cases: [constants.md](references/constants.m
 2. For each var, run the 60-second decision tree above. When uncertain, jump to the matching reference.
 3. Write non-secrets into `.env`. Write op:// references into `.env.op`.
 4. If the stack needs to be reachable at `<service>.delo.sh`, drop a `docker-compose.override.yml` per [traefik-routing.md](references/traefik-routing.md).
-5. Verify: `op run --env-file .env.op -- env | grep -E '^(DATABASE|NEXTAUTH|CALENDSO|...)'` — all secrets resolve to non-empty values.
+5. Verify required names without printing values: `op run --env-file .env.op -- python3 <skill-dir>/scripts/check-env.py DATABASE_URL NEXTAUTH_SECRET`. Replace the name list with this stack's requirements.
 6. Bring up: `op run --env-file .env.op -- docker compose up -d`.
 7. Curl the public URL: `curl -I https://<service>.delo.sh`. Expect 200 or a framework-appropriate redirect.
 

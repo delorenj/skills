@@ -1,8 +1,14 @@
 ---
 name: mise-tasks
-description: Orchestrate multi-step project workflows using mise task definitions with dependency management and argument handling. Use whenever the user wants to create, edit, or debug mise tasks, wire up task dependencies with depends/depends_post, or run workflows via 'mise run'. Also use when setting up task runners or automating build pipelines through mise. Do NOT use for mise environment variable configuration (use mise-configuration instead) or for general shell scripting unrelated to mise.
+description: Orchestrate multi-step project workflows using mise task definitions
+  with dependency management and argument handling. Use whenever the user wants to
+  create, edit, or debug mise tasks, wire up task dependencies with depends/depends_post,
+  or run workflows via 'mise run'. Also use when setting up task runners or automating
+  build pipelines through mise. Do NOT use for mise environment variable configuration
+  (use mise-configuration instead) or for general shell scripting unrelated to mise.
 allowed-tools: Read, Bash, Glob, Grep, Edit, Write
-pipeline-status:
+metadata:
+  pipeline-status:
   - new
 ---
 
@@ -23,7 +29,7 @@ Orchestrate multi-step project workflows using mise `[tasks]` section with depen
 
 **AI Discovery trigger** (prescriptive):
 
-> When `mise-configuration` skill detects multi-step workflows (test suites, build pipelines, migrations), **prescriptively invoke this skill** to generate appropriate `[tasks]` definitions.
+> Use this skill alongside `mise-configuration` only when a real multi-step workflow needs task definitions.
 
 ## Quick Reference
 
@@ -167,7 +173,7 @@ For release-specific anti-patterns and patterns, see [Release Workflow Patterns]
 
 **Prerequisites**: Before defining tasks, ensure `[env]` section is configured.
 
-> **PRESCRIPTIVE**: After defining tasks, invoke **[`mise-configuration` skill](../mise-configuration/SKILL.md)** to ensure [env] SSoT patterns are applied.
+> When the task changes environment or tool configuration, use **[`mise-configuration` skill](../mise-configuration/SKILL.md)** to ensure [env] SSoT patterns are applied.
 
 The `mise-configuration` skill covers:
 

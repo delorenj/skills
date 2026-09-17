@@ -226,3 +226,13 @@ The deployment is complete only when all of these assertions hold:
 If a required deployment skill is absent, repair its Skillex manifest/projection
 and validate `~/.agents/skills/<name>/SKILL.md`. Do not fabricate a placeholder
 or let the deployer mark the step complete after only warning.
+
+## Capability selection versus execution
+
+The PM profile can retain `subagent-driven-development` as an available core
+capability while it is absent from the global default set. Availability does
+not mandate delegation or multiple review passes. Use the canonical skill only
+for explicitly requested or otherwise authorized team work; bounded direct
+implementation remains valid. For template repair, inspect the live resolved
+profile source before changing it. Global-loadout cleanup alone does not
+authorize fleet restarts or rewriting runtime profiles.

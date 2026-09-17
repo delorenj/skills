@@ -1,21 +1,23 @@
 ---
 name: context-optimizer
-description: Advanced context management with auto-compaction and dynamic context optimization for DeepSeek's 64k context window. Features intelligent compaction (merging, summarizing, extracting), query-aware relevance scoring, and hierarchical memory system with context archive. Logs optimization events to chat.
-homepage: https://github.com/clawdbot/clawdbot
+description: Integrate or troubleshoot the bundled context-pruner JavaScript library
+  when explicitly requested. This is an optional application dependency, not an installation
+  of compaction into the current agent host.
 metadata:
   clawdbot:
     emoji: 🧠
     requires:
       bins: []
       npm:
-        - tiktoken
-        - "@xenova/transformers"
+      - tiktoken
+      - '@xenova/transformers'
     install:
-      - id: npm
-        kind: npm
-        label: Install Context Pruner dependencies
-        command: cd ~/.clawdbot/skills/context-pruner && npm install
-pipeline-status: new
+    - id: npm
+      kind: npm
+      label: Install Context Pruner dependencies
+      command: npm install
+  homepage: https://github.com/clawdbot/clawdbot
+  pipeline-status: new
 ---
 
 # Context Pruner
@@ -177,3 +179,11 @@ skills:
 ```
 
 The pruner will automatically monitor context usage and apply appropriate pruning strategies to stay within DeepSeek's 64k limit.
+## Integration proof
+
+Resolve this package from its actual directory, inspect `package.json`, and
+install dependencies only in the requested integration checkout. Run its
+`npm test` and exercise the consuming application path with representative
+messages before claiming host integration. Merely loading this skill changes
+no host compaction behavior. The 64k examples are historical configuration,
+not a current model limit.

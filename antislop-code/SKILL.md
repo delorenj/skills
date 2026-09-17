@@ -7,14 +7,14 @@ allowed-tools: Read Write Edit Glob Grep
 
 > Anti Slop: Rules for AI Coding Agents. Code Comments skill
 
-> Part of the antislop system. Read together with `antislop.md` (the core). This skill filters comments that read as generically AI (decorative, restating the obvious, stiff, loud) while preserving the comments that carry real information. It references core rules by number and never duplicates or renumbers them. Load it when the task writes or edits code comments.
+> Part of the antislop system. Read together with [the shared criteria](../antislop/SKILL.md) (the core). This skill filters comments that read as generically AI (decorative, restating the obvious, stiff, loud) while preserving the comments that carry real information. It references core rules by number and never duplicates or renumbers them. Load it when the task writes or edits code comments.
 
 ## How to use this skill
 
-- Load together with `antislop.md` whenever the task touches code comments. The core holds the mechanism (the purpose test, the three tiers, the Delivery Gate); this skill holds comment-specific depth.
+- Load together with [the shared criteria](../antislop/SKILL.md) whenever the task touches code comments. The core holds the mechanism (the scoped criteria and delivery check); this skill holds comment-specific depth.
 - Every entry has the same shape: **Tell** (the pattern), **Why** (why it reads as slop), **Fix** (what to do instead), with the governing core rule cited as R-XX.
 - **Scope guardrail:** this skill only modifies comments. Never modify executable code, identifiers, imports, formatting, indentation, whitespace, control flow, or logic. When in doubt, leave the code untouched.
-- The Delivery Gate in the core remains the gate. The "Code Comment Checklist" at the end of this file is the comment-specific supplement to run alongside it.
+- The delivery check in the core remains the gate. The "Code Comment Checklist" at the end of this file is the comment-specific supplement to run alongside it.
 
 ## Comments That Add Nothing
 
@@ -106,7 +106,7 @@ A comment earns its place when it explains something the code does not already s
 
 ## Code Comment Checklist
 
-Run these alongside the core Delivery Gate when the task touches comments. All answers must be **yes**:
+Run these alongside the core delivery check when the task touches comments. Apply only the checks relevant to the requested change:
 
 - [ ] Does every comment add information the code does not already show? (R-31)
 - [ ] Do the comments avoid decorative separators, ALL CAPS banners, and box-drawn headers?

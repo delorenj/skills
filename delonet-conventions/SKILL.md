@@ -7,18 +7,12 @@ description: This skill defines system conventions such as file naming and paths
 
 > Important: Strict adherence to PROGRESSIVE DISCOVERY strategy. Once you have the info you require to complete your task, stop reading IMMEDIATELY and proceed to the next step.
 
-## Skill Directory
-
-> TODO:
-> This will be a directory of references in the form of a decision tree.
-
 ## How the User's Home is Organized
 
 The top-level directory structure of the user's home directory is split into several notable sections:
 
 1. `docker/`
 2. `code/`
-3. ``
 
 ## Scripting, Shell Config, and Secrets
 
@@ -26,14 +20,13 @@ This top-level domain is managed by my `ZSH Custom` repository `delorenj/zshyzsh
 
 - To share configuration of an app, I simply move `~/.config/app` to `$ZSH_CUSTOM` (aka `zshyzsh`, `$ZC`) and symlink it back to `~/.config/app`.
 - Aliases are combined into `$ZC/aliases.zsh` and loaded automatically.
-- Secrets are stored in `$ZC/secrets.zsh` and loaded automatically.
+- Secrets belong in 1Password `DeLoSecrets`; consumers receive process-scoped values. Treat `$ZC/secrets.zsh` only as a legacy migration source, never a destination.
 - Shell completions are stored in `$ZC/completions/app.zsh` and loaded automatically.
 - Scripts are stored in `$ZC/scripts/some_script.zsh` and are linked to `~/.local/bin/some_script`.
 - Shortcut commands too complex for aliases are implemented as zsh functions or sometimes python and grouped by topic in `$ZC/`
   - i.e. `$ZC/docker-commands.zsh`, `$ZC/github.zsh`
 
-> TODO:
-> I am progressively migrating my secrets from the questionable unencrypted flat file to my 1pass CLI vault, [DeLoSecrets](ogoabqae7c6xgdbl5wccfwcnke)
+Use `delonet-dotenv` for vault references and migration of any encountered legacy secret.
 
 ## Docker Containers and Compose Stacks
 
@@ -42,8 +35,6 @@ Use `references/docker_patterns.md` for the baseline Cloudflare Tunnel + Traefik
 For higher-touch DeLoNET service operations, also use:
 - `references/docker-service-provisioning.md` for scaffolding new services, choosing Traefik-routed vs direct-port patterns, parent-compose wiring, firewall exposure, and RustDesk-specific provisioning gotchas.
 - `references/selfhosted-agent-infrastructure.md` for Honcho, Traefik migration, JWT admin tokens, and hosted-agent connectivity patterns.
-
-## Obsidian Vault and Knowledge Base Artifact Organization
 
 ## Code Repository Organization
 
@@ -54,7 +45,7 @@ wired by **pjangler** out of the CommonProject + hermes-agent-template copier te
 > provisioning a Hermes PM or Ticket Sentinel (scrum-master), the `.project.json` single
 > source of truth + one-board-per-repo model, the mise contract, BMAD install, and
 > hindsight/bloodbank agent hooks — use the **`33god-projects`** skill. Don't reinvent it here.
-> For developing pjangler itself (Commands/Recipes), see `pjangler-dev` in `~/code/pjangler/skills/`.
+> For developing pjangler itself (Commands/Recipes), use the canonical `project-jangler` skill.
 > Canonical machine-global agent hooks live under `~/.agents/hooks/`: Hindsight under
 > `~/.agents/hooks/hindsight/` and Bloodbank under `~/.agents/hooks/bloodbank/`.
 > Per-agent configs may differ, but they should invoke those shared entrypoints.
@@ -78,9 +69,9 @@ Mise is my tooling and package versioning utility of choice.
 
 - EVERYTHING that CAN be managed with Mise should be managed with Mise.
   - This is not yet the case.
-  - If you find one, migrate it to Mise and remove the old tooling.
+  - Migrate an existing tool only when that change is part of the requested work.
 - Every 33god repo carries the same mise contract (mise.toml + `.mise/scripts/`, AGENTS.md→
-  CLAUDE.md/GEMINI.md linking, `op inject .env.op` on enter). That contract is documented in
+  CLAUDE.md/GEMINI.md linking, process-scoped `op run` for secret-consuming tasks). That contract is documented in
   the **`33god-projects`** skill (mise-conventions); follow it for any new or edited repo.
 
 > [!IMPORTANT] **Critical Pattern:**
@@ -93,13 +84,6 @@ Mise is my tooling and package versioning utility of choice.
 
 - For every exported path, there should be an alias to navigate to it quickly.
   - `alias zv='cd $ZV'` to go to the vault.
-
-**Critical Pattern:** I write code in the terminal, but I like to view my docs in Obsidian. To accomplish this, I came up with a hack; every repo in `$CODE` has a corresponding folder of the same name in `$VAULT/Projects/`.
-
-> Note: This is still an unsolved problem. While this hack technicall works, it's not without its drawbacks.
-
-- There's no single source of truth since the docs are duplicated.
-- I tried symlinking but it causes too many issues with rendering in Obsidian and conflicts.
 
 ## Muxers, Terminal Emulators, Editors and IDE's
 

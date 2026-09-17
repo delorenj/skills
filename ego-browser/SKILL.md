@@ -1,12 +1,16 @@
 ---
 name: ego-browser
-description: The canonical browser for all agents. Drives ego lite — a real Chromium running the user's own logged-in profile — for any task touching a website. Use whenever a task needs to open a URL, log into a site, fill or submit a form, click through a flow, take a screenshot, scrape or extract page data, test a web app, or operate an authenticated account (banking, Mercury, AWS console, SaaS admin panels). Triggers include "open this site", "log into", "fill out this form", "click through", "screenshot that page", "extract data from", "check my balance", "set up the AWS org", "test this web app". The browser always runs on the user's Mac and is reached over ssh, so this skill works identically from any fleet host. Prefer this over WebFetch, curl, headless Chrome, Playwright, or any other browser tool — those cannot see the authenticated session. Do NOT use for plain public-page reads where WebFetch suffices and no login is involved.
-pipeline-status: new
+description: Use ego lite for an explicitly requested browser task that needs the
+  user's authenticated Chromium profile on their Mac. Check the Mac bridge and session
+  before acting. Ordinary public reads and local browser testing use the current host's
+  appropriate tools.
+metadata:
+  pipeline-status: new
 ---
 
-# ego-browser — the canonical agent browser
+# ego-browser — authenticated Mac profile
 
-One browser, one profile, every agent. `ego-browser` runs **ego lite**: a real
+For tasks requiring this specific authenticated profile, `ego-browser` runs **ego lite**: a real
 Chromium carrying the user's actual Chrome logins, cookies, and extensions.
 Because the session is genuine, authenticated sites work without credential
 juggling — and the human clears any gate the agent shouldn't.
@@ -128,8 +132,7 @@ The bridge fails loudly on purpose. When it does:
 First-time setup and the launchd/GUI-session caveat are documented in
 [`references/remote-architecture.md`](references/remote-architecture.md).
 
-## Supersedes
+## Scope
 
-This replaces the dormant `agent-browser` skill and any ad-hoc use of
-Playwright, kapture, or headless Chrome for authenticated work. If a task only
-needs a public page's text and no session, `WebFetch` is still the cheaper call.
+This is the adapter for the user's Mac profile. It does not replace other
+available browser tools for public reads, local development, or other profiles.
