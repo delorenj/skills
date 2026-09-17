@@ -25,6 +25,10 @@ px backlog create "<title>"     # add to the backlog
 px task list                    # every issue, no state filter
 px task create "<title>" --state "In Progress"
 
+px claim <ref>                  # take a ticket: In Progress, assigned,
+                                # labelled agent:working
+px close <ref> [-m MSG]         # finish it: Done, marker removed
+
 px idea "<text>"                # file an idea about px itself
 px idea list                    # read the idea box
 
@@ -42,6 +46,17 @@ don't exist), `--state NAME`, `-w/--workspace`, `-b/--board`, `--from NAME`.
 `todo` and `backlog` are presets over the same `task` primitive — they differ
 only in which state a new issue lands in. There is one code path, so the
 shortcuts cannot drift from the thing they wrap.
+
+## Claiming work
+
+If you are going to work a ticket, claim it: `px claim PX-3`. That marks it In
+Progress, assigns it to the key's owner, and adds `agent:working`. Close it with
+`px close PX-3 -m "what you did"`, which removes the marker.
+
+Why it matters for agents specifically: `agent:working` is how a human tells
+"an agent is on this" from "nobody has touched this". An agent that dies
+mid-task leaves the marker behind, which is the signal. Refs accept `PX-3`, `3`,
+or a raw uuid. Assignment is a union, so you never unassign a teammate.
 
 ## Where the board comes from
 
