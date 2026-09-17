@@ -2,6 +2,7 @@
 name: skill-maintenance
 description: Skeptically audit and, when requested, prune or repair an agent skill loadout and its global instructions. Use for conflicting policies, duplicate discovery, stale dependencies, broad triggers, and skill cleanup; not as a prerequisite for ordinary tasks.
 ---
+
 # Skill maintenance
 
 Optimize for correct task behavior and one maintained owner per procedure.
