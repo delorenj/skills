@@ -16,6 +16,9 @@ Record Git baselines and existing WIP in every affected source/parent repository
 Resolve skill symlinks before editing; never confuse activation with byte ownership.
 Inspect interrupted work before restarting. Preserve host-owned system packages.
 
+For AGENTS.md cleanup, use the [global instruction workflow](references/global-instructions.md)
+to map every section to its owner before cutting it.
+
 ## Inventory and cross-examine
 
 Run `python3 <skill-dir>/scripts/audit.py --root <activation-root>` (requires
