@@ -5,7 +5,9 @@
 # listed there with a fresh lastPing and fails every command. So probe each tab with a
 # real content-script round trip.
 #
-# Read-only: it lists tabs and runs one `elements?selector=title` per tab. Nothing mutates.
+# Near-read-only: it lists tabs and runs one `elements?selector=title` per tab. No navigation,
+# click, input or focus change - but an `elements` query DOES stamp id="kapture-N" on the matched
+# element when it has none, including in the user's own tabs.
 #
 # Exit: 0 at least one live tab · 2 server up, no tabs · 3 tabs listed, all zombie
 #       1 server down · 4 missing dependency

@@ -37,7 +37,7 @@ and rejects; the extension keeps going, and its late answer is dropped with
 
 Re-read state before retrying anything that mutates, or you will double-submit the form.
 
-Per-tool budgets: everything is 5000 ms unless the tool takes a `timeout`. `navigate`
+Per-tool budgets: everything is 5000 ms unless the caller *passes* a `timeout` — a declared default in `tools.yaml` does not count (it never reaches the server). `navigate`
 advertises 30000 but the extension's own wait for the content script is a hardcoded 5000,
 so a slow page fails at ~5s regardless — let it fail, then poll `tab_detail`/`elements`
 until the URL settles. `reload` races the server's 5000 against the extension's 5000,

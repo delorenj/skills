@@ -37,9 +37,17 @@ Base is `http://127.0.0.1:61822`. A request with no `Origin` header is always al
 `watch_console` has **no** HTTP route at all. Reach it as the final line of a `compose`
 script, or poll `/console`.
 
-Status codes are coarse: only a message containing "not found" becomes 404, schema
-failures are 400, and everything else — including a compose parse error — is 500. Parse
-the JSON body; do not branch on the status.
+Status codes are coarse, and they differ by route family. On `POST /tab/{id}/{command}`,
+`POST /tabs` and `DELETE /tab/{id}`: only a message containing "not found" becomes 404, schema
+failures are 400, everything else — including a compose parse error — is 500.
+
+On the **GET** resource endpoints the mapping is different and worse: a missing tab is 404, a
+schema failure is 500 (not 400), and a failed *command* comes back **200 with an `error` object
+in the body** — verified, `GET /tab/{zombie}/elements` returns 200 and
+`{"error":{"message":"Could not establish connection..."}}`.
+
+Parse the JSON body; never branch on the status, and **never use `curl -f` on a read** — it
+turns some of those 200s into an empty string and not others.
 
 ## Every tool, by job
 
@@ -59,7 +67,7 @@ acts on the **first** match only, echoing back the unique selector it actually u
 ### Move
 | Tool | Args |
 |---|---|
-| `navigate` | **`url`** (http/https only), `timeout` (default 30000 — but the extension's internal wait is a hardcoded 5000, so this only buys the server patience) |
+| `navigate` | **`url`** (http/https only), `timeout` — the advertised 30000 default never applies either, so the server also gives up at 5000 unless you pass one. The extension's own wait for the content script is a hardcoded 5000 regardless, so a longer `timeout` only buys patience to receive the extension's error |
 | `back` / `forward` / `reload` | — |
 | `scroll` | selector alone = scrollIntoView centred · `x`/`y` alone = absolute document scroll (a missing axis keeps the current offset) · selector **plus** coords = scroll *inside* that element, returning `elementScroll` |
 
@@ -69,7 +77,7 @@ acts on the **first** match only, echoing back the unique selector it actually u
 | `elements` | selector/xpath, `visible` (`"true"`/`"false"`/`"all"`, default `all`) |
 | `dom` | selector/xpath (first match; omit for `body`) |
 | `elementsFromPoint` | **`x`**, **`y`** — returns the `<iframe>` element, never its contents |
-| `screenshot` | selector/xpath, `scale` 0.1–1.0 (default 0.3), `format` webp/jpeg/png (default webp), `quality` 0.1–1.0 (default 0.85) |
+| `screenshot` | selector/xpath, `scale` 0.1–1.0, `format` webp/jpeg/png, `quality` 0.1–1.0 — **the schema defaults are decoration** (see below); the extension's own `scale` 0.5 / `quality` 0.5 / `format` webp apply. Pass what you want explicitly |
 | `console_logs` | `limit` (default 100), `level`, `before` (timestamp, for paging). Returns `{logs, hasMore, totalCount}`, **newest first** |
 | `watch_console` | **`timeout`** 1000–60000 — collects live for that window, returns **chronological** |
 
@@ -158,6 +166,15 @@ curl -s -X POST "$K/tab/$T/compose" -d '{"script":"elements?selector=h1&visible=
 Remember what it means: `visible: true` requires the element to be rendered **and inside
 the current viewport**. Something below the fold is `false`. Scroll to it first, or read
 `bounds` yourself.
+
+## No `default:` in tools.yaml is ever applied
+
+`yaml-loader.ts` builds each optional property as `.default(x).optional()`, and zod's optional
+wrapper resolves an absent key to `undefined` without ever consulting the inner default. So the
+value that actually applies is whatever the *receiving* function falls back to. They happen to
+agree for `console_logs.limit` (100), `network_requests.limit` (50), `network_body.maxBytes`
+(65536) and `keypress.delay` (50); they disagree for `screenshot.scale`/`quality` (0.5/0.5, not
+0.3/0.85) and `navigate.timeout` (5000, not 30000). Pass anything that matters explicitly.
 
 ## Schema enforcement is uneven
 

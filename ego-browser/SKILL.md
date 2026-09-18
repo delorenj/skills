@@ -2,8 +2,8 @@
 name: ego-browser
 description: Use ego lite for an explicitly requested browser task that needs the
   user's authenticated Chromium profile on their Mac. Check the Mac bridge and session
-  before acting. Ordinary public reads and any web page in the browser on
-  this Linux host go to kapture.
+  before acting. Any web page in the browser on this Linux host goes
+  to kapture, authenticated or not; a public page that needs no session needs no browser.
 metadata:
   pipeline-status: new
 ---
