@@ -106,6 +106,7 @@ Mise is my tooling and package versioning utility of choice.
 - **[Traefik](~/docker/core/traefik)** as reverse proxy for service routing and SSL
 - **Proxy network** (`proxy`) for inter-service communication
 - **Direct container routing** for simple services, **Traefik routing** for complex multi-domain apps
+- **Parental Controls & Content Filtering**: Two-layer enforcement via Netgear RS700 router Access Control (`DeviceConfig:1` SOAP MAC blocking via `~/docker/scripts/chase-tv.sh`) and AdGuard Home DNS (`192.168.1.12:53` / `100.66.29.76:53`) with per-client and global blocked services. See `delonet-parental-controls` skill.
 
 See `references/docker_patterns.md` for Cloudflare Tunnel + Traefik setup.
 

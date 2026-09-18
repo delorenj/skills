@@ -9,7 +9,7 @@ delohome displays list-displays                 # protocol + paired state per pa
 delohome displays display-status bedroom
 ```
 
-## The four panels
+## The five panels
 
 | Panel | Room | Model | Protocol | State |
 |---|---|---|---|---|
@@ -17,6 +17,7 @@ delohome displays display-status bedroom
 | `lg_office` | office | OLED48CXPUB (CX 48" OLED, fw 5.6.2) | `lg_webos` | **paired, live** |
 | `lg_ava` | ava | 43UP8000PUA (fw 6.5.3) | `lg_webos` | not paired |
 | `firetv_living` | living_room | Hisense Fire TV (AFTHA001) | `firetv_adb` | **authorized, live** |
+| `androidtv_chase` | chase | Android TV / Cast v3.72 | `cast_androidtv` | **live** (access-controlled) |
 
 Pairing procedures are in [setup.md](./setup.md).
 
@@ -125,6 +126,15 @@ Amazon-wrapped `com.amazon.spotify.mediabrowserservice`, not `com.spotify.tv.and
 **Prime Video has no package at all on this device.** It is served through the launcher
 rather than as an app, so there is deliberately no `prime` entry; adding one would produce
 a launch that silently does nothing.
+
+## Android TV (Chase's room)
+
+An Android TV panel with Chromecast built-in (Cast revision 3.72) and Android TV Remote v2 (tcp 6466/6467). At `192.168.1.29` (MAC `38:c8:04:51:08:41`).
+
+**Access & Parental Control:**
+- Managed via Netgear RS700 router Access Control at `192.168.1.1` (`~/docker/scripts/chase-tv.sh [status|block|allow]`).
+- AdGuard Home (`192.168.1.12:53`) tracks its LAN IP (`192.168.1.29`), MAC, and mDNS name (`android-3`) with active blocked services (`youtube`, `roblox`).
+- **Gotcha**: Tailscale node `chase-tv` (`100.82.60.86`) was offline for 678 days; the device operates primarily via local Wi-Fi. If DNS blocking fails due to hardcoded Google DNS (`8.8.8.8`), toggle the router hardware block. See `delonet-parental-controls` skill for details.
 
 ## Two surfaces, one screen
 
