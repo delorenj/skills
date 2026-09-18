@@ -5,8 +5,10 @@ description: >-
   through accessibility trees, screenshots, and safe UI actions. Use for
   desktop app interaction: list apps/windows, get app state, read visible UI,
   click controls, type, press keys, scroll, drag, set values, or perform
-  accessibility actions. Also use for browser windows, webviews, Orca app UI,
-  or other desktop UI. Triggers include "computer use", "orca computer", "read
+  accessibility actions. Also use for webviews, Orca app UI, other desktop UI,
+  and a browser's own window chrome (tab strip, address bar, profile switcher,
+  native file and print dialogs) - but for content inside a web page, use
+  kapture. Triggers include "computer use", "orca computer", "read
   Spotify", "read Slack", "control/click/read in a desktop app", and "get app
   state".
 ---

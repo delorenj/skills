@@ -9,9 +9,9 @@ description: >-
   "give this to another agent", "another worktree", "Orca browser", "orca artifacts",
   "share HTML/Markdown", "public artifact link", or "control the browser inside
   Orca". Prefer this over raw `git worktree`, ad hoc
-  PTYs, Playwright, or Computer Use when the task touches Orca-managed state.
-  Use Computer Use for browser windows, webviews, or desktop UI outside Orca's
-  embedded browser.
+  PTYs, Playwright, or Computer Use when the task touches Orca-managed state; for
+  a web page outside Orca's embedded browser, use kapture, and Computer Use for
+  webviews or other desktop UI.
 ---
 
 # Orca CLI
