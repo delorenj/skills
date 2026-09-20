@@ -77,6 +77,6 @@ Re-run `scripts/sweep.sh`; diff the new report against the Phase 0 report (anoma
 ## Out of Scope
 
 - **Application debugging** of one project's code or tests — use that project's tooling/skills.
-- **Provisioning** new stacks, services, hermes agents, or DNS/tunnel routes — use `delonet-conventions` / `33god-projects`.
+- **Provisioning** new stacks, services, or DNS/tunnel routes — use `delonet-conventions` / `33god-projects`. Hiring, onboarding or auditing a Hermes agent — use `agent-fleet-operations`.
 - **Hardware/BIOS/GPU driver work** — manual.
 - **Other hosts** — the map and baselines are big-chungus-specific; for another machine, gather facts fresh and fork the map.

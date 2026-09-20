@@ -4,38 +4,43 @@ pipeline-status:
 ---
 # Hermes project agent request
 
-When a 33god project asks for a Hermes agent, the project side owns only the request and the repo-local projection. The actual fleet/runtime mechanics live in `agent-fleet-operations`.
+When a 33god project asks for a Hermes agent, the project side owns only the
+request and the repo-local projection. The command is `flume hire <title>`, and
+the fleet/runtime mechanics behind it live in `agent-fleet-operations`.
 
 ## What the project side provides
 
 - A repo with valid `.project.json` bytes and a Plane `ticket_provider` whose
   state is `linked` and whose identifier/board id resolve live. Do not persist
   `ticket_provider.board_url`.
-- A target role: `pm` (the unified single-PM model — the retired scrum-master's
-  sentinel duties run on the PM heartbeat, so there is no companion to request).
+- A job title: `pm` for the standard project deployment, and it is the default
+  argument — `flume hire` and `flume hire pm` are the same request.
 - A request that the agent bind to the repo's **one** board — no role-suffixed boards.
 
-## What pjangler writes
+## What Flume writes
 
-- `agents/hermes/<role>/` from the vendored `templates/hermes-agent` submodule.
-- A real `~/.hermes/profiles/<repo>-<role>/` directory with identity metadata,
+- `agents/hermes/<title>/` from Flume's own version-locked
+  `templates/hermes-agent` submodule.
+- A real `~/.hermes/profiles/<repo>-<title>/` directory with identity metadata,
   an explicit Hindsight bank pin, a generated `config.yaml`, and a real
-  override-only `config.delta.yaml` (typically only `terminal.cwd`).
-- Ignored repo-local `agents/hermes/<role>/runtime/` state. It is neither the
+  override-only `config.delta.yaml`.
+- Ignored repo-local `agents/hermes/<title>/runtime/` state. It is neither the
   profile target nor a nested Git repository; explicit owned-state links are
   the only bridge to the named profile.
-- The gateway unit plus heartbeat timer/service. If no channel credential is
-  supplied, the gateway is explicitly deferred, disabled, and inactive; the
-  independently healthy heartbeat remains enabled. The profile delta must
-  explicitly set both `platforms.telegram.enabled` and
-  `platforms.slack.enabled` false until ownership of the corresponding
+- Exactly one systemd unit, `hermes-<agent-id>-gateway.service`. If no channel
+  credential is supplied the gateway is explicitly deferred, disabled, and
+  inactive, and the profile delta must set both `platforms.telegram.enabled`
+  and `platforms.slack.enabled` false until ownership of the corresponding
   dedicated credential is verified.
-- The immutable required skill core: `33god-projects`, `delonet-conventions`,
-  `delonet-dotenv`, `hermes-pm-template-maintenance`, `hindsight`, and
-  `subagent-driven-development`. Optional configuration may only add skills.
+- The org-chart row in `~/.hermes/agents-registry.yaml`. That row is the record;
+  `.project.json.agents` is its projection, and `pj init` only carries it
+  forward.
+- The skill core pinned by `fleet.symlinked_runtime_skills` in
+  `~/.config/hermes-agent-template/config.toml`. Read the pin rather than
+  trusting a list in a document; configuration may append but never subtract.
 
 If the expected named profile is a legacy symlink, or `.project.json` is
-malformed, provisioning aborts before any mutation. The fleet runbook owns the
+malformed, hiring aborts before any mutation. The fleet runbook owns the
 sealing and migration procedure.
 
 ## What the project side does NOT do
@@ -45,6 +50,9 @@ sealing and migration procedure.
 - Backfill existing agents after a template change.
 - Repair systemd units or the shared Hermes checkout.
 - Modify or restart `hermes-fleet-bloodbank-gateway.service`.
+- Remove an agent's record. `pj project identity` reports an abandoned agent and
+  names the command; `flume offboard <employee>` is what deletes the row, and it
+  is a dry run until `--apply`.
 
 For those, and for the required pre/post/convergence proof, route to
 `agent-fleet-operations` `references/pm-deployment.md`.

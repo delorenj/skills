@@ -119,6 +119,21 @@ Strengths/Issues(Critical/Important/Minor)/Assessment into evidence. On issues: 
 implementer fixes → fresh quality reviewer re-reviews. Loop to approved. Then the card is
 `done`.
 
+**Pitfall — long-form reviewers dying before the report lands (observed twice
+2026-09-12, deepseek-v4-flash on Hermes subagents):** a reviewer that does
+exhaustive verification first and composes the report as one giant final message
+can exhaust its iteration/output budget with all checks green and nothing on
+disk. Brief every review worker with durable-output discipline: (1) write report
+skeleton files (verdict `TBD`) as the FIRST action; (2) write the machine-readable
+verdict twin before the long-form fill; (3) fill the markdown in ≤40-line patches,
+never one whole-file regeneration; (4) final message ≤200 words. If a worker still
+dies mid-review, its delegation transcript
+(`~/.hermes/profiles/<profile>/cache/delegation/live/<deleg>/task-N.log`) is a
+valid evidence base: dispatch a fresh transcript-evidence reviewer that reads the
+trail, re-runs 3-4 load-bearing spot checks, owns the verdict (HOLD on any
+contradiction), and writes with the same skeleton-first discipline. Never let the
+PM author the verdict itself.
+
 ## Reviewer-independence mechanism (how the gate stays honest)
 
 1. Implementer, spec-reviewer, and quality-reviewer are **three separate spawns** — never

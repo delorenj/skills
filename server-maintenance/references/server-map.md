@@ -16,7 +16,7 @@ Check ALL of these when hunting an actor; `srvls` covers them in one shot.
 2. **Root crontab** (`sudo crontab -l`) — **cleared 2026-06-10. ANY entry reappearing here is suspect.**
 3. `/etc/crontab` + `/etc/cron.d/`.
 4. **System systemd**: ~65 services, 19 timers.
-5. **User systemd** at `~/.config/systemd/user`: ~130 units, including the **hermes fleet**: `hermes-<repo>-<role>-{gateway,consumer,checkpoint}` units. These pin **absolute repo paths** and break when repos move; the registry at `~/.hermes/agents-registry.yaml` must stay in sync with the unit files.
+5. **User systemd** at `~/.config/systemd/user`: ~150 units, including the **hermes fleet**: one `hermes-<repo>-<role>-gateway.service` per agent plus the fleet-shared `hermes-fleet-bloodbank-gateway.service`. These pin **absolute repo paths** and break when repos move; the registry at `~/.hermes/agents-registry.yaml` must stay in sync with the unit files. Any `hermes-*-consumer`/`-checkpoint`/`-heartbeat` unit is a retired shape and a leftover — `flume review` reports it as unregistered.
 6. **Docker**: ~46 compose projects, ~120 running containers.
 7. **pm2**: n8n only.
 
@@ -68,10 +68,9 @@ If these files are missing or values differ, that is an anomaly.
 ## Known-disabled units awaiting human action (NOT anomalies unless state changed)
 
 - **openclaw-gateway**: Telegram token 401 → openclaw bug crashes the gateway → 150%-CPU restart loop. Needs a new token from 1Password DeLoSecrets before re-enabling.
-- **hermes-delodocs-pm-checkpoint** + delodocs wiki curator timers: the delodocs PM was never fully provisioned — fix via pjangler re-provision, not by poking the units.
 - **intelliforia-demo-snapshot**: its mise task is gone.
 - **whisper-server stack**: stopped (idle since Feb). Compose kept at `~/docker/core/whisper-server`, models at `~/whisper-models`.
-- **keepy-money PM (hermes)**: **MIGRATED tiller→KeepyMoney 2026-07-07** (out-of-band). The repo moved `~/code/tiller` → `~/code/KeepyMoney`; on 07-07 the unit files, profile symlink, and registry `project_path` were repointed to KeepyMoney (`.bak-tiller-*` backups kept), and `bloodbank-consumer.py` + `.env` are now present there. Gateway healthy. **Consumer + checkpoint.timer remain `disabled`** from the 07-04 emergency stop (consumer had crash-looped 14k× on the old tiller path because the download failed). Consumer verified to run clean now; completing the migration = re-enable those two units. `~/code/tiller` is the abandoned husk.
+- **keepy-money PM (hermes)**: **MIGRATED tiller→KeepyMoney 2026-07-07** (out-of-band). The repo moved `~/code/tiller` → `~/code/KeepyMoney`; the unit files, profile symlink, and registry `project_path` were repointed to KeepyMoney (`.bak-tiller-*` backups kept). Migration complete: the gateway is the only unit and it is active. `~/code/tiller` is the abandoned husk.
 - **vexa transcription-service stack**: **removed 2026-07-04** (`docker rm -f transcription-lb/-worker-1/-worker-2`). Workers were `Exited(255)` for 2 days; the nginx LB flap-looped 3047× on unresolvable upstream. Compose at `~/code/vexa/services/transcription-service/docker-compose.yml`; `docker compose up -d` to revive when vexa is worked on again.
 
 ## Known recurring issues (band-aided, need real fixes)

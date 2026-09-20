@@ -119,9 +119,9 @@ beyond a binding repair still goes through a delegated worker.
 
 - `<role_dir>/runtime/continuous-ticket-sentinel-state.json` — machine-readable feed:
   `status` (idle|checking|active|blocked|stalled|error), `active_issue`, `session`,
-  `worktree`, `last_heartbeat_at`. **May be absent** when reconcile is disabled
-  (`role.yaml` has no `reconcile: {enabled: true}` block) — then Hermes only checkpoints.
-- Tail `<role_dir>/runtime/logs/heartbeat.log` and read `<role_dir>/runtime/memories/MEMORY.md`
+  `worktree`, `last_heartbeat_at`. **Normally absent**: it is written only where
+  `role.yaml` carries a `reconcile: {enabled: true}` block, and no repo has it on today.
+- Tail `<role_dir>/runtime/logs/agent.log` and read `<role_dir>/runtime/memories/MEMORY.md`
   ("Recent context") for Hermes' mental model.
 - Honor **WIP=1**: if Hermes shows an active worker, do not start a second. If you take a
   ticket, you own the WIP slot until it clears.

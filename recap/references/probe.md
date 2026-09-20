@@ -92,10 +92,10 @@ it didn't. Pair it with a probe; never ship it alone.
 ## Turning a probe into a card
 
 ```
-headline    Fleet status now reports real systemd health per agent
-invocation  pjangler fleet status --domain systemd
+headline    The workforce review now reports real systemd health per agent
+invocation  flume review --domain systemd
 before      The systemd domain answered `unsupported` for every agent.
-evidence    47842aa · contracts/fleet-contract.yaml (schema 4→5)
+evidence    47842aa · contracts/handbook.yaml (schema 4→5)
 ```
 
 The `before` line comes from the probe, so it is a fact rather than a recollection.

@@ -73,10 +73,10 @@ subscribes once to `bloodbank.cmd.agent.invocation.start` and routes
 `data.target_agent_id` → the agent's Hermes profile via the fleet registry.
 `60-bloodbank.sh` is a compatibility checkpoint only — it installs no files or
 services. A `bloodbank-consumer.py` or `hermes-<agent>-consumer.service`
-sighting is drift (`pj migrate hermes.registry-parity` removes it).
+sighting is drift (`flume remediate hermes.registry-parity` removes it).
 
-**Emit:** agents publish through the envelope helper. The PM's sentinel pass
-emits via `.scripts/sentinel/bin/emit-event.py`; producer identity is
+**Emit:** agents publish through the envelope helper. The sentinel pass emits
+via `.scripts/sentinel/bin/emit-event.py`; producer identity is
 `hermes-agent:<agent_id>`.
 
 **Subject scheme:**

@@ -1,6 +1,6 @@
 ---
 name: 33god-hub
-description: Unified entrypoint for the private 33GOD productized development environment. Use when work spans Plane/n8n ingress, Bloodbank events or commands, Candystore, Holocene, PJangler, Hermes Fleet, Skillex, Hindsight, Pipeline MCP Hub, Candybar, HeyMa, hooks, changelogs, backfills, or local/cloud platform composition, especially when tracing a message end-to-end.
+description: Unified entrypoint for the private 33GOD productized development environment. Use when work spans Plane/n8n ingress, Bloodbank events or commands, Candystore, Holocene, PJangler, Flume, Hermes Fleet, Skillex, Hindsight, Pipeline MCP Hub, Candybar, HeyMa, hooks, changelogs, backfills, or local/cloud platform composition, especially when tracing a message end-to-end.
 ---
 
 # 33GOD Hub
@@ -22,7 +22,8 @@ changelog, skill routing, and backfill coordination.
 | Event schemas, NATS/Dapr, agent lifecycle events | Bloodbank |
 | Durable event history, sessions, event summaries | Candystore |
 | Dashboard, live status, tool health | Holocene |
-| Project/agent provisioning, project registry | PJangler |
+| Project bootstrap, CommonProject, project registry | PJangler |
+| Hiring, onboarding and reviewing agents; the org chart | Flume |
 | PM planning, delegation and reviewed closeout | Momo shared skill |
 | Managed ticket attempts, leases, questions, evidence and recovery | Krebs execution authority |
 | Authenticated Plane CLI and provider operations | Pilot (`px`) |
@@ -57,8 +58,10 @@ matching one rather than re-deriving its decisions here.
   `https://n8n.delo.sh/webhook/plane`; raw-body HMAC and `webhook_id` select the
   per-webhook 1Password secret before provider-neutral publication. The
   `automaticai` workspace is a tenant slug, not another infrastructure owner.
-- **Identity is declared, not guessed.** `.project.json` → PJangler → the shared
-  Hermes registry supplies board-to-repo and agent-to-profile routing.
+- **Identity is declared, not guessed.** `.project.json` → PJangler supplies
+  board-to-repo identity; the org chart Flume writes into the shared Hermes
+  registry supplies agent-to-profile routing. `pj project identity --apply` is
+  the one cross-store write that joins them.
 
 Managed ticket execution uses `px` → `bb call` → Krebs → Pilot's internal
 provider adapter. A command receipt follows durable intent and provider readback;

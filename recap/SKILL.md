@@ -28,7 +28,7 @@ comprehensive, and nowhere at all does it let me know what I can do now that I c
 human — I can't remember the story numbers for the thirty projects I'm working on."*
 
 So a recap leads with **capabilities in the user's own vocabulary, each with the literal thing to run**,
-and treats commits as evidence in a footnote. `pjangler fleet status --domain systemd now reports five
+and treats commits as evidence in a footnote. `flume review --domain systemd now reports five
 observations per agent where it used to say unsupported` is a recap sentence. `Story 1.8 closed` is not.
 
 ## Run it out of band

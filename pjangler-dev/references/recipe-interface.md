@@ -12,43 +12,30 @@ export interface AddIngredient<T extends Command = Command> {
 
 ## Base Recipe Class
 
-```typescript
-export abstract class Recipe {
-  protected context: CommandContext;
-  protected ingredients: Command[] = [];
+Four members are abstract. A recipe that supplies fewer does not compile.
 
-  constructor(context: CommandContext) {
-    this.context = context;
-  }
+```typescript
+export abstract class Recipe<TInput = unknown> implements LifecycleRecipe<TInput> {
+  abstract readonly metadata: RecipeMetadata;      // id, name, description, dependencies, commands, publicRuleIds
+  abstract readonly checks: readonly RecipeCheck[]; // parity rules this recipe owns; [] is legitimate
+  abstract init(ctx: LifecycleContext, input: TInput): Promise<RecipeInitResult>;
+  protected abstract printNextSteps(): void;
 
   addIngredient<T extends Command>(CommandClass: AddIngredient<T>): this {
     this.ingredients.push(new CommandClass(this.context));
     return this;
   }
 
-  async execute(): Promise<void> {
-    console.log(`🚀 Initializing ${this.constructor.name.replace('Recipe', '').toLowerCase()} subsystem...`);
-
-    for (const command of this.ingredients) {
-      const result = await command.invoke();
-
-      if (result.success) {
-        console.log(result.message);
-      } else {
-        console.log(result.message);
-      }
-    }
-
-    this.printNextSteps();
-  }
-
-  protected abstract printNextSteps(): void;
+  /** The default `init` body: invoke every ingredient in order. */
+  protected async invokeIngredients(ctx: LifecycleContext): Promise<RecipeInitResult> { /* … */ }
 }
 ```
 
-## Complete Examples
+`execute()` is the compatibility wrapper that prints the banner and calls
+`printNextSteps()` after a non-dry-run success; the lifecycle registry calls
+`init`, `audit` and `migrate` directly.
 
-### Basic Recipe
+## Complete Example
 
 ```typescript
 import { Recipe } from "./Recipe";
@@ -56,14 +43,29 @@ import { AddDockerfile } from "../commands/AddDockerfile";
 import { AddDockerCompose } from "../commands/AddDockerCompose";
 import { AddDockerignore } from "../commands/AddDockerignore";
 import type { CommandContext } from "../commands/Command";
+import type { LifecycleContext, RecipeCheck, RecipeInitResult, RecipeMetadata } from "./types";
 
 export class DockerRecipe extends Recipe {
-  constructor(context: CommandContext) {
+  readonly checks: readonly RecipeCheck[] = [];
+  readonly metadata: RecipeMetadata = {
+    id: "docker",
+    name: "docker",
+    description: "Docker containerization setup",
+    dependencies: [],
+    commands: ["AddDockerfile", "AddDockerCompose", "AddDockerignore"],
+    publicRuleIds: [],
+  };
+
+  constructor(context?: CommandContext) {
     super(context);
     this
       .addIngredient(AddDockerfile)
       .addIngredient(AddDockerCompose)
       .addIngredient(AddDockerignore);
+  }
+
+  override init(ctx: LifecycleContext, _input: unknown): Promise<RecipeInitResult> {
+    return this.invokeIngredients(ctx);
   }
 
   protected printNextSteps(): void {
@@ -75,88 +77,29 @@ export class DockerRecipe extends Recipe {
 }
 ```
 
-### Recipe with Multiple Command Sources
+The catalog in `src/recipes/catalog.ts` names every production recipe; read the
+one closest to what you are building rather than a paraphrase of it.
+`ProjectRecipe` is the transactional outlier — it composes the other recipes and
+turns a failed postcondition into a rollback — so do not copy its shape for a
+plain subsystem.
+
+## Registering a Recipe
+
+Add the instance to the catalog, `src/recipes/catalog.ts`:
 
 ```typescript
-import { Recipe } from "./Recipe";
-import { AddPackageJson, AddReadme, AddSrcDirectory } from "../commands/NodeCommands";
-import { AddGitignore } from "../commands/AddGitignore";
-import type { CommandContext } from "../commands/Command";
+import { NewRecipe } from "./NewRecipe";
 
-export class NodeRecipe extends Recipe {
-  constructor(context: CommandContext) {
-    super(context);
-    this
-      .addIngredient(AddPackageJson)
-      .addIngredient(AddReadme)
-      .addIngredient(AddSrcDirectory)
-      .addIngredient(AddGitignore);
-  }
-
-  protected printNextSteps(): void {
-    console.log("🎉 Node.js project initialized successfully!");
-    console.log("   Next steps:");
-    console.log("   1. bun install");
-    console.log("   2. bun run dev");
-  }
-}
+export const recipeRegistry = new RecipeRegistry([
+  …,
+  new NewRecipe(),
+]);
 ```
 
-### Recipe with Extensive Setup
-
-```typescript
-import { Recipe } from "./Recipe";
-import { AddMiseToml } from "../commands/AddMiseToml";
-import { AddDotenv } from "../commands/AddDotenv";
-import { AddMiseTasksStructure } from "../commands/AddMiseTasksStructure";
-import { AddMiseBaseToml } from "../commands/AddMiseBaseToml";
-import { AddMiseBaseScript } from "../commands/AddMiseBaseScript";
-import type { CommandContext } from "../commands/Command";
-
-export class MiseRecipe extends Recipe {
-  constructor(context: CommandContext) {
-    super(context);
-    this
-      .addIngredient(AddMiseToml)
-      .addIngredient(AddDotenv)
-      .addIngredient(AddMiseTasksStructure)
-      .addIngredient(AddMiseBaseToml)
-      .addIngredient(AddMiseBaseScript);
-  }
-
-  protected printNextSteps(): void {
-    console.log("🎉 Mise subsystem initialized successfully!");
-    console.log("   Next steps:");
-    console.log("   1. mise install");
-    console.log("   2. mise run dev");
-  }
-}
-```
-
-## Registering a Recipe in CLI
-
-Add to `src/index.ts`:
-
-```typescript
-import { NewRecipe } from "./recipes/NewRecipe";
-
-// In the init command switch statement:
-case "new":
-  const newRecipe = new NewRecipe(context);
-  await newRecipe.execute();
-  break;
-
-// Update the list command to include it:
-program
-  .command("list")
-  .action(() => {
-    console.log("Available subsystems:");
-    console.log("  mise    - Mise task runner and environment setup");
-    console.log("  docker  - Docker containerization setup");
-    console.log("  node    - Node.js project template");
-    console.log("  new     - New subsystem description");  // Add here
-  });
-```
+`pj add <id>` resolves through `recipeRegistry`, so that one line is the whole
+registration; `src/index.ts` has no per-recipe branch. To also list the
+subsystem in `pj subsystems` and in the "Available:" hint, add its id to
+`LEGACY_PUBLIC_RECIPE_IDS` in `src/utils/registry.ts`.
 
 ## Recipe Design Patterns
 

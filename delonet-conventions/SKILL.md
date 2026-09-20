@@ -39,12 +39,13 @@ For higher-touch DeLoNET service operations, also use:
 ## Code Repository Organization
 
 All repos live in `$CODE` (`~/code`). New repos are not hand-rolled — they are created and
-wired by **pjangler** out of the CommonProject + hermes-agent-template copier templates.
+wired by **pjangler** out of the CommonProject copier template.
 
-> For anything about CREATING a 33god/DeLoNET project — bootstrapping CommonProject,
-> provisioning a Hermes PM or Ticket Sentinel (scrum-master), the `.project.json` single
-> source of truth + one-board-per-repo model, the mise contract, BMAD install, and
-> hindsight/bloodbank agent hooks — use the **`33god-projects`** skill. Don't reinvent it here.
+> For anything about CREATING a 33god/DeLoNET project — bootstrapping CommonProject, the
+> `.project.json` single source of truth + one-board-per-repo model, the mise contract,
+> BMAD install, and hindsight/bloodbank agent hooks — use the **`33god-projects`** skill.
+> Don't reinvent it here. Hiring the repo's Hermes PM is **Flume**'s job (`flume hire`) —
+> use the **`agent-fleet-operations`** skill for that.
 > For developing pjangler itself (Commands/Recipes), use the canonical `project-jangler` skill.
 > Canonical machine-global agent hooks live under `~/.agents/hooks/`: Hindsight under
 > `~/.agents/hooks/hindsight/` and Bloodbank under `~/.agents/hooks/bloodbank/`.

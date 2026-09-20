@@ -1,14 +1,16 @@
 ---
 name: pjangler
 description: |
-  Develop pjangler itself: author Commands (atomic file/dir operations), Recipes (composed subsystem bootstrappers), and register them in the CLI. Covers the Command/Recipe architecture, project registry implementation, CommonProject copier implementation, and pjangler dist/build/regression workflows. Use when creating a pjangler Command or Recipe, registering a recipe, adding subsystem bootstrapping, changing templates/commonproject or templates/hermes-agent, debugging pjangler tests, or changing the CLI/MCP server. Triggers: pjangler command, pjangler recipe, add subsystem, bootstrap, project scaffolding, CommonProject template, hermes-agent template, pjangler CLI, pjangler MCP. Do NOT use for: USING pjangler to create a new project (→ projects); generic agent-config fan-out engine mechanics (→ agent-config-fanout); versioning many files in parity (→ mise-versioning); event schema naming (→ bloodbank-integration).
+  Develop pjangler itself: author Commands (atomic file/dir operations), Recipes (composed subsystem bootstrappers), and register them in the CLI. Covers the Command/Recipe architecture, project registry implementation, CommonProject copier implementation, and pjangler dist/build/regression workflows. Use when creating a pjangler Command or Recipe, registering a recipe, adding subsystem bootstrapping, changing templates/commonproject, authoring a parity rule, debugging pjangler tests, or changing the CLI/MCP server. Triggers: pjangler command, pjangler recipe, add subsystem, bootstrap, project scaffolding, CommonProject template, project registry, pjangler CLI, pjangler MCP. Do NOT use for: USING pjangler to create a new project (→ projects); generic agent-config fan-out engine mechanics (→ agent-config-fanout); versioning many files in parity (→ mise-versioning); event schema naming (→ bloodbank-integration).
 ---
 
 # Pjangler Development
 
 This skill covers **developing pjangler** — authoring Commands (atomic file/dir operations) and Recipes (composed subsystem bootstrappers) and registering them in the CLI.
 
-For _using_ pjangler to create a 33god project — bootstrapping CommonProject, provisioning a Hermes PM or Ticket Sentinel, the `.project.json` source of truth, mise/bmad/hindsight/bloodbank wiring, and adopting the project-scoped per-dev agent-hooks layer — use the **`33god-projects`** skill instead.
+For _using_ pjangler to create a 33god project — bootstrapping CommonProject, the `.project.json` source of truth, mise/bmad/hindsight/bloodbank wiring, and adopting the project-scoped per-dev agent-hooks layer — use the **`33god-projects`** skill instead.
+
+Employees are not in this repo. The `hermes-agent` template, the hire/onboard/offboard commands, the org chart, and the eight `hermes.*` / `systemd.sentinel` parity rules live in **Flume** (`~/code/33GOD/flume`, `packages/flume-hr/`) — → **agent-fleet-operations**.
 
 For the generic SSOT config fan-out engine (master→multi-dialect propagation, lock files, generated-config drift) that pjangler recipes may consume, use the **`agent-config-fanout`** skill.
 
@@ -17,7 +19,7 @@ use **`gitignore-maintenance`**. CommonProject owns only a small portable repo
 contract and must never copy `core.excludesFile`; pjangler parity may remove
 exact legacy lines it generated, but it must never run bulk `git rm --cached`.
 
-If pjangler templates or recipes touch agent memory/event hooks, keep them as consumers of the canonical mounts: `~/.agents/hooks/hindsight/` for Hindsight and `~/.agents/hooks/bloodbank/publish.py --client <agent> --hook <event>` for Bloodbank. Do not scaffold per-agent Bloodbank publishers in CommonProject or Hermes templates.
+If pjangler templates or recipes touch agent memory/event hooks, keep them as consumers of the canonical mounts: `~/.agents/hooks/hindsight/` for Hindsight and `~/.agents/hooks/bloodbank/publish.py --client <agent> --hook <event>` for Bloodbank. Do not scaffold a per-agent Bloodbank publisher in CommonProject; command ingress is the one fleet-shared gateway.
 
 ## Architecture Overview
 
@@ -70,7 +72,21 @@ export class Add<Name> extends Command {
 - `this.writeFile(path, content)` - Write file, creating dirs as needed
 - `this.createDirectory(path)` - Create directory structure
 
-### Command Patterns
+#### Shelling out to an external CLI
+
+A Command or rule may need a tool this repo does not own — `copier`, `op`, `px`.
+The house pattern is `spawnSync` with `shell: false` and an explicit `timeout`,
+after probing with `which` and failing with an actionable install hint
+(`runPx` in `src/parity/rules.ts`, behind the `board.schema` rule, is the
+reference; `src/lifecycle/preflight.ts` is the version that additionally pins
+the resolved binary's identity).
+
+Two rules for anything that reaches a live remote service:
+- treat "the tool is missing" and "the service is unreachable" as **skip**, not
+  failure — a hard failure here can roll back an in-flight project transaction;
+- never pass a destructive flag from an automated path.
+
+## Command Patterns
 
 - **File creation** (most common): guard with `if (this.fileExists(path) && !this.context.force)`, then `this.writeFile(path, content)`.
 - **Directory creation**: `this.createDirectory("src/components")`.
@@ -86,13 +102,28 @@ Create `src/recipes/<Name>Recipe.ts`:
 import { Recipe } from "./Recipe";
 import { AddSomeFile } from "../commands/AddSomeFile";
 import type { CommandContext } from "../commands/Command";
+import type { LifecycleContext, RecipeCheck, RecipeInitResult, RecipeMetadata } from "./types";
 
 export class <Name>Recipe extends Recipe {
-  constructor(context: CommandContext) {
+  readonly checks: readonly RecipeCheck[] = [];
+  readonly metadata: RecipeMetadata = {
+    id: "<name>",
+    name: "<name>",
+    description: "<what this subsystem bootstraps>",
+    dependencies: [],
+    commands: ["AddSomeFile", "AddAnotherFile"],
+    publicRuleIds: [],
+  };
+
+  constructor(context?: CommandContext) {
     super(context);
     this
       .addIngredient(AddSomeFile)
       .addIngredient(AddAnotherFile);
+  }
+
+  override init(ctx: LifecycleContext, _input: unknown): Promise<RecipeInitResult> {
+    return this.invokeIngredients(ctx);
   }
 
   protected printNextSteps(): void {
@@ -101,17 +132,24 @@ export class <Name>Recipe extends Recipe {
 }
 ```
 
-Register in `src/index.ts`:
+`metadata`, `checks` and `init` are abstract on the base class; a recipe without
+all three does not compile. An empty `checks` is legitimate — `DockerRecipe`
+carries the reasoning: a rule that cannot tell what pjangler wrote from what the
+operator wrote by hand is worse than no rule.
+
+Register the instance in the catalog, `src/recipes/catalog.ts`:
 
 ```typescript
-import { <Name>Recipe } from "./recipes/<Name>Recipe";
-
-// In the switch statement:
-case "<name>":
-  const recipe = new <Name>Recipe(context);
-  await recipe.execute();
-  break;
+export const recipeRegistry = new RecipeRegistry([
+  …,
+  new <Name>Recipe(),
+]);
 ```
+
+That is the whole registration — `pj add <name>` resolves through the same
+registry, so there is no switch statement to update. Adding the id to
+`LEGACY_PUBLIC_RECIPE_IDS` in `src/utils/registry.ts` is what additionally lists
+it in `pj subsystems`.
 
 Full interface: [references/recipe-interface.md](references/recipe-interface.md).
 
@@ -127,12 +165,12 @@ Full interface: [references/recipe-interface.md](references/recipe-interface.md)
 
 ```bash
 cd /tmp/test-project
-bun /home/delorenj/code/pjangler/src/index.ts init <subsystem>
+bun /home/delorenj/code/33GOD/pjangler/src/index.ts add <subsystem>
 ```
 
-## Vendored templates
+## Vendored template
 
-The copier templates pjangler deploys are git submodules under `templates/commonproject` and `templates/hermes-agent`. `RunCopierTemplate` resolves the hermes template as: `PJANGLER_HERMES_TEMPLATE` env → vendored `templates/hermes-agent` → `~/code/hermes-agent-template` → `gh:delorenj/hermes-agent-template`.
+`templates/commonproject` is pjangler's one git submodule, and the one copier template it deploys. `scripts/check-submodule-contract.mjs`, `package.json` `files`, and the release tarball contract all name exactly that one; adding a second means updating all three.
 
 ## Out of Scope
 

@@ -140,7 +140,8 @@ gateway with zero eligible entries is healthy but intentionally unroutable.
 | Plane webhook registration and payload | Plane | Fires signed provider actions |
 | HTTPS/raw-body HMAC and provider normalization | n8n + Bloodbank custom node | Authenticates provenance and emits one canonical fact |
 | Schemas, subjects, streams, transport contract | Bloodbank | Contract and event/command backbone authority |
-| Project/board/agent identity | `.project.json` → PJangler fleet registry | Maps provider board IDs and target agent IDs without workspace guessing |
+| Project/board identity | `.project.json` → pjangler project registry | Maps provider board IDs without workspace guessing |
+| Agent identity and routing | `~/.hermes/agents-registry.yaml`, the org chart Flume writes | Resolves `target_agent_id` to a profile and a gateway route |
 | Durable event projection | Candystore | Dapr subscription, idempotent insert, query API |
 | Agent command consumption | Hermes fleet gateway | Validates, authorizes, journals, dispatches, and emits lifecycle facts |
 | Operator read model | Holocene | Reads selected Candystore/fleet state; does not become event authority |

@@ -1,22 +1,37 @@
 ---
 name: pjangler-parity-rules
-description: Develop pjangler parity rules in src/parity/rules.ts.
+description: |
+  Author, debug and scope pjangler parity rules in src/parity/rules.ts — the ids behind `pj audit`, `pj audit --rules <ids>` and `pj migrate`. Use when adding a rule, fixing one whose migrate does not repair what its audit caught, deciding whether a "cannot tell" path returns skip or warn, or scoping a rule to a recipe. Triggers: parity rule, pj audit, pj migrate, RecipeOwnedCheck, audit/migrate pair, board.schema, sot.project-json, notebook.*. Do NOT use for the employee rules (`hermes.*`, `systemd.sentinel`): those live in Flume behind `flume audit` / `flume remediate` (→ agent-fleet-operations).
 ---
 
 # Pjangler Parity Rules
 
 Location: `src/parity/rules.ts` in the pjangler repo; concrete recipes own and
-register the checks they consume.
+register the checks they consume. The seven `notebook.*` rules are the one
+exception — they live in `src/notebook/checks.ts` and are registered by
+`NotebookRecipe`.
+
+`pj audit --json` is the authoritative id list — read it rather than a count in
+a document. The eight employee rules (`hermes.*`, `systemd.sentinel`) are not
+here; they are Flume's, and `pj audit --rules hermes.pm-scaffold` fails with
+`Unknown parity rule id(s)` rather than passing empty.
 
 ## Architecture
 
 Each parity rule is an object with:
-- `id` — dotted name (e.g. `systemd.sentinel`, `hermes.registry-parity`)
+- `id` — dotted name (e.g. `board.schema`, `sot.project-json`)
 - `title` — human-readable description
 - `audit(ctx)` — returns `{ status, summary, details, fixable }`
 - `migrate(ctx, finding)` — attempts to fix what audit caught; returns `{ status, summary, changedFiles, details }`
 
-`ctx` contains: `repoRoot`, `pjanglerRoot`, `homeDir`, `dryRun`.
+`ctx` (`Context`, `src/parity/rules.ts`) contains: `repoRoot`, `dryRun`,
+`pjanglerRoot`, `homeDir`, and optionally `bmadVersionPin` and
+`acceptRegistryMatches`. The `LifecycleContext` the recipe registry passes is a
+superset (`targetDir`, `force`, `registryPath`, `live`, …); honor
+`ctx.registryPath` rather than calling `projectRegistryPath()` yourself.
+
+A rule needing anything else — a board binding, a credential — reads it from the
+repo (`readProjectJson(ctx)`) or the environment. It does not arrive in `ctx`.
 
 Checks are returned by the owning recipe factories (for example,
 `createBmadChecks()`) and registered through the recipe catalog. The legacy
@@ -33,37 +48,67 @@ the operator reviews provenance and proves local files survive before untracking
 
 ## Key functions
 
-- `discoverRoles(repoRoot)` — walks `agents/hermes/*/role.yaml`, returns `RoleMeta[]` with `agentId`, `roleDir`, `roleYamlPath`, etc.
-- `ownedRegistryEntries(registry, repoRoot)` — filters registry entries whose `role_dir` resolves to the same project root as `repoRoot`. Uses `realOrSelf(dirname(dirname(dirname(roleDir))))` comparison.
-- `realOrSelf(path)` — `realpathSync` with fallback to the input string.
+All module-local to `rules.ts`; a rule in another file reimplements or imports
+its own.
+
+- `discoverRoles(repoRoot)` — walks `agents/hermes/*/role.yaml`, returns `RoleMeta[]` with `agentId`, `roleDir`, `roleYamlPath`, etc. Only `sot.project-json` uses it, and only to project role dirs into `.project.json.agents` — the org chart itself is Flume's record.
 - `safeReadText(path)` — reads a file, returns `null` if it doesn't exist.
+- `readProjectJson(ctx)` — the manifest; a rule needing a board binding or a credential reads it here, not from `ctx`.
 
 ## Build and test
 
 ```bash
 npm run typecheck && npm run build && npm test
-node dist/index.js audit          # run all rules
-node dist/index.js migrate --all  # fix all fixable rules
+node dist/index.js audit                        # run all rules
+node dist/index.js audit --rules sot.project-json,board.schema   # only these; an unknown id is an error
+node dist/index.js migrate --all                # fix all fixable rules
 ```
 
 ## Pitfalls
 
+### Rules that write to something other than the repo
+
+`board.schema` is the reference case: its `migrate` shells out to Pilot
+(`px schema import`) and changes a **live Plane board**, not a file. Two
+consequences that no file-writing rule has to think about:
+
+- **`changedFiles` stays empty, on purpose.** Every other rule's `changedFiles`
+  is a real path; reporting one here would be a lie. The summary and `details`
+  carry what changed.
+- **Audit must never gate on a remote service.** `recipes/registry.ts` treats
+  anything but `pass`/`skip` as a failed postcondition, and `ProjectRecipe` turns
+  a failed postcondition into a transaction error — so a `warn` from an
+  unreachable API can **roll back a brand-new project**. Every "cannot tell"
+  path (tool missing, no credential, board unreachable, provider not Plane,
+  board not linked) must therefore return **`skip`**, never `warn`. Reserve
+  `warn`/`fail` for drift you actually observed.
+
+And because `migrateAll` auto-selects every `fixable` finding, a remote-writing
+migrate must be conservative by construction: `board.schema` never passes
+`--prune` (deletes) or `--adopt-default` (re-homes new tickets on a board that
+already holds work).
+
 ### Profile-based / report-only rules
 
-Some rules wrap a dedicated audit profile (e.g. the `momo-lifecycle-plane` profile that checks whether a repo is ready for the Momo PM orchestrator lifecycle). These rules cannot be fully auto-repaired by `pj migrate` and must be guarded so `pj project init` does not endlessly select them on legacy repos. See the `pjangler-parity` skill in the 33GOD PM runtime for the full recipe, including the guard pattern and the `momo-lifecycle-plane` regression-test fixture.
+Some findings need credentials or a live service and cannot be produced by a
+rule that `migrateAll` may auto-select. `momo-lifecycle-plane` is the worked
+example: the registered check's `audit` returns a permanent `skip` whose summary
+points at `audit --profile momo-lifecycle-plane`, and its `migrate` returns
+`skipped`. The real work lives in `runMomoLifecyclePlaneAudit`, reachable only
+through the profile flag, where `--live` may spend a credential. That is the
+guard — not a conditional inside a normal rule. Its regression fixture is
+`tests/momo-lifecycle-plane-regressions.mjs`.
 
-### `ownedRegistryEntries` scoping after a repo move
-
-`ownedRegistryEntries` filters by `realOrSelf(repoRoot)`. After a repo moves (e.g. `code/pjangler` to `code/33GOD/pjangler`), registry entries with stale `role_dir` paths resolve to the old location, not the new `repoRoot`. The migrate loop over `ownedRegistryEntries` never sees them, so repoint logic doesn't fire even though audit catches the mismatch.
-
-**Fix pattern**: Walk `roles` from `discoverRoles()` and look up each agent's entry in the registry by `agentId` directly. This mirrors what the audit does (it also walks `roles` and looks up by `agentId`).
-
-### Systemd unit staleness
-
-The `systemd.sentinel` migrate checks whether unit files exist and enables them. But after a repo move, unit files still exist with stale `ExecStart`/`WorkingDirectory` paths. The consumer crashes on start.
-
-**Fix pattern**: Read each unit file and check whether it contains `/agents/hermes/` but not the current `role.roleDir`. If stale (or missing), re-run the provisioning script (`70-systemd.sh`) with `FORCE_SYSTEMD=1` to regenerate units, instead of just enabling them.
+(A `pjangler-parity` skill under the 33GOD PM runtime tree used to be cited
+here; it is stale — it still says rules live in a `RULES` array in
+`src/parity/index.ts`, which has not been true since the recipe registry landed —
+and it is tracked by no repo. Do not follow it.)
 
 ### Migrate must fix what audit catches
 
-The audit and migrate functions can have different scoping. Audit walks `roles` and looks up registry entries by `agentId`; migrate walks `ownedRegistryEntries` which scopes by repo root. When these differ (repo move, stale paths), migrate silently no-ops while audit fails. Always ensure migrate covers the same entries audit checks.
+Audit and migrate are written as a pair and drift as a pair. When they enumerate
+their targets differently — audit walking what is on disk, migrate walking what
+is in a registry or manifest — migrate silently no-ops on exactly the entries
+audit is failing on, and the rule reports "still failing after migrate" forever.
+Enumerate from the same source in both halves, and make the regression fixture
+exercise the case where the two sets differ.

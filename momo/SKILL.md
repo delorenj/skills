@@ -59,7 +59,7 @@ Enrollment failures stop managed work. Existing non-Plane playbooks still apply.
    - Recall the shared hindsight bank (`hindsight memory recall <slug> "<what you're about to do>"`), where `<slug>` = `.project.json` `project_slug`.
    - **Detect the provider** from `.project.json` `ticket_provider.type`. `plane`/`linear` use the repo's `tp` adapter; `trello` uses Momo's bundled adapter with per-repo lanes in `.momo/config.json`. For trello, if that config is absent or the board is non-standard (run `scripts/momo-config.py detect`), interactively map the odd lanes with the operator and persist them (`scripts/momo-config.py set …`) **before** running the loop. This is the one-time first-run setup; thereafter it's just data.
    - Read the board through the adapter (`scripts/momo-board.sh list_issues`, `... active_milestone`) — same normalized ops for every provider.
-   - See what **Hermes** is doing: `<role_dir>/runtime/continuous-ticket-sentinel-state.json` (may be absent if reconcile is off) and tail `<role_dir>/runtime/logs/heartbeat.log`.
+   - See what **Hermes** is doing: tail `<role_dir>/runtime/logs/agent.log`. The autonomous-pass feed `<role_dir>/runtime/continuous-ticket-sentinel-state.json` exists only where `role.yaml` enables reconcile, which no repo does today.
    - Read live worker state (git status/branches/worktrees), the evidence dir, and the decision trail `_bmad-output/implementation-artifacts/bloodbank-events.jsonl`.
    - Load pillars (`references/pillars.md` = universal; `<repo>/.momo/pillars.md` = per-repo; scaffold the per-repo file from `templates/pillars.md` if missing).
 3. **Reconcile.** If sources disagree (board says X, evidence says Y), record a truth-check
@@ -129,10 +129,10 @@ tenant slug on the same self-hosted personal infrastructure.
   too). Sign board comments and decision events as **momo** so the two frameworks are
   attributable in the shared history.
 - **WIP=1 is shared.** Before you take a ticket, confirm no active worker (yours or
-  Hermes'). If Hermes' heartbeat/checkpoint timers are active, avoid editing its
-  single-writer `runtime/` submodule; coordinate via its flock file.
+  Hermes'). Its `runtime/` submodule is single-writer — do not edit it; coordinate
+  via its flock file.
 - **You are the manual hand; Hermes is the reflex.** When the operator is in the room, you
-  drive. Leave the autonomous heartbeat to Hermes.
+  drive. Leave the autonomous pass to Hermes.
 
 ## Reference index
 
