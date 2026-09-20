@@ -147,12 +147,28 @@ resolve_remote_bin() {
 }
 
 # --------------------------------------------------------------- audit log ---
+# EGO_BROWSER_REDACT holds newline-separated literal secrets. Any that appear in the
+# forwarded script are masked before it reaches the audit log, which is plaintext and
+# permanent. Credentials sometimes MUST ride inside the heredoc — ego lite has no env
+# passthrough — so the log, not the transport, is what needs defending.
 audit() {
   local mode=$1 script=$2
   {
     printf '=== %s | host=%s | mode=%s | pid=%s | cwd=%s\n' \
       "$(date -Is)" "$EGO_BROWSER_HOST" "$mode" "$$" "$PWD"
-    cat "$script"
+    if [ -n "${EGO_BROWSER_REDACT:-}" ] && command -v python3 >/dev/null 2>&1; then
+      python3 -c '
+import os, sys
+text = open(sys.argv[1]).read()
+for secret in os.environ.get("EGO_BROWSER_REDACT", "").split("\n"):
+    secret = secret.strip()
+    if len(secret) >= 6:
+        text = text.replace(secret, "<<redacted:%d chars>>" % len(secret))
+sys.stdout.write(text)
+' "$script"
+    else
+      cat "$script"
+    fi
     printf '\n'
   } >> "$AUDIT_LOG" 2>/dev/null || true
 }
