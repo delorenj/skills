@@ -13,7 +13,7 @@ metadata:
 
 # vox-tts
 
-A self-hosted TTS service at **<https://vox.delo.sh>** wrapping VoxCPM2 with a postgres-backed voice profile store and support for multiple engines. Deployed at `~/docker/stacks/utils/vox/`.
+A self-hosted TTS service at **<https://vox.delo.sh>** wrapping VoxCPM2 with a postgres-backed voice profile store and support for multiple engines. Deployed at `~/code/voxxy` (core: `compose.yml`, GPU engines: `compose.engines.yml` — both engine containers must be up or clones degrade silently, see below).
 
 ## Quick reference
 
@@ -64,6 +64,12 @@ The orchestrator tries them in order. Every `speak_url` / `speak` response inclu
 
 Per-voice ElevenLabs mapping lives in the `voices.elevenlabs_voice_id` column. NULL falls back to the global default (`ELEVENLABS_DEFAULT_VOICE`, Adam by default).
 
+**Cloned voices are engine-bound.** A voice cloned via `POST /voices` stores its reference in `vibevoice_ref_path` and is served by the **vibevoice** engine first (per-request `preferred` routing in `app/engines.py`; everything else follows `VOX_ENGINES` order, voxcpm first). If vibevoice is down, voxcpm still receives the reference clip — `app/voices.py:46-48` falls back to `wav_path` for any engine with no specific override — so the clone *degrades*, it is not erased. Symptom is a recognisable-but-off read, not a stranger. Fix: `docker compose -f ~/code/voxxy/compose.engines.yml up -d voxxy-engine-vibevoice`, then confirm `"name":"vibevoice","ready":true` in `/healthz`.
+
+The one that does replace the voice outright is **ElevenLabs fallback**: if both GPU engines are down and `ELEVENLABS_API_KEY` is set, vox answers `200` in a stranger's voice, logging `vox: voice clone BYPASSED`, and delivers it anyway. **Check the `engine` field on every clone synthesis** — `vibevoice` or `voxcpm` is the clone, `elevenlabs` is not your voice.
+
+**The reference budget is 10 seconds, not 30.** Two different caps stack, and only the second one matters. `POST /voices` trims ingest to `VOX_REF_AUDIO_MAX_SECONDS` = 30s (`compose.yml:16`, applied at `app/main.py:578-584`, keeping the **first** 30s). But the vibevoice container sets the same variable to **10** (`compose.engines.yml:69`), and `engines/vibevoice/engine/synth.py:183,208` reloads the reference with `duration=10.0`. Its `/healthz` says so directly: `"max_ref_seconds": 10.0`. So seconds 10–30 of any reference clip are stored, backed up, and never seen by the model. Write clone passages for **8–10 clean seconds** and put the best, most neutral speech first — everything after is dead weight.
+
 ## Detailed procedures
 
 Read [voice and integration workflows](references/voice-and-integration-workflows.md) for the relevant
@@ -77,8 +83,10 @@ user to request those actions.
 | `cfg`                       | 2.0                           | Classifier-free guidance; higher = more faithful, less variation |
 | `steps`                     | 10                            | Diffusion steps; 4-6 for speed, 15-20 for max quality            |
 | `normalize`                 | false                         | Text normalization (numbers → words etc.)                        |
-| `denoise`                   | false                         | Apply ZipEnhancer to reference before cloning                    |
+| `denoise`                   | false                         | **Dead field.** Declared at `app/main.py:98`, read nowhere; `POST /voices` has no denoise param at all. Clean the audio before upload instead. |
 | Cache TTL (audio URLs)      | 3600s                         | `VOX_AUDIO_TTL_SECONDS` env; 1h is plenty for Telegram           |
 | Fallback voice (ElevenLabs) | Adam (`pNInz6obpgDQGcFmaJgB`) | `ELEVENLABS_DEFAULT_VOICE` env                                   |
 
-Steady-state synthesis ~2s on an RTX 3090 with `VOX_OPTIMIZE=1`. First call after restart takes ~15s (JIT compile). OGG/Opus transcode adds <100ms via ffmpeg.
+Synthesis runs at roughly **21 characters per second** on an RTX 3090 with `VOX_OPTIMIZE=1` — measured, not estimated: a 60-char line takes ~2s, a 1,665-char line takes ~35s. Budget by length, not by the 2s headline. First call after a container restart adds ~15s (JIT compile). OGG/Opus transcode adds <100ms via ffmpeg.
+
+This matters for any caller with a timeout. The Hermes `vox` TTS plugin hardcodes a 60s httpx timeout (`plugins/tts/vox/__init__.py:29,316`) and ignores `tts.vox.timeout`, so a single chunk past roughly 2,500 characters fails outright. Cap it with `tts.vox.max_text_length` (read at `tools/tts_tool.py:436-441`), which chunks instead of failing.
