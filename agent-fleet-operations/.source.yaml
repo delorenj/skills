@@ -1,10 +1,10 @@
 # Provenance for this skill. Managed by `skillex vendor`; do not hand-edit.
 origin:
   type: vendored
-  source: pjangler
-  upstream: git@github.com:delorenj/pjangler.git
-  upstream_version: 5f27761fb1c0b298146cb3eeae30f3687e448f97
-  upstream_commit: 5f27761fb1c0b298146cb3eeae30f3687e448f97
+  source: flume
+  upstream: git@github.com:delorenj/flume.git
+  upstream_version: db6602c2907c667d91f63570732e90fd0d01b261
+  upstream_commit: db6602c2907c667d91f63570732e90fd0d01b261
   upstream_tree: 9cef3b7c1dbc3774e85affccb4dae4afc21dbcb7
   upstream_path: skills/agent-fleet-operations
   extracted_at: "2026-09-01T15:58:01+00:00"

@@ -1,16 +1,22 @@
 # Clean PM deployment contract
 
-Use this contract for the first deployment into a repository and for every
-rerun. The supported entry point is:
+Use this contract for the first hire into a repository and for every rerun. The
+supported entry point is:
 
 ```bash
 cd <repo>
-pj hermes-agent --yes
+flume hire pm --yes
 ```
 
 Do not replace the command with hand-rendering, a template install script, or
 manual systemd/profile edits. A successful command summary is a claim to
 verify, not proof of a healthy deployment.
+
+The convergent rerun is `flume onboard pm`. Onboarding *is* hiring run again:
+every step is marker-guarded and the registry write is an upsert, so a second
+pass is a no-op that proves the first one held. `--force` is deliberately not
+offered on `onboard` — onboarding an employee must never become a way to
+overwrite one.
 
 The machine-readable normative assertions are in
 [pm-deployment-contract.json](pm-deployment-contract.json). Configuration may
@@ -22,9 +28,10 @@ Only read-only inspection may precede these gates:
 
 1. Read and hash the raw `.project.json`, then parse it. Malformed JSON aborts
    the deployment with `.project.json` and every other surface byte-unchanged.
-2. Inspect the expected profile path with link-aware metadata. If it is a
-   legacy symlink, abort before rendering, unlinking, migrating, or writing
-   anything; a separate explicitly authorized migration must resolve it.
+2. Inspect the expected desk path with link-aware metadata. If it is a legacy
+   profile symlink, abort before rendering, unlinking, migrating, or writing
+   anything; a separate explicitly authorized migration
+   (`flume remediate hermes.runtime-singleton`) must resolve it.
 
 ## Seal the before-state
 
@@ -41,10 +48,10 @@ Before invoking the deployer, capture enough state to prove what it changed:
   and existing agent entries;
 - the matching row (or confirmed absence) in
   `~/.hermes/agents-registry.yaml`;
-- the expected named profile path and whether its `config.yaml`,
+- the expected named desk path and whether its `config.yaml`,
   `config.delta.yaml`, `profile.yaml`, and `hindsight/config.json` exist;
-- exact user-unit file, enabled, active, failed, and restart states for the
-  target gateway and heartbeat timer/service;
+- exact user-unit file, enabled, active, failed, and restart states for
+  `hermes-<agent-id>-gateway.service`;
 - the enabled/active state and unit-file identity of the fleet-shared
   `hermes-fleet-bloodbank-gateway.service`.
 
@@ -58,14 +65,19 @@ repository or any nested repository merely to make provisioning easier.
 - `~/.hermes/profiles/<agent-id>/` is a **real named directory**, not a symlink
   to repo-local runtime state.
 - `<profile>/config.yaml` is a generated deep merge of the shared fleet base
-  and the real, override-only `<profile>/config.delta.yaml`. Edit the delta and
-  render; never hand-edit the generated file.
+  and the real, override-only `<profile>/config.delta.yaml`, and carries the
+  renderer's generated-header marker. Edit the delta and render; never
+  hand-edit the generated file and never symlink it — it detaches on the first
+  Hermes write.
+- `<profile>/config.delta.yaml` exists as a real file even when empty. Absent
+  means "not under base-plus-delta inheritance", which is a failure; empty means
+  "no overrides", which is fine.
 - `<profile>/profile.yaml` is identity metadata, not a native inheritance
   mechanism. Hermes does not interpret `config.inherit_from` there.
 - `<profile>/hindsight/config.json` explicitly pins the identity-memory bank
-  for that profile (normally `agent-<agent-id>`).
+  for that desk (normally `agent-<agent-id>`).
 - Repo-local `agents/hermes/pm/runtime/` is ignored, untracked local state. It
-  may be the target of explicit owned-state links, but it is not the profile
+  may be the target of explicit owned-state links, but it is not the desk
   directory, a submodule, or a nested Git repository.
 - Prove runtime exclusion with **both** checks; an ignore rule alone cannot
   untrack a path:
@@ -74,11 +86,13 @@ repository or any nested repository merely to make provisioning easier.
   git check-ignore -q -- agents/hermes/pm/runtime/
   git ls-files -- agents/hermes/pm/runtime/  # stdout must be empty
   ```
-- The registry and `.project.json` agree on repo, board, agent id, role, and
-  `profile_name`. A Plane binding is valid only when
-  `ticket_provider.state` is `linked`, its identifier and board id resolve
-  against the live Plane project, and `.project.json` does **not** persist
-  `ticket_provider.board_url`; derive URLs transiently from live configuration.
+- The registry row and `.project.json` agree on repo, board, agent id, role, and
+  `profile_name`, and the row advertises
+  `bloodbank: {enabled, gateway_scope: fleet, target_agent_id: <agent-id>}`. A
+  Plane binding is valid only when `ticket_provider.state` is `linked`, its
+  identifier and board id resolve against the live Plane project, and
+  `.project.json` does **not** persist `ticket_provider.board_url`; derive URLs
+  transiently from live configuration.
 - Hold one project-scoped lock across manifest read, validation, live Plane
   check-or-create, and write. Replace `.project.json` atomically; never expose a
   truncated or partially updated manifest.
@@ -90,27 +104,32 @@ repository or any nested repository merely to make provisioning easier.
 
 ## Required skill core
 
-Every PM must resolve this exact immutable core to regular
-`~/.agents/skills/<name>/SKILL.md` files:
+The core is **pinned by the host config**, not by this document:
 
-1. `33god-projects`
-2. `delonet-conventions`
-3. `delonet-dotenv`
-4. `hermes-pm-template-maintenance`
-5. `hindsight`
-6. `subagent-driven-development`
+```bash
+sed -n '/^symlinked_runtime_skills/,/^]/p' ~/.config/hermes-agent-template/config.toml
+```
+
+Read that list, then prove every member resolves to a regular
+`~/.agents/skills/<name>/SKILL.md`. The pinned name is the *directory* under
+`~/.agents/skills/`, which is not always the skill's frontmatter `name:` —
+`33god-projects` ships in the `projects/` directory, so check the path that is
+actually pinned.
 
 Configuration may append optional skills but must never subtract, rename, or
-replace a core member. A missing core member is a hard failure, never a warning
-followed by a completion marker.
+replace a pinned member. A missing member is a hard failure, never a warning
+followed by a completion marker. `flume audit --rules hermes.runtime-singleton`
+proves the desk's Skillex projection; it does not substitute for reading the pin.
 
 ## Service state is conditional
 
-Heartbeat/reconciliation and chat ingress are independent:
+Per agent there is exactly one unit: `hermes-<agent-id>-gateway.service`, chat
+ingress. Per-agent heartbeat timers are retired and provisioning removes any it
+finds, recording `service_state.heartbeat: retired`. Liveness is the gateway's
+own `Restart=on-failure`; scheduling is Bloodbank; persistence is krebs leases.
+A heartbeat timer, a per-agent Bloodbank consumer, a checkpoint timer, or a
+filesystem inbox is drift.
 
-- The heartbeat timer is the PM's sentinel/reconciliation scheduler. It should
-  be enabled and active; its oneshot service may be inactive between ticks, but
-  the most recent invocation must have succeeded.
 - A per-agent gateway is healthy only when the agent has its own verified
   chat-channel credential and the service is enabled and stable without
   restart churn.
@@ -137,12 +156,8 @@ Heartbeat/reconciliation and chat ingress are independent:
 Service success requires a bounded stabilization window, not one
 `is-active` sample. Through the deadline, inspect systemd `Result`,
 `ExecMainStatus`, and `NRestarts`; require success/zero and no restart growth.
-Also wait for and verify the latest heartbeat service result while confirming
-the timer remains enabled/active. A deferred gateway is judged by its required
-disabled/inactive state, not by forcing it active for the probe.
-
-There is no per-agent Bloodbank consumer, checkpoint timer, or filesystem
-inbox. Their presence is drift.
+A deferred gateway is judged by its required disabled/inactive state, not by
+forcing it active for the probe.
 
 ## Credential boundary
 
@@ -194,20 +209,33 @@ cleaning tracked backups.
 ## Verify and prove convergence
 
 After the command, directly re-read `.project.json`, the registry row, profile
-files, and systemd state. Run the applicable read-only `pj audit` and renderer
-`check`, but treat their summaries as aggregate claims: the specific
-repo/profile/service evidence above still has to agree.
+files, and systemd state. `flume hire` already runs its own postcondition pass —
+the eight employee rules, plus a `pj audit --rules mise.config-root,sot.project-json
+--json` probe for the two project contracts it changes or depends on. A probe
+that cannot reach `pj` reports **unable to assess**, is surfaced, and does not
+fail the hire; treat that as an unread surface you still owe evidence for.
 
-Then rerun `pj hermes-agent --yes`. The second run must not duplicate registry
-or project entries, replace a real profile with a symlink, dirty tracked repo
-content, enable a credential-less gateway, alter the shared fleet gateway, or
-create retired units. Stable files should be byte-identical except for
-documented runtime timestamps/logs.
+Run the applicable read-only checks yourself:
 
-With unchanged inputs, the fleet registry must be byte-identical across the
-rerun. In particular, preserve the original `provisioned_at` and every
-extension/unknown metadata field; merge owned keys rather than reconstructing
-the row.
+```bash
+flume audit --json                 # the eight employee rules for this repo
+flume review --agent <agent-id>    # nine observation domains, read-only
+python3 ~/code/33GOD/hermes-agent-template/scripts/hermes-profile-config.py check
+```
+
+Treat their summaries as aggregate claims: the specific repo/profile/service
+evidence above still has to agree. A `flume review` verdict of `unproven`
+("unable to assess") is not a pass.
+
+Then rerun `flume onboard pm`. The second run must not duplicate registry or
+project entries, replace a real desk with a symlink, dirty tracked repo content,
+enable a credential-less gateway, alter the shared fleet gateway, or create
+retired units. Stable files should be byte-identical except for documented
+runtime timestamps/logs.
+
+With unchanged inputs, the registry must be byte-identical across the rerun. In
+particular, preserve the original `provisioned_at` and every extension/unknown
+metadata field; merge owned keys rather than reconstructing the row.
 
 The deployment is complete only when all of these assertions hold:
 
@@ -215,24 +243,14 @@ The deployment is complete only when all of these assertions hold:
 |---|---|
 | Target and nested repos | mandatory dirty/untracked hashes match; every nested HEAD/index/status preserved; both runtime exclusion checks pass |
 | Project identity | atomic `.project.json`; one PM; live Plane identifier/id; `state: linked`; no persisted `board_url` |
-| Fleet registry | one matching row; rerun byte-identical; `provisioned_at` and extension metadata preserved |
-| Profile | real directory; generated config + real delta + metadata + explicit memory pin |
-| Skills | immutable six-skill core present; optional additions do not subtract it |
+| Org chart | one matching row with the `bloodbank` block; rerun byte-identical; `provisioned_at` and extension metadata preserved |
+| Desk | real directory; generated config with render marker + real delta + identity metadata + explicit memory pin |
+| Skills | every `symlinked_runtime_skills` member resolves; optional additions do not subtract one |
 | Gateway | delta explicitly disables unverified channels; verified channel is stable across the bounded window |
-| Heartbeat | timer enabled/active; latest service run successful within the bounded window |
+| Retired units | no `hermes-<agent>-heartbeat.*`, `-consumer.service`, or `-checkpoint.timer` exists |
 | Shared gateway | file/config/enabled/active state unchanged |
 | Rerun | no duplicate entries, retired units, new tracked dirt, or stable-state drift |
 
 If a required deployment skill is absent, repair its Skillex manifest/projection
 and validate `~/.agents/skills/<name>/SKILL.md`. Do not fabricate a placeholder
 or let the deployer mark the step complete after only warning.
-
-## Capability selection versus execution
-
-The PM profile can retain `subagent-driven-development` as an available core
-capability while it is absent from the global default set. Availability does
-not mandate delegation or multiple review passes. Use the canonical skill only
-for explicitly requested or otherwise authorized team work; bounded direct
-implementation remains valid. For template repair, inspect the live resolved
-profile source before changing it. Global-loadout cleanup alone does not
-authorize fleet restarts or rewriting runtime profiles.

@@ -15,7 +15,7 @@ if ! curl -sf "${BASE_URL}/voices/${VOICE}" >/dev/null 2>&1; then
 fi
 
 # Resolve the active Hermes TTS provider.
-PROVIDER=$(hermes config get tts.provider 2>/dev/null || echo "voxxy")
+PROVIDER=$(hermes config get tts.provider 2>/dev/null || echo "vox")
 
 case "${PROVIDER}" in
     voxxy|vox)

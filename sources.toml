@@ -13,6 +13,15 @@ repo = "git@github.com:delorenj/pjangler.git"
 version = "c505a0889f21eaf025c14d575e4e9531f4a4ef3f"
 checkout = "pjangler"
 
+# The fleet skills moved with the fleet. agent-fleet-operations and
+# hermes-pm-template-maintenance ship from Flume now, because pjangler no
+# longer does any of the work they describe.
+[[source]]
+name = "flume"
+repo = "git@github.com:delorenj/flume.git"
+version = "db6602c2907c667d91f63570732e90fd0d01b261"
+checkout = "flume"
+
 [[source]]
 name = "bloodbank"
 repo = "git@github.com:delorenj/bloodbank.git"

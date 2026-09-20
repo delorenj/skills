@@ -13,7 +13,7 @@ Two have a single source of truth that fans out; one does not.
 | **Skills** | Skillex (`skill-sets/global`, packs) + project `.agents/skills.json` | yes | solved |
 | **MCP servers** | *none* | **no** | **gap — see below** |
 
-Verified 2026-08-17. Re-verify with the probes at the bottom before trusting it;
+Verified 2026-09-20. Re-verify with the probes at the bottom before trusting it;
 this file is a map, and maps go stale.
 
 ---
@@ -30,9 +30,10 @@ python3 sync.py --check            # drift gate; use in CI
 ```
 
 Dialect emitters live in `clients/`: `claude.py`, `codex.py`, `copilot.py`,
-`antigravity.py`, `hermes.py`. **Adding a new agent CLI means adding a client
-module here**, not hand-writing its config — see the `agent-config-fanout` skill
-for the emitter contract and the `hooks.mappings.lock.json` ambiguity ledger.
+`antigravity.py`, `hermes.py`, `native.py` (over a shared `base.py`). **Adding a
+new agent CLI means adding a client module here**, not hand-writing its config —
+see the `agent-config-fanout` skill for the emitter contract and the
+`hooks.mappings.lock.json` ambiguity ledger.
 
 **How Hermes receives them:** as a `hooks:` block in `~/.hermes/config.yaml`
 (the fleet base), where every profile inherits it through the generated
@@ -60,9 +61,11 @@ project-scoped hook sets). See `agent-config-fanout`.
 ## 2. Skills — solved
 
 **Global (every client, every project):** add the skill to Skillex's global
-skill-set. `~/.agents/skills` is a symlink to
-`~/code/skillex/skill-sets/global`, which in turn resolves into the
-`skillex/all-skills` repo — so a skill is one directory with a `SKILL.md`.
+skill-set. `~/.agents/skills` is a real directory whose entries are per-skill
+symlinks into `~/code/skillex/all-skills/<name>` — so a skill is one directory
+with a `SKILL.md`, written once in `all-skills` and projected here. Check a
+specific one with `readlink -f ~/.agents/skills/<name>`; an entry that is a real
+directory rather than a symlink is unmanaged and will drift.
 
 Hermes picks these up because the fleet base sets:
 
@@ -96,10 +99,10 @@ badly, and Hermes is the worst off:
 
 | client | store | servers |
 |---|---|---|
-| Claude Code | `~/.claude.json` (+ project `.mcp.json`) | many |
-| Codex | `~/.codex/config.toml` | several |
-| Gemini | `~/.gemini/settings.json` | one |
-| **Hermes** | `~/.hermes/config.yaml` → `mcp_servers:` | **4** |
+| Claude Code | `~/.claude.json` (+ project `.mcp.json`) | 2 global, plus per-project |
+| Codex | `~/.codex/config.toml` | 5 |
+| Gemini | `~/.gemini/settings.json` | 4 |
+| **Hermes** | `~/.hermes/config.yaml` → `mcp_servers:` | 5 (`codegraph`, `flume`, `pjangler`, `plane`, `vox`) |
 
 Two consequences worth internalizing:
 
@@ -108,8 +111,8 @@ Two consequences worth internalizing:
 2. **Hermes never reads a project `.mcp.json`.** Its "mcp_discovery" code is
    *tool* discovery from already-configured servers — it does not scan the
    working directory. So a project-scoped MCP server declared in `.mcp.json` is
-   invisible to the entire Hermes fleet. (33GOD's own `.mcp.json` declares
-   `code-review-graph`; no Hermes agent can see it.)
+   invisible to every Hermes agent. (33GOD's own `.mcp.json` declares
+   `code-review-graph` and `codegraph-voyage`; no Hermes agent can see either.)
 
 ### What to do until an MCP SSOT exists
 

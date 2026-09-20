@@ -2,17 +2,21 @@
 pipeline-status:
   - new
 ---
-# Fleet self-check workflow
+# Workforce self-check workflow
 
-Use this lane when the operator asks for a Hermes fleet self-check, especially when PM agents disagree with other CLIs or when MCP servers fail only in repo-backed daemons.
+Use this lane when the operator asks for a Hermes workforce self-check,
+especially when employees disagree with other CLIs or when MCP servers fail only
+in repo-backed daemons.
 
-> **Canonical service model (2026-08):** per agent, only `hermes-<agent>-gateway.service`
-> (chat ingress) and `hermes-<agent>-heartbeat.timer` (sentinel/checkpoint tick).
-> Bloodbank commands enter through the single fleet-shared
-> `hermes-fleet-bloodbank-gateway.service`. The scrum-master role is retired
-> (folded into the PM heartbeat), and per-agent consumer/checkpoint units are
-> drift — flag them, don't debug them; `pj migrate hermes.registry-parity`
-> removes them.
+> **Canonical service model:** per agent, ONE unit —
+> `hermes-<agent>-gateway.service` (chat ingress). Bloodbank commands enter
+> through the single fleet-shared `hermes-fleet-bloodbank-gateway.service`.
+> Per-agent heartbeat timers are retired (liveness is the gateway's
+> `Restart=on-failure`, scheduling is Bloodbank, persistence is krebs leases),
+> the scrum-master title is retired, and per-agent consumer/checkpoint units are
+> drift — flag them, don't debug them; `flume remediate hermes.registry-parity`
+> converges the registry side and re-running `70-systemd.sh` deletes leftover
+> heartbeat units.
 
 ## Goal
 
@@ -21,7 +25,8 @@ Produce a grounded split between:
 - shared Hermes fleet config/template drift
 - external service/server drift
 
-Do not stop at "MCP failed". Identify which layer owns each failure and route follow-up work to the right Plane board.
+Do not stop at "MCP failed". Identify which layer owns each failure and route
+follow-up work to the right Plane board.
 
 ## Baseline architecture to confirm first
 
@@ -30,21 +35,21 @@ Do not stop at "MCP failed". Identify which layer owns each failure and route fo
 - Treat `ticket_provider` as the board source of truth
 - Confirm `ticket_provider.state: linked`, resolve the stored identifier and
   board id against live Plane, and reject persisted `ticket_provider.board_url`
-- Confirm the PM binds to that board (one PM per repo; no scrum-master role)
+- Confirm the PM binds to that board (one PM per repo; no scrum-master title)
 
-2. Generated profile contract
+2. Generated desk contract
 - Confirm `~/.hermes/profiles/<repo>-pm/` is a real directory, not a symlink
 - A legacy profile symlink is a pre-mutation hard stop, not a healthy alias
-- Expect a generated `config.yaml`, real override-only `config.delta.yaml`,
-  identity-only `profile.yaml`, and an explicit Hindsight bank pin in
-  `hindsight/config.json`
+- Expect a generated `config.yaml` with the renderer's header marker, a real
+  override-only `config.delta.yaml`, identity-only `profile.yaml`, and an
+  explicit Hindsight bank pin in `hindsight/config.json`
 - Run the profile renderer's `check`; do not infer native inheritance from an
   inert `profile.yaml` `config:` block
 
 3. Local runtime contract
 - Confirm `agents/hermes/pm/runtime/` is ignored/untracked local state, not a
-  profile target, submodule, or nested Git repository
-- Explicit owned-state links may target the real profile; generated fleet config
+  desk target, submodule, or nested Git repository
+- Explicit owned-state links may target the real desk; generated fleet config
   must not be duplicated into repo-local runtime
 - Hooks may point to shared Bloodbank publishers; that is normal
 - Run `git check-ignore -q -- agents/hermes/pm/runtime/` and separately require
@@ -52,15 +57,17 @@ Do not stop at "MCP failed". Identify which layer owns each failure and route fo
 
 4. Shared fleet config
 - Inspect `~/.hermes/config.yaml`
-- Treat `mcp_servers` there as the base source and confirm the named profile's
+- Treat `mcp_servers` there as the base source and confirm the named desk's
   generated config contains the expected merge
-- Compare the profile delta/rendered state against shared `mcp_servers` before
-  blaming the repo
+- Compare the desk delta/rendered state against shared `mcp_servers` before
+  blaming the repo; a delta that redeclares a base list replaces it
 
 5. Template and fanout baseline
 - Read `33god-projects` for `.project.json` / one-board-per-repo conventions
-- Read `hermes-pm-template-maintenance` for template/backfill rules
-- Use `ssot-fanout` / universal-hook evidence to distinguish shared hook deployment from repo-local emitters
+- Read [pm-template-maintenance.md](pm-template-maintenance.md) for
+  template/backfill rules
+- Use `agent-config-fanout` / universal-hook evidence to distinguish shared hook
+  deployment from repo-local emitters
 
 ## Reproduction checklist
 
@@ -74,24 +81,20 @@ Do not stop at "MCP failed". Identify which layer owns each failure and route fo
 
 3. Check daemon health
 - `systemctl --user status hermes-<repo>-pm-gateway.service`
-- `systemctl --user status hermes-<repo>-pm-heartbeat.timer`
 - `systemctl --user status hermes-fleet-bloodbank-gateway.service`
-- Any `hermes-<repo>-pm-consumer.service` or `*-checkpoint.timer` sighting is
-  drift, not something to debug — record it and converge with
-  `pj migrate hermes.registry-parity`
+- Any `hermes-<repo>-pm-heartbeat.*`, `*-consumer.service`, or `*-checkpoint.timer`
+  sighting is drift, not something to debug — record it and converge it
 - Record unit-file, enabled, active, failed, and restart state. A gateway
   intentionally deferred for lack of a channel credential must be disabled and
-  inactive, not classified as broken or left in a crash loop. Heartbeat health
-  is independent; its oneshot service may be inactive between successful ticks.
-- Use a bounded stabilization window over `Result`, `ExecMainStatus`,
-  `NRestarts`, and the latest heartbeat service result. Never close from one
-  `is-active` sample.
-- For each unverified/deferred channel, confirm the profile delta explicitly
+  inactive, not classified as broken or left in a crash loop.
+- Use a bounded stabilization window over `Result`, `ExecMainStatus`, and
+  `NRestarts`. Never close from one `is-active` sample.
+- For each unverified/deferred channel, confirm the desk delta explicitly
   sets `platforms.<telegram|slack>.enabled: false`; fleet-base true is otherwise
   inherited and unsafe.
 
 4. Pull runtime evidence
-- Search PM gateway and heartbeat logs for:
+- Search gateway logs for:
   - `MCP: registered`
   - server names (`pjangler`, `codegraph`, `plane`, `vox`)
   - `No MCP servers configured`
@@ -102,7 +105,8 @@ Do not stop at "MCP failed". Identify which layer owns each failure and route fo
   - `Slack app token already in use`
 
 5. Verify repo-local server artifacts separately
-- For repo-local stdio servers, run their direct regression/smoke test outside Hermes
+- For repo-local stdio servers, run their direct regression/smoke test outside
+  Hermes
 - Example for pjangler:
   - `node tests/mcp-server-regressions.mjs`
 
@@ -115,7 +119,7 @@ Interpretation:
 
 Check:
 - shared `~/.hermes/config.yaml`
-- real named profile, delta, and rendered config
+- real named desk, delta, and rendered config
 - renderer drift status
 - wrapper / launch environment
 
@@ -149,24 +153,30 @@ Interpretation:
 
 2. Interactive CLI works, systemd daemon fails
 - Usually PATH drift
-- Prefer absolute executable paths for daemon-launched MCP servers, or explicitly export PATH in the unit/runtime env
+- Prefer absolute executable paths for daemon-launched MCP servers, or explicitly
+  export PATH in the unit/runtime env
 
-3. Gateway dead, heartbeat alive
-- Chat ingress may be broken even while the heartbeat sentinel still ticks —
-  and Bloodbank command routing (fleet gateway) is independent of both
+3. Chat gateway dead, Bloodbank routing alive
+- Chat ingress may be broken while Bloodbank command routing (the fleet-shared
+  gateway) still reaches the agent — they are independent ingresses
 - Do not claim the agent is healthy if its gateway is down; do not claim it is
-  unreachable without checking the fleet Bloodbank gateway
+  unreachable without checking the fleet Bloodbank gateway and the agent's
+  registry eligibility (`enabled: true`, `gateway_scope: fleet`, matching
+  `target_agent_id`, nonblank `profile_name`)
 - First determine whether chat ingress was intentionally deferred because no
   per-agent channel credential exists. The correct state then is disabled and
-  inactive, while heartbeat may remain healthy.
+  inactive.
 
 4. Duplicate gateways share one chat token
 - Two gateways consuming one Telegram/Slack credential create startup
-  collisions; the fleet gateway refuses to start the duplicate
-- One dedicated bot credential per agent profile, always
+  collisions; the second refuses to start
+- One dedicated bot credential per agent desk, always
 
 5. Stale systemd units
-- Timeout and env warnings usually mean template/backfill drift, not repo application drift
+- Timeout and env warnings usually mean template/backfill drift, not repo
+  application drift
+- A unit whose `Environment=HERMES_HOME=` does not equal the named desk path is
+  split-brain against its own launcher; that is `hermes.profile-wiring`
 
 ## Board routing rules
 
@@ -208,14 +218,15 @@ Every self-check report should end with:
 
 Minimum acceptance checks for closure:
 
-- Repo board and real profile base-plus-delta state verified from live files
-- Immutable skill core verified: `33god-projects`, `delonet-conventions`,
-  `delonet-dotenv`, `hermes-pm-template-maintenance`, `hindsight`, and
-  `subagent-driven-development`; optional configuration only adds members
+- Repo board and real desk base-plus-delta state verified from live files
+- Runtime skill core verified against the pin in
+  `[fleet] symlinked_runtime_skills` (`~/.config/hermes-agent-template/config.toml`):
+  every pinned directory resolves to a real `~/.agents/skills/<name>/SKILL.md`,
+  and configuration only adds members
 - Shared `mcp_servers` entries inspected from `~/.hermes/config.yaml`
-- Gateway / heartbeat timer / fleet-bloodbank-gateway status checked from systemd
-- Bounded service window proves successful `Result`, zero `ExecMainStatus`,
-  stable restart count, and successful latest heartbeat result
+- Gateway and fleet-bloodbank-gateway status checked from systemd
+- Bounded service window proves successful `Result`, zero `ExecMainStatus`, and a
+  stable restart count
 - Credential-less gateway classified as explicitly deferred (disabled/inactive),
   never an enabled restart loop
 - Shared `.env` inspected only for secret *names/patterns*; any literal
@@ -228,22 +239,17 @@ Minimum acceptance checks for closure:
 
 ## Pitfalls
 
-- Do not treat current `hermes mcp list` output as the whole story when logs prove a different earlier runtime state
+- Do not treat current `hermes mcp list` output as the whole story when logs prove
+  a different earlier runtime state
 - Do not blame the repo-local server implementation if direct tests pass
-- Do not file all MCP failures on one repo board when ownership spans shared config and external services
-- Do not forget gateway health; an MCP fix does not matter if the repo's only ingress is dead
-- Do not expose secrets from profile/runtime `.env` or shared config while
+- Do not file all MCP failures on one repo board when ownership spans shared
+  config and external services
+- Do not forget gateway health; an MCP fix does not matter if the repo's only
+  chat ingress is dead
+- Do not expose secrets from desk/runtime `.env` or shared config while
   collecting evidence. A literal credential in `~/.hermes/.env` is a finding,
   not an invitation to echo it; nonsecret toggles may remain there.
-- Do not treat `pj audit`, deploy summaries, or registry dumps alone as proof;
-  reconcile them with `.project.json`, profile files, and direct systemd state.
-
-## Capability selection versus execution
-
-The PM profile can retain `subagent-driven-development` as an available core
-capability while it is absent from the global default set. Availability does
-not mandate delegation or multiple review passes. Use the canonical skill only
-for explicitly requested or otherwise authorized team work; bounded direct
-implementation remains valid. For template repair, inspect the live resolved
-profile source before changing it. Global-loadout cleanup alone does not
-authorize fleet restarts or rewriting runtime profiles.
+- Do not treat `flume audit`, `flume review`, hire summaries, or registry dumps
+  alone as proof; reconcile them with `.project.json`, desk files, and direct
+  systemd state. A `flume review` verdict of `unproven` ("unable to assess")
+  means the observation could not be trusted — it is not a pass.

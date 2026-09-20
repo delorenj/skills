@@ -1,18 +1,52 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "deploy_command": [
-    "pj",
-    "hermes-agent",
+    "flume",
+    "hire",
+    "pm",
     "--yes"
   ],
-  "required_skill_core": [
-    "33god-projects",
-    "delonet-conventions",
-    "delonet-dotenv",
-    "hermes-pm-template-maintenance",
-    "hindsight",
-    "subagent-driven-development"
+  "rerun_command": [
+    "flume",
+    "onboard",
+    "pm"
   ],
+  "rerun_is_convergent": true,
+  "rerun_force_available": false,
+  "employee_rule_ids": [
+    "hermes.pm-scaffold",
+    "hermes.untracked-runtimes",
+    "systemd.sentinel",
+    "hermes.runtime-singleton",
+    "hermes.fleet-config",
+    "hermes.delta-list-override",
+    "hermes.profile-wiring",
+    "hermes.registry-parity"
+  ],
+  "remediate_command": [
+    "flume",
+    "remediate",
+    "<rule-id>"
+  ],
+  "remediate_frozen_alias": "migrate",
+  "postcondition_probe": {
+    "argv": [
+      "pj",
+      "audit",
+      "<repo>",
+      "--rules",
+      "mise.config-root,sot.project-json",
+      "--json"
+    ],
+    "unreachable_probe_standing": "unableToAssess",
+    "unreachable_probe_fails_hire": false
+  },
+  "required_skill_core": {
+    "source": "~/.config/hermes-agent-template/config.toml",
+    "key": "fleet.symlinked_runtime_skills",
+    "resolves_to": "~/.agents/skills/<pinned-directory-name>/SKILL.md",
+    "pinned_name_is_directory_not_frontmatter_name": true
+  },
   "skill_policy": {
     "core_is_immutable": true,
     "configuration_may_add_optional_skills": true,
@@ -91,6 +125,9 @@
       "fleet_backfill"
     ],
     "profile_root_must_be_real": true,
+    "generated_config_requires_render_marker": true,
+    "generated_config_must_not_be_symlink": true,
+    "delta_must_exist_and_be_regular_file": true,
     "profile_lock": {
       "shared_by_all_writers": true,
       "symlink_safe": true,
@@ -205,14 +242,32 @@
       "old_clone_invalidation"
     ]
   },
+  "service_model": {
+    "per_agent_units": [
+      "hermes-{agent_id}-gateway.service"
+    ],
+    "fleet_shared_units": [
+      "hermes-fleet-bloodbank-gateway.service"
+    ],
+    "retired_units_are_drift": [
+      "hermes-{agent_id}-heartbeat.timer",
+      "hermes-{agent_id}-heartbeat.service",
+      "hermes-{agent_id}-consumer.service",
+      "hermes-{agent_id}-checkpoint.timer"
+    ],
+    "heartbeat_role_yaml_state": "retired",
+    "provisioning_removes_retired_heartbeat_units": true,
+    "liveness_owner": "gateway unit Restart=on-failure",
+    "scheduling_owner": "bloodbank",
+    "persistence_owner": "krebs leases"
+  },
   "service_stabilization": {
     "bounded_window_required": true,
     "single_is_active_sample_is_sufficient": false,
     "required_observations": [
       "Result",
       "ExecMainStatus",
-      "NRestarts",
-      "latest_heartbeat_service_result"
+      "NRestarts"
     ]
   },
   "registry_rerun": {
@@ -221,7 +276,15 @@
     ],
     "preserve_extension_metadata": true,
     "preserve_unknown_fields": true,
-    "byte_identical_when_inputs_unchanged": true
+    "byte_identical_when_inputs_unchanged": true,
+    "required_bloodbank_block": {
+      "gateway_scope": "fleet",
+      "target_agent_id": "{agent_id}"
+    },
+    "forbidden_legacy_keys": [
+      "consumer_unit",
+      "checkpoint_timer"
+    ]
   },
   "git_transactions": {
     "repository_hooks_required": true,

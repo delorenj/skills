@@ -1,10 +1,10 @@
 # Provenance for this skill. Managed by `skillex vendor`; do not hand-edit.
 origin:
   type: vendored
-  source: pjangler
-  upstream: git@github.com:delorenj/pjangler.git
-  upstream_version: v1.4.2
-  upstream_commit: dbafc00435bdc34f99936477742f1e42cad9e5d9
+  source: flume
+  upstream: git@github.com:delorenj/flume.git
+  upstream_version: db6602c2907c667d91f63570732e90fd0d01b261
+  upstream_commit: db6602c2907c667d91f63570732e90fd0d01b261
   upstream_tree: a55f439aa46ae5f2a9c43d0e228991f65d783ca4
   upstream_path: skills/hermes-pm-template-maintenance
   extracted_at: "2026-09-01T15:55:42+00:00"
