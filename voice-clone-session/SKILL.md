@@ -70,6 +70,31 @@ for endpoints; this skill is the *session* layer on top of it.
 | "The STT audio path is gone" | Temp files are ephemeral | Pull from the profile media cache (step 4) |
 | Clone sounds off | Bad reference (noise, flat read, or the wrong 10s) | Re-record quieter, livelier, or tighter to the **10s** budget; re-upload with the same `name` to overwrite |
 
+## Comparing two candidate references: never on one sample
+
+If you are choosing between two cuts of the same recording, A/B them by
+registering each as a throwaway voice (`dumplytesta`, `dumplytestd`), synthesizing
+the **same** lines with each, and measuring the output against the *full* original
+recording — median f0 error, f0 histogram overlap, and voiced-frame ratio.
+Delete the throwaways afterwards.
+
+**Use at least six samples per candidate.** Run-to-run synthesis variance is
+±3.6–3.9% on median f0, which is *larger* than the difference between two
+reference cuts from one recording. Measured 2026-09-20 on Ava's clip: a
+single-sample comparison ranked the candidates in exactly the **opposite** order
+to the six-sample average. One sample will confidently tell you the wrong thing.
+
+**Acoustic window scoring does not predict clone quality.** A candidate that won
+on every acoustic measure (highest speech ratio, shortest internal silence,
+fewest loud frames, calmest f0 spread) produced the worst clone by a wide margin
+— 37.8% f0 error against 4.4% for the winner. Pick windows by *content*
+(continuous narration, neutral register, no non-speech) and then confirm by
+synthesis. Do not trust a silence-and-loudness score on its own.
+
+And know when to stop: if two cuts of the same take measure within noise of each
+other, the recording is the ceiling, not the cut. Ask for 15 clean seconds
+instead of hunting for a better window.
+
 ## Household notes
 
 - Voice profiles are stored on the service with a `name` slug that becomes the
