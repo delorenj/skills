@@ -379,8 +379,12 @@ the repo, board and project memory stay with the post. The first one is
   stays where it was written (`agent-33god-pm`, `workspace-grolf`); list those
   in `recall_banks` and the composed SOUL tells the agent to recall them
   explicitly. Seed the new bank's missions with `hindsight bank create` +
-  `hindsight bank import-template <new> <export of the old>`. The CLI's
-  synchronous `memory retain` answers 403 on this server; use `--async`.
+  `hindsight bank import-template <new> <export of the old>`. A `memory
+  retain` that answers 403 is Hindsight's extraction LLM (OpenRouter behind
+  `hindsight-litellm`) over its key/budget limit, not a permission problem:
+  `hindsight operation list <bank>` shows the real error, and a failed retain
+  stores nothing. Always pass `--doc-id`: two CLI retains in the same second
+  share one auto document id and the second replaces the first.
 - **SOUL:** `flume remediate hermes.pm-scaffold <repo>` composes a named soul
   (addressed by name, Name row, personal bank, recall list). Unnamed posts
   compose byte-identically, so naming one agent drifts no other soul.
