@@ -7,6 +7,13 @@ pipeline-status:
 
 # DeLoDocs Vault Automation Pipeline
 
+> **The vault is not a git repo.** It is synced only by Syncthing (folder id
+> `delodocs`; hub big-chungus is the source of truth). Never `git init`, commit,
+> or push it; a pipeline fix "lands" when the file is written. History lives in
+> `~/DeLoDocs-history-2026-07-17.bundle` and GitHub `delorenj/DeLoDocs`. The hub's
+> `.stignore` carries `/.git` so a peer cannot re-sync one; `.stignore` is
+> per-device. Full story: the vault's own `AGENTS.md` → "Version Control & Backups".
+
 ## Pipeline Architecture
 
 The vault runs a three-stage Inbox triage pipeline plus downstream wiki passes:

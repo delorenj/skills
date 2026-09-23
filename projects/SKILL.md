@@ -23,6 +23,10 @@ The **PM** that works the repo is a separate concern with its own tool. `flume h
   is the one-way `agent_role_directory` projection of it declared in the
   handbook's `projections:` block (`writable_by: project-registry`). `pj init`
   carries an existing entry forward and never authors one.
+- **A project need not be a git repo.** `.project.json` is what makes a
+  project. DeLoDocs is Syncthing-only (no `.git`, never commit it) and still
+  binds the DOCS board; `pj init` with no name adopts a directory carrying
+  `.project.json` whether or not git knows it.
 - **One board per repo.** The PM owns it. Board name = the project name (no role suffix); identifier = `slug[:4]` uppercased.
 - **Agent config uses generated base-plus-delta state.** `flume hire` creates a
   real `~/.hermes/profiles/<repo>-pm/` directory. Its generated `config.yaml`

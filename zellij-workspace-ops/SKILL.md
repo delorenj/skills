@@ -2,7 +2,7 @@
 name: zellij-workspace-ops
 description: 'Debug, configure, and extend delorenj''s single-session zellij workspace
   and the agent surfaces bound to it. Use when touching files in ~/.config/zellij,
-  when a zellij CLI call hangs or times out, when deckard or zellij-driver misbehave,
+  when a zellij CLI call hangs or times out, when deckard misbehaves,
   when agent panes come back suspended after a crash, when wiring a zellij plugin
   or keybind, when tab attention/notification does not reach the user, or when an
   agent must find/focus/rename a tab from outside a pane. Triggers: zellij, config.kdl,
@@ -66,7 +66,7 @@ matching implementation or diagnosis.
 
 ## The surrounding system
 
-Five services bind to this one session. Breaking the zellij CLI breaks most of them, so
+Four services bind to this one session. Breaking the zellij CLI breaks most of them, so
 check `systemctl --user status` for these before blaming a component:
 
 | Unit | Role |
@@ -75,7 +75,10 @@ check `systemctl --user status` for these before blaming a component:
 | `deckard@Workspace.service` | Stream Deck surface; tab per key, press to focus |
 | `nanoleaf-panels.service` | Physical light wall: zellij tabs → Hive, agent tree → Honeycomb |
 | `zellij-web.service` | `zellij web` on :8082, fronted at `z.delo.sh` (token auth enforced) |
-| `zellij-driver.service` | Agentboard → zellij control bridge on :8084 |
+
+`zellij-driver.service` (the Agentboard → zellij bridge on :8084) is **retired**: Agentboard
+was killed 2026-09-23, the unit is disabled, `zellij-web` no longer `Wants=` it, and the
+`z.delo.sh/agentboard` Traefik route is gone. Do not re-enable it to fix anything here.
 
 ## House rules for changes here
 
