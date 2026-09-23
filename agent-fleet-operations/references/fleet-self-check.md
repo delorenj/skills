@@ -161,7 +161,8 @@ Interpretation:
   gateway) still reaches the agent — they are independent ingresses
 - Do not claim the agent is healthy if its gateway is down; do not claim it is
   unreachable without checking the fleet Bloodbank gateway and the agent's
-  registry eligibility (`enabled: true`, `gateway_scope: fleet`, matching
+  registry eligibility (`enabled` absent or `true` -- no key means enabled,
+  explicit `false` quarantines -- `gateway_scope: fleet`, matching
   `target_agent_id`, nonblank `profile_name`)
 - First determine whether chat ingress was intentionally deferred because no
   per-agent channel credential exists. The correct state then is disabled and

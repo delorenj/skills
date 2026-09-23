@@ -33,10 +33,12 @@ Plane workspace (33god or automaticai)
   ▼
 n8n workflow `Plane → Bloodbank` (iMw484J1ZCqKME2C)
   │ 1. read payload.webhook_id
-  │ 2. resolve that webhook's op:// secret reference
+  │ 2. resolve that webhook's op:// secret reference (cached in-process, 1h)
   │ 3. verify HMAC before normalization or publication
-  │ 4. resolve board_id through ~/.hermes/agents-registry.yaml
+  │ 4. resolve board_id through pjangler project enrollment
+  │    (every .project.json), then ~/.hermes/agents-registry.yaml
   │ 5. normalize Plane action to provider-neutral repo fact
+  │    (a board nothing claims → Unrouted output; nothing published)
   ▼
 NATS `bloodbank.evt.repo.*`
   ├─ JetStream `BLOODBANK_EVENTS` retains the immutable envelope
@@ -61,24 +63,49 @@ company, service boundary, n8n instance, or credential authority.
 - Unknown webhook IDs and invalid signatures stop before NATS publication.
 - n8n's webhook node must preserve the raw body. Re-serializing parsed JSON
   changes bytes and causes a valid signature to fail.
-- The retired host relay on port `8477` is not part of the live journey.
+- Resolved secrets are cached in-process for an hour and served stale when
+  1Password is unreachable, so a vault rate limit no longer drops deliveries.
 
 Canonical webhook IDs, secret references, action mapping, identity routing, and
 idempotency rules live in `bloodbank/docs/plane-event-normalization.md`.
 
 ### Plane normalization
 
-| Plane action | Provider provenance | Canonical fact | NATS subject |
-|---|---|---|---|
-| project create | `plane.board.created` | `bloodbank.repo.board.created` | `bloodbank.evt.repo.board.created` |
-| issue create | `plane.ticket.created` | `bloodbank.repo.task.created` | `bloodbank.evt.repo.task.created` |
-| issue update/state activity | `plane.ticket.updated` or `plane.ticket.transitioned` | `bloodbank.repo.task.updated` | `bloodbank.evt.repo.task.updated` |
-| issue comment create | `plane.ticket.commented` | `bloodbank.repo.task.appended` | `bloodbank.evt.repo.task.appended` |
-| issue delete | `plane.ticket.deleted` | `bloodbank.repo.task.updated` | `bloodbank.evt.repo.task.updated` |
+The provider aliases are declared in the schemas themselves — an
+`x-provider-aliases` entry on `data.provider_event_type` of the canonical
+schema — and everything else (n8n trigger aliases, the normalizer, this table)
+derives from that declaration:
 
-The provider name stays in `data.provider_event_type`; the wire contract stays
+| Plane action | Provider provenance | Canonical fact (declares the alias) |
+|---|---|---|
+| project create | `plane.board.created` | `bloodbank.repo.board.created` |
+| issue create | `plane.ticket.created` | `bloodbank.repo.task.created` |
+| issue update / state activity / delete | `plane.ticket.updated`, `plane.ticket.transitioned`, `plane.ticket.deleted` | `bloodbank.repo.task.updated` |
+| issue comment create | `plane.ticket.commented` | `bloodbank.repo.task.appended` |
+
+The subject is the canonical one (`bloodbank.evt.repo.task.created`, …). The
+provider name stays in `data.provider_event_type`; the wire contract stays
 provider-neutral. A Plane retry derives the same deterministic event ID, and
 Candystore's idempotent insert prevents a second durable fact.
+
+### From fact to agent (n8n lifecycle lane)
+
+```text
+bloodbank.evt.repo.task.created / .updated
+  ▼ Bloodbank Trigger (alias plane.ticket.created / plane.ticket.transitioned)
+33GOD Agent Fleet node (Groom Ticket / Delegate Ticket)
+  ├─ Dispatched → bloodbank.cmd.agent.invocation.start
+  │    command_id = uuid5(causing event id, operation, agent) → redelivery dedups
+  │    data.context {reason: ticket-grooming|ticket-delegation, repo, ticket_key,
+  │                  ticket_id, board_id, workspace, title, phase, …}
+  └─ Skipped → bloodbank.evt.agent.invocation.skipped
+       data {reason, skip_code: provider_event_guard|phase_guard|ineligible|
+             invalid_policy|fenced|no_route, target_agent_id|null, context{…}}
+```
+
+A skip is a fact on the bus, not a silent green execution: "why did nobody
+groom this ticket?" is answered by querying Candystore for
+`bloodbank.agent.invocation.skipped` with the ticket's `data.context.board_id`.
 
 ## Journey B: targeted command to Hermes execution and facts
 
@@ -93,7 +120,7 @@ JetStream `BLOODBANK_COMMANDS` (work-queue retention)
 Fleet-shared `hermes-fleet-bloodbank-gateway.service`
   │ 1. cap size and validate command/schema/actor/prompt
   │ 2. resolve target_agent_id through fleet registry
-  │ 3. require explicit Bloodbank eligibility (default deny)
+  │ 3. check the Bloodbank route block (no enabled key = enabled)
   │ 4. journal command digest + state in mode-0600 SQLite
   │ 5. dispatch to the selected Hermes profile
   │ 6. wait for Hermes processing-complete
@@ -124,10 +151,13 @@ agents:
   <agent-id>:
     profile_name: <nonblank-profile>
     bloodbank:
-      enabled: true
+      enabled: true          # or ABSENT: no key means enabled
       gateway_scope: fleet
       target_agent_id: <same-agent-id>
 ```
+
+`enabled: false` switches the route off; any other present value (`"true"`,
+`null`, `1`) is invalid and treated as off.
 
 The gateway does not infer permission from a running systemd unit, Telegram
 configuration, profile existence, or a past successful command. A running
@@ -185,6 +215,7 @@ gateway with zero eligible entries is healthy but intentionally unroutable.
   current registry route is eligible.
 - **"automaticai is another infrastructure owner."** No. It is a Plane workspace
   slug on the same self-hosted instance.
-- **"Plane can use `/event` or port 8477 too."** Not in the live canonical path.
+- **"The n8n execution was green, so the ticket was handled."** No. Check the
+  Fleet node's Skipped output, or `bloodbank.agent.invocation.skipped` on the bus.
 - **"A command belongs in Candystore."** The command is short-lived intent; its
   execution lifecycle events are the durable audit facts.

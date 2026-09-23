@@ -70,10 +70,14 @@ for calls where knowing the *why* later has value.
 
 ## Verify a live event landed
 
-The `event-toaster` subscribes `bloodbank.evt.>` and forwards to `ntfy.delo.sh/bloodbank`:
+The `event-toaster` subscribes `bloodbank.evt.>` and toasts to `ntfy.delo.sh/bloodbank`
+every type it does not mute or digest. A decision event is toasted individually, so its
+`toasted: bloodbank.repo.decision.recorded` log line and its toast are the proof it landed.
+(The toaster mutes `bloodbank.agent.hook.updated` / `bloodbank.system.hook.updated` and only
+digests `bloodbank.agent.tool.*`, so those are no proof of anything here; Candystore is.)
 
 ```bash
-docker logs bloodbank-event-toaster --tail 5
+docker logs bloodbank-event-toaster --tail 20 | grep decision
 curl -s 'https://ntfy.delo.sh/bloodbank/json?poll=1&since=120s'
 ```
 

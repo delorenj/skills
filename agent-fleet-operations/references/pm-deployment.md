@@ -88,7 +88,8 @@ repository or any nested repository merely to make provisioning easier.
   ```
 - The registry row and `.project.json` agree on repo, board, agent id, role, and
   `profile_name`, and the row advertises
-  `bloodbank: {enabled, gateway_scope: fleet, target_agent_id: <agent-id>}`. A
+  `bloodbank: {enabled, gateway_scope: fleet, target_agent_id: <agent-id>}`
+  (an absent `enabled` means enabled; only an explicit `false` quarantines). A
   Plane binding is valid only when `ticket_provider.state` is `linked`, its
   identifier and board id resolve against the live Plane project, and
   `.project.json` does **not** persist `ticket_provider.board_url`; derive URLs

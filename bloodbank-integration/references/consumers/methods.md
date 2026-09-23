@@ -115,7 +115,7 @@ Nothing to deploy. Open `https://ntfy.delo.sh/bloodbank` in the ntfy mobile/desk
 curl -s "https://ntfy.delo.sh/bloodbank/json?poll=1&since=5m"
 ```
 
-Every event the toaster sees on `bloodbank.evt.>` shows up here. Use it for human eyes / smoke tests, not for code-level consumption.
+Not every event on `bloodbank.evt.>` shows up here. The toaster mutes `bloodbank.agent.hook.updated` and `bloodbank.system.hook.updated` (never posted), rolls `bloodbank.agent.tool.*` into one digest toast every few minutes, and rate-limits the rest, folding overflow into the digest. Everything else gets one toast each. Use it for human eyes / smoke tests, not for code-level consumption; `docker logs bloodbank-event-toaster` has one `toasted:` / `digested:` / `rate-limited:` line per non-muted event, and Candystore has all of them.
 
 ## 6. Candystore durable event projection (canonical audit consumer)
 
@@ -142,8 +142,9 @@ curl -fsS 'http://127.0.0.1:8683/events?producer=<producer>&type=<type>&limit=10
 
 `hermes-fleet-bloodbank-gateway.service` owns one JetStream durable pull
 consumer on `bloodbank.cmd.agent.invocation.start`. It validates the complete
-command, routes `data.target_agent_id` through the fleet registry's explicit
-Bloodbank eligibility block, journals execution state, invokes the selected
+command, routes `data.target_agent_id` through the fleet registry's Bloodbank
+route block (no `enabled` key means enabled; only an explicit `false`
+quarantines), journals execution state, invokes the selected
 Hermes profile, and emits started plus terminal lifecycle **events**.
 
 This is a command consumer, not an event subscription template. Do not create

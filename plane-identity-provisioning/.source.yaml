@@ -5,8 +5,8 @@ origin:
   upstream: git@github.com:delorenj/flume.git
   upstream_version: e8672ec6050d649359d22dce96bd5b540f074fd6
   upstream_commit: e8672ec6050d649359d22dce96bd5b540f074fd6
-  upstream_tree: 08ebd62d0d3c674be76d58a850d0cc3866ab0b05
-  upstream_path: skills/agent-fleet-operations
+  upstream_tree: df854832f40584602128842d1ed37d6b4f616f2f
+  upstream_path: skills/plane-identity-provisioning
   extracted_at: "2026-09-23T04:36:51+00:00"
-  digest: sha256:f260bdbee2ecb514de0edc539bfe7238a9055dbed73d93df10e043ee00d46031
+  digest: sha256:d997dda8ec5c8254797f8b0e6e96c442dbc9b16a8b368acaad95fec2c9dba91b
 modified_locally: false

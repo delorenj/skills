@@ -16,13 +16,16 @@ records why none can. One live thread beats a quiet backlog (pillar
 
 Normalized (adapter) ↔ Plane labels. **SSOT = `krebs/spec/lifecycle.v1.yaml`** (the one
 versioned machine); provider label names come from the `tp` adapter, and the repo's
-`ticket-lifecycle/workflow.yaml` only overrides knobs. The canonical **unstarted band** is
-Triage / Refining / Ready. A literal "To&nbsp;Do" column is *not* in that map — it is Plane's
-**default** unstarted group, present only on boards that keep the Plane defaults. Resolve the
-board's actual state names via `momo-board.sh` (`list_issues` shows each ticket's `state`)
-rather than assuming labels.
-`backlog`→Backlog · `unstarted`→Triage / Refining / Ready (or Plane's default "To&nbsp;Do") ·
-`started`→In&nbsp;Progress · `in_review`→Review / QA · `completed`→Done. Also: Blocked.
+`ticket-lifecycle/workflow.yaml` only overrides knobs. The canonical board has nine lanes
+(pilot `schemas/33god-standard.json`, a projection of krebs LANES), and the workflow's `states:`
+map puts each phase on one of them: `backlog`→Backlog · `triage`/`refining`→Needs
+Re-evaluation · `ready`→Todo · `in_progress`/`review`→In&nbsp;Progress · `qa`→E2E Testing & QA ·
+`done`→Done · `blocked`→Needs Attention (the other two lanes are Ready for Documentation and
+Cancelled). Boards not yet on the canon may still carry other names (Awaiting Decision, Plane's
+default "To&nbsp;Do"). Resolve the board's actual state names via `momo-board.sh`
+(`list_issues` shows each ticket's `state`) rather than assuming labels. On a legacy board
+every move is `px move <ref> "<lane>" -m "<audit comment>"`; px refuses a lane the board
+lacks and lists the real ones.
 
 Transitions per ticket: acquired → **triage**; triage → ready (AC 4/4) | refining (any
 fail); refining → ready (re-eval passes) | blocked (still insufficient); ready →
@@ -73,8 +76,8 @@ Pick the first that applies:
 
 1. A `blocked`/`in_review` ticket needing only agent-doable evidence/AC repair.
 2. An **unblocked ticket in the active milestone** that is `ready`/`unstarted`.
-3. A **To&nbsp;Do** ticket (the board's unstarted/triaged lane — Plane's default "To Do", or
-   Triage/Refining/Ready on a ticket-lifecycle board; see the state-machine note) — pull it
+3. A **To&nbsp;Do** ticket (the board's unstarted lane: Todo on the canonical board, or
+   Plane's default "To Do" on an older one; see the state-machine note) — pull it
    **on your own judgment** only when ALL hold: it is a clear value-add, it is unambiguous,
    and it has enough data to start without guessing.
    Recording this pull as a decision event (basis `keep-the-pipeline-unblocked`,

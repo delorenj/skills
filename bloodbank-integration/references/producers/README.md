@@ -44,7 +44,7 @@ await nc.publish(env.subject, env.model_dump_json().encode())
 await nc.drain()
 ```
 
-Verify it arrived: tail `bloodbank-event-toaster` logs or curl `https://ntfy.delo.sh/bloodbank/json?poll=1&since=30s`.
+Verify it arrived: tail `bloodbank-event-toaster` logs (a `toasted:` or `digested:` line with your type) or curl `https://ntfy.delo.sh/bloodbank/json?poll=1&since=30s`. The toaster mutes `bloodbank.agent.hook.updated` / `bloodbank.system.hook.updated`; for those, check Candystore.
 
 ## When the default doesn't fit
 

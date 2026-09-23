@@ -4,9 +4,9 @@ origin:
   source: bloodbank
   upstream: git@github.com:delorenj/bloodbank.git
   upstream_version: main
-  upstream_commit: 28c708b7a532252effaad03f1adc75bbadd4965f
-  upstream_tree: c1b0a0f75e4902cd7cd860c0bcc7ba4fb587569c
+  upstream_commit: b4c96e08bc767a42af4d2a5b9d376c804222be53
+  upstream_tree: 0549074eb476d734ae0ef374b1a5238e281dcf9f
   upstream_path: skills/bloodbank-integration
-  extracted_at: "2026-09-01T15:55:42+00:00"
-  digest: sha256:92e550b36bbe0c07272834f291d8186e5d89f7c98d44217f0a5b798397b2fe08
+  extracted_at: "2026-09-23T04:36:51+00:00"
+  digest: sha256:057de565699a5c5312d102908df0f70cb8dde875ce9ec76b93e2f7ad0c5b3ba3
 modified_locally: false

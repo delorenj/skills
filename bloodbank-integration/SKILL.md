@@ -70,8 +70,9 @@ Do you own a 33GOD service container with a Dapr sidecar?
    │  → NATS JetStream durable consumer. Subjects defined in compose/nats/streams.json.
    ├─ Legacy v2 consumer or RabbitMQ-only environment?
    │  → FastStream RabbitMQ consumer bound to exchange bloodbank.events.v1. Avoid for new work.
-   └─ Just want desktop notifications for everything?
-      → Subscribe to https://ntfy.delo.sh/bloodbank (event-toaster already publishes there).
+   └─ Just want desktop notifications?
+      → Subscribe to https://ntfy.delo.sh/bloodbank (event-toaster publishes there: one toast
+        per event, except muted hook pulses and a periodic digest of agent.tool.*).
 ```
 
 ## Cross-Cutting Rules
@@ -83,9 +84,9 @@ These apply regardless of producer/consumer path or language:
 - **The schema tree is keyed by domain, not version.** `schemas/bloodbank/agent/session.started.json`. A breaking payload change does NOT become a `.v2.json` — it becomes a new `action` or `entity`, i.e. a different fact with its own type and subject (event-naming.md §3.1). Only `dataschema`/`schemaref` carry a revision number.
 - **Do not make schemas optional.** Edit the JSON Schema first, then validate with `mise run smoketest:schemas`.
 - **Use Hindsight memory bank `bloodbank` for integration notes** — broker-level decisions, subject-naming surprises, consumer wiring gotchas live there, not in the code.
-- **Test producers with the toaster.** `bloodbank-event-toaster` subscribes to `bloodbank.evt.>` and forwards every envelope to `https://ntfy.delo.sh/bloodbank`. If you don't see your event there, it didn't make it to NATS.
-- **Prove durable arrival in Candystore.** The canonical projection subscribes through Dapr to `bloodbank.evt.>` and exposes loopback query API `GET http://127.0.0.1:8683/events`. A toaster notification proves live fan-out; a Candystore row proves durable projection.
-- **Do not treat a running command gateway as routability.** The fleet gateway is default-deny. Before claiming commands can execute, count registry entries with `bloodbank.enabled: true`, `gateway_scope: fleet`, a matching `target_agent_id`, and a nonblank `profile_name`.
+- **Test producers with the toaster log, not just ntfy.** `bloodbank-event-toaster` subscribes to `bloodbank.evt.>` and gives each type one disposition: `bloodbank.agent.hook.updated` and `bloodbank.system.hook.updated` are **muted** (counted only in the per-minute `stats` log line, never posted), `bloodbank.agent.tool.*` is **digested** (one summary toast every few minutes), and everything else is **toasted** one by one to `https://ntfy.delo.sh/bloodbank`, rate-limited, with overflow joining the digest. Every non-muted event logs one line in `docker logs bloodbank-event-toaster` (`toasted:`, `digested:` or `rate-limited:` plus the type). No such line for a non-muted type means it didn't make it to NATS; for a muted type, check Candystore.
+- **Prove durable arrival in Candystore.** The canonical projection subscribes through Dapr to `bloodbank.evt.>` and exposes loopback query API `GET http://127.0.0.1:8683/events`. A toaster log line or notification proves live fan-out; a Candystore row proves durable projection.
+- **Do not treat a running command gateway as routability.** Activation defaults to allow: a missing `bloodbank.enabled` means enabled, only an explicit `false` quarantines, and a present non-boolean (`"true"`, `null`, `1`) is invalid and treated as disabled. Before claiming commands can execute, count registry entries that have a `bloodbank` mapping with `enabled` absent or `true`, `gateway_scope: fleet`, a matching `target_agent_id`, and a nonblank `profile_name`.
 
 ## Reading Order
 
