@@ -59,7 +59,7 @@ lives in `actor`, not in `type`.
 
 `bloodbank-event-toaster` subscribes to `bloodbank.evt.>` but does not toast
 every hook event. It mutes `bloodbank.agent.hook.updated` (hook-hub's state
-pulse, ~9/s in a busy session) and `bloodbank.system.hook.updated`, and rolls
+pulse; ~2/s in a busy session since hook-hub coalesces revisions, ~9/s before) and `bloodbank.system.hook.updated`, and rolls
 `bloodbank.agent.tool.*` into one digest toast every few minutes; session, turn
 and invocation events still toast one each at `https://ntfy.delo.sh/bloodbank`.
 So ntfy is not the check for a hook event. Look for its `digested:` or
