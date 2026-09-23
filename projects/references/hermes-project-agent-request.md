@@ -52,7 +52,11 @@ sealing and migration procedure.
 - Modify or restart `hermes-fleet-bloodbank-gateway.service`.
 - Remove an agent's record. `pj project identity` reports an abandoned agent and
   names the command; `flume offboard <employee>` is what deletes the row, and it
-  is a dry run until `--apply`.
+  is a dry run until `--apply`. A "dead" report comes from the hard-coded
+  `DEAD_AGENT_IDS`, which is a claim to check: confirm the repo's
+  `.project.json` board is gone too (count its tickets in the Plane DB, since an
+  archived board reads as empty through the API) before offboarding. tonnybox-pm
+  was listed there while its project was live (PJAN-136).
 
 For those, and for the required pre/post/convergence proof, route to
 `agent-fleet-operations` `references/pm-deployment.md`.

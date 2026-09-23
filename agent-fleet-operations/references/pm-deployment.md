@@ -12,11 +12,16 @@ Do not replace the command with hand-rendering, a template install script, or
 manual systemd/profile edits. A successful command summary is a claim to
 verify, not proof of a healthy deployment.
 
-The convergent rerun is `flume onboard pm`. Onboarding *is* hiring run again:
-every step is marker-guarded and the registry write is an upsert, so a second
-pass is a no-op that proves the first one held. `--force` is deliberately not
-offered on `onboard` — onboarding an employee must never become a way to
-overwrite one.
+The convergent rerun is meant to be `flume onboard pm`. Onboarding *is* hiring
+run again: every step is marker-guarded and the registry write is an upsert.
+`--force` is deliberately not offered on `onboard`, because onboarding an employee
+must never become a way to overwrite one. In the current build, though, hire
+refuses a non-empty role dir, so `onboard` stops at "Hermes target directory is
+not empty" on every deployed employee. Until that is fixed, converge a deployed
+employee with its own steps from the role dir: `30-telegram.sh` (with
+`SKIP_TELEGRAM=1` to record the channel as deferred), `70-systemd.sh` and
+`80-registry.sh`. `80-registry.sh` rewrites the whole registry through
+`yaml.safe_dump`; see SKILL.md for the one-row alternative.
 
 The machine-readable normative assertions are in
 [pm-deployment-contract.json](pm-deployment-contract.json). Configuration may
@@ -228,7 +233,8 @@ Treat their summaries as aggregate claims: the specific repo/profile/service
 evidence above still has to agree. A `flume review` verdict of `unproven`
 ("unable to assess") is not a pass.
 
-Then rerun `flume onboard pm`. The second run must not duplicate registry or
+Then rerun `flume onboard pm` (or, on a deployed employee, the 30/70/80 steps
+above). The second run must not duplicate registry or
 project entries, replace a real desk with a symlink, dirty tracked repo content,
 enable a credential-less gateway, alter the shared fleet gateway, or create
 retired units. Stable files should be byte-identical except for documented

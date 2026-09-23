@@ -1,12 +1,16 @@
-# Provenance for this skill. Managed by `skillex vendor`; do not hand-edit.
 origin:
   type: vendored
   source: flume
   upstream: git@github.com:delorenj/flume.git
-  upstream_version: e8672ec6050d649359d22dce96bd5b540f074fd6
-  upstream_commit: e8672ec6050d649359d22dce96bd5b540f074fd6
-  upstream_tree: 08ebd62d0d3c674be76d58a850d0cc3866ab0b05
+  upstream_version: 1625e3a5d2e757714aa6fc11c5f1f27efb35fa74
+  upstream_commit: 1625e3a5d2e757714aa6fc11c5f1f27efb35fa74
+  upstream_tree: 630b6e5d2aeefbcd76cb6ead5ae1203c5eadbeef
   upstream_path: skills/agent-fleet-operations
-  extracted_at: "2026-09-23T04:36:51+00:00"
-  digest: sha256:f260bdbee2ecb514de0edc539bfe7238a9055dbed73d93df10e043ee00d46031
+  extracted_at: 2026-09-23T17:50:38.419Z
+  digest: sha256:10a25cc281bbf276d187edbfd6291cbc2a9e4c829afe223205d096c8546cf964
 modified_locally: false
+previous_provenance:
+  origin:
+    type: local
+    extracted_at: 2026-07-01T20:47:25+00:00
+  modified_locally: true
