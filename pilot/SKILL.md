@@ -40,6 +40,8 @@ px task create "<title>" --state "In Progress"
 px claim <ref>                  # take a ticket: In Progress, assigned,
                                 # labelled agent:working
 px close <ref> [-m MSG]         # finish it: Done, marker removed
+px move <ref> <state> [-m MSG]  # legacy boards: set the state by name
+                                # (--dry-run shows it; -m posts the audit comment)
 
 px idea "<text>"                # file an idea about px itself
 px idea list                    # read the idea box
@@ -68,7 +70,20 @@ Progress, assigns it to the key's owner, and adds `agent:working`. Close it with
 Why it matters for agents specifically: `agent:working` is how a human tells
 "an agent is on this" from "nobody has touched this". An agent that dies
 mid-task leaves the marker behind, which is the signal. Refs accept `PX-3`, `3`,
-or a raw uuid. Assignment is a union, so you never unassign a teammate.
+`33GOD-68` (identifiers may start with a digit), or a raw uuid. Assignment is a
+union, so you never unassign a teammate.
+
+Labels are written as deltas on a fresh read (px 0.2.2): Plane's `PATCH` replaces
+the whole label list, so px re-reads the issue and adds or removes only its own
+label. Besides `px claim`/`px close`, never add or remove `agent:working` by hand:
+the n8n Ticket Pickup Chip owns it during an agent turn, and it keeps the label
+at turn end only when the ticket was claimed (moved into In Progress or assigned).
+
+`px move` is for legacy (non-Krebs) boards and is how Momo moves tickets
+(`px move MOMO-3 "Needs Attention" -m "why"`); it refuses a lane the board lacks
+and lists the real ones. A Krebs-managed board refuses it: use `px task <op>`.
+Creating a ticket with px is also how an agent "announces" it: the Plane webhook
+publishes the `bloodbank.repo.task.created` fact, so never publish one yourself.
 
 ## Where the board comes from
 

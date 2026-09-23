@@ -17,11 +17,12 @@ visual hub for the internals — not a place to hide a shell script inside one n
    an `executeCommand` wrapping a script that quietly does three jobs, giving the
    canvas zero visibility into any of them.
 2. **The bus is the completion signal.** Pipeline lifecycle events publish to
-   bloodbank (`bloodbank.evt.<domain>.<entity>.<action>`). Never wire ntfy /
-   Slack / email directly for a pipeline event — the `bloodbank-event-toaster`
-   already fans `bloodbank.evt.>` out to `ntfy.delo.sh/bloodbank`, so emitting
-   correctly gives you the notification **plus every other consumer** for free.
-   A direct ntfy node bypasses the bus and throws all of that away.
+   bloodbank (`bloodbank.evt.<domain>.<entity>.<action>`). Emitting correctly
+   gives you Candystore history, every other consumer, and usually a toast
+   (`bloodbank-event-toaster` mutes hook pulses, digests `agent.tool.*` and
+   rate-limits the rest). A direct ntfy node never replaces the event. It is
+   allowed only as a human page on top of one, on the `lifecycle` topic, the way
+   the ticket lanes page Triage Skipped or Unrouted Board.
 3. **Schema-first events.** Only emit events already defined under
    `bloodbank/schemas/`. If the one you need is missing, author the schema first
    (→ `bloodbank-integration`), then emit. Never invent an ad-hoc payload.
@@ -80,9 +81,16 @@ is cheaper than untangling a monolith under fire.
   the v3 toaster**, and Dapr `/publish` is unavailable. → bloodbank-emit.
 - **Plane is the authenticated ingress exception.** Both Plane workspace
   webhooks enter the same HTTPS workflow, which verifies the raw-body HMAC and
-  publishes through the custom Bloodbank node. This is not Bloodbank HTTP
-  `/event`, a second n8n instance, or the retired port-8477 bridge. →
-  plane-webhook-ingress.
+  publishes through the custom Bloodbank node (`src/plane.ts`, the only Plane
+  normalizer). This is not Bloodbank HTTP `/event`, a second n8n instance, or the
+  deleted port-8477 bridge. Nothing else emits `repo.task.*` / `repo.board.*`:
+  agents create tickets with `px task create`. → plane-webhook-ingress.
+- **Bloodbank Trigger nodes are durable by default.** Delivery `durable` is one
+  JetStream pull consumer per (workflow, node), acked after the execution, with a
+  24h catch-up window, auto-deleted after 7 days unused; a save or an n8n restart
+  loses nothing already on the bus. `ephemeral` is core NATS. Filter with "Only
+  When Data Matches" so non-matching messages never become executions; a manual
+  test replays the last matching message. → plane-webhook-ingress.
 - **Never archive into a subdir of a watched folder.** `localFileTrigger` will
   re-fire forever. Archive off-filesystem (S3) or to a sibling outside the watch
   root. → gotchas.

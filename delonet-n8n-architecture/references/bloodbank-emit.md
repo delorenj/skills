@@ -34,9 +34,10 @@ bloodbank HTTP ingress for pipeline events.**
   there is truly no path to NATS.
 - **Dapr `/publish`** is unavailable (no sidecar).
 
-The custom `n8n-nodes-bloodbank` node (→ node-catalog) should wrap exactly what
-`bb-emit` does: pick a defined event, build + validate the envelope, PUB to the
-bound subject. `bb-emit` is its host-side seed.
+The custom `n8n-nodes-bloodbank` **Bloodbank** node (→ node-catalog) does exactly
+what `bb-emit` does in-process: pick a defined event from the generated dropdown,
+build + validate the envelope, PUB to the bound subject. Prefer it; `bb-emit`
+behind an Execute Command is the transitional fallback.
 
 ## Subject binding (load-bearing)
 
@@ -125,7 +126,9 @@ stable `correlationid` (the source path or a run id) across `started` → `compl
 
 ## Verify it actually landed
 
-`bloodbank-event-toaster` subscribes to `bloodbank.evt.>` and forwards every
-envelope to `https://ntfy.delo.sh/bloodbank`. Watch that topic while test-firing —
-if your event doesn't appear there, it never reached NATS. This is also *why* a
-direct ntfy node is redundant: the toaster already gives you the ping.
+`bloodbank-event-toaster` subscribes to `bloodbank.evt.>` and logs one line per
+non-muted event (`toasted:`, `digested:` or `rate-limited:`) in
+`docker logs bloodbank-event-toaster`; a toast on `https://ntfy.delo.sh/bloodbank`
+is best-effort. No log line means the event never reached NATS; the Candystore
+row (`GET http://127.0.0.1:8683/events`) is the durable proof. This is also *why*
+a direct ntfy node is redundant for a pipeline event.

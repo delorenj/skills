@@ -2,7 +2,7 @@
 
 Every number here was measured against the live instance
 (`https://plane.delo.sh`), not read from a doc. Reproduce with
-`bloodbank/bin/bb-ack-labels` (labels) and `bb-board-scaffold` (states, dry run).
+`bloodbank/bin/bb-ack-labels` (labels; deleted since) and `bb-board-scaffold` (states, dry run).
 
 ## Labels
 
@@ -35,7 +35,7 @@ housed.
 |---|---|
 | 18 | Plane stock 5: Backlog, Todo, In Progress, Done, Cancelled |
 | 2 — **33GOD, JIMB** | the 9-state 33GOD machine, **byte-identical to each other** |
-| 2 — CANDY, CANDYS | zero states (soft-deleted, not empty) |
+| 2 — CANDY, CANDYS | zero states as read (CANDYS was archived, not deleted: an archived board reads empty; CANDY is deleted) |
 | 1 — DECK | stock 5 + In Review |
 | 1 — HEYMA | stock 5 + Ready for QA |
 | 1 — PJAN | 7 states |

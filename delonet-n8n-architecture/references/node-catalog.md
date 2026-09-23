@@ -76,7 +76,8 @@ drift:
 
 - `n8n-nodes-bloodbank` lives in the `bloodbank` repo (e.g.
   `bloodbank/integrations/n8n-nodes-bloodbank/`). Its event dropdown is **generated
-  from `schemas/bloodbank/v1/**`** at build time (codegen → `eventSchemas.ts`), so
+  from `schemas/bloodbank/**`** at build time (`npm run codegen`; labels read
+  `Repo · On Task Created (bloodbank.repo.task.created)`), so
   adding a schema + rebuild = the node offers the new event — the same trick the
   hermes node uses with `toolSchemas`.
 - Wire a **deploy hook** (mise task / git hook / CI in the domain repo): on change,

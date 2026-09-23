@@ -36,9 +36,13 @@ n8n workflow `Plane → Bloodbank` (iMw484J1ZCqKME2C)
   │ 2. resolve that webhook's op:// secret reference (cached in-process, 1h)
   │ 3. verify HMAC before normalization or publication
   │ 4. resolve board_id through pjangler project enrollment
-  │    (every .project.json), then ~/.hermes/agents-registry.yaml
+  │    (every .project.json; wins on the repo slug), then
+  │    ~/.hermes/agents-registry.yaml (HERMES_AGENTS_REGISTRY)
   │ 5. normalize Plane action to provider-neutral repo fact
-  │    (a board nothing claims → Unrouted output; nothing published)
+  │    (a board nothing claims → Unrouted output → ntfy `lifecycle`
+  │     "Unrouted Board", once per board per 24h; nothing published)
+  │ 6. event id = uuid5(dedupe key); creation/delete/comment/board facts
+  │    also carry Nats-Msg-Id (updates do not: their key is inferred)
   ▼
 NATS `bloodbank.evt.repo.*`
   ├─ JetStream `BLOODBANK_EVENTS` retains the immutable envelope
@@ -87,12 +91,26 @@ The subject is the canonical one (`bloodbank.evt.repo.task.created`, …). The
 provider name stays in `data.provider_event_type`; the wire contract stays
 provider-neutral. A Plane retry derives the same deterministic event ID, and
 Candystore's idempotent insert prevents a second durable fact.
+`repo.board.created` for a board no project claims carries `repo: null`.
 
-### From fact to agent (n8n lifecycle lane)
+**Who emits these facts: only this normalizer.** An agent, PM or script never
+publishes `repo.task.*` or `repo.board.*`. It writes Plane (`px task create`,
+`px move`; on a Krebs-managed board `bloodbank.cmd.lifecycle.task.invoke` with
+`data.command.operation: create`) and the webhook echo becomes the fact.
+
+**Missed deliveries.** Plane does not retry an HTTP error, so a ticket created
+while n8n is down never reaches the bus by webhook. *Plane Ingress Reconcile*
+(`U4hYm3BYPPeZNDHQ`, every 10 min) republishes missing creation facts through
+the same normalizer (`data.trigger_source: plane-reconcile`, same event id and
+`Nats-Msg-Id`, at most 20 per sweep). Updates, transitions and comments made
+during an outage are not recovered.
+
+### The n8n ticket lanes (n8n-nodes-bloodbank 0.7.2)
 
 ```text
 bloodbank.evt.repo.task.created / .updated
-  ▼ Bloodbank Trigger (alias plane.ticket.created / plane.ticket.transitioned)
+  ▼ Bloodbank Trigger (alias plane.ticket.created / plane.ticket.transitioned;
+  │   durable JetStream pull consumer, acked after the execution)
 33GOD Agent Fleet node (Groom Ticket / Delegate Ticket)
   ├─ Dispatched → bloodbank.cmd.agent.invocation.start
   │    command_id = uuid5(causing event id, operation, agent) → redelivery dedups
@@ -106,6 +124,27 @@ bloodbank.evt.repo.task.created / .updated
 A skip is a fact on the bus, not a silent green execution: "why did nobody
 groom this ticket?" is answered by querying Candystore for
 `bloodbank.agent.invocation.skipped` with the ticket's `data.context.board_id`.
+
+| Workflow (id) | Starts on | ntfy `lifecycle` push |
+|---|---|---|
+| Plane → Bloodbank (`iMw484J1ZCqKME2C`) | Plane webhook | Unrouted Board (1/board/24h) |
+| Plane Ingress Reconcile (`U4hYm3BYPPeZNDHQ`) | every 10 min | Recovered missed ticket |
+| Ticket Grooming (`6wAGA5pdrmHLyhs2`) | `plane.ticket.created` | Triage Started / Triage Skipped |
+| Ticket Delegation (`8mmqdMwQYA28ZwUj`) | `plane.ticket.transitioned` into Todo | Delegation Started / Skipped (not `phase_guard`, `provider_event_guard`) |
+| Ticket Pickup Chip (`wWXgCZiiIBWaRRzE`) | `agent.invocation.started/completed/failed` with `data.context.reason` in the two lanes; hourly stale-chip sweep | none |
+
+- **Fleet node:** outputs Dispatched and Skipped; mapping params are visible
+  expressions over the envelope; the registry path is `HERMES_AGENTS_REGISTRY`
+  (default `~/.hermes/agents-registry.yaml`); `providerEventGuard` is strict (set
+  and absent on the item → skip).
+- **The chip is stateless.** The gateway echoes the command's `data.context` on
+  `agent.invocation.started`, `.completed` and `.failed`; the chip adds
+  `agent:working` on started and removes it on the end event. It leaves the label
+  if the ticket moved into *In Progress* or gained an assignee during the turn
+  (a claim). `agent:working` is pipeline-owned: lane prompts tell agents never to
+  touch it, and the Plane MCP refuses writes to it.
+- **Plane's v1 PATCH replaces the whole label list** (no per-label endpoint), so
+  every label writer re-reads the issue and changes one label at a time.
 
 ## Journey B: targeted command to Hermes execution and facts
 
@@ -127,8 +166,8 @@ Fleet-shared `hermes-fleet-bloodbank-gateway.service`
   ▼
 Lifecycle event publications on `bloodbank.evt.*`
   ├─ conversation.turn.started
-  ├─ agent.invocation.started
-  ├─ agent.invocation.completed OR agent.invocation.failed
+  ├─ agent.invocation.started              (echo the command's data.context)
+  ├─ agent.invocation.completed OR agent.invocation.failed   (same echo)
   └─ conversation.turn.completed
        ├─ `BLOODBANK_EVENTS`
        ├─ Candystore durable projection
@@ -217,5 +256,8 @@ gateway with zero eligible entries is healthy but intentionally unroutable.
   slug on the same self-hosted instance.
 - **"The n8n execution was green, so the ticket was handled."** No. Check the
   Fleet node's Skipped output, or `bloodbank.agent.invocation.skipped` on the bus.
+- **"The board has no tickets."** An archived Plane board reads as 0 issues and
+  0 states through the API with no error. Check `archived_at` / count in the
+  Plane DB before calling it empty.
 - **"A command belongs in Candystore."** The command is short-lived intent; its
   execution lifecycle events are the durable audit facts.

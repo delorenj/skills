@@ -31,9 +31,10 @@ into one step" — only useful here, so it is not a unit, it is a monolith.
 Every pipeline outcome is an **event**, and events belong on bloodbank. This is
 not ceremony — it is the difference between a pipeline that notifies *you* and a
 pipeline that notifies *the system*. Concretely: `bloodbank-event-toaster`
-subscribes to `bloodbank.evt.>` and forwards every envelope to
-`https://ntfy.delo.sh/bloodbank`. So a correctly-emitted `audio.transcription.completed`
-already lands as an ntfy ping — **and** is persisted by Candystore, **and** is
+subscribes to `bloodbank.evt.>` and toasts to `https://ntfy.delo.sh/bloodbank`
+(it mutes hook pulses, digests `agent.tool.*`, rate-limits per type and backs
+off on 429). So a correctly-emitted `audio.transcription.completed`
+normally lands as an ntfy ping — **and** is persisted by Candystore, **and** is
 visible to any future consumer (a "summarize new transcripts" agent, a metrics
 sink, a Plane-ticket creator) with zero changes to this workflow.
 
@@ -41,12 +42,15 @@ Wiring an ntfy node directly reproduces exactly one downstream effect (your phon
 buzzes) and forecloses every other one. It is strictly worse than emitting the
 event. **If you catch yourself adding an ntfy/Slack/email node to signal that a
 pipeline step finished, stop — emit the bloodbank event instead** and let the
-toaster do the notifying.
+toaster do the notifying. The one exception is a page a person must not miss
+(a lane that skipped a ticket, an unrouted board): publish the event first, then
+push to the ntfy `lifecycle` topic, the only topic besides `infra` that reaches
+the phone instantly.
 
 ## 3. Schema-first events
 
 The bus is only worth trusting if envelopes are predictable. Emit **only** events
-that already exist under `bloodbank/schemas/bloodbank/v1/<domain>/…`. For audio
+that already exist under `bloodbank/schemas/bloodbank/<domain>/…`. For audio
 work the contract already exists and should be used verbatim:
 
 - `audio.file.received` — a new recording landed in an ingest path

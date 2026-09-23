@@ -56,7 +56,7 @@ Enrollment failures stop managed work. Existing non-Plane playbooks still apply.
 1. **Confirm the ground.** Resolve the nearest ancestor `.project.json`. No `.project.json`
    → you are not in a CommonProject repo; say so and stop (Momo has no board here).
 2. **Load context in this order** (details in `references/board-awareness.md`):
-   - Recall the shared hindsight bank (`hindsight memory recall <slug> "<what you're about to do>"`), where `<slug>` = `.project.json` `project_slug`.
+   - Recall the shared hindsight bank (`hindsight memory recall "$BANK" "<what you're about to do>"`), where `BANK=$(bash ~/.agents/skills/hindsight/scripts/hs-bank-id.sh)` run from the repo: the resolver the hooks and the PM SOUL use (`.hindsight/bank`, origin remote name, checkout basename). It is usually `project_slug`, not always (TonnyBox → `HeyMa-Satellite`).
    - **Detect the provider** from `.project.json` `ticket_provider.type`. `plane`/`linear` use the repo's `tp` adapter; `trello` uses Momo's bundled adapter with per-repo lanes in `.momo/config.json`. For trello, if that config is absent or the board is non-standard (run `scripts/momo-config.py detect`), interactively map the odd lanes with the operator and persist them (`scripts/momo-config.py set …`) **before** running the loop. This is the one-time first-run setup; thereafter it's just data.
    - Read the board through the adapter (`scripts/momo-board.sh list_issues`, `... active_milestone`) — same normalized ops for every provider.
    - See what **Hermes** is doing: tail `<role_dir>/runtime/logs/agent.log`. The autonomous-pass feed `<role_dir>/runtime/continuous-ticket-sentinel-state.json` exists only where `role.yaml` enables reconcile, which no repo does today.
@@ -118,18 +118,21 @@ Full contract: `references/decisions.md`.
 
 This decision hook records **Momo's judgment**, not the Plane mutation itself.
 The ticket-provider write separately causes Plane → n8n raw-body HMAC →
-`bloodbank.repo.task.created|updated|appended` → Candystore. If transport
+`bloodbank.repo.task.created|updated|appended` → Candystore. Never publish a
+`repo.task.*` / `repo.board.*` fact yourself: create with `px task create`, move
+with `px move`, and the webhook echo is the fact. Leave `agent:working` alone;
+the n8n pipeline owns it. If transport
 debugging is needed, load `bloodbank-integration` →
 `references/event-journey.md`. The `automaticai` Plane workspace is merely a
 tenant slug on the same self-hosted personal infrastructure.
 
 ## Working with Hermes (no split-brain)
 
-- **Same bank, distinct actor.** Retain/recall against bank `<slug>` (Hermes writes here
+- **Same bank, distinct actor.** Retain/recall against that bank (Hermes writes here
   too). Sign board comments and decision events as **momo** so the two frameworks are
   attributable in the shared history.
 - **WIP=1 is shared.** Before you take a ticket, confirm no active worker (yours or
-  Hermes'). Its `runtime/` submodule is single-writer — do not edit it; coordinate
+  Hermes'). Its `runtime/` dir (ignored local state, not a submodule) is single-writer — do not edit it; coordinate
   via its flock file.
 - **You are the manual hand; Hermes is the reflex.** When the operator is in the room, you
   drive. Leave the autonomous pass to Hermes.

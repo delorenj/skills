@@ -21,8 +21,15 @@ never print them. Confirm the target when project identity is ambiguous.
 
 Read existing issues to avoid duplicates. Write the requested outcome, acceptance
 criteria, relevant dependencies, and actual priority. Preserve unrelated fields.
-For list-valued updates such as labels, re-read before replacing the array.
-Verify the provider's returned state after each mutation.
+Prefer `px` (see `pilot`): `px task create`, `px move <ref> <state>` on legacy
+boards (refs like `33GOD-68` work), `px claim` / `px close`. A Plane `PATCH` with
+`labels` replaces the whole list and there is no per-label endpoint, so re-read
+and change one label at a time (px 0.2.2 and the Plane MCP `manage_label` do);
+never touch the pipeline-owned `agent:working`. Verify the provider's returned
+state after each mutation.
+
+An archived board reads as 0 issues and 0 states through the API with no error.
+Check `archived_at` (or count in the Plane DB) before calling a board empty.
 
 A board audit reports findings first. Apply only requested or already-authorized
 changes. Keep batching bounded to the named project and task.
@@ -38,7 +45,7 @@ Send notifications only when the task authorizes the channel and recipients.
 ## Event boundary
 
 Plane writes are normalized through the signed n8n ingress at
-`https://n8n.delo.sh/webhook/plane`. Do not emit duplicate lifecycle events after
-CRUD. Explicit PM judgments remain separate decisions. Use
+`https://n8n.delo.sh/webhook/plane`, the only producer of `repo.task.*` /
+`repo.board.*` facts. Never emit one yourself, before or after CRUD. Explicit PM judgments remain separate decisions. Use
 `bloodbank-integration` and its event-journey reference for transport diagnosis.
 Do not claim automatic hooks exist without checking the installed configuration.

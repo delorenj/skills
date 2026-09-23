@@ -7,7 +7,7 @@ Momo is repo-agnostic. Everything is resolved at runtime from the nearest ancest
 
 ```jsonc
 {
-  "project_slug": "candystore",          // -> hindsight bank, data.repo, service
+  "project_slug": "candystore",          // -> data.repo, service (usually the bank too)
   "ticket_provider": {
     "type": "plane",                      // adapter provider (plane|linear|trello)
     "workspace": "33god",                 // -> Plane workspace + PLANE_<WS>_API_KEY
@@ -19,9 +19,10 @@ Momo is repo-agnostic. Everything is resolved at runtime from the nearest ancest
 }
 ```
 
-- **Slug** = `project_slug` → the hindsight bank name and `data.repo` on decision events.
+- **Slug** = `project_slug` → `data.repo` on decision events. The hindsight bank is what
+  `~/.agents/skills/hindsight/scripts/hs-bank-id.sh` resolves in the repo (usually the slug).
 - **role_dir** → where the shared machinery lives: `<repo>/<role_dir>/.scripts/…`
-  (the `tp` adapter, sentinel bin scripts, the runtime submodule, evidence dir).
+  (the `tp` adapter, sentinel bin scripts, the ignored `runtime/` dir, evidence dir).
 
 ## Reading the board — always through the adapter
 

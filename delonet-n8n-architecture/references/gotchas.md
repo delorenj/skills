@@ -117,8 +117,8 @@ archive steps / credentials. Each entry: **Symptom → Cause → Fix → Prevent
 
 - **Symptom:** two Plane webhooks/workflows seem to imply two services, or an old
   host-port relay appears necessary.
-- **Cause:** historical `plane-webhook-bridge` wiring is being confused with the
-  consolidated ingress.
+- **Cause:** historical `plane-webhook-bridge` wiring (now deleted) is being
+  confused with the consolidated ingress.
 - **Fix:** both self-hosted workspaces target the same HTTPS endpoint,
   `https://n8n.delo.sh/webhook/plane`, and the same active workflow. Their
   distinct `webhook_id` values select distinct secrets. Port `8477` is retired.

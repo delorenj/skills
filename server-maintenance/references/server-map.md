@@ -33,7 +33,7 @@ Check ALL of these when hunting an actor; `srvls` covers them in one shot.
 - `srvls-metrics.timer` (user, every 5 min) → writes `~/.local/state/node-exporter-textfile/srvls.prom` → **node-exporter** (host `:9519`, textfile collector) → **Prometheus** (host `:9472`).
 - Prometheus queries: `srvls_items`, `srvls_unit_problem`, `srvls_loadavg`.
 - Nightly markdown snapshots: `srvls-snapshot.timer` → `~/code/infra/docs/inventory/` (git-committed) — diff these for "when did X appear".
-- **Holocene dashboard** (holocene.delo.sh, behind SSO) has a Systems tab over this data; its API is the user unit `holocene-api.service` on `:4000`.
+- **Holocene dashboard** (holocene.delo.sh, behind SSO) has a Systems tab over this data; its API is the user unit `holocene-api.service` on `:4000` (its PATH resolves the cached `~/.local/bin/op`). Redeploy from `~/code/33GOD/holocene` with `mise run deploy` (API then web), or `mise run deploy:api` / `mise run deploy:web` alone.
 
 ## Docker layout
 

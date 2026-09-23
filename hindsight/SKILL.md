@@ -33,6 +33,14 @@ Retain only within the session's memory permissions and avoid duplicate capture.
 Never retain credentials. Do not treat a memory request as authorization to
 reconfigure hooks, schedulers, other clients, or retention policy.
 
+A retain that fails with 403 / "operation not allowed" / `PermissionDeniedError`
+is not auth: Hindsight's fact-extraction and consolidation LLM calls (OpenRouter
+behind `hindsight-litellm`) hit the org monthly budget or the key's daily limit.
+A failed retain stores nothing. `hindsight operation list <bank>` shows the real
+error; once budget returns, `hindsight operation retry <bank> <operation-id>`.
+Pass `--doc-id` on CLI retains: two in the same second share an auto id and the
+second replaces the first.
+
 - [CLI operations](references/cli-operations.md): retain, recall, reflect, models,
   directives, documents, and bank management; confirm installed help if it differs.
 - [Multi-bank routing](references/multi-bank-routing.md): project versus identity

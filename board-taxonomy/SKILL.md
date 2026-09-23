@@ -130,37 +130,44 @@ labels go unreconciled; follow with `bb-board-scaffold --to <ref> --apply`.
 `agent:working` exists because a ticket sat visibly untouched for the entire
 time its agent was booting — 377s, 633s and 2596s measured on three JIMB
 tickets. No instruction in an agent's prompt can close that gap, because the gap
-*is* the agent starting up. The acknowledgement has to come from the lane, at
-dispatch.
+*is* the agent starting up. The acknowledgement has to come from the pipeline.
 
-Both ticket lanes stamp the chip the moment the Fleet node reports
-`invoked: true`, and clear it when that agent's turn ends. Two constraints
-shaped it, and both generalise to anything that writes labels:
+The n8n **Ticket Pickup Chip** workflow (`wWXgCZiiIBWaRRzE`, n8n-nodes-bloodbank
+0.7.2) owns it. It listens on one ordered durable trigger for the gateway's
+`agent.invocation.started` / `.completed` / `.failed` events whose echoed
+`data.context.reason` is `ticket-grooming` or `ticket-delegation`, adds the label
+when the turn starts and removes it when the turn ends. Three constraints shaped
+it, and all generalise to anything that writes labels:
 
 - **Plane has no per-issue label sub-resource.** Every label write is a full
-  replacement of the array, so a writer must re-read the issue first. Trusting
-  the webhook payload instead is how you silently delete the agent's own
-  `lifecycle:triaged`.
-- **A `bloodbank.agent.invocation.*` event carries no board and no ticket** —
-  only a correlation id, and that id is *inherited*, not the recomputable
-  ticket uuid. So the dispatch side records `correlationid -> ticket` and the
-  turn-end side spends it. Store and spend; never try to invert.
+  replacement of the array, so a writer must re-read the issue first and change
+  one label. Trusting the webhook payload instead is how you silently delete the
+  agent's own `lifecycle:triaged`.
+- **The chip is stateless.** The gateway echoes the command's `data.context`
+  (board, ticket, workspace, reason) onto every invocation event, so there is no
+  `correlationid -> ticket` store to lose on a restart.
+- **A claim outranks the lease.** `agent:working` is also pilot's claim marker
+  (`px claim` adds it). At turn end the chip leaves it on if, since it went on, the
+  ticket moved into *In Progress* or gained an assignee. Parking in Needs
+  Attention or Awaiting Decision is not a claim, so that chip comes off.
 
-Measured: chip on in 339ms of node time, off 271s later, leaving the three
-labels the agent had added itself untouched.
+Agents never write it: both lane prompts say the pipeline owns it, and the Plane
+MCP refuses `agent:working` writes (`PLANE_RESERVED_LABELS`). An hourly *Stale
+Chip Sweep* removes a chip whose last turn ended at least 10 minutes ago, unless
+the ticket was edited since.
 
 ## Known gaps
 
-- **The lease has no board-side sweeper.** The chip's expiry lives in n8n
-  workflow static data, so if n8n restarts mid-turn a chip can strand with
-  nothing to clear it. A `--sweep` on `bb-ack-labels` is the fix.
 - **`.project.json` declares only the `xp:` axis, in one repo.** The other three
   axes are baked into the scaffolder instead of declared.
 - **`groomingPrompt` still says "using the label names the board already uses"**
   — which, on a board with no labels, tells the agent to invent. It should read
   the declared axes.
-- **CANDY and CANDYS accept nothing** — zero states, and a label create 409s as
-  a duplicate while GET reports count 0. They are soft-deleted, not empty.
+- **An archived board reads as empty.** The API returns 0 states and 0 issues
+  with no error (and a label create 409s as a duplicate). CANDYS looked
+  "soft-deleted" this way until 2026-09-23; it was only archived, and is now
+  candystore's live board (82e56896, nine lanes). Check `archived_at`, or count
+  in the Plane DB, before calling a board empty. CANDY is genuinely deleted.
 - **Thirteen undeclared colon labels are still live**, reported by the
   scaffolder's lint and left alone because deleting one strips it from its
   tickets. JIMB carries `phase:0/1/2`, `scope:proposed|gated|exploratory|

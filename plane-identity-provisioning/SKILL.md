@@ -39,9 +39,11 @@ probes behind every claim here — re-run them before trusting this file, it wil
 
 ```bash
 ego-browser doctor        # all 6 checks must pass; this is the Mac bridge
-op read "op://DeLoSecrets/Plane/Main/apiKey" >/dev/null   # 1Password must not be rate-limited
+OP_CACHE=off op read "op://DeLoSecrets/Plane/Main/apiKey" >/dev/null   # 1Password must not be rate-limited
 ```
 
+`OP_CACHE=off` matters: the host `op` wrapper serves cached reads (and stale ones
+on a rate limit), so a plain `op read` passes even while item creates would fail.
 If `op` reports *"Too many requests"*, **stop**. A rate-limited vault makes every step fail in a
 way that reads like a bad credential — see `feedback_op_ratelimit_fakes_bad_token`. Wait it out.
 

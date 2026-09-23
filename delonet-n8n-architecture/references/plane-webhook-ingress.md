@@ -13,7 +13,7 @@ event boundary in n8n.
 | Trigger | Webhook `POST`, path `plane`, raw body enabled |
 | Action node | `Normalize and Publish` (`n8n-nodes-bloodbank.planeBloodbank`) |
 | Broker | host NATS at `127.0.0.1:4222` |
-| Identity registry | `~/.hermes/agents-registry.yaml` |
+| Board routing | pjangler registry (every `.project.json` `ticket_provider.board_id`, wins on the repo slug), then `~/.hermes/agents-registry.yaml` (`HERMES_AGENTS_REGISTRY`) |
 
 Both `33god` and `automaticai` Plane workspaces use this workflow. The latter is
 only a workspace tenant slug on the same self-hosted personal Plane instance;
@@ -29,12 +29,14 @@ it is not an AutomaticAI company/service boundary or a second n8n system.
   1. extract payload.webhook_id
   2. select its op:// secret reference
   3. verify X-Plane-Signature over raw bytes
-  4. resolve payload project/board through fleet registry
+  4. route the board (pjangler enrollment, then Hermes registry)
   5. normalize provider action to Bloodbank schema
   6. publish one deterministic event to NATS
-              │
-              ▼
-[JSON acknowledgement]
+     (uuid5 event id; Nats-Msg-Id on creation/delete/comment/board facts)
+              │                          │
+              ▼ Published                ▼ Unrouted (no project claims the board)
+[JSON acknowledgement]     [Unrouted — Once a Day] → ntfy `lifecycle` "Unrouted Board"
+                           (1 push per board per 24h; nothing is published)
 ```
 
 Do not insert a Set, Code, JSON parse/stringify, or workspace-routing node ahead
@@ -68,9 +70,32 @@ The node maps Plane provider activity onto provider-neutral facts:
 | `plane.ticket.commented` | `bloodbank.repo.task.appended` | `bloodbank.evt.repo.task.appended` |
 
 `data.provider_event_type` preserves provenance. The raw provider entity is
-preserved under the schema's ticket, board, or comment field. Board identity is
-resolved from the shared fleet registry; never guess a repo from workspace
-alone.
+preserved under the schema's ticket, board, or comment field. The `plane.*`
+names are n8n trigger aliases, declared once as `x-provider-aliases` on the
+canonical `repo.*` schemas; they are not events of their own. Board identity
+comes from pjangler enrollment merged with the Hermes registry; never guess a
+repo from workspace alone. `repo.board.created` for an unclaimed board carries
+`repo: null`.
+
+This node (`n8n-nodes-bloodbank` `src/plane.ts`) is the ONLY producer of
+`repo.task.*` / `repo.board.*`. Agents create tickets with `px task create` (or
+the Krebs `lifecycle.task.invoke` create command) and let the webhook emit the
+fact; a "task.created → create Plane ticket" workflow would loop.
+
+## The lanes behind it (n8n-nodes-bloodbank 0.7.2)
+
+| Workflow | id | Does |
+|---|---|---|
+| Plane → Bloodbank | `iMw484J1ZCqKME2C` | this ingress |
+| Plane Ingress Reconcile | `U4hYm3BYPPeZNDHQ` | every 10 min republishes creation facts missed while n8n was down (same normalizer, same id + `Nats-Msg-Id`, max 20 per sweep); ntfy "Recovered missed ticket" |
+| Ticket Grooming | `6wAGA5pdrmHLyhs2` | `plane.ticket.created` → Fleet Groom Ticket; ntfy Triage Started / Triage Skipped |
+| Ticket Delegation | `8mmqdMwQYA28ZwUj` | `plane.ticket.transitioned` into Todo → Fleet Delegate Ticket |
+| Ticket Pickup Chip | `wWXgCZiiIBWaRRzE` | adds/removes `agent:working` from the gateway's `agent.invocation.*` events (which echo `data.context`); hourly stale-chip sweep |
+
+The Fleet node has two outputs, Dispatched and Skipped; every skip also publishes
+`bloodbank.agent.invocation.skipped` (`data.skip_code`, `data.context`). Its
+triggers are durable JetStream pull consumers. The node README
+(`bloodbank/integrations/n8n-nodes-bloodbank/README.md`) is the full contract.
 
 ## Security semantics
 
@@ -104,11 +129,9 @@ durable projection.
 
 ## Retired alternatives
 
-- port-`8477` `plane-webhook-bridge` user service;
+- port-`8477` `plane-webhook-bridge` user service (source deleted, bloodbank
+  fbf61a9, with `bb-triage-invoke`; `bb-ack-labels` went in 9cae28d);
 - a second workflow per workspace;
 - a shared secret guessed from workspace;
 - Bloodbank HTTP `/event` (RabbitMQ v2);
 - direct Plane → NATS without raw-body HMAC verification.
-
-The source for the retired bridge remains rollback material; its presence in Git
-does not make it an active dependency.

@@ -91,12 +91,14 @@ via `.scripts/sentinel/bin/emit-event.py`; producer identity is
 Agent hooks do not publish Plane ticket lifecycle facts. Plane sends signed
 webhooks for both self-hosted workspaces to the one active n8n workflow at
 `https://n8n.delo.sh/webhook/plane`. That workflow verifies raw-body HMAC,
-normalizes the provider action, resolves `board_id` through the shared fleet
-registry, and publishes `bloodbank.evt.repo.task.*`.
+normalizes the provider action, resolves `board_id`, and publishes
+`bloodbank.evt.repo.task.*`. That normalizer is the only producer of ticket
+facts: agents create tickets with `px task create` and never publish them.
 
-PJangler owns the identity dependency in that journey: repo-root
-`.project.json.ticket_provider` is reconciled into
-`~/.hermes/agents-registry.yaml`, which the n8n node reads on every execution.
+PJangler owns the identity dependency in that journey: the n8n node reads
+repo-root `.project.json.ticket_provider.board_id` from the pjangler registry
+service (`GET /v1/registry`, cached 30s), which wins on the repo slug, and fills
+the rest from `~/.hermes/agents-registry.yaml`. An unclaimed board is unrouted.
 Never guess a repo from the Plane workspace; `automaticai` is just another
 workspace tenant slug on the same self-hosted `plane.delo.sh` instance.
 
@@ -111,11 +113,12 @@ Skipping (e.g. local-only provisioning): `SKIP_BLOODBANK=1` makes `60-bloodbank.
    `ticket_provider.{type,workspace,identifier,board_id,state}`, and agent entry;
    state is `linked`, identifier/board id resolve against live Plane, and no
    `ticket_provider.board_url` is persisted.
-2. The shared fleet registry record has the correct `profile_name` and explicit
-   `bloodbank.{enabled,gateway_scope,target_agent_id}`. There is no per-agent
-   consumer file or service.
+2. The shared fleet registry record has the correct `profile_name` and
+   `bloodbank.{gateway_scope,target_agent_id}`; `enabled` absent or `true`
+   (an absent key means enabled, explicit `false` quarantines, a non-boolean is
+   invalid). There is no per-agent consumer file or service.
 3. `hermes-fleet-bloodbank-gateway.service` is the only command consumer; a live
-   dispatch additionally requires the target's current `enabled: true` policy.
+   dispatch additionally requires that the target is not quarantined.
 4. The live CLI hook config calls `~/.agents/hooks/bloodbank/publish.py --client <agent> --hook ...`;
    run `cd ~/code/33GOD/bloodbank && mise run health:hooks:check` after repair.
 5. Hindsight: the harness `UserPromptSubmit` recall hook is active and the bank resolves to the

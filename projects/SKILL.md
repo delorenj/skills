@@ -18,15 +18,20 @@ The **PM** that works the repo is a separate concern with its own tool. `flume h
   (`ticket_provider` block), `repo_path` and `project_slug` are authored there.
   Plane bindings require `state: linked` plus a live identifier/board id; never
   persist `ticket_provider.board_url` or reintroduce a separate `.plane.json`.
+- **A project need not be a git repo.** `.project.json` is what makes a
+  project. DeLoDocs is Syncthing-only (no `.git`, never commit it) and still
+  binds the DOCS board; `pj init` with no name adopts a directory carrying
+  `.project.json` whether or not git knows it.
+- **Enrollment is what routes a board.** The n8n `Plane → Bloodbank` node reads
+  every `.project.json` `ticket_provider.board_id` from the pjangler registry
+  service (it wins over the Hermes registry on the repo slug). A board no project
+  claims ends on the Unrouted output (one ntfy `lifecycle` push per board per
+  24h) and publishes nothing, so its tickets are never groomed.
 - **`agents` is a projection, not a record.** The org chart in
   `~/.hermes/agents-registry.yaml` owns who works here; `.project.json.agents`
   is the one-way `agent_role_directory` projection of it declared in the
   handbook's `projections:` block (`writable_by: project-registry`). `pj init`
   carries an existing entry forward and never authors one.
-- **A project need not be a git repo.** `.project.json` is what makes a
-  project. DeLoDocs is Syncthing-only (no `.git`, never commit it) and still
-  binds the DOCS board; `pj init` with no name adopts a directory carrying
-  `.project.json` whether or not git knows it.
 - **One board per repo.** The PM owns it. Board name = the project name (no role suffix); identifier = `slug[:4]` uppercased.
 - **Agent config uses generated base-plus-delta state.** `flume hire` creates a
   real `~/.hermes/profiles/<repo>-pm/` directory. Its generated `config.yaml`
