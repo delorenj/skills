@@ -1,6 +1,18 @@
 ---
 name: pilot
-description: Drive Plane boards from the command line with `px` (alias of `pilot`), the 33GOD Plane CLI. Use whenever a task involves reading or writing tickets on a Plane board from a repo, or standing up a new board — listing what's in scope, creating a todo or backlog item, capturing a board's schema (states, labels, modules, feature toggles) and replaying it onto a fresh board in seconds instead of ten minutes of clicking, or checking which board the current repo is bound to. Also the way to file an idea about the CLI itself: `px idea "..."` puts a feature request straight into Pilot's own backlog, which is how this tool evolves. Triggers include "what's on the board", "add a todo", "create a ticket", "file this to the backlog", "what board is this repo on", "export the board schema", "set up a new board", "copy this board's setup", "new project board", "px", "pilot". Prefer this over hand-rolled curl against the Plane API — it already resolves the board binding, credentials, and retry behavior. Do NOT use for GitHub issues, for Plane workspace administration, or for orchestrating work across a board (that is the momo skill).
+description: >-
+  Drive Plane boards from the command line with `px` (alias of `pilot`), the 33GOD Plane CLI. Use
+  whenever a task involves reading or writing tickets on a Plane board from a repo, or standing up a
+  new board — listing what's in scope, creating a todo or backlog item, capturing a board's schema
+  (states, labels, modules, feature toggles) and replaying it onto a fresh board in seconds instead
+  of ten minutes of clicking, or checking which board the current repo is bound to. Also the way to
+  file an idea about the CLI itself: `px idea "..."` puts a feature request straight into Pilot's
+  own backlog, which is how this tool evolves. Triggers include "what's on the board", "add a todo",
+  "create a ticket", "file this to the backlog", "what board is this repo on", "export the board
+  schema", "set up a new board", "copy this board's setup", "new project board", "px", "pilot".
+  Prefer this over hand-rolled curl against the Plane API — it already resolves the board binding,
+  credentials, and retry behavior. Do NOT use for GitHub issues, for Plane workspace administration,
+  or for orchestrating work across a board (that is the momo skill).
 pipeline-status: new
 ---
 
