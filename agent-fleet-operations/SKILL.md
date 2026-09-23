@@ -16,6 +16,7 @@ mechanical mapping is exact:
 | corporate | mechanical |
 |---|---|
 | employee | a deployed Hermes agent (`33god-pm`) |
+| name | a NAMED employee's identity (`grolf`), role.yaml `identity:`; see "Named agents" |
 | title | role (`pm`) |
 | desk | `~/.hermes/profiles/<name>` |
 | record | that agent's row in `~/.hermes/agents-registry.yaml` |
@@ -50,6 +51,8 @@ employee, run its own marker-guarded steps from the role dir instead, then
 ```bash
 cd <repo>/agents/hermes/pm
 SKIP_TELEGRAM=1 bash .scripts/30-telegram.sh   # record the channel as deferred (or omit SKIP_* to wire a token; it prompts)
+# a bot token already in 1Password is ADOPTED, not pasted (no second vault item):
+#   TELEGRAM_BOT_TOKEN_REF=op://DeLoSecrets/<item-uuid>/<field> TELEGRAM_ALLOWED_USERS=<id> bash .scripts/30-telegram.sh
 bash .scripts/70-systemd.sh                     # unit, heartbeat retired, gateway active|deferred from provisioning_status
 bash .scripts/80-registry.sh                    # project the row
 ```
@@ -283,7 +286,13 @@ process control, service changes, board changes, or Bloodbank activation.
   role's `telegram:` block all three keys (`provisioning_status`, `bot_username`,
   `bot_id`). Before template 7c3b6b5 the channel writer appended any key the
   block lacked to the LAST block in role.yaml (tonnybox-pm got
-  `service_state.provisioning_status`).
+  `service_state.provisioning_status`). `_lib.sh yaml_upsert_block_value` had
+  the same DOTALL bug until template 0208c9e: `70-systemd.sh`'s reconcile
+  migration appended `  explicit_opt_out: false` after the file's last line and
+  left 33god-pm's role.yaml invalid YAML. After running 70 from a role dir whose
+  scripts predate 0208c9e, re-parse role.yaml. The same migration flips an
+  unmarked legacy `reconcile.enabled: false` to the operational default `true`
+  (inert since the heartbeat retired, but it is a role.yaml diff you own).
 - A disabled PM gateway is usually a dead bot, not a dead project. Test the
   vaulted token with getMe, feeding the URL on stdin
   (`printf 'url = "https://api.telegram.org/bot%s/getMe"\n' "$tok" | curl -s --config -`),
@@ -291,6 +300,14 @@ process control, service changes, board changes, or Bloodbank activation.
   means the bot was deleted. Only the operator can mint a new one (BotFather
   `/newbot`). Then run `bash .scripts/30-telegram.sh` (it prompts for the token
   and stages it in 1Password), followed by `70-systemd.sh` and `80-registry.sh`.
+  When the operator already vaulted the new token, adopt it by reference instead
+  of pasting it: `TELEGRAM_BOT_TOKEN_REF=op://DeLoSecrets/<item-uuid>/<field>
+  TELEGRAM_ALLOWED_USERS=<operator id> bash .scripts/30-telegram.sh` (template
+  65753ef+). It getMe-verifies and ownership-scans exactly like a pasted token and
+  maps the operator's own reference; nothing new is staged. The fleet's PM
+  allow-list is the operator's Telegram user id in `runtime/.env`
+  `TELEGRAM_ALLOWED_USERS`. Retire a superseded vault item by renaming it
+  `RETIRED <date> - <title> (bot <id> @<handle>, <why>)`, never by deleting it.
   Never re-enable the unit against the dead token. tonnybox-pm was parked this way
   on 2026-08-27, and pjangler also listed it in `DEAD_AGENT_IDS` because its role
   pointed at a hard-deleted board while `.project.json` still named the live
@@ -332,6 +349,43 @@ process control, service changes, board changes, or Bloodbank activation.
 - Before a live command proof, audit the current target's Bloodbank registry
   eligibility. Never enable a target merely to make a smoke test pass; command
   dispatch invokes a real agent and requires explicit operational authority.
+
+## Named agents (posts vs. people)
+
+A role directory is a **post**: `agent_id`/`profile` (`33god-pm`) key the
+gateway unit, the registry row, Bloodbank `target_agent_id`, gitlinks and the
+desk. A **named agent** is a person-like identity holding a post; its name,
+personal Hindsight bank and chat bot travel with it if it changes posts, while
+the repo, board and project memory stay with the post. The first one is
+**Grolf** (`grolf`, @Gr0lfBot), holding `33god-pm` since 2026-09-23.
+
+- **Source:** role.yaml `identity: {name, write_bank, recall_banks}` plus the
+  top-level `display_name` (`Grolf`). `write_bank` is always `agent-<name>`; the
+  name may never equal the post id, because `agent-<post>` is the compatibility
+  bank the NEXT unnamed holder of that post inherits (a personal bank named for
+  a post would hand that holder this agent's private memory). The template's
+  `.scripts/lib/role-identity.py` and flume's `readRoleIdentity()` enforce the
+  same rules; `named-agent-regressions` cross-checks them.
+- **Projection:** `80-registry.sh` and `flume remediate hermes.registry-parity`
+  write `agents.<id>.identity` + `hindsight.{write_bank, recall_banks}`; a role
+  that drops the block drops them. The audit flags either direction of drift,
+  and an invalid block is a non-fixable blocker that writes nothing.
+- **Memory pin:** `10-hermes-profile.sh` reads role.yaml first (it runs before
+  step 80) and pins `hindsight/config.json` to the write bank. On a LIVE desk do
+  not run step 10 (it deletes `gateway.pid`/`state.db` links); pin directly:
+  `python3 ~/code/33GOD/hermes-agent-template/scripts/hermes-profile-config.py
+  memory-pin --profile <post> --bank-id agent-<name>`.
+- **History:** the provider auto-recalls ONE bank. Memory from before the name
+  stays where it was written (`agent-33god-pm`, `workspace-grolf`); list those
+  in `recall_banks` and the composed SOUL tells the agent to recall them
+  explicitly. Seed the new bank's missions with `hindsight bank create` +
+  `hindsight bank import-template <new> <export of the old>`. The CLI's
+  synchronous `memory retain` answers 403 on this server; use `--async`.
+- **SOUL:** `flume remediate hermes.pm-scaffold <repo>` composes a named soul
+  (addressed by name, Name row, personal bank, recall list). Unnamed posts
+  compose byte-identically, so naming one agent drifts no other soul.
+- **Never rename the post** to name an agent: units, routing, the profile dir
+  and flume's correlation all hang off `agent_id`.
 
 ## Voice / TTS defaults
 
