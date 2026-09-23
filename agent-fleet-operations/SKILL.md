@@ -57,8 +57,21 @@ bash .scripts/80-registry.sh                    # project the row
 `80-registry.sh` re-dumps the WHOLE registry through `yaml.safe_dump`, which
 requotes and re-indents every other row. When you need a one-row change,
 simulate it first (`REGISTRY_FILE=<scratch copy> bash .scripts/80-registry.sh`),
-back up `~/.hermes/agents-registry.yaml`, edit only that row to match, and
-re-parse to prove every other row is unchanged.
+back up `~/.hermes/agents-registry.yaml`, take `flock <registry>.lock` (other
+agents write the same file), edit only that row, and re-parse to prove every
+other row is unchanged.
+
+The simulation is what the provisioner WOULD write, not what the contract
+allows. Carry over only fields the handbook declares writable
+(`contracts/handbook.yaml` `writable_fields`), then run `flume review --agent
+<id>` and confirm the row raises no `registry-retired-key`. A role dir's
+deployed scripts can lag the template: before template 5ee1909, 80-registry.sh
+projected role.yaml `service_state` into `systemd.gateway_state` and
+`systemd.heartbeat_state`, keys the handbook's `systemd_lifecycle` seam does
+not declare (tonnybox-pm picked both up by a verbatim copy on 2026-09-23). Run
+`flume remediate hermes.pm-scaffold <repo> --scripts-only` before you trust a
+simulation or rerun the steps. Gateway and heartbeat state live in role.yaml
+`service_state`; the registry row names the units only.
 
 `flume remediate` keeps `migrate` as a frozen hidden alias. 74 copies of
 `20-runtime-repo.sh` on this machine run

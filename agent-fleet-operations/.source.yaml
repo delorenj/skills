@@ -2,12 +2,12 @@ origin:
   type: vendored
   source: flume
   upstream: git@github.com:delorenj/flume.git
-  upstream_version: 1625e3a5d2e757714aa6fc11c5f1f27efb35fa74
-  upstream_commit: 1625e3a5d2e757714aa6fc11c5f1f27efb35fa74
-  upstream_tree: 630b6e5d2aeefbcd76cb6ead5ae1203c5eadbeef
+  upstream_version: 5c2b366447625e38a554beaadee8218550f8d5ae
+  upstream_commit: 5c2b366447625e38a554beaadee8218550f8d5ae
+  upstream_tree: 80406e91af4f9c2e72b553c31e33878158ad7818
   upstream_path: skills/agent-fleet-operations
-  extracted_at: 2026-09-23T17:50:38.419Z
-  digest: sha256:10a25cc281bbf276d187edbfd6291cbc2a9e4c829afe223205d096c8546cf964
+  extracted_at: 2026-09-23T18:16:00.382Z
+  digest: sha256:550c36e77ca9d7b7196bcc291cbed392ddaef214f03a92ab3c06227453386695
 modified_locally: false
 previous_provenance:
   origin:

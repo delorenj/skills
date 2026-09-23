@@ -2,11 +2,11 @@ origin:
   type: vendored
   source: flume
   upstream: git@github.com:delorenj/flume.git
-  upstream_version: 1625e3a5d2e757714aa6fc11c5f1f27efb35fa74
-  upstream_commit: 1625e3a5d2e757714aa6fc11c5f1f27efb35fa74
+  upstream_version: 5c2b366447625e38a554beaadee8218550f8d5ae
+  upstream_commit: 5c2b366447625e38a554beaadee8218550f8d5ae
   upstream_tree: a55f439aa46ae5f2a9c43d0e228991f65d783ca4
   upstream_path: skills/hermes-pm-template-maintenance
-  extracted_at: 2026-09-23T17:50:38.419Z
+  extracted_at: 2026-09-23T18:16:00.382Z
   digest: sha256:fca90a091fbdae3763114d020cd9a209653d28be33d18363d0203cbaa4cd7d77
 modified_locally: false
 previous_provenance:

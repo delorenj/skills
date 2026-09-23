@@ -20,8 +20,12 @@ refuses a non-empty role dir, so `onboard` stops at "Hermes target directory is
 not empty" on every deployed employee. Until that is fixed, converge a deployed
 employee with its own steps from the role dir: `30-telegram.sh` (with
 `SKIP_TELEGRAM=1` to record the channel as deferred), `70-systemd.sh` and
-`80-registry.sh`. `80-registry.sh` rewrites the whole registry through
-`yaml.safe_dump`; see SKILL.md for the one-row alternative.
+`80-registry.sh`. Refresh the role's scripts first (`flume remediate
+hermes.pm-scaffold <repo> --scripts-only`): an 80-registry.sh older than
+template 5ee1909 writes `systemd.gateway_state`/`heartbeat_state`, which the
+handbook retires. `80-registry.sh` rewrites the whole registry through
+`yaml.safe_dump`; see SKILL.md for the one-row alternative, which copies only
+handbook-declared fields, never the simulated row verbatim.
 
 The machine-readable normative assertions are in
 [pm-deployment-contract.json](pm-deployment-contract.json). Configuration may

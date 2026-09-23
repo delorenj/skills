@@ -2,10 +2,10 @@ origin:
   type: vendored
   source: flume
   upstream: git@github.com:delorenj/flume.git
-  upstream_version: 1625e3a5d2e757714aa6fc11c5f1f27efb35fa74
-  upstream_commit: 1625e3a5d2e757714aa6fc11c5f1f27efb35fa74
+  upstream_version: 5c2b366447625e38a554beaadee8218550f8d5ae
+  upstream_commit: 5c2b366447625e38a554beaadee8218550f8d5ae
   upstream_tree: df854832f40584602128842d1ed37d6b4f616f2f
   upstream_path: skills/plane-identity-provisioning
-  extracted_at: 2026-09-23T17:50:38.419Z
+  extracted_at: 2026-09-23T18:16:00.382Z
   digest: sha256:d997dda8ec5c8254797f8b0e6e96c442dbc9b16a8b368acaad95fec2c9dba91b
 modified_locally: false
