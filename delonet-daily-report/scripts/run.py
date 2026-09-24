@@ -54,6 +54,7 @@ exited 0.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import importlib
 import json
 import os
@@ -64,6 +65,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -112,6 +114,10 @@ DAPR_PUBSUB = "bloodbank-pubsub"
 EVENT_SOURCE = "urn:33god:service:delonet-daily-report"
 EVENT_PRODUCER = "delonet-daily-report"
 EVENT_TIMEOUT_SECONDS = 10
+EVENT_MAX_BYTES = 512_000
+RECEIPT_EVENT_TYPE = "bloodbank.reporting.journal.received"
+DEFAULT_CANDYSTORE_URL = "http://127.0.0.1:8683"
+RECEIPT_PAGE_SIZE = 500
 
 ARTIFACT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 #: Characters a failure summary may contain. The Bloodbank schema rejects
@@ -704,8 +710,9 @@ def completed_event(
     published: dict[str, Any],
     generation: str,
     delivery: dict[str, Any],
-    narration: narrator.Narration,
+    narration: narrator.Narration | None,
     report_status: str,
+    content: dict[str, Any],
 ) -> dict[str, Any]:
     """The report.completed envelope, with every status derived, never assumed.
 
@@ -747,13 +754,64 @@ def completed_event(
             "commit_marker_id": _artifact_id(f"{date}:{generation}", run_id),
         },
         "delivery": delivery,
+        "content": content,
     }
-    return _envelope(
+    envelope = _envelope(
         "bloodbank.reporting.report.completed",
         date,
         data,
-        narration.metrics.get("narrator_reported_model"),
+        narration.metrics.get("narrator_reported_model") if narration else None,
     )
+    envelope["id"] = str(uuid.uuid5(uuid.NAMESPACE_URL, f"delonet-daily-report:{date}:{generation}"))
+    envelope["correlationid"] = envelope["id"]
+    envelope["time"] = content["report"]["generated_at"]
+    return envelope
+
+
+def _collector_facts(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Bounded, allowlisted collector observations from this run's validated artifacts."""
+    facts = []
+    for entry in entries[:32]:
+        metrics = {
+            str(key)[:128]: value[:1000] if isinstance(value, str) else value
+            for key, value in list(entry.get("metrics", {}).items())[:100]
+            if isinstance(value, (str, int, float, bool)) or value is None
+        }
+        fact = {
+            "id": entry["id"],
+            "status": entry["status"][:32],
+            "summary": entry.get("summary", "")[:4000],
+            "metrics": metrics,
+            "caveats": [str(value)[:1000] for value in entry.get("caveats", [])[:50]],
+        }
+        if entry.get("reason"):
+            fact["reason"] = str(entry["reason"])[:2000]
+        facts.append(fact)
+    return facts
+
+
+def archived_content(verified: dict[str, Any], entries: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build the portable snapshot from the exact generation the archive verified."""
+    if not verified.get("ok") or not verified.get("generation"):
+        raise ConfigError("cannot emit an unverified report generation")
+    generation = Path(verified["generation"])
+    markdown = (generation / "report.md").read_text(encoding="utf-8")
+    report = json.loads((generation / "report.json").read_text(encoding="utf-8"))
+    facts = _collector_facts(entries)
+    source = {"markdown": markdown, "report": report, "collector_facts": facts}
+    content = {
+        "generation_id": generation.name,
+        "content_sha256": _content_digest(source),
+        **source,
+    }
+    if len(json.dumps(content, ensure_ascii=False).encode("utf-8")) > EVENT_MAX_BYTES:
+        raise ConfigError("verified report exceeds Bloodbank event content limit")
+    return content
+
+
+def _content_digest(source: dict[str, Any]) -> str:
+    canonical = json.dumps(source, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def failed_event(
@@ -813,6 +871,47 @@ def emit_event(envelope: dict[str, Any]) -> dict[str, Any]:
                     "error": None if ok else f"unexpected status {response.status}"}
     except (urllib.error.URLError, OSError, ValueError) as exc:
         return {"published": False, "url": url, "status_code": None, "error": clip(exc, 200)}
+
+
+def outbox_path(config: dict[str, Any], date: str, generation_id: str) -> Path:
+    return Path(archive_paths(config, date)["archive_root"]) / "outbox" / f"{generation_id}.json"
+
+
+def persist_outbox(config: dict[str, Any], date: str, envelope: dict[str, Any]) -> Path:
+    """Create a generation-keyed immutable envelope before any network publish.
+
+    An existing outbox wins on rerun. Every replay reads that exact envelope,
+    including its original id and time; no mutable artifact or current clock can
+    silently create a second fact for the same generation.
+    """
+    content = envelope["data"].get("content") or {}
+    generation_id = content.get("generation_id")
+    if not isinstance(generation_id, str) or not re.fullmatch(r"[a-f0-9]{32}", generation_id):
+        raise ConfigError("completed event has no valid generation_id")
+    path = outbox_path(config, date, generation_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except FileExistsError:
+        stored = json.loads(path.read_text(encoding="utf-8"))
+        if (
+            stored.get("type") != envelope["type"]
+            or stored.get("id") != envelope["id"]
+            or stored.get("data", {}).get("content", {}).get("generation_id") != generation_id
+        ):
+            raise ConfigError(f"outbox envelope conflicts with generation {generation_id}")
+        return path
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(envelope, handle, indent=2, ensure_ascii=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        fsync_dir(path.parent)
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
+    return path
 
 
 # --------------------------------------------------------------------------- #
@@ -1022,13 +1121,20 @@ def run_report(
                 narration,
             )
         else:
-            envelope = completed_event(
-                run_id, date, started_at, entries, published,
-                outcome["published"]["generation"], delivery, narration,
-                outcome["status"],
-            )
+            try:
+                envelope = completed_event(
+                    run_id, date, started_at, entries, published,
+                    outcome["published"]["generation"], delivery, narration,
+                    outcome["status"], archived_content(verified, entries),
+                )
+            except (ConfigError, OSError, ValueError) as exc:
+                outcome["event"] = {"emitted": False, "error": f"verified archive snapshot failed: {clip(exc, 200)}"}
+                outcome["caveats"].append(outcome["event"]["error"])
+                return outcome, EXIT_ERROR
         outcome["event"] = _finish_event(config, date, envelope, emit)
 
+    if outcome["event"].get("error", "").startswith("outbox persistence failed"):
+        return outcome, EXIT_ERROR
     exit_code = EXIT_UNMET if outcome["status"] == "failed" else EXIT_OK
     return outcome, exit_code
 
@@ -1069,13 +1175,21 @@ def _failed_delivery_block(mirrored: dict[str, Any]) -> dict[str, Any]:
 def _finish_event(
     config: dict[str, Any], date: str, envelope: dict[str, Any], emit: bool
 ) -> dict[str, Any]:
-    """Record the envelope on disk always; publish it only when asked."""
+    """Persist completed events in the immutable outbox before any publish."""
     record: dict[str, Any] = {
         "type": envelope["type"],
         "outcome_status": envelope["data"].get("outcome", {}).get("status"),
         "emitted": False,
         "path": str(Path(config["artifact_dir"]) / date / "report-event.json"),
     }
+    if envelope["type"] == "bloodbank.reporting.report.completed":
+        try:
+            outbox = persist_outbox(config, date, envelope)
+            record["outbox"] = str(outbox)
+            envelope = json.loads(outbox.read_text(encoding="utf-8"))
+        except (OSError, ValueError, ConfigError) as exc:
+            record["error"] = f"outbox persistence failed: {clip(exc, 200)}"
+            return record
     try:
         atomic_write(Path(record["path"]), envelope)
     except OSError as exc:
@@ -1090,6 +1204,241 @@ def _finish_event(
     if published["error"]:
         record["error"] = published["error"]
     return record
+
+
+def _archive_entries(config: dict[str, Any], date: str, verified: dict[str, Any]) -> list[dict[str, Any]]:
+    """Recover collector facts for a published generation without adopting a later run."""
+    generation = Path(verified["generation"])
+    manifest = json.loads((generation / "run-manifest.json").read_text(encoding="utf-8"))
+    report = json.loads((generation / "report.json").read_text(encoding="utf-8"))
+    bodies = {item["id"]: item["body"] for item in report["sections"]}
+    entries = []
+    for item in manifest["sections"]:
+        section_id = item["id"]
+        artifact = None
+        path = Path(section_path(config, section_id, date))
+        if path.is_file():
+            try:
+                candidate = validate_section_artifact(load_json(path), section_id)
+                if candidate["run_id"] == report["run_id"]:
+                    artifact = candidate
+            except (ConfigError, OSError, ValueError):
+                pass
+        entries.append({
+            "id": section_id,
+            "status": item["status"],
+            "summary": (artifact or {}).get("summary") or bodies.get(section_id, "")[:4000],
+            "reason": item.get("reason", ""),
+            "metrics": (artifact or {}).get("metrics", {}),
+            "caveats": (artifact or {}).get("caveats", []),
+        })
+    return entries
+
+
+def _rebuild_outbox(
+    config: dict[str, Any], date: str, verified: dict[str, Any], *, persist: bool = True,
+) -> dict[str, Any]:
+    generation = Path(verified["generation"])
+    report = json.loads((generation / "report.json").read_text(encoding="utf-8"))
+    manifest = json.loads((generation / "run-manifest.json").read_text(encoding="utf-8"))
+    entries = _archive_entries(config, date, verified)
+    content = archived_content(verified, entries)
+    status = verified["status"]
+    original_path = Path(config["artifact_dir"]) / date / "report-event.json"
+    if original_path.is_file():
+        try:
+            original = json.loads(original_path.read_text(encoding="utf-8"))
+            if (
+                original.get("type") == "bloodbank.reporting.report.completed"
+                and original.get("data", {}).get("run_id") == report["run_id"]
+                and original.get("data", {}).get("artifacts", {}).get("commit_marker_id")
+                == f"{date}:{generation.name}"
+            ):
+                status = original["data"]["outcome"]["status"]
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+    delivery = {
+        "status": "skipped", "channel": "file", "destination_alias": "daily-journals",
+        "attempts": 0, "delivered_at": None, "reason": "delivery_unknown",
+    }
+    envelope = completed_event(
+        report["run_id"], date,
+        dt.datetime.fromisoformat(manifest["started_at"].replace("Z", "+00:00")),
+        entries, {}, generation.name, delivery, None, status, content,
+    )
+    if original_path.is_file():
+        try:
+            original = json.loads(original_path.read_text(encoding="utf-8"))
+            if (
+                original.get("type") == envelope["type"]
+                and original.get("data", {}).get("run_id") == report["run_id"]
+                and original.get("data", {}).get("artifacts", {}).get("commit_marker_id")
+                == f"{date}:{generation.name}"
+            ):
+                # Preserve the real run's delivery and event identity if the
+                # artifact made it to disk before the outbox did.
+                envelope["id"] = original["id"]
+                envelope["correlationid"] = original["correlationid"]
+                envelope["time"] = original["time"]
+                envelope["data"]["completed_at"] = original["data"]["completed_at"]
+                envelope["data"]["delivery"] = original["data"]["delivery"]
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+    if persist:
+        persist_outbox(config, date, envelope)
+    return envelope
+
+
+def _receipt_keys(since: str) -> set[tuple[str, str, str]]:
+    """Require a complete Candystore receipt scan; an unread source never means absent."""
+    base = os.environ.get("CANDYSTORE_URL", DEFAULT_CANDYSTORE_URL).rstrip("/")
+    found: set[tuple[str, str, str]] = set()
+    for page in range(40):
+        query = urlencode({
+            "type": RECEIPT_EVENT_TYPE,
+            "from": f"{since}T00:00:00Z",
+            "limit": RECEIPT_PAGE_SIZE,
+            "offset": page * RECEIPT_PAGE_SIZE,
+        })
+        request = urllib.request.Request(f"{base}/events?{query}", headers={"Accept": "application/json"})
+        try:
+            with urllib.request.urlopen(request, timeout=EVENT_TIMEOUT_SECONDS) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            raise ConfigError(f"Candystore receipts unavailable: {type(exc).__name__}") from exc
+        batch = payload.get("events") if isinstance(payload, dict) else None
+        if not isinstance(batch, list):
+            raise ConfigError("Candystore receipt response has no events array")
+        for item in batch:
+            data = item.get("data") if isinstance(item, dict) else None
+            if isinstance(data, dict):
+                found.add((str(data.get("source_event_id", "")),
+                           str(data.get("generation_id", "")),
+                           str(data.get("content_sha256", ""))))
+        if len(batch) < RECEIPT_PAGE_SIZE:
+            return found
+    raise ConfigError("Candystore receipt page budget exhausted")
+
+
+def export_snapshot(config: dict[str, Any], date: str) -> dict[str, Any]:
+    """Read-only export of one verified current generation for historical backfill."""
+    verified = verify_published(config, date)
+    if not verified["ok"]:
+        raise ConfigError(f"cannot export unverified report for {date}: {'; '.join(verified['problems'])}")
+    generation_id = verified["generation_id"]
+    path = outbox_path(config, date, generation_id)
+    if path.is_file():
+        envelope = json.loads(path.read_text(encoding="utf-8"))
+        content = envelope["data"]["content"]
+        source_event_id = envelope["id"]
+    else:
+        content = archived_content(verified, _archive_entries(config, date, verified))
+        source_event_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"delonet-daily-report:{date}:{generation_id}"))
+        original_path = Path(config["artifact_dir"]) / date / "report-event.json"
+        if original_path.is_file():
+            try:
+                original = json.loads(original_path.read_text(encoding="utf-8"))
+                if (
+                    original.get("type") == "bloodbank.reporting.report.completed"
+                    and original.get("data", {}).get("run_id") == content["report"]["run_id"]
+                    and original.get("data", {}).get("artifacts", {}).get("commit_marker_id")
+                    == f"{date}:{generation_id}"
+                ):
+                    source_event_id = original["id"]
+            except (OSError, ValueError, KeyError, TypeError):
+                pass
+    if (
+        content["generation_id"] != generation_id
+        or content["report"]["report_date"] != date
+        or content["markdown"] != (Path(verified["generation"]) / "report.md").read_text(encoding="utf-8")
+        or content["content_sha256"] != _content_digest({
+            "markdown": content["markdown"],
+            "report": content["report"],
+            "collector_facts": content["collector_facts"],
+        })
+    ):
+        raise ConfigError("outbox content does not match verified archived generation")
+    return {
+        "source_event_id": source_event_id,
+        "report_date": date,
+        "run_id": content["report"]["run_id"],
+        "generation_id": generation_id,
+        "content_sha256": content["content_sha256"],
+        "content": content,
+    }
+
+
+def reconcile_events(
+    config: dict[str, Any], *, date: str | None = None, since: str | None = None,
+    lookback_days: int = 7,
+    dry_run: bool = False,
+) -> tuple[dict[str, Any], int]:
+    """Replay exact outbox envelopes for verified current generations without n8n receipts."""
+    if not 1 <= lookback_days <= 90:
+        raise ConfigError("lookback_days must be between 1 and 90")
+    if since:
+        archive_paths(config, since)
+    today = dt.date.today()
+    lookback_start = today - dt.timedelta(days=lookback_days)
+    if date:
+        archive_paths(config, date)
+        dates = [date]
+        receipt_since = date
+    else:
+        roots = Path(config["archive_dir"]).glob("[0-9][0-9][0-9][0-9]/*/*/current.json")
+        dates = sorted({path.parent.name for path in roots if path.parent.name >= lookback_start.isoformat()})
+        if since is not None:
+            dates = [item for item in dates if item >= since]
+        receipt_since = dates[0] if dates else (since or lookback_start.isoformat())
+    if not dates:
+        return {"dates": [], "received": 0, "replayed": 0, "pending": 0, "invalid": [], "failed": []}, EXIT_OK
+    receipts = _receipt_keys(receipt_since)
+    result: dict[str, Any] = {"dates": dates, "received": 0, "replayed": 0, "pending": 0, "invalid": [], "failed": []}
+    for report_date in dates:
+        verified = verify_published(config, report_date)
+        if not verified["ok"]:
+            result["invalid"].append({"date": report_date, "problems": verified["problems"]})
+            continue
+        generation_id = verified["generation_id"]
+        path = outbox_path(config, report_date, generation_id)
+        if not path.is_file() and date is None and since is None:
+            # Legacy generations were published before portable journal events
+            # existed. They enter through export-snapshot with backfill=true,
+            # never as surprise live report.completed replays.
+            continue
+        try:
+            envelope = (
+                json.loads(path.read_text(encoding="utf-8")) if path.is_file()
+                else _rebuild_outbox(config, report_date, verified, persist=not dry_run)
+            )
+            content = envelope["data"]["content"]
+            if (
+                envelope["type"] != "bloodbank.reporting.report.completed"
+                or envelope["data"]["report_date"] != report_date
+                or content["generation_id"] != generation_id
+                or content["report"]["run_id"] != envelope["data"]["run_id"]
+                or content["markdown"] != (Path(verified["generation"]) / "report.md").read_text(encoding="utf-8")
+                or content["content_sha256"] != _content_digest({
+                    "markdown": content["markdown"],
+                    "report": content["report"],
+                    "collector_facts": content["collector_facts"],
+                })
+            ):
+                raise ConfigError("outbox envelope does not match verified current generation")
+            key = (envelope["id"], generation_id, content["content_sha256"])
+            if key in receipts:
+                result["received"] += 1
+            elif dry_run:
+                result["pending"] += 1
+            else:
+                sent = emit_event(envelope)
+                if sent["published"]:
+                    result["replayed"] += 1
+                else:
+                    result["failed"].append({"date": report_date, "error": sent["error"]})
+        except (OSError, ValueError, KeyError, TypeError, ConfigError) as exc:
+            result["failed"].append({"date": report_date, "error": clip(exc, 200)})
+    return result, (EXIT_UNMET if result["failed"] or result["invalid"] else EXIT_OK)
 
 
 def command_run(config: dict[str, Any], args: Any) -> tuple[dict[str, Any], int]:

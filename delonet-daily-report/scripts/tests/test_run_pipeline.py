@@ -425,6 +425,83 @@ class EventTests(PipelineCase):
         self.assertEqual("connection refused", outcome["event"]["error"])
         self.assertEqual(0, code)
         self.assertTrue(outcome["published"]["verified"])
+        self.assertTrue(Path(outcome["event"]["outbox"]).is_file())
+
+    def test_completion_event_carries_the_verified_archive_snapshot(self) -> None:
+        value = self.with_collectors(
+            register_stub("ok_snap_a", complete_collector),
+            register_stub("ok_snap_b", complete_collector),
+        )
+        outcome, _ = self.run_pipeline(value)
+        envelope = self.envelope(outcome)
+        content = envelope["data"]["content"]
+        generation = Path(outcome["published"]["markdown"]).parent
+        self.assertEqual(generation.name, content["generation_id"])
+        self.assertEqual((generation / "report.md").read_text(), content["markdown"])
+        self.assertEqual(json.loads((generation / "report.json").read_text()), content["report"])
+        self.assertEqual(2, len(content["collector_facts"]))
+        self.assertEqual(3, content["collector_facts"][0]["metrics"]["items"])
+        self.assertEqual(envelope, json.loads(Path(outcome["event"]["outbox"]).read_text()))
+
+    def test_reconciler_replays_the_same_envelope_until_receipt_arrives(self) -> None:
+        value = self.with_collectors(
+            register_stub("ok_replay_a", complete_collector),
+            register_stub("ok_replay_b", complete_collector),
+        )
+        outcome, _ = self.run_pipeline(value)
+        envelope = self.envelope(outcome)
+        receipt_key = (
+            envelope["id"], envelope["data"]["content"]["generation_id"],
+            envelope["data"]["content"]["content_sha256"],
+        )
+        with mock.patch.object(runner, "_receipt_keys", return_value=set()), mock.patch.object(
+            runner, "emit_event", return_value={"published": True, "error": None}
+        ) as publish:
+            result, code = runner.reconcile_events(value, date=self.date)
+        self.assertEqual(0, code)
+        self.assertEqual(1, result["replayed"])
+        self.assertEqual(envelope, publish.call_args.args[0])
+        with mock.patch.object(runner, "_receipt_keys", return_value={receipt_key}), mock.patch.object(
+            runner, "emit_event"
+        ) as publish:
+            result, code = runner.reconcile_events(value, date=self.date)
+        self.assertEqual(0, code)
+        self.assertEqual(1, result["received"])
+        publish.assert_not_called()
+
+    def test_archive_only_export_is_read_only_and_rebuilds_facts(self) -> None:
+        value = self.with_collectors(
+            register_stub("ok_export_a", complete_collector),
+            register_stub("ok_export_b", complete_collector),
+        )
+        outcome, _ = self.run_pipeline(value)
+        Path(outcome["event"]["outbox"]).unlink()
+        Path(outcome["event"]["path"]).unlink()
+        for item in self.sections_dir(value).iterdir():
+            item.unlink()
+        snapshot = runner.export_snapshot(value, self.date)
+        self.assertEqual(outcome["run_id"], snapshot["run_id"])
+        self.assertEqual(2, len(snapshot["content"]["collector_facts"]))
+        self.assertEqual({}, snapshot["content"]["collector_facts"][0]["metrics"])
+        self.assertFalse(Path(outcome["event"]["outbox"]).exists())
+        with mock.patch.object(runner, "_receipt_keys", return_value=set()):
+            result, code = runner.reconcile_events(value, date=self.date, dry_run=True)
+        self.assertEqual(0, code)
+        self.assertEqual(1, result["pending"])
+        self.assertFalse(Path(outcome["event"]["outbox"]).exists())
+
+    def test_unreadable_receipt_source_does_not_trigger_replay(self) -> None:
+        value = self.with_collectors(
+            register_stub("ok_noreplay_a", complete_collector),
+            register_stub("ok_noreplay_b", complete_collector),
+        )
+        self.run_pipeline(value)
+        with mock.patch.object(runner, "_receipt_keys", side_effect=OSError("offline")), mock.patch.object(
+            runner, "emit_event"
+        ) as publish:
+            with self.assertRaises(OSError):
+                runner.reconcile_events(value, date=self.date)
+        publish.assert_not_called()
 
     def test_delivery_is_derived_from_the_mirror_not_assumed(self) -> None:
         value = self.with_collectors(

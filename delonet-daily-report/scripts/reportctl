@@ -34,7 +34,10 @@ from reportctl_cli import build_parser
 from reportctl_config import load_config
 from reportctl_contracts import ConfigError, active_section_ids, required_section_ids
 from reportctl_runtime import archive_paths, atomic_write
-from run import EXIT_ERROR, EXIT_OK, EXIT_UNMET, collect_sections, command_run, new_run_id
+from run import (
+    EXIT_ERROR, EXIT_OK, EXIT_UNMET, collect_sections, command_run,
+    export_snapshot, new_run_id, reconcile_events,
+)
 
 
 def command_status(config: dict[str, Any], date: str) -> dict[str, Any]:
@@ -146,6 +149,13 @@ def main(argv: list[str] | None = None) -> int:
                 exit_code = EXIT_UNMET
         elif args.command == "distribute":
             output, exit_code = command_distribute(config, args)
+        elif args.command == "reconcile-events":
+            output, exit_code = reconcile_events(
+                config, date=args.date, since=args.since,
+                lookback_days=args.lookback_days, dry_run=args.dry_run
+            )
+        elif args.command == "export-snapshot":
+            output = export_snapshot(config, args.date)
         else:
             output = archive_report(config, args.report, args.markdown, args.manifest)
 

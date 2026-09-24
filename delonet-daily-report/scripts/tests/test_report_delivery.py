@@ -512,6 +512,16 @@ class DisagreementTests(CollectorTestCase):
         self.assertEqual(8, result.metrics["events_found"])
         self.assertTrue(any("duplicate completion events" in item for item in result.caveats))
 
+    def test_replayed_same_event_id_is_one_completion_fact(self) -> None:
+        for day in window():
+            self.publish(day)
+        events = [event(day) for day in window()]
+        events.append(copy.deepcopy(events[-1]))
+        with self.serve(events):
+            result = self.collect()
+        self.assertEqual(7, result.metrics["events_found"])
+        self.assertFalse(any("duplicate completion events" in item for item in result.caveats))
+
     def test_events_outside_the_window_are_ignored(self) -> None:
         with self.serve([event("2020-01-01"), event("2026-08-16")]):
             result = self.collect()

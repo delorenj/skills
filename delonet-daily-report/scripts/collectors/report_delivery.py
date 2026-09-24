@@ -377,7 +377,16 @@ def _bucket_events(
     """Group allowlisted events by the day they claim to report on."""
     buckets: dict[str, dict[str, Any]] = {}
     unattributed = 0
+    seen_ids: set[str] = set()
     for event in events:
+        # The outbox retries one immutable CloudEvent until n8n acknowledges
+        # it. Candystore may retain multiple rows with that same event id;
+        # those are transport retries, not two report runs.
+        event_id = event.get("id")
+        if isinstance(event_id, str) and event_id:
+            if event_id in seen_ids:
+                continue
+            seen_ids.add(event_id)
         data = event.get("data")
         data = data if isinstance(data, dict) else {}
         report_date = data.get("report_date")

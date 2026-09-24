@@ -67,6 +67,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="also fail when any enabled section did not complete",
     )
 
+    replay = commands.add_parser(
+        "reconcile-events", help="replay verified current generations missing an n8n journal receipt"
+    )
+    replay.add_argument("--date", help="limit reconciliation to this report date")
+    replay.add_argument("--since", help="first report date eligible for missing-outbox recovery")
+    replay.add_argument("--lookback-days", type=int, default=7)
+    replay.add_argument("--dry-run", action="store_true", help="show missing receipts without publishing")
+
+    snapshot = commands.add_parser(
+        "export-snapshot", help="print a verified archived report for n8n historical backfill"
+    )
+    snapshot.add_argument("--date", required=True)
+
     dist = commands.add_parser(
         "distribute",
         help="deliver the published report to the vault, notebook, email and Slack",
