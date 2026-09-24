@@ -1386,9 +1386,8 @@ def reconcile_events(
         receipt_since = date
     else:
         roots = Path(config["archive_dir"]).glob("[0-9][0-9][0-9][0-9]/*/*/current.json")
-        dates = sorted({path.parent.name for path in roots if path.parent.name >= lookback_start.isoformat()})
-        if since is not None:
-            dates = [item for item in dates if item >= since]
+        earliest = since or lookback_start.isoformat()
+        dates = sorted({path.parent.name for path in roots if path.parent.name >= earliest})
         receipt_since = dates[0] if dates else (since or lookback_start.isoformat())
     if not dates:
         return {"dates": [], "received": 0, "replayed": 0, "pending": 0, "invalid": [], "failed": []}, EXIT_OK
