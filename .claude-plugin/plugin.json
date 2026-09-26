@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "delorenj-skills",
+  "displayName": "delorenj skills",
+  "description": "The complete delorenj skill catalog as one Claude Code plugin. Scans the repository root, so every top-level skill directory (AWS, Clerk, Expo/React Native, n8n, agents, docs, media, and more) is available under the delorenj-skills namespace.",
+  "author": {
+    "name": "Jarrod DeLorenzo",
+    "url": "https://github.com/delorenj"
+  },
+  "homepage": "https://github.com/delorenj/skills",
+  "repository": "https://github.com/delorenj/skills",
+  "keywords": [
+    "skills",
+    "catalog",
+    "claude-code",
+    "plugin"
+  ],
+  "skills": [
+    "."
+  ]
+}
