@@ -37,6 +37,12 @@ For higher-touch DeLoNET service operations, also use:
 - `references/docker-service-provisioning.md` for scaffolding new services, choosing Traefik-routed vs direct-port patterns, parent-compose wiring, firewall exposure, and RustDesk-specific provisioning gotchas.
 - `references/selfhosted-agent-infrastructure.md` for Honcho, Traefik migration, JWT admin tokens, and hosted-agent connectivity patterns.
 
+## CI (GitHub Actions)
+
+Self-hosted runners only; never GitHub-hosted labels. Linux jobs use
+`runs-on: [self-hosted, Linux, delonet]`. Inventory, adding a runner to a personal repo, and the
+macOS plan: `references/ci-runners.md`.
+
 ## Code Repository Organization
 
 All repos live in `$CODE` (`~/code`). New repos are not hand-rolled — they are created and
