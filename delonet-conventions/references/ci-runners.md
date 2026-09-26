@@ -43,3 +43,16 @@ Register the osx-arm64 runner package on an always-on Mac. Give it labels
 so launchd runs it. A laptop that sleeps makes a poor runner. iOS signing uses an
 App Store Connect API key from 1Password, never a login keychain someone has to
 unlock.
+
+**Candidate: Damian's Mac Studio** (M3 Ultra, 96 GB, macOS 26.3).
+- SSH: `ssh hellosubconscious@damians-mac-studio.tuxedo-morpho.ts.net`, the `damiconn` alias in
+  `$ZC/remote-hosts.zsh`.
+- The account is logged in at the console, so a user LaunchAgent works. It is an admin, but sudo
+  needs a password.
+- The Mac never sleeps and auto-restarts.
+- **Blocked 2026-09-26: the Mac had no outbound TCP at all.** Ping worked, but TCP to every port
+  (22/53/80/443, github.com and 1.1.1.1 alike) failed at once, from SSH and from a GUI LaunchAgent.
+  The application firewall was off and no filter extension was loaded. There was a second default
+  route through the Tailscale utun, so suspect a dead Tailscale exit node or a block at the gateway
+  (192.168.12.1).
+- Xcode is not installed, only the Command Line Tools.
