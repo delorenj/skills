@@ -47,6 +47,10 @@ To transfer an external domain (e.g. from Namecheap) into Cloudflare Registrar:
 
 ### 1. Verification & Pre-flight
 - Run `.agents/skills/delonet-domains/scripts/domain_ctl.py info <domain>`.
+- **TLD Support Verification**:
+  - Cloudflare Registrar supports ~370+ TLDs (including `.com`, `.net`, `.org`, `.app`, `.ai`, and `.io`).
+  - **`.sh` is NOT supported by Cloudflare Registrar** (even though Cloudflare DNS supports it). Transfers for `.sh` will fail with `Transfer not supported by the API for this TLD`.
+  - Check the active TLD policies at `https://www.cloudflare.com/tld-policies/` before attempting transfers.
 - **Nameservers**: Cloudflare requires the domain to be an active zone pointing to Cloudflare nameservers first.
 - **Timing & Auto-Renew Grace Period**:
   - The domain should not be within 15 days of expiration or expired.
