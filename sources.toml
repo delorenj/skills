@@ -19,7 +19,7 @@ checkout = "pjangler"
 [[source]]
 name = "flume"
 repo = "git@github.com:delorenj/flume.git"
-version = "5109c156ad79c44d1a156dbb436d5e7b2ce75f9f"
+version = "a634506aed993024b286aa75a096fd921dd57bca"
 checkout = "flume"
 
 [[source]]

@@ -33,8 +33,36 @@ write solves the problem.
 
 ## Update Hermes core
 
-The launchers read `~/.hermes/fleet.env`, which points every generated agent at
-the shared Hermes checkout and binary:
+**What actually runs (2026-09-26).** Every gateway execs the pinned release
+checkout named in `~/.hermes/fleet.env` (`HERMES_FLEET_REPO`/`HERMES_FLEET_BIN`)
+and in each unit's `10-versioned-runtime.conf` drop-in:
+`~/.local/share/hermes-agent/releases/0408fec7…/`. That directory is a blobless
+clone of `delorenj/hermes-agent` tracking `main`; its name is the pin id, not
+its HEAD. `~/.hermes/hermes-agent` is a dev checkout whose local `main` tracks
+NousResearch upstream, NOT the fork. Land fork changes like this:
+
+```bash
+# 1. work in a detached worktree of fork main, test, push
+git -C ~/.hermes/hermes-agent fetch delorenj main
+git -C ~/.hermes/hermes-agent worktree add --detach <scratch>/hermes-fork delorenj/main
+<release>/.venv/bin/python -m pytest <tests> -o addopts=""  # run from the worktree
+git -C <scratch>/hermes-fork push delorenj HEAD:main
+# 2. deploy: fast-forward the release checkout (no reinstall unless deps changed;
+#    Hermes sweeps stale __pycache__ itself via .bytecode-fingerprint)
+git -C <release> pull --ff-only origin main
+# 3. restart each ACTIVE gateway, one unit at a time, and prove each
+systemctl --user restart hermes-<agent>-gateway.service
+```
+
+A gateway is healthy when it logs `Gateway running with N platform(s)`, or
+`No messaging platforms enabled` then `Gateway housekeeping started` for a
+cron-only desk. PM work dispatched over Bloodbank runs inside
+`hermes-fleet-bloodbank-gateway`, so a PM's Hindsight traffic shows up in
+`~/.hermes/profiles/fleet-bloodbank-gateway/logs/agent.log`, not the desk's
+own log. A desk-local `hermes -p <pm> chat` uses that desk's `.env` model
+keys, which can be stale even while the fleet gateway works.
+
+The older shared-checkout flow below is kept for the dev checkout:
 
 ```bash
 cd ~/.hermes/hermes-agent
