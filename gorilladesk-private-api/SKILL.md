@@ -48,7 +48,9 @@ Verified against the vendor app's current source map on 2026-09-27:
 
 - `POST jobs/{privateJobId}/notes` with JSON `{content, notified_users: [],
   attachments: []}`. Read `jobs/{id}/timeline?fields=top_note&filters=-1&limit=20&offset=0`.
-  Confirm the returned note id, approved content and `is_customer_note: 0`.
+  Confirm the returned note id, `job.id`, approved content and `is_customer_note: 0`.
+  The vendor inserts `<br />` before literal newlines; strip only those inserted
+  tags before HTML-unescaping for comparison, preserving literal user markup.
   A customer timeline or `top_note` does not prove a job attachment.
 - `PUT jobs/{id}/status` with `{jobId, status: "2", note: ""}`. Private `2` is
   Completed; public Completed is `74nYKJdMJK`. Read current statuses from
@@ -67,9 +69,30 @@ Verified against the vendor app's current source map on 2026-09-27:
   match. Keep the created invoice id and an unknown receipt when the send or
   read-back cannot be proved; never create a replacement invoice to retry mail.
 
-GorillaDesk renders the billing party from the selected location's billing
-contact. For the Miami Beach test cohort, email requests use the named
-`ipm-testbed+<customer>@delo.sh` alias. This does not rewrite CRM contacts.
+## Existing billing contacts
+
+Resolve a named billing instruction from
+`GET customers/{privateCustomerId}/contacts?inc=customer&limit=100&offset=0`,
+paging until exhausted. Require one exact normalized name or email match with
+an email address. Freeze its customer id, contact id, name and email in the
+approved invoice context; revalidate that tuple before invoice creation and
+again before sending. Do not fall back to the account owner on ambiguity,
+missing contact, changed contact or unavailable lookup.
+
+The invoice email's `receiver` selects the destination. Send only to the frozen
+contact, with no inherited CC recipients. For Miami Beach, a selected contact
+must use a `delo.sh` email. The default account-on-file path uses the controlled
+`ipm-testbed+<customer>@delo.sh` alias.
+
+The displayed Bill-to comes from the location's shared billing record. A live
+probe verified that changing it also changes the displayed Bill-to on an
+already-sent invoice. Selecting an email recipient must not rewrite that shared
+record; the vendor invoice-create form exposes no per-invoice Bill-to override.
+
+For independent recipient proof, read
+`reports/emaillogs?customer_id={id}&limit=100&offset=0&total=1&start=YYYY-MM-DD&end=YYYY-MM-DD&status=-1&sort_by=first_name&order=&keyword=`.
+Both dates are required. Match invoice number, recipient email and sent status.
+`invoice/{id}/logs` proves send activity but omits the recipient address.
 
 ## Authority
 
@@ -88,6 +111,7 @@ are not part of this operation.
 - `apps/relay/src/relay/adapters/crm_dual.py`: public identity reads, private writes.
 - `apps/relay/src/relay/adapters/crm_private.py`: vendor transport and read-back.
 - `apps/relay/src/relay/review/plan.py`: immutable approved action.
+- `apps/relay/src/relay/billing.py`: existing contact resolution and frozen binding.
 - `apps/relay/src/relay/app.py` and `consumer.py`: both note call sites carry job id.
 - `apps/relay/tests/test_approved_job_effects.py`: distinct id spaces, job-note
   verification and invoice amount/customer/location mismatches.
