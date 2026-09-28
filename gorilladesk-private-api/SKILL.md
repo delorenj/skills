@@ -98,9 +98,11 @@ Both dates are required. Match invoice number, recipient email and sent status.
 
 Approval binds an immutable snapshot and action digest. Egress, CRM-owned
 geography, origin policy and the operation ledger remain required. The tooling
-fence is permanently Miami Beach, FL; the product fence is the deployment's
-`RELAY_WRITE_SCOPE_CITY` / `_STATE`. Never clear that fence to make a test pass.
-Real sends within it are authorized; do not downgrade them to drafts.
+fence is permanently Miami Beach, FL. The product path is live for real
+customers (2026-09-27): production sets no `RELAY_WRITE_SCOPE_CITY` / `_STATE`,
+and the origin fence keeps developer calls and backlog replays off every real
+customer. Never widen the tooling fence to make a test pass. Real sends are
+authorized; do not downgrade them to drafts.
 
 `InvoiceWrite.trigger_action` is required: `SILENT="0"` for an explicitly silent
 probe, `SEND_EMAIL="1"` for approval. Recurring sends and automatic card charges
