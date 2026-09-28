@@ -16,7 +16,7 @@ DISPLAY_EVENT = "SessionEnd"
 HOOK_EVENT = "session-close"
 REQUEST_LIMIT_BYTES = 1_048_576
 STREAM_LIMIT_BYTES = REQUEST_LIMIT_BYTES + 1
-CHILD_TIMEOUT_SECONDS = 0.75
+CHILD_TIMEOUT_SECONDS = 4.0
 NODE_BINARY = Path("/usr/bin/node")
 AUTH_VARIABLE = "OPEN_NOTEBOOK_PASSWORD"
 
@@ -209,6 +209,8 @@ def invoke(entry: pwd.struct_passwd, launcher: Path, payload: bytes) -> int:
 
 
 def hub_owned(home: Path) -> bool:
+    if os.environ.get("PJ_HOOK_FROM_HUB") == "1":
+        return False
     if os.environ.get("BB_HOOK_HUB") == "off":
         return False
     helper = home / ".agents/hooks/hub/ownership.py"
