@@ -12,26 +12,37 @@ Use it when the user asks for semantic code search, hybrid lexical/vector retrie
 ## CLI
 
 ```bash
-python3 -m tools.codegraph_voyage index [--provider fake|voyage] [--dimensions N]
-python3 -m tools.codegraph_voyage search "query" [--provider fake|voyage] [--top-k N] [--json]
-python3 -m tools.codegraph_voyage status
-python3 -m tools.codegraph_voyage explore "query" [--provider fake|voyage] [--dry-run]
+codegraph-voyage index [--provider fake|voyage|openrouter] [--model MODEL] [--dimensions N]
+codegraph-voyage search "query" [--provider fake|voyage|openrouter] [--top-k N] [--json]
+codegraph-voyage status
+codegraph-voyage explore "query" [--provider fake|voyage|openrouter] [--dry-run]
 ```
 
 `search` is also available as `semantic_candidates`. Index before searching when `.codegraph/codegraph-voyage.db` is absent or stale. Use `status` to inspect the CodeGraph and embedding indexes.
 
-The `fake` provider is deterministic, offline, and suitable for development and CI. The `voyage` provider sends locally sanitized source-derived text to Voyage AI. Use it only when remote processing is acceptable.
+The `fake` provider is deterministic, offline, and suitable for development and CI.
+The `voyage` provider sends locally sanitized source-derived text to Voyage AI.
+The `openrouter` provider sends requests to OpenRouter's OpenAI-compatible embeddings API.
 
-## Voyage credentials
+Defaults can be persisted in `~/.config/codegraph-voyage/config.toml` (e.g. `provider = "openrouter"`, `model = "voyage-4"`).
 
-Load the key into the environment from 1Password, then run the command:
+## Credentials
 
+Load the necessary key into the environment:
+
+For Voyage:
 ```bash
 export VOYAGE_API_KEY="$(op read 'op://DeLoSecrets/Voyage AI/API Key')"
-python3 -m tools.codegraph_voyage index --provider voyage
+codegraph-voyage index --provider voyage
 ```
 
-Never put the key in CLI arguments, source files, logs, or MCP tool arguments.
+For OpenRouter:
+```bash
+export OPENROUTER_API_KEY="sk-or-v1-..."
+codegraph-voyage index --provider openrouter --model "voyage-4"
+```
+
+Never put secrets in CLI arguments, source files, logs, or MCP tool arguments.
 
 ## Project-scoped lifecycle hooks
 
