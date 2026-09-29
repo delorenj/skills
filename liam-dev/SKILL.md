@@ -1,11 +1,11 @@
 ---
-name: liam
-description: "Work on liam, delorenj's hard fork of Kapture — browser automation for agents that drives real Chrome tabs from a CLI or plain HTTP, with MCP demoted to an opt-in adapter. Source at ~/code/liam, published as @delorenj/liam, extension id nikmjmdooglaejpjjjpnffpcockkboaj. Use when building, installing, debugging or extending liam itself: adding a tool to tools.yaml, touching the extension, cutting a release, or wiring its Bloodbank/ssbnk/Hindsight integration. Triggers: liam, the liam fork, liam server, liam extension, @delorenj/liam, fork of kapture. Do NOT use to actually drive a browser for a task — that is the kapture skill until liam's extension is loaded and its CLI ships; and do NOT use for upstream Kapture's own behaviour, which the kapture skill documents."
+name: liam-dev
+description: "A hard fork of Kapture — browser automation for agents via CLI or HTTP, with opt-in MCP adapter for legacy support. Source at ~/code/liam, published as @delorenj/liam, extension id nikmjmdooglaejpjjjpnffpcockkboaj. Use when building, installing, debugging or extending liam itself: adding a tool to tools.yaml, touching the extension, cutting a release, or wiring its Bloodbank/ssbnk/Hindsight integration. Triggers: liam, the liam fork, liam server, liam extension, @delorenj/liam, fork of kapture. Do NOT use to actually drive a browser for a task — that is the kapture skill until liam's extension is loaded and its CLI ships."
 ---
 
 # liam — the Kapture fork
 
-> *"I am a particular set of skills."*
+> _"I am a particular set of skills."_
 
 A hard fork of [williamkapke/kapture](https://github.com/williamkapke/kapture) (MIT, dormant
 since 2026-07-06). Source at `~/code/liam`, public at
@@ -88,8 +88,7 @@ Two traps the suite already encodes. `tools-schema.test.ts` guards a real regres
 a top-level `oneOf` to an advertised schema 400s every Anthropic request while every behavioural
 test stays green. And `index.integration.test.ts` must import `origin-policy` **dynamically** —
 it transitively pulls in `config.ts`, which reads `LIAM_PORT` at module load, and a static import
-hoists above the test's env assignment, silently binding the real 61822 instead of the test's
-61999.
+hoists above the test's env assignment, silently binding the real 61822 instead of the test's 61999.
 
 ## Known upstream bug, inherited
 
