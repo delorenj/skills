@@ -127,3 +127,32 @@ traefik.http.routers.vox.tls.certresolver=letsencrypt
 traefik.http.services.vox.loadbalancer.server.port=8000
 traefik.docker.network=proxy
 ```
+
+## Cannot check installed engine version in container
+
+**Symptom:** `AttributeError: module 'voxcpm' has no attribute '__version__'` when probing `voxcpm.__version__`.
+
+**Fix:** Standard library `importlib.metadata`:
+```bash
+docker exec voxxy-engine-voxcpm /opt/venv/bin/python -c \
+  "import importlib.metadata; print(importlib.metadata.version('voxcpm'))"
+```
+
+## Docker compose ignores engine service during recreate
+
+**Symptom:** Running `docker compose up -d voxxy-engine-voxcpm` does nothing or exits with a message that the service is excluded by profiles.
+
+**Fix:** Pass `--profile <engine>` (e.g. `--profile voxcpm` or `--profile vibevoice`):
+```bash
+docker compose -f compose.yml -f compose.engines.yml --profile voxcpm up -d --no-build voxxy-engine-voxcpm
+```
+
+## Running pytest from repo root fails on agent import
+
+**Symptom:** Running `pytest` at repo root fails during collection of `plugins/tts/vox/tests/test_vox_tts_plugin.py` with `ModuleNotFoundError: No module named 'agent'`.
+
+**Fix:** `plugins/tts/vox/` is an external Hermes plugin requiring Hermes runtime classes. Run the voxxy test suite inside `cli/`:
+```bash
+cd cli && uv run pytest
+```
+

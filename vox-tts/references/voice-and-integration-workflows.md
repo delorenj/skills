@@ -228,6 +228,10 @@ When bolting vox onto any new CLI or platform, follow the universal integration 
 3. Else, does it accept bytes? `POST /synthesize`, stream WAV.
 4. Else, does it run Node.js? Install `node-red-contrib-vox` or copy the wrapper.
 
+### Upgrade an engine
+
+To upgrade engine dependencies (e.g. `voxcpm` or `vibevoice`), resolve lockfiles, rebuild sidecar images, recreate containers with compose profiles, and run verification probes, follow the [Engine upgrade workflow](../SKILL.md#engine-upgrade-workflow) in `SKILL.md`.
+
 ### Troubleshoot
 
 Known failure modes and fixes live in `references/troubleshooting.md`. Check there before debugging from scratch. Top categories:
