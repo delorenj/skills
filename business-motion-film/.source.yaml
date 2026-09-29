@@ -1,0 +1,11 @@
+origin:
+  type: vendored
+  source: motion-video-kit
+  upstream: https://github.com/echris6/motion-video-kit.git
+  upstream_version: 255562b04b1e5ecaa4ba98e5c9aa191d5ba7f6fa
+  upstream_commit: 255562b04b1e5ecaa4ba98e5c9aa191d5ba7f6fa
+  upstream_tree: 6fda132327a7797b9df0f834f64cf940a8f7def2
+  upstream_path: business-motion-film
+  extracted_at: 2026-09-29T13:31:34.932Z
+  digest: sha256:3e726b7569e07ccb7727c462ebdbfa9516b750c5c1236d2ec0ef6f7850f647d9
+modified_locally: false

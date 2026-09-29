@@ -62,3 +62,11 @@ repo = "https://github.com/citrolabs/ego-lite"
 version = "v1.2.3"
 checkout = "ego-lite"
 skills = ["ego-browser"]
+
+[[source]]
+name = "motion-video-kit"
+repo = "https://github.com/echris6/motion-video-kit.git"
+version = "255562b04b1e5ecaa4ba98e5c9aa191d5ba7f6fa"
+checkout = "motion-video-kit"
+subdir = ""
+skills = ["business-motion-film"]
