@@ -20,7 +20,7 @@ changelog, skill routing, and backfill coordination.
 |---|---|
 | Signed Plane webhook ingress and provider normalization | n8n integration boundary + Bloodbank custom node |
 | Event schemas, NATS/Dapr, agent lifecycle events | Bloodbank |
-| Durable event history, sessions, event summaries | Candystore |
+| Durable event history, sessions, cross-CLI handoffs (`candystore context latest`) | Candystore |
 | Dashboard, live status, tool health | Holocene |
 | Project bootstrap, CommonProject, project registry | PJangler |
 | Hiring, onboarding and reviewing agents; the org chart | Flume |
@@ -41,6 +41,7 @@ matching one rather than re-deriving its decisions here.
 
 | Load when | Skill |
 |---|---|
+| Resuming project work, switching agent CLIs, or finding recent requests, outcomes, decisions, and unfinished work in the event trail | [candystore-context](../candystore-context/SKILL.md) |
 | Adding or renaming a Plane label, choosing between a label and a state, wiring automation that writes to a board, scaffolding or reconciling a project board | `board-taxonomy` |
 | Landing a change forward across the component repos | `merge-forward` |
 | Publishing or composing skill packs | `skillex-skill-registry` |
@@ -76,6 +77,10 @@ Load [references/event-journey.md](references/event-journey.md) before changing
 any producer, consumer, webhook, subject, projection, or command route.
 
 ## Operating procedure
+
+When resuming work, use an existing startup handoff or run
+`candystore context latest --project <registered-project-slug>` for recent
+event-backed context. Check current source and service state before acting on it.
 
 1. Read `33god-platform/components.yaml`.
 2. Load the matching `components/<id>.yaml`.

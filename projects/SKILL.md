@@ -44,6 +44,10 @@ The **PM** that works the repo is a separate concern with its own tool. `flume h
   Machine-wide backup, editor, and client-CLI patterns stay in the effective
   global ignore; `.agents/` is the only canonical agent-config tree in Git.
 - **Agents are memory- and event-wired by default.** Hindsight recall/retain + Bloodbank emit/consume are part of provisioning. Machine-global Hindsight scripts live in one folder (`~/.agents/hooks/hindsight`), and machine-global Bloodbank lifecycle hooks invoke one publisher (`~/.agents/hooks/bloodbank/publish.py --client <agent> --hook <event>`).
+- **Resume from the shared event trail.** Existing startup bindings use the
+  Bloodbank hub's `candystore-context` handler. For a manual handoff, run
+  `candystore context latest` in the registered project; a newly registered
+  project may have no history yet. Read `candystore-context` for scope and coverage.
 - **Hooks and skills fan out from the repo, per-dev.** A repo that adopts the project-scoped agent layer commits one hooks SSOT + one skill manifest (`.agents/skills.json`, declaring `packs[]` and/or `skills[]`) and lets `mise enter` run `provision-packs.py` then `sync-skills.py` to securely install them into each dev's six supported local CLIs (see [references/project-scoped-hooks.md](references/project-scoped-hooks.md); pack mechanics → **agent-config-fanout** `references/skill-packs.md`).
 - **Templates are version-locked.** pjangler runs its vendored `templates/commonproject` submodule; the employee template is version-locked inside Flume.
 
@@ -51,6 +55,7 @@ The **PM** that works the repo is a separate concern with its own tool. `flume h
 
 | You want to… | Read |
 |---|---|
+| Recover recent project work when resuming or switching agent CLIs (`candystore context latest`) | [candystore-context](../candystore-context/SKILL.md) |
 | Create a new project / bootstrap CommonProject | [references/project-creation.md](references/project-creation.md) |
 | Set up or fix mise (mise.toml, .mise/scripts, AGENTS.md linking, `op inject .env.op`) | [references/mise-conventions.md](references/mise-conventions.md) |
 | Install / re-install BMAD with the standard modules + tools | [references/bmad-init.md](references/bmad-init.md) |

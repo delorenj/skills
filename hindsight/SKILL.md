@@ -8,6 +8,12 @@ Use the installed CLI and `~/.hindsight/config`. The service endpoint is
 `https://api.hs.delo.sh`; use current hostname routing rather than a pinned IP.
 Current source and live evidence outrank recalled facts.
 
+For "what happened in the last session?" or a handoff between agent CLIs, use
+[`candystore-context`](../candystore-context/SKILL.md): run
+`candystore context latest` in the registered project. It supplies recent
+recorded work and event references; use Hindsight recall for relevant retained
+knowledge and decisions. Reuse startup context when it already answers the question.
+
 ## Resolve the bank
 
 Run from the task's working directory:

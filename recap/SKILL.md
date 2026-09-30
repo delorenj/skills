@@ -44,6 +44,13 @@ harvest is unaffordable there.
 In-session is a convenience, not the design point. When running in-session, lean harder on probes and
 lighter on your own memory.
 
+On this host, [`candystore-context`](../candystore-context/SKILL.md) can locate
+recent recorded work across CLIs: run `candystore context latest --json` from
+the project, then follow its session and event references. It excludes the
+current session when its ID is available. This bounded sample helps identify
+the finished run; resolve the report window and verify capability claims using
+the passes below.
+
 ## The five passes
 
 Run them in order. **Harvest wide, render narrow** — most of what you gather appears nowhere.
