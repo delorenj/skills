@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import tempfile
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -229,7 +230,7 @@ def digest_lines(report: dict[str, Any], status: str) -> list[str]:
         if len(warnings) > MAX_WARNINGS:
             lines.append(f"  … and {len(warnings) - MAX_WARNINGS} more, in the full report")
 
-    lines += ["", f"Full report: vault Journal/Dev-Reports/{date}.md · notebooklm.delo.sh"]
+    lines += ["", f"Full report: vault Daily Reports/{date}/dev-journal.md · notebooklm.delo.sh"]
     return lines
 
 
@@ -278,25 +279,76 @@ def deliver_vault(cfg: dict[str, Any], markdown: str, report: dict[str, Any],
                   status: str, run_id: str, dry_run: bool) -> Delivery:
     d = Delivery("vault")
     root = Path(cfg["path"]).expanduser()
-    target = root / f"{report.get('report_date')}.md"
+    date = str(report.get("report_date", ""))
+    layout = cfg.get("layout", "by-date")
+
+    if layout == "by-date":
+        day_dir = root / date
+        target = day_dir / "dev-journal.md"
+        json_target = day_dir / "dev-journal.json"
+    else:
+        day_dir = root
+        target = root / f"{date}.md"
+        json_target = root / f"{date}.json"
+
     content = vault_note(markdown, report, status, run_id)
     if dry_run:
-        d.ok, d.detail = True, f"would write {target} ({len(content)} bytes)"
+        d.ok, d.detail = True, f"would write {target} and {json_target}"
         return d
     try:
-        root.mkdir(parents=True, exist_ok=True)
+        day_dir.mkdir(parents=True, exist_ok=True)
         tmp = target.with_suffix(".md.tmp")
         tmp.write_text(content, encoding="utf-8")
         tmp.replace(target)
+
+        json_tmp = json_target.with_suffix(".json.tmp")
+        json_tmp.write_text(json.dumps(report, indent=2), encoding="utf-8")
+        json_tmp.replace(json_target)
     except OSError as exc:
         d.detail = f"write failed: {exc}"
         return d
-    d.ok, d.detail = True, f"wrote {target}"
+    d.ok, d.detail = True, f"wrote {target} and {json_target}"
     d.extra["path"] = str(target)
+    d.extra["json_path"] = str(json_target)
 
     if cfg.get("git_commit"):
-        d.extra["git"] = _git_commit_vault(root, target, report.get("report_date", ""))
+        d.extra["git"] = _git_commit_vault(root, target, date)
     return d
+
+
+def deliver_s3(cfg: dict[str, Any], date: str, markdown: str, report: dict[str, Any],
+               status: str, run_id: str, dry_run: bool) -> Delivery:
+    d = Delivery("s3")
+    target = cfg.get("target", "delo/daily-reports").rstrip("/")
+    target_prefix = f"{target}/{date}"
+
+    if dry_run:
+        d.ok, d.detail = True, f"would upload dev-journal artifacts to {target_prefix}"
+        return d
+    try:
+        content = vault_note(markdown, report, status, run_id)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            md_file = tmppath / "dev-journal.md"
+            json_file = tmppath / "dev-journal.json"
+            md_file.write_text(content, encoding="utf-8")
+            json_file.write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+            proc1 = subprocess.run(["mc", "cp", str(md_file), f"{target_prefix}/dev-journal.md"],
+                                   capture_output=True, text=True, timeout=30)
+            proc2 = subprocess.run(["mc", "cp", str(json_file), f"{target_prefix}/dev-journal.json"],
+                                   capture_output=True, text=True, timeout=30)
+            if proc1.returncode != 0 or proc2.returncode != 0:
+                err = (proc1.stderr.strip() or proc2.stderr.strip())[:160]
+                d.detail = f"mc cp failed: {err}"
+                return d
+        d.ok = True
+        d.detail = f"uploaded to {target_prefix}"
+        d.extra["target"] = target_prefix
+        return d
+    except Exception as exc:
+        d.detail = f"s3 upload failed: {exc}"
+        return d
 
 
 def _git_commit_vault(root: Path, target: Path, date: str) -> str:
@@ -446,7 +498,7 @@ def distribute(config: dict[str, Any], date: str, markdown: str, report: dict[st
     dist = config.get("distribution") or {}
     results: list[Delivery] = []
 
-    for name in ("vault", "notebook", "email", "slack"):
+    for name in ("vault", "notebook", "email", "slack", "s3"):
         cfg = dist.get(name) or {}
         if only and name not in only:
             results.append(Delivery(name, ok=True, skipped=True, detail="not selected"))
@@ -458,6 +510,8 @@ def distribute(config: dict[str, Any], date: str, markdown: str, report: dict[st
             results.append(deliver_vault(cfg, markdown, report, status, run_id, dry_run))
         elif name == "notebook":
             results.append(deliver_notebook(cfg, markdown, report, status, dry_run))
+        elif name == "s3":
+            results.append(deliver_s3(cfg, date, markdown, report, status, run_id, dry_run))
         else:
             results.append(deliver_mail(name, cfg, markdown, report, status, dry_run))
 

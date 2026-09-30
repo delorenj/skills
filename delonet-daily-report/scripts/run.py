@@ -153,9 +153,13 @@ def clip(value: Any, limit: int = MAX_REASON_CHARS) -> str:
     return f"{text[:limit]}... (clipped from {len(text)} characters)"
 
 
-def mirror_dir() -> Path:
+def mirror_dir() -> Path | None:
     override = os.environ.get("DDR_MIRROR_DIR")
-    return Path(override).expanduser() if override else DEFAULT_MIRROR_DIR
+    if override is not None:
+        if override.lower() in ("disabled", "none", "off", "0", ""):
+            return None
+        return Path(override).expanduser()
+    return DEFAULT_MIRROR_DIR
 
 
 # --------------------------------------------------------------------------- #
@@ -600,6 +604,15 @@ def mirror_generation(date: str, verified: dict[str, Any]) -> dict[str, Any]:
     silently, which is the outcome this package prefers.
     """
     base = mirror_dir()
+    if base is None:
+        return {
+            "attempted": False,
+            "ok": True,
+            "dir": None,
+            "generation": verified.get("generation"),
+            "reason": "mirror_disabled",
+            "error": None,
+        }
     target = base / date
     outcome: dict[str, Any] = {
         "attempted": True,

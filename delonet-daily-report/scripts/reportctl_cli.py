@@ -89,7 +89,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--only",
         action="append",
         default=[],
-        choices=["vault", "notebook", "email", "slack"],
+        choices=["vault", "notebook", "email", "slack", "s3"],
         help="limit to this target; repeatable. Unselected targets are reported as "
         "skipped, never as delivered",
     )

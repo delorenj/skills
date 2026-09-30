@@ -230,12 +230,13 @@ def validate_core_sections(sections: Any) -> list[str]:
 
 #: Where a published report is delivered. Optional: a config without it still
 #: produces reports, they just stay on disk.
-DISTRIBUTION_TARGETS = {"vault", "notebook", "email", "slack"}
+DISTRIBUTION_TARGETS = {"vault", "notebook", "email", "slack", "s3"}
 _TARGET_KEYS = {
-    "vault": {"enabled", "path", "git_commit"},
+    "vault": {"enabled", "path", "git_commit", "layout"},
     "notebook": {"enabled", "base_url", "notebook_name"},
     "email": {"enabled", "to", "from", "mode", "subject_template"},
     "slack": {"enabled", "to", "from", "mode", "subject_template"},
+    "s3": {"enabled", "target"},
 }
 
 
@@ -261,8 +262,13 @@ def validate_distribution(distribution: Any) -> dict[str, Any]:
             raise ConfigError(f"distribution.{name}.enabled must be boolean")
         if not cfg.get("enabled"):
             continue
-        if name == "vault" and not nonempty(cfg.get("path")):
-            raise ConfigError("distribution.vault.path must be a non-empty string when enabled")
+        if name == "vault":
+            if not nonempty(cfg.get("path")):
+                raise ConfigError("distribution.vault.path must be a non-empty string when enabled")
+            if "layout" in cfg and cfg["layout"] not in {"by-date", "flat"}:
+                raise ConfigError("distribution.vault.layout must be 'by-date' or 'flat'")
+        if name == "s3" and not nonempty(cfg.get("target")):
+            raise ConfigError("distribution.s3.target must be a non-empty string when enabled")
         if name in {"email", "slack"}:
             recipients = cfg.get("to")
             if not isinstance(recipients, list) or not recipients or not all(
