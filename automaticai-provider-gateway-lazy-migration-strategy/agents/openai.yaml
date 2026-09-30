@@ -1,0 +1,6 @@
+interface:
+  display_name: "AutomaticAI Lazy Migration"
+  short_description: "Find direct agent traffic and permanently route it through AAI"
+  default_prompt: "Use $automaticai-provider-gateway-lazy-migration-strategy to detect direct inference, fork a scoped remediation worker, and verify a durable gateway migration."
+policy:
+  allow_implicit_invocation: true

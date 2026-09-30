@@ -1,0 +1,6 @@
+interface:
+  display_name: "AutomaticAI Provider Gateway"
+  short_description: "Operate unified model routes, tokens, OAuth, and relays"
+  default_prompt: "Use $automaticai-provider-gateway to configure and verify an AutomaticAI client route with the correct account, effort, and billing."
+policy:
+  allow_implicit_invocation: true
