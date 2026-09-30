@@ -36,6 +36,11 @@ direct-agent inference findings. Unsupported endpoints are tracked capability
 blockers, not automatically valid migrations. Read
 [detection and ownership](references/detection-and-ownership.md).
 
+Read [session-start verification](references/session-start-verification.md)
+for the installed Codex hook and deterministic actual-request receipt check.
+Startup detects configured bypass before inference; post-request usage supplies
+proof. Missing usage alone does not authorize declaring a bypass.
+
 ## Immediately delegate a real finding
 
 1. Capture secret-free evidence: consumer, active API/endpoint/model, account

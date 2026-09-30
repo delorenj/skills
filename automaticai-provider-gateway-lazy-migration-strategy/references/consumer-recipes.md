@@ -69,10 +69,14 @@ the gateway's actual subscription quota charge.
 
 ## Codex and personal OpenAI
 
-Update the owning provider/profile source to select `automaticai`, the gateway
-base URL, `env_key=OPENAI_API_KEY`, `wire_api=responses`, the intended Astra/Sol
-route and `model_reasoning_effort=xhigh`. Inject the named gateway token through
-the established credential launcher. No ultra setting is added.
+Use the canonical owner `~/.agents/providers/automaticai/` and its idempotent
+source installer/launcher. Codex 0.159.2 supports command-backed 1Password auth;
+this owner avoids mixing it with native-login auth or env-key/static-bearer auth.
+Select the gateway Responses provider and exact catalog model, preserving an
+explicit normalized effort. Astra/Sol default to xhigh, with no ultra. Native
+gpt-6.1-sol maps to automaticai/personal/sol-6.1; the older sol route is gpt-6-sol.
+Read [session-start verification](session-start-verification.md) for native
+hook startup, per-prompt challenges, actual session receipts and recursion guards.
 
 If OpenAI is disconnected, commit/push any usable preparation without activating
 a broken live default. Finish the dedicated user sign-in with the gateway

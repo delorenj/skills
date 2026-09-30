@@ -92,7 +92,9 @@ adapt their token reference and account rather than copying credentials.
 
 ### Accept the change
 
-Use [acceptance and diagnosis](references/acceptance.md). At minimum prove:
+Use [acceptance and diagnosis](references/acceptance.md) and
+[prompt/session receipt proof](references/prompt-proof.md). A successful separate
+probe cannot prove the executing parent used the gateway. At minimum prove:
 
 - The installed process reads the intended source and gateway token.
 - Its selected route succeeds through the API style it actually uses.

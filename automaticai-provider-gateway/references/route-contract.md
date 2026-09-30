@@ -16,6 +16,7 @@ The initial list describes the user's use cases; it is not the complete fleet.
 | `automaticai/personal/kimi-2.8` | `kimi-personal` | `kimi-for-coding` | 1,048,576 | Subscription |
 | `automaticai/personal/astra` | `openai-personal` | `gpt-6-astra` | Not established by discovery | Subscription |
 | `automaticai/personal/sol` | `openai-personal` | `gpt-6-sol` | Not established by discovery | Subscription |
+| `automaticai/personal/sol-6.1` | `openai-personal` | `gpt-6.1-sol` | Not published in route metadata | Subscription |
 
 Replacing only `automaticai/` with `aai/` selects exactly the same route and
 token scope. Persist canonical spelling in maintained configuration where
@@ -96,7 +97,7 @@ conflicting explicit values with 400. Preserve a caller's explicit effort.
 | Family | Default | Effective upstream effort |
 | --- | --- | --- |
 | Claude subscription / OpenRouter Claude | `xhigh` | Preserve `medium`, `high`, `xhigh`, `max` |
-| Astra / Sol | `xhigh` | Preserve the normalized value; live account acceptance required |
+| Astra / Sol / Sol 6.1 | `xhigh` | Preserve `medium`, `high`, `xhigh`, `max`; verified on both APIs |
 | K3 / K3s | `high` | `medium` and `high` become `high`; `xhigh` and `max` become `max` |
 | Kimi 2.8 alias | `max` | Same Kimi mapping |
 
@@ -127,3 +128,16 @@ because OpenAI Advanced Account Security required user passkey verification.
 The OAuth oneshot synchronized both Claude accounts but failed overall while
 OpenAI was missing. Read `ops/ACCEPTANCE-unified-provider.md` and current account
 status before claiming that this snapshot still holds.
+
+The personal OpenAI device sign-in was completed later on 2026-09-30 and its
+identity verified. The subscription model catalog confirmed gpt-6.1-sol with max;
+an exact sol-6.1 route was added while preserving sol. Current native Codex and
+receipt acceptance is in `ops/SESSION-ROUTING-PROOF.md`; the earlier disconnected
+snapshot above must not be used as current account status.
+
+The later three-route API/stream/parallel-tool suite passed 24/24 checks after
+renewal/recreation. Another 24 requests verified all four efforts through both
+APIs with zero subscription charge. Bare native Codex and its session hook
+verified the exact Sol 6.1 account/model/effort. The all-account OAuth oneshot
+now succeeds. A current consumer-specific receipt remains required; these dated
+results do not prove an arbitrary agent's own traffic.

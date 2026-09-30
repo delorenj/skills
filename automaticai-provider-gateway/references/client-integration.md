@@ -88,29 +88,35 @@ rewrite its system instructions. Paid OpenRouter traffic keeps its own contract.
 
 ## Codex / Astra / Sol
 
-Merge `ops/examples/codex-provider.toml` into the **owning** profile or generated
-configuration source:
+The durable Codex owner is `~/.agents/providers/automaticai/`, including
+`codex-provider.toml`, `consumer.env.op`, `codex-gateway.py`, focused tests and its
+README. Use the source installer/launcher; do not overwrite global trust,
+MCP configuration, foreign profiles or hooks with a copied TOML fragment.
 
-```toml
-model_provider = "automaticai"
-model = "automaticai/personal/astra"
-model_reasoning_effort = "xhigh"
-
-[model_providers.automaticai]
-name = "AutomaticAI"
-base_url = "https://api.automaticai.io/v1"
-env_key = "OPENAI_API_KEY"
-wire_api = "responses"
+```sh
+python3 ~/.agents/providers/automaticai/codex-gateway.py plan
+python3 ~/.agents/providers/automaticai/codex-gateway.py install
+python3 ~/.agents/providers/automaticai/codex-gateway.py check
 ```
 
-Use Sol's canonical route when that model is intended. Inject a named gateway
-token into `OPENAI_API_KEY` and prevent native subscription-login defaults from
-overriding this custom provider. Use `xhigh` and no ultra flag. Both routes require
-the dedicated OpenAI grant to be connected and accepted before deployment.
+Codex 0.159.2 uses separate `<profile>.config.toml` files. This owner uses
+command-backed `[model_providers.automaticai.auth]` with `op read` and a named
+consumer reference. Secrets remain in memory; native OpenAI login does not own
+this custom provider. Do not combine that auth mode with `env_key`, a static
+bearer or `requires_openai_auth`. HTTP/SSE Responses is accepted independently
+of WebSockets and hosted web search; unsupported capabilities stay disabled.
 
-An absent grant is not permission to substitute a Claude/Kimi model, an OpenAI
-platform API key or OpenRouter. Prepare the durable change and token, record
-the sign-in blocker, and leave live cutover pending until that account is ready.
+Map the current model exactly. `automaticai/personal/sol-6.1` is `gpt-6.1-sol`;
+`automaticai/personal/sol` remains `gpt-6-sol`. Default effort is `xhigh`, no
+ultra. Preserve a consumer's explicit normalized effort such as `max`.
+`activate` requires an exact available personal OpenAI route and the correct
+consumer token; only activate after a real installed-client receipt.
+
+Use [prompt and session proof](prompt-proof.md). A synthetic Kimi probe cannot
+prove that the executing OpenAI parent migrated. Do not kill that parent;
+verify a fresh ordinary launch after changing the durable next-launch default.
+If a future account is disconnected, complete preparation and keep that
+cutover pending without substituting another model, account or paid provider.
 
 ## Other frameworks, services and helpers
 

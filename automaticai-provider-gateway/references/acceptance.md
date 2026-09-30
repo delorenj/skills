@@ -58,7 +58,9 @@ handling, not that a real provider session naturally expired during the test.
 Do not inject invalid credentials or recreate a service during an ordinary
 consumer-only migration when existing account-isolation acceptance suffices.
 
-Force dedicated renewal with the interactive CLI stopped, then probe. After
+Force gateway-owned renewal without an interactive CLI sharing the grant, then
+probe. Stop any CLI that shares it; never import mutable CLI auth as a durable
+gateway session. After
 container recreation, verify access-only credential synchronization and the
 oneshot's exit status. A partially successful all-account renewal remains
 partially successful until every required account is connected.
@@ -91,7 +93,13 @@ routes, all four effort levels on those routes, token authorization checks,
 native Claude Code on both subscription accounts and independent forced Claude
 renewals. The exact evidence and image live in the deployment acceptance file.
 
-OpenAI passkey sign-in, Astra/Sol live/native-client checks, forced OpenAI renewal,
-post-recreation proof and its ledger/isolation checks remained open. DELO-1 is
-the hardening epic; DELO-2 (`aai-auto`) is Backlog and blocked by it. Re-read board
-state before changing tickets and keep these gates honest.
+That initial snapshot's OpenAI connection gate was completed later the same day.
+Astra/Sol/Sol 6.1 passed 24 API/stream/parallel-tool checks and 24 effort/ledger
+checks after forced dedicated renewal and recreation. Bare installed Codex and
+its native hook verified completed gateway receipts with the child's own UUID.
+The all-account renewal oneshot succeeded. Current evidence is in
+`ops/SESSION-ROUTING-PROOF.md` and the updated deployment acceptance record.
+
+DELO-1 remains the hardening epic with controlled OpenAI failure/isolation
+acceptance still named separately; DELO-2 (`aai-auto`) remains Backlog and blocked
+by it. Re-read board state before changing tickets and keep these gates honest.
