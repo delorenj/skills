@@ -149,6 +149,46 @@ the independent `relaykit/dto` / `relaykit/relayconvert/...` module. Python
 syntax checks must leave no cache in the source tree. Run the documented
 contrast check and supported CLI help/dry-run paths for affected changes.
 
+### Gateway patch format
+
+`brand/gateway.patch` uses `--- a/path` / `+++ b/path` headers without
+`diff --git` lines. To append a new modification:
+
+1. Export the pristine upstream file with `git show <tag>:<path>`.
+2. Apply your change to the exported string in Python.
+3. Generate the diff with `difflib.unified_diff(..., fromfile='a/<path>',
+   tofile='b/<path>', n=3)`.
+4. Append the result to `gateway.patch` after a `# comment` separator.
+
+Hand-written `diff --git` hunks corrupt the patch because `git apply`
+misinterprets mixed formats. Verify with `python3 brand/apply-gateway.py
+<tmpdir>` against a fresh upstream export before building.
+
+Docker layer caching can reuse stale Go compilation even when the build
+directory changes. When modifying Go source in the overlay, temporarily add
+`--no-cache` to the `docker build` line in `build.sh`, then restore it.
+
+### Claude model settings
+
+Runtime Claude options live in the NewAPI options table and hot-reload:
+
+```python
+cd ~/docker/stacks/ai/newapi
+python3 -B - <<'PY'
+import sys; sys.path.insert(0, 'ops')
+from aai import Gateway
+g = Gateway()
+print(g.options().get('claude.default_max_tokens'))
+print(g.options().get('claude.thinking_adapter_budget_tokens_percentage'))
+PY
+```
+
+Current production values: `claude.default_max_tokens` is
+`{"default":32768,"claude-opus-5-5":65536}` and the thinking budget is `0.8`.
+These persist across container restarts. Verify `cache_creation_tokens` then
+`cache_tokens` are non-zero after deploying relay changes that affect the
+Responses-to-Claude path.
+
 A push to Docker main can invoke a broad Portainer webhook; it is not deployment
 proof. Verify the actual image, health, authenticated relay and ledger after
 the scoped recreation. Runtime reports, caches, databases, logs and backups do

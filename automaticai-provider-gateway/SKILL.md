@@ -107,6 +107,36 @@ Run the broad gateway harness when modifying relay behavior or onboarding an
 account; use the affected route and real consumer for a configuration-only change.
 Save secret-free evidence in runtime storage, never in Git.
 
+### Per-model optimization
+
+Each upstream provider has official limits, caching semantics, and streaming
+quirks that the branded overlay and client configs must honor. Never treat
+"traffic flows" as integration-complete without checking these:
+
+- **Claude prompt caching**: verify `cache_creation_tokens` then `cache_tokens`
+  are non-zero in gateway logs. The branded overlay injects `cache_control`
+  breakpoints on the last system block and penultimate message. If both are
+  zero, caching is silently broken and 140k-token requests will take 86+ s.
+- **Claude max_tokens**: NewAPI's `claude.default_max_tokens` option controls
+  the cap when clients omit it. With thinking at 80% budget, 8192 leaves only
+  ~1.6k output tokens. Current setting: `{"default":32768,"claude-opus-5-5":65536}`.
+- **Cloudflare 100s timeout**: `api.automaticai.io` is CF-proxied. Any request
+  where the first SSE byte takes >100 s will be killed. Prompt caching is the
+  primary defense; consider SSE keepalives for providers with long cold-start.
+- **Codex stream retries**: provider must set `stream_max_retries ≥ 5` and
+  `stream_idle_timeout_ms ≥ 300000`. Zero retries turns any transient SSE drop
+  into a permanent cutoff.
+- **Responses tool mapping**: upstream `RequestFunctionDeclarations` only
+  accepts `type=function`. The branded patch also accepts `type=custom` with a
+  default string-input schema. `type=namespace` (MCP tools) still needs mapping.
+- **Effort-to-thinking budgets**: verify `xhigh` and `max` efforts actually
+  reach the upstream thinking configuration. Check gateway logs for
+  `automaticai_effective_effort` matching the requested value.
+
+When adding a new model or provider, read its official API docs for max output
+tokens, prompt caching syntax, recommended effort mapping, and SSE event shapes
+before wiring the route. Then verify each of the above empirically.
+
 ### Land and report
 
 Commit and push the task's source changes into each owning repository's main
