@@ -15,7 +15,10 @@ Does the target...
   1. Speak MCP (streamable HTTP)?
      → Register https://vox.delo.sh/mcp/ (trailing slash!)
      → Use the speak_url tool
-     → Example: Hermes, OpenClaw, Claude Code, Cursor, any FastMCP-native client
+     → Example: OpenClaw, Cursor, any FastMCP-native client
+     → NOT the Hermes fleet: it speaks through the native tts/vox plugin
+       (`tts.provider: vox` in ~/.hermes/config.yaml). The vox MCP was removed
+       from the fleet on 2026-10-01 because its schemas cost tokens every turn.
 
   2. Accept a remote audio URL (the target fetches it)?
      → POST /synthesize-url, pass audio_url into the target action
@@ -104,9 +107,7 @@ The `voice=<url>` form tells Telegram to fetch. No multipart upload needed.
 - **Size cap:** Telegram's `channels.telegram.mediaMaxMb` defaults to 100 MB. Voice notes at 32 kbps are ~4 KB/s; you'd need a 7+ hour monologue to trip it.
 - **Format:** `speak_url` always returns OGG/Opus (48 kHz mono, VoIP preset). Telegram's native voice-note format.
 
-## MCP-capable agents (Hermes, OpenClaw, Claude Code)
-
-## MCP-capable agents (Hermes, OpenClaw, Claude Code)
+## MCP-capable agents (OpenClaw, Claude Code)
 
 FastMCP is mounted at `/mcp/` (trailing slash required). Tools exposed:
 
@@ -118,24 +119,16 @@ Every tool response carries `engine: "voxcpm" | "elevenlabs"` so agents can dete
 
 ### Hermes
 
-**Hermes v0.8.0 CLI bug:** `hermes mcp add` drops to interactive chat when invoked without a TTY. Work around by editing the config directly.
+Do not register the vox MCP in Hermes. Fleet agents speak through the native
+tts/vox plugin (`tts.provider: vox` in the fleet base `~/.hermes/config.yaml`,
+enforced by flume's `hermes.fleet-config` rule), and anything with a terminal
+can run `voxxy speak`. The MCP was removed from the fleet on 2026-10-01: its
+tool schemas were loaded into every turn of every agent.
 
-```bash
-scripts/register_mcp.sh hermes
-```
-
-Manual equivalent:
-
-```bash
-python3 -c "
-import yaml, pathlib
-p = pathlib.Path.home() / '.hermes/config.yaml'
-cfg = yaml.safe_load(p.read_text()) or {}
-cfg.setdefault('mcp_servers', {})['vox'] = {'url': 'https://vox.delo.sh/mcp/'}
-p.write_text(yaml.safe_dump(cfg, sort_keys=False))
-"
-hermes mcp test vox     # should report 2 tools discovered
-```
+Never write `~/.hermes/config.yaml` with `yaml.safe_dump`: it is the
+hand-maintained fleet base and a dump strips every comment in it. Profile
+configs under `~/.hermes/profiles/` are generated; see the
+agent-fleet-operations skill.
 
 ### OpenClaw
 

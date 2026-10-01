@@ -2,10 +2,8 @@
 # Register vox as an MCP server in the target agent.
 #
 # Usage: register_mcp.sh <target>
-#   target: hermes | openclaw | claude-code
-#
-# Works around Hermes v0.8.0 CLI bug where `hermes mcp add` drops to chat mode
-# when invoked non-interactively — writes to ~/.hermes/config.yaml directly.
+#   target: openclaw | claude-code
+#   (hermes is refused: the fleet uses the native tts/vox plugin instead.)
 
 set -euo pipefail
 
@@ -13,21 +11,17 @@ TARGET="${1:-}"
 VOX_MCP_URL="${VOX_MCP_URL:-https://vox.delo.sh/mcp/}"  # trailing slash required
 
 if [[ -z "$TARGET" ]]; then
-    echo "usage: $0 <hermes|openclaw|claude-code>" >&2
+    echo "usage: $0 <openclaw|claude-code>" >&2
     exit 1
 fi
 
 case "$TARGET" in
     hermes)
-        python3 - <<EOF
-import yaml, pathlib
-p = pathlib.Path.home() / '.hermes/config.yaml'
-cfg = yaml.safe_load(p.read_text()) or {}
-cfg.setdefault('mcp_servers', {})['vox'] = {'url': '${VOX_MCP_URL}'}
-p.write_text(yaml.safe_dump(cfg, sort_keys=False))
-print(f'registered vox in {p}')
-EOF
-        hermes mcp test vox
+        # The Hermes fleet speaks through the native tts/vox plugin
+        # (tts.provider: vox), not the MCP, and ~/.hermes/config.yaml is the
+        # hand-maintained fleet base: a yaml dump would strip its comments.
+        echo "refusing: the Hermes fleet uses tts.provider: vox, not the vox MCP (removed 2026-10-01)" >&2
+        exit 4
         ;;
 
     openclaw)
@@ -56,7 +50,7 @@ EOF
         ;;
 
     *)
-        echo "unknown target: $TARGET (expected hermes|openclaw|claude-code)" >&2
+        echo "unknown target: $TARGET (expected openclaw|claude-code)" >&2
         exit 2
         ;;
 esac

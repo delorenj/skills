@@ -28,7 +28,9 @@ A self-hosted TTS service at **<https://vox.delo.sh>** wrapping VoxCPM2 with a p
 | Add a voice                                                     | `POST /voices` (multipart: name, display_name, audio)                       |
 | **Interactive voice cloning** (user says "clone my voice as…")  | See [Interactive voice cloning workflow](#interactive-voice-cloning-workflow) below |
 | **Upgrade an engine (VoxCPM / VibeVoice)**                      | See [Engine upgrade workflow](#engine-upgrade-workflow) below               |
-| Register with agent (Hermes/OpenClaw/Claude Code)               | MCP server at `https://vox.delo.sh/mcp/` (trailing slash required)          |
+| Speak from a Hermes agent                                       | Native `tts.provider: vox` (fleet base); the fleet does NOT load the vox MCP |
+| Speak from a shell / any agent with a terminal                  | `voxxy speak "text"` (see `voxxy speak --help`)                            |
+| Register with an MCP client that has no native vox path         | MCP server at `https://vox.delo.sh/mcp/` (trailing slash required)          |
 | Node-RED                                                        | `node-red-contrib-vox` at `~/docker/stacks/utils/vox/node-red-contrib-vox/` |
 | Health + engine status                                          | `GET /healthz`                                                              |
 
