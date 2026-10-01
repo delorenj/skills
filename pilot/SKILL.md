@@ -41,19 +41,22 @@ seems to, `px --help` is right: file the discrepancy with `px idea`.
 px todo list                             # what's in immediate scope (the unstarted lanes)
 px backlog list                          # what's queued for later (the Backlog lane)
 px task list [--group GROUP]             # every issue on the board, with its state
-px task create "<title>" [--state NAME]  # create a ticket; no --state: Backlog
+px task create "<title>" [--state NAME]  # create a ticket; no --state: Backlog (managed: Krebs create, lands in Backlog)
 px claim <ref>                           # take a ticket: In Progress, assigned to you, labelled agent:working
 px release <ref> [-m MSG]                # give it back: Todo, agent:working and your assignment removed
-px close <ref> [-m MSG]                  # finish it: Done, agent:working removed (managed: Krebs complete, evidence in -f)
+px close <ref> [-m MSG]                  # finish it: Done, agent:working removed (managed: Krebs complete)
 px cancel <ref> [-m MSG]                 # drop it: Cancelled, agent:working removed
 px comment <ref> -m MSG                  # leave a note on a ticket without moving it
 px idea "<text>"                         # file an idea about px itself into px's own board (PX)
 px idea list                             # read the idea box (PX's backlog)
 px idea flush                            # deliver ideas still queued locally (~/.local/state/pilot/ideas)
 px schema export [-f FILE]               # dump the board's schema as JSON
+px schema import [-f FILE]               # apply a schema (no -f: your configured default); managed boards: --dry-run only
 px board list                            # boards in the workspace
 px whoami                                # show the resolved binding and the board's mode
 ```
+
+On a Krebs-managed board the verbs above take the Krebs flags and an -f payload instead of -m, --state, --dry-run, -d and -l; px <command> --help there lists them.
 
 **Legacy boards only (no Krebs execution block: every board today)**
 
@@ -61,7 +64,6 @@ px whoami                                # show the resolved binding and the boa
 px todo create "<title>"        # add to immediate scope (Todo)
 px backlog create "<title>"     # add to the backlog
 px move <ref> <state> [-m MSG]  # set a ticket's state by name; nothing else changes
-px schema import [-f FILE]      # apply a schema (no -f: your configured default)
 px board create NAME [-i ID]    # create a board and apply your default schema
 px board delete --force         # destroy the bound board and everything on it
 ```
@@ -73,15 +75,18 @@ px task handoff|complete|attention|resume|takeover|status <ref>  # worker lifecy
 px task get|update|review <ref>                                  # provider reads and evidence through Krebs
 px task start|heartbeat|finish <ref>                             # supervised run steps (also as px run <op>)
 px task plan|reevaluate|override|reconcile|planner [<ref>]       # PM and operator operations
-px run start|heartbeat|finish <ref>                              # a step of a supervised run (success never means Done)
+px run <op> <ref>                                                # any Krebs operation from inside a supervised run: start, heartbeat, finish, planner (success never means Done)
 ```
 <!-- /px:surface -->
 
-`px <command> --help` explains one command and says whether it runs on the
-board you are standing on. `--dry-run` works on claim, release, close, cancel,
-comment, move and schema import: it resolves the ticket and the lane, prints
-what would happen, and writes nothing. A flag a command does not read is
-refused, never silently ignored.
+`px <command> --help` explains one command, says whether it runs on the
+board you are standing on, and lists the flags it takes there. On a legacy
+board `--dry-run` works on claim, release, close, cancel, comment and move
+(and `schema import` takes it on any board): it resolves the ticket and the
+lane, prints what would happen, and writes nothing. A flag or extra argument a
+command does not read is refused, never silently ignored: `px close PX-3
+"fixed it"` fails with `did you mean -m "fixed it"?` instead of closing
+without the comment.
 
 `px task claim|release|close|cancel|comment|move` are accepted as aliases of
 the top-level verbs, so the Krebs spelling and the obvious guess both work.
@@ -100,10 +105,12 @@ Every board is legacy today: Krebs is installed but no board is enrolled.
   `todo create`, `schema import`, ...) are refused.
 
 A command that does not run on the current board fails with a message that
-names what to run instead, e.g. `px task handoff` on a legacy board points at
-`px move <ref> <next lane> -m MSG`.
+names the legacy equivalent or says there is none, e.g. `px task handoff` on a
+legacy board points at `px move <ref> <next lane> -m MSG`.
 
 ## Working a ticket
+
+On a legacy board (every board today):
 
 ```bash
 px claim PX-3                         # In Progress, assigned to the key's user, agent:working
@@ -115,8 +122,8 @@ px cancel PX-3 -m "superseded by PX-9"              # Cancelled, marker removed
 ```
 
 Refs accept `PX-3`, `3`, `33GOD-68` (identifiers may start with a digit), or a
-raw uuid. **A ref whose prefix names another board is refused**: run px from
-the repo bound to that board.
+raw uuid. **A ref whose prefix names another board is refused**, on legacy and
+managed boards alike: run px from the repo bound to that board.
 
 Lanes resolve strictly. `in_progress` finds "In Progress", and a Plane group
 name (`cancelled`) works only when the board has exactly one state in it; a
@@ -154,13 +161,15 @@ The nearest `.project.json` → `ticket_provider`, walking up from the current
 directory, picks the board. That file is the SSOT the whole fleet uses, so
 every agent in a repo resolves to the same board.
 
-- `--workspace` / `--board` and `PLANE_WORKSPACE` / `PLANE_BOARD` override it,
-  but a board other than the bound one must be registered in the Krebs
-  ownership registry (`~/.config/krebs/manifests.json` or `KREBS_MANIFESTS`),
-  or px refuses. No registry exists on this host, so to work another board,
-  `cd` into the repo bound to it.
+- `--workspace` / `PLANE_WORKSPACE` override the workspace. `--board` /
+  `PLANE_BOARD` naming any board other than the bound one is refused unless
+  the Krebs ownership registry lists that board's manifest
+  (`~/.config/krebs/manifests.json`, or `KREBS_MANIFESTS` holding a JSON array
+  of `.project.json` paths). No registry exists on this host, so to work
+  another board, `cd` into the repo bound to it.
 - `~/.config/pilot/config.json` (`defaultWorkspace`, `base`, `apiKey`,
-  `defaultSchema`) is a fallback for when nothing is bound, never an override.
+  `defaultSchema`) is a fallback for when nothing is bound, never an override,
+  and it cannot supply a board.
 
 `px whoami` shows what resolved and from which file. Run it first when a
 command targets the wrong board.
@@ -190,8 +199,9 @@ px idea "bulk-close every issue in a completed cycle" \
 The idea is queued locally first (`~/.local/state/pilot/ideas`), so a failed
 delivery is never lost: it comes back as `queued` with the reason, and
 `px idea flush` delivers it later. A repeat of the same idea is deduplicated.
-`--desired` alone also works as the idea text. Then carry on and solve your
-task another way.
+`--desired` alone also works as the idea text. An idea that is a lone
+subcommand word (reconcile, ls, help) is refused rather than filed. Then carry
+on and solve your task another way.
 
 ## Standing up a new board
 
