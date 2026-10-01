@@ -116,8 +116,18 @@ read/write ratios 0.05/1.25, with one-hour write ratio 2. Re-read current rates
 when reconciling; this is a dated rate snapshot, not a permanent price promise.
 
 `groupRatio` is a price multiplier, not a discount label. NewAPI quota is
-500,000 units per USD. Rate-based ledger settlement does not separately reconcile
-provider-specific discounts in OpenRouter `usage.cost`. Account, native model,
+500,000 units per USD. Since gateway build `v1.0.0-rc.40-openrouter-r2`
+(2026-10-01), requests on the `openrouter-personal` account (the curated route
+and the `automaticai/openrouter/<openrouter-id>` passthrough family) settle from
+OpenRouter's own `usage.cost` x 500,000 x group ratio, so the endpoint
+OpenRouter actually picked is what gets billed. The consume row's `other`
+records `automaticai_cost_source` (`openrouter_usage_cost`, or `catalog_price`
+when the response carried no cost, e.g. a free model's stream),
+`automaticai_upstream_cost_usd` and `automaticai_catalog_quota`. Other routes
+keep rate-based settlement. The same build forwards a client's top-level
+`provider`, `transforms` and `usage` to OpenRouter on that account only (never
+`models` or `route`); earlier builds dropped them. Details and dated evidence:
+the deployment's `ops/OPENROUTER-PASSTHROUGH.md`. Account, native model,
 requested/effective effort and actual charge must be read back after a probe.
 
 ## Dated acceptance baseline

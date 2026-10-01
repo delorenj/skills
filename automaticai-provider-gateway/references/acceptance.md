@@ -73,6 +73,7 @@ partially successful until every required account is connected.
 | 401 / 403 | Consumer-token expiry/scope, credential precedence, selected-account access synchronization |
 | Known route / 503 | Missing dedicated grant or disabled owned channel; do not fall back |
 | Claude subscription / generic 429 | Native client comparison, minimum supported client version and required Agent SDK preamble; a 429 alone does not prove quota exhaustion |
+| 429 `insufficient_quota` (r2 and later) | An upstream account out of money or plan allowance (OpenRouter workspace/key budget, 402 credits, Kimi weekly window, z.ai 1113/1308/1310). Only the final client response is rewritten: the error log keeps the upstream status (`status_code=403`, 402 or 400), retry and channel auto-disable see it too, and no channel is disabled. `Retry-After` appears only when the reset is derivable (OpenRouter daily budget: next 00:00 UTC). Read the ledger row, not the client status, and never switch accounts to get around it |
 | Claude native `context_management` / 400 | Required beta defaults must be appended to native feature headers, never replace the caller's entire `anthropic-beta` |
 | SDK succeeds, CLI fails | Native protocol, helper models, CLI auth precedence, beta headers and installed settings schema |
 | Config correct, traffic still direct | Actual process environment, launcher/profile/generator precedence, stale installed service or alternate helper path |
