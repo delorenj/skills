@@ -28,8 +28,13 @@ Momo is repo-agnostic. Everything is resolved at runtime from the nearest ancest
 
 Do **not** call Plane/Linear/Trello directly, and do **not** use the
 `project-lifecycle` skill's `plane-workspaces.json` path for state
-transitions — it can resolve a different board and desync from Hermes. The `tp` adapter is
-the single source of truth and keeps you byte-identical to the sentinel. Use the wrapper:
+transitions — it can resolve a different board and desync from Hermes. Read
+through the wrapper below; it keeps you byte-identical to the sentinel. On a
+Plane board, move a ticket with `px move <ref> "<lane>" -m "<audit>"` (the
+`pilot` skill): it resolves exact lane names and refuses an ambiguous one.
+`momo-board.sh transition` (a normalized group, mapped by the `tp` adapter)
+remains only for the gated sentinel scripts (`momo-lane-gate`) until they are
+ported to px. Use the wrapper:
 
 ```bash
 bash <skill_dir>/scripts/momo-board.sh list_issues        # [{id,key,title,state,state_type,...}]

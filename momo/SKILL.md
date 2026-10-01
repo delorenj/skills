@@ -74,7 +74,7 @@ Enrollment failures stop managed work. Existing non-Plane playbooks still apply.
 | Orchestrate ONE ticket to done                | `references/delegation.md`, `references/review-and-closure.md` | Run the per-ticket pipeline (below)                                       |
 | "Clear the board" / run the loop              | `references/board-clearing-loop.md`                            | Run the loop with its stop conditions + CI-wait timer                     |
 | Make a judgment call for the operator         | `references/pillars.md`, `references/decisions.md`             | Decide, then emit the decision event                                      |
-| Rich Plane CRUD beyond the adapter            | `project-lifecycle` skill                                      | (adapter `tp` stays the SSOT for state transitions)                       |
+| Rich Plane CRUD beyond the adapter            | `project-lifecycle` skill                                      | Lane moves on Plane go through `px move` (the `pilot` skill)               |
 | Pick the right coding agent for a task        | `coding-strategy` skill                                        | Delegate accordingly                                                      |
 
 ## The per-ticket pipeline (drives the one versioned `ticket-lifecycle` machine)
@@ -120,8 +120,9 @@ This decision hook records **Momo's judgment**, not the Plane mutation itself.
 The ticket-provider write separately causes Plane → n8n raw-body HMAC →
 `bloodbank.repo.task.created|updated|appended` → Candystore. Never publish a
 `repo.task.*` / `repo.board.*` fact yourself: create with `px task create`, move
-with `px move`, and the webhook echo is the fact. Leave `agent:working` alone;
-the n8n pipeline owns it. If transport
+with `px move`, and the webhook echo is the fact. Never add or remove
+`agent:working` by hand: the n8n Ticket Pickup Chip owns it during a turn, and
+otherwise only `px claim` (adds) and `px release|close|cancel` (remove) touch it. If transport
 debugging is needed, load `bloodbank-integration` →
 `references/event-journey.md`. The `automaticai` Plane workspace is merely a
 tenant slug on the same self-hosted personal infrastructure.

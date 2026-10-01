@@ -230,8 +230,9 @@ cover estimates or views: they are absent from Plane's public v1 API.
 `Triage` cannot be a custom state name (Plane reserves it); px says so in
 plain words.
 
-## What isn't built yet
+## Spikes and triage
 
-`spike` (PX-3) and a triage pipeline (PX-4) are open questions, tracked in the
-idea box rather than guessed at. Need one of them, or anything else px can't
-do? Say so with `px idea`.
+A spike is a label, not a command: `px task create "..." -l spike`. Triage is
+the n8n Ticket Grooming lane, which latches `lifecycle:triaged` on its own;
+`lifecycle:` and `agent:` labels are automation-only, so `px` refuses them on
+create. Need something px can't do? Say so with `px idea`.
