@@ -3,7 +3,9 @@
 # nearest ancestor .project.json (ticket_provider.type) and dispatches:
 #
 #   plane | linear  -> the pjangler `tp` adapter installed in the repo's role_dir
-#                      (<role_dir>/.scripts/lib/ticket-provider.sh) — unchanged.
+#                      (<role_dir>/.scripts/lib/ticket-provider.sh) for reads. On a
+#                      plane board the writes (transition, comment) go through px,
+#                      the fleet's one Plane writer, and need no role_dir (MOMO-8).
 #   trello          -> Momo's OWN bundled, self-contained adapter
 #                      (scripts/providers/trello.py, stdlib-only). No per-repo scaffold,
 #                      no role_dir required; lane mapping comes from <root>/.momo/config.json.
@@ -72,6 +74,26 @@ print(f"ROLE_DIR={shlex.quote(role_dir)}")
 PY
 )" || { echo "momo-board: could not parse $PJ (invalid JSON)." >&2; exit 2; }
 eval "$CFG"
+
+# Plane writes: px (MOMO-8). px resolves exact lane names and refuses an
+# ambiguous one, writes labels as deltas, and needs no role_dir, so these work in
+# repos whose .project.json has `agents: {}`. The output contract is tp's:
+# transition prints `ok <sequence>`, comment prints the new comment's id.
+if [ "${PROVIDER:-}" = "plane" ] && { [ "${1:-}" = transition ] || [ "${1:-}" = comment ]; }; then
+  command -v px >/dev/null 2>&1 || { echo "momo-board: px (the pilot CLI) is not on PATH" >&2; exit 2; }
+  OP="$1"; ID="${2:-}"; ARG="${3:-}"
+  [ -n "$ID" ] && [ -n "$ARG" ] || { echo "momo-board: usage: $OP <id> <$( [ "$OP" = comment ] && echo body || echo normalized-state)>" >&2; exit 2; }
+  cd "$ROOT" || exit 2
+  if [ "$OP" = transition ]; then
+    LANE="$(python3 "$SKILL_DIR/scripts/lib/plane_lane.py" "$ROOT" "$ARG")" || exit 2
+    OUT="$(px move "$ID" "$LANE" --json)" || { printf 'momo-board: %s\n' "$OUT" >&2; exit 1; }
+    printf '%s' "$OUT" | python3 -c 'import json,sys; print("ok", json.load(sys.stdin)["moved"]["ref"].rsplit("-", 1)[-1])'
+  else
+    OUT="$(px comment "$ID" -m "$ARG" --json)" || { printf 'momo-board: %s\n' "$OUT" >&2; exit 1; }
+    printf '%s' "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["commented"]["comment_id"])'
+  fi
+  exit $?
+fi
 
 # Trello: Momo's self-contained adapter — no role_dir / no installed scaffold needed.
 if [ "${PROVIDER:-}" = "trello" ]; then

@@ -30,11 +30,10 @@ Do **not** call Plane/Linear/Trello directly, and do **not** use the
 `project-lifecycle` skill's `plane-workspaces.json` path for state
 transitions — it can resolve a different board and desync from Hermes. Read
 through the wrapper below; it keeps you byte-identical to the sentinel. On a
-Plane board, move a ticket with `px move <ref> "<lane>" -m "<audit>"` (the
-`pilot` skill): it resolves exact lane names and refuses an ambiguous one.
-`momo-board.sh transition` (a normalized group, mapped by the `tp` adapter)
-remains only for the gated sentinel scripts (`momo-lane-gate`) until they are
-ported to px. Use the wrapper:
+Plane board every write goes through px, the fleet's one Plane writer: move a
+ticket with `px move <ref> "<lane>" -m "<audit>"` (the `pilot` skill), or let
+the wrapper do it. On Plane, `transition` and `comment` call px and need no
+`role_dir`; reads still go through the `tp` adapter. Use the wrapper:
 
 ```bash
 bash <skill_dir>/scripts/momo-board.sh list_issues        # [{id,key,title,state,state_type,...}]
@@ -45,12 +44,19 @@ bash <skill_dir>/scripts/momo-board.sh transition <uuid> <state>
 ```
 
 Reason in **normalized states** only: `backlog | unstarted | started | in_review | completed`.
+On Plane, `transition` writes the lane `.momo/config.json` names for the state
+(`write_targets`, else `lanes[state][0]`), else the canon lane: backlog→Backlog,
+unstarted→Todo, started→In Progress, in_review→E2E Testing & QA,
+completed→Done (also cancelled, needs_attention, e2e_testing,
+ready_for_documentation, needs_re_evaluation). A literal lane name is passed
+through. px resolves it strictly, so a lane the board lacks fails loudly with
+the board's lanes listed: fix the mapping, never guess.
 For Plane, every `list_issues` row also carries `active_milestone_id` and
 `in_active_milestone`. The list remains project-wide; use that membership flag whenever
 you describe what is visible in Plane's current-cycle view. Never label the full-project
 set as the active cycle.
 
-The wrapper finds the repo root + role_dir, and (for Plane) maps the per-workspace secret
+For reads the wrapper finds the repo root + role_dir, and (for Plane) maps the per-workspace secret
 `PLANE_<WORKSPACE>_API_KEY` into the `PLANE_API_KEY` the adapter needs. If it is not in the
 process environment, the provider reads that exact key as inert data from
 `$HERMES_FLEET_ENV` or `~/.hermes/fleet.env` and resolves an `op://` reference immediately

@@ -1746,5 +1746,87 @@ class TestBoardCredentialPreflight(unittest.TestCase):
             self.assertFalse(marker.exists())
 
 
+
+class TestPlaneWritesThroughPx(unittest.TestCase):
+    """MOMO-8: on a Plane board, momo-board.sh writes through px, not tp.
+
+    A fake `px` on PATH records its argv, so nothing reaches Plane. The repo has
+    `agents: {}` on purpose: the tp path needed a role_dir and failed there.
+    """
+
+    FAKE_PX = """#!/usr/bin/env python3
+import json, os, sys
+with open(os.environ["FAKE_PX_LOG"], "a") as log:
+    log.write(json.dumps(sys.argv[1:]) + "\\n")
+if os.environ.get("FAKE_PX_FAIL"):
+    print(json.dumps({"ok": False, "error": "no state on this board"}))
+    sys.exit(1)
+if sys.argv[1] == "move":
+    print(json.dumps({"ok": True, "moved": {"ref": "TST-7", "to": sys.argv[3], "changed": True}}, indent=2))
+elif sys.argv[1] == "comment":
+    print(json.dumps({"ok": True, "commented": {"ref": "TST-7", "comment_id": "c-9"}}, indent=2))
+"""
+
+    def setUp(self):
+        self.temp = pathlib.Path(tempfile.mkdtemp(prefix="momo-plane-px-"))
+        self.root = self.temp / "repo"
+        self.root.mkdir()
+        (self.root / ".project.json").write_text(json.dumps({
+            "ticket_provider": {"type": "plane", "workspace": "33god", "board_id": "b", "identifier": "TST"},
+            "agents": {},
+        }))
+        bin_dir = self.temp / "bin"
+        bin_dir.mkdir()
+        px = bin_dir / "px"
+        px.write_text(self.FAKE_PX)
+        px.chmod(0o755)
+        self.log = self.temp / "px.log"
+        self.env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "FAKE_PX_LOG": str(self.log)}
+
+    def tearDown(self):
+        shutil.rmtree(self.temp, ignore_errors=True)
+
+    def board(self, *args, **env):
+        return subprocess.run(
+            ["bash", str(SCRIPTS / "momo-board.sh"), "--root", str(self.root), *args],
+            capture_output=True, text=True, env={**self.env, **env}, timeout=30,
+        )
+
+    def calls(self):
+        return [json.loads(line) for line in self.log.read_text().splitlines()]
+
+    def test_transition_moves_to_the_canon_lane_and_keeps_tp_output(self):
+        for target, lane in [("started", "In Progress"), ("in_review", "E2E Testing & QA"),
+                             ("completed", "Done"), ("needs_attention", "Needs Attention"),
+                             ("E2E Testing & QA", "E2E Testing & QA")]:
+            with self.subTest(target=target):
+                r = self.board("transition", "uuid-7", target)
+                self.assertEqual(r.returncode, 0, r.stderr)
+                self.assertEqual(r.stdout.strip(), "ok 7")
+                self.assertEqual(self.calls()[-1], ["move", "uuid-7", lane, "--json"])
+
+    def test_momo_config_write_targets_win_over_the_canon_lane(self):
+        (self.root / ".momo").mkdir()
+        (self.root / ".momo" / "config.json").write_text(json.dumps({
+            "write_targets": {"in_review": "Ready for testing"},
+            "lanes": {"started": ["Doing", "Working"]},
+        }))
+        self.assertEqual(self.board("transition", "uuid-7", "in_review").returncode, 0)
+        self.assertEqual(self.calls()[-1][2], "Ready for testing")
+        self.assertEqual(self.board("transition", "uuid-7", "started").returncode, 0)
+        self.assertEqual(self.calls()[-1][2], "Doing")
+
+    def test_comment_prints_the_comment_id_for_the_reporter(self):
+        r = self.board("comment", "uuid-7", "delta: tests pass")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.strip().splitlines()[-1], "c-9")
+        self.assertEqual(self.calls()[-1], ["comment", "uuid-7", "-m", "delta: tests pass", "--json"])
+
+    def test_a_refused_move_fails_loudly(self):
+        r = self.board("transition", "uuid-7", "nowhere", FAKE_PX_FAIL="1")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("no state on this board", r.stderr)
+        self.assertEqual(r.stdout, "")
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

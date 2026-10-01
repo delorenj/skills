@@ -123,7 +123,7 @@ prevents the same content from being posted twice (the 10:36/10:38 duplicate sce
 ## 4. Downstream regression rollback (the safety valve)
 
 If a later dependent proves a review-accepted feature is ACTUALLY BROKEN: move the accepted
-ticket back to active as a **prerequisite** of the dependent (`tp transition`); comment
+ticket back to active as a **prerequisite** of the dependent (`momo-board.sh transition <uuid> started`, or `px move <ref> "In Progress"`); comment
 naming the dependent + symptom; record the rollback (issue, surfaced_by, reason) in the
 issue evidence file, and record a Momo decision event with `record-decision.py`. This is
 expected and healthy — the trade for deferring operator QA, not a failure.
