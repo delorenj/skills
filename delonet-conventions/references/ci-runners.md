@@ -6,13 +6,14 @@ minutes are billed, the budget is $0, and a hosted job just sits unstarted with
 "recent account payments have failed or your spending limit needs to be
 increased".
 
-## Inventory (verified 2026-09-29)
+## Inventory (verified 2026-10-01)
 
 | runner | scope | host | labels | service |
 | --- | --- | --- | --- | --- |
 | delonet-r1, r2, r3 | org `AutomaticAI-io` | big-chungus, `~/actions-runner/r{1,2,3}` | `self-hosted, Linux, X64, delonet` | `actions.runner.AutomaticAI-io.delonet-r{N}.service` |
 | delonet-gib-r1 | repo `delorenj/green-in-between` | big-chungus, `~/actions-runner/gib1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-green-in-between.delonet-gib-r1.service` |
 | delonet-holo-r1 | repo `delorenj/holocene` | big-chungus, `~/actions-runner/holo1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-holocene.delonet-holo-r1.service` |
+| delonet-px-r1 | repo `delorenj/pilot` | big-chungus, `~/actions-runner/px1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-pilot.delonet-px-r1.service` |
 | (none) | macOS | -- | -- | planned; iOS builds wait on it |
 
 Workflows target Linux with `runs-on: [self-hosted, Linux, delonet]`.
