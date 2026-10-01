@@ -14,6 +14,7 @@ increased".
 | delonet-gib-r1 | repo `delorenj/green-in-between` | big-chungus, `~/actions-runner/gib1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-green-in-between.delonet-gib-r1.service` |
 | delonet-holo-r1 | repo `delorenj/holocene` | big-chungus, `~/actions-runner/holo1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-holocene.delonet-holo-r1.service` |
 | delonet-px-r1 | repo `delorenj/pilot` | big-chungus, `~/actions-runner/px1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-pilot.delonet-px-r1.service` |
+| delonet-pjan-r1 | repo `delorenj/pjangler` | big-chungus, `~/actions-runner/pjan1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-pjangler.delonet-pjan-r1.service` |
 | (none) | macOS | -- | -- | planned; iOS builds wait on it |
 
 Workflows target Linux with `runs-on: [self-hosted, Linux, delonet]`.
