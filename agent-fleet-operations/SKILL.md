@@ -329,14 +329,19 @@ process control, service changes, board changes, or Bloodbank activation.
   one (PJAN-136). Check the Plane DB before you call a project dead.
 - Service proof uses a bounded stabilization window over `Result`,
   `ExecMainStatus`, and `NRestarts`; one `is-active` sample is not success.
-- The runtime skill core is pinned by `[fleet] symlinked_runtime_skills` in
-  `~/.config/hermes-agent-template/config.toml` — that file, not this one, is the
-  authority. Read it, then prove every member resolves to a real
-  `~/.agents/skills/<name>/SKILL.md`. Configuration may add skills; it may never
-  drop a pinned member, and a missing member is a hard failure, not a warning
-  followed by a completion marker. Note that a pinned name is a *directory* under
-  `~/.agents/skills/`, which is not always the skill's frontmatter `name:` —
-  `33god-projects` ships in the `projects/` directory.
+- PM skills are **Skillex-only**. Global/project `.agents/skills.json` manifests
+  and canonical `all-skills/` definitions own selection and bytes. Retired
+  `canonical_skills_dir`, `symlinked_runtime_skills`, and `pm_external_skill_dirs`
+  must not recreate a second skill core. Use `skillex profile show <name>
+  --project <repo> --json`, then preview/apply `skillex profile sync <name>
+  --project <repo> --skillex-only`. Require a real profile `skills/` root,
+  bundled seeding opt-out, no local shadows, and no external discovery roots.
+  Preserve legacy content outside active roots before cutover; ordinary sync
+  refuses foreign entries rather than deleting or silently adopting them.
+  Never rerun full step 10 on a live desk just to sync skills. Never author or
+  install directly into generated roots; import/edit `all-skills/`, select in
+  manifests/sets, then sync through Skillex. Verify actual Hermes source paths
+  and a no-op second preview, not the native list's misleading `local` label.
 - `flume roster` / `record` / `review` / `audit` are aggregate claims. Verify their
   result against `.project.json`, the registry row, real profile files, and exact
   systemd enabled/active/restart state before declaring success.

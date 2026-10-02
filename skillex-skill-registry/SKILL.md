@@ -5,10 +5,39 @@ description: Operate the Skillex catalog, reference-only sets and packs, skill m
 
 # Skillex registry
 
+- `github.com/delorenj/skills` is the canonical source for Skillex skills.
+- The skills are tracked as submodule `all-skills` inside the Skillex repository.
+
 The writable definition is `~/code/skillex/all-skills/<name>/`. Sets and packs
 select that definition; one `.agents/skills` root per scope exposes it; client
 `skills` directories alias that root. Do not copy skill payloads into packs or
 client directories. Host-owned `.system` skills remain installer-owned.
+
+Hermes PMs are **Skillex-only**, with a real per-profile `skills/` projection,
+not a whole-root alias to the default Hermes catalog. `skillex profile sync
+<name> --project <repo> --skillex-only` establishes persistent strict ownership
+and bundled opt-out. Preview first with `--dry-run --json`; a foreign child is
+an explicit preservation/migration decision, never implicit adoption or deletion.
+Clear PM `skills.external_dirs` through the owning locked delta/config renderer:
+external archives or bundled roots defeat exclusive selection. Keep local
+archives outside every discovery root. Normal sync must honor the strict policy
+on later runs; dropping the flag does not permit overlays.
+
+## PM authoring and activation
+
+- Create/edit the canonical `all-skills/<name>/SKILL.md`, not `$HERMES_HOME/skills`.
+- Use `skillex vendor sync` for declared upstream sources or `skillex skill import`
+  for an accepted import; inspect the installed command's help for arguments.
+- Change a `.agents/skills.json` selection or `skillex set add <set> <names...>` /
+  `skillex pack add <ref> <names...>`, then preview and sync the affected scope.
+- For a PM, use `skillex profile show <name> --project <repo> --json` and the
+  strict profile sync command above. Whole-root aliases need `skillex migrate
+  --profile <name> --project <repo>` preview/apply first; migration preserves
+  foreign children, so it is not by itself a Skillex-only cutover.
+- Never use Hermes hub install, local `skill_manage create`, fallback copies,
+  or shell symlinks as PM activation writers. Read tools remain useful; writable
+  bodies belong only in the canonical catalog. Promote a captured procedure
+  there and select it explicitly.
 
 ## Operate
 

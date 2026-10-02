@@ -32,6 +32,18 @@ People use Hermes for software development, research, system administration, dat
 
 **Docs:** https://hermes-agent.nousresearch.com/docs/
 
+## PM ownership override
+
+On this fleet, Hermes PM skills are Skillex-only. Generic Hermes supports local
+skills, but PMs must not use hub install or `skill_manage create` to write their
+runtime roots. Author/import the one definition in Skillex `all-skills/`, select
+it through sets/packs or `.agents/skills.json`, and preview/apply `skillex profile
+sync <name> --project <repo> --skillex-only`. Keep a real profile skills root,
+persistent strict policy, bundled opt-out, and no external skill roots. Preserve
+legacy content outside discovery before explicit migration. Skills-only changes
+never rerun full provisioning or reset live databases/state. See
+`skillex-skill-registry` and `agent-fleet-operations` for the owning workflow.
+
 ## Scope & Verification
 
 This skill is a concise operating guide, not the complete source of truth for every Hermes feature. If a Hermes feature, command, or setting is not mentioned here, do not treat that absence as evidence that it does not exist. Check the live repository and official docs before giving a negative answer.

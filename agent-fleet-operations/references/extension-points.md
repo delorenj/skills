@@ -10,7 +10,7 @@ Two have a single source of truth that fans out; one does not.
 | plane | SSOT today | fans out to Hermes? | status |
 |---|---|---|---|
 | **Hooks** | `bloodbank/services/agent-hooks/hooks.master.json` | yes | solved |
-| **Skills** | Skillex (`skill-sets/global`, packs) + project `.agents/skills.json` | yes | solved |
+| **Skills** | Skillex (`sets/`, packs) + project `.agents/skills.json` | yes, strict profile projection | mandatory Skillex-only PM standard; legacy roots require explicit cutover |
 | **MCP servers** | *none* | **no** | **gap — see below** |
 
 Verified 2026-09-20. Re-verify with the probes at the bottom before trusting it;
@@ -58,37 +58,47 @@ project-scoped hook sets). See `agent-config-fanout`.
 
 ---
 
-## 2. Skills — solved
+## 2. Skills — selection and profile ownership
 
-**Global (every client, every project):** add the skill to Skillex's global
-skill-set. `~/.agents/skills` is a real directory whose entries are per-skill
-symlinks into `~/code/skillex/all-skills/<name>` — so a skill is one directory
-with a `SKILL.md`, written once in `all-skills` and projected here. Check a
-specific one with `readlink -f ~/.agents/skills/<name>`; an entry that is a real
-directory rather than a symlink is unmanaged and will drift.
+**Global (every client, every project):** add the skill to the selected Skillex
+set. `~/.agents/skills` projects canonical definitions from `all-skills/`; the
+active selection is `~/.agents/skills.json`, not every skill in the catalog.
 
-Hermes picks these up because the fleet base sets:
+Hermes scans the active profile's `$HERMES_HOME/skills/` first, then configured
+`skills.external_dirs`. The fleet base includes `~/.agents/skills`, but that
+alone does not give Skillex exclusive ownership: profile-local copies win
+same-name collisions and unrelated local skills remain visible. A profile
+whose entire `skills/` root aliases `~/.hermes/skills` loads the default
+profile's catalog and shares its writable state.
 
-```yaml
-skills:
-  external_dirs:
-    - /home/delorenj/.agents/skills   # global, all agents
-    - ./agents/skills                 # project-local, relative to cwd
-```
+Relative `external_dirs` resolve against `$HERMES_HOME`, not the terminal CWD.
+The old `./agents/skills` entry points inside the profile and is not the
+project's `.agents/skills` projection. Use an absolute project projection path
+or Hermes's trusted project discovery where the installed runtime supports it.
 
-Both entries are inherited by every profile via the base. The skills **index**
-(name + description) sits in every agent's volatile system-prompt tier, so a
-skill is genuinely fleet-visible; the body loads on demand, which means the
-`description:` field is what determines whether it ever fires. Write triggers,
-not prose.
+For PMs, use `skillex profile show <name> --project <repo> --json`, then
+preview/apply `skillex profile sync <name> --project <repo> --skillex-only`.
+Skillex-only is mandatory, not an overlay preference: preserve legacy children
+outside discovery roots before cutover, disable bundled seeding, and set PM
+`skills.external_dirs: []` through the locked delta/render workflow. Ordinary
+sync honors the persistent strict marker; it refuses unknown children and
+local shadows rather than adopting/deleting them. Whole-root aliases require
+explicit `skillex migrate` inspection; migration preserves foreign children
+and is not by itself an exclusive cutover. Never rerun full profile setup for
+skills-only changes or author/install directly into generated roots.
 
-**Project-scoped:** declare in the repo's `.agents/skills.json` (plus `packs[]`
-for versioned bundles) and run the project's `skills:sync` mise task. The
-`./agents/skills` entry above is what makes the result visible to a Hermes agent
-whose `terminal.cwd` is that repo.
+Hermes seeds bundled skills unless the profile carries `.no-bundled-skills`.
+`hermes skills opt-out` stops future seeding without removing existing content;
+`--remove` removes only unmodified bundled copies. Do not run removal through a
+profile root that still aliases the default profile's directory.
 
-> Trap fixed 2026-08-17: seven profiles had **zero** `external_dirs` because they
-> were standalone config files that inherited nothing from the fleet base.
+`/skills list` labels anything absent from Hermes's hub and bundled manifests
+as `local`, including external Skillex skills. That label is not filesystem
+ownership evidence; verify the skill's resolved path and precedence.
+
+**Project-scoped:** declare membership in `<repo>/.agents/skills.json`, reconcile
+its projection, then explicitly associate the PM profile with that repo. Verify
+with the installed fleet Hermes runtime, not just a different PATH checkout.
 
 ---
 

@@ -112,24 +112,22 @@ repository or any nested repository merely to make provisioning easier.
   a writer: its existence check and empty-delta seed must occur under that same
   profile lock.
 
-## Required skill core
+## Required skill ownership
 
-The core is **pinned by the host config**, not by this document:
+PMs are Skillex-only. Resolve global plus explicit owning-project manifests,
+then preview/apply `skillex profile sync <name> --project <repo> --skillex-only`.
+Require a real root, persistent strict policy, bundled opt-out, no local shadows,
+and empty `skills.external_dirs` in the locked delta/rendered configuration.
+Foreign content is preserved outside discovery roots before activation. A
+whole-root alias requires explicit `skillex migrate` inspection; migration alone
+preserves foreign children and is not proof of exclusivity.
 
-```bash
-sed -n '/^symlinked_runtime_skills/,/^]/p' ~/.config/hermes-agent-template/config.toml
-```
-
-Read that list, then prove every member resolves to a regular
-`~/.agents/skills/<name>/SKILL.md`. The pinned name is the *directory* under
-`~/.agents/skills/`, which is not always the skill's frontmatter `name:` —
-`33god-projects` ships in the `projects/` directory, so check the path that is
-actually pinned.
-
-Configuration may append optional skills but must never subtract, rename, or
-replace a pinned member. A missing member is a hard failure, never a warning
-followed by a completion marker. `flume audit --rules hermes.runtime-singleton`
-proves the desk's Skillex projection; it does not substitute for reading the pin.
+A new profile uses `hermes profile create <name> --no-alias --no-skills`. Existing
+profile revalidation must not reset databases, pid/state files, or skill roots.
+For a skills-only task use Skillex, never full step 10. Required skills belong
+in selection manifests, not retired `symlinked_runtime_skills` template lists.
+Verify exact projected targets and a no-op second preview through Skillex, then
+check actual pinned Hermes discovery; UI source labels do not establish ownership.
 
 ## Service state is conditional
 
@@ -256,7 +254,7 @@ The deployment is complete only when all of these assertions hold:
 | Project identity | atomic `.project.json`; one PM; live Plane identifier/id; `state: linked`; no persisted `board_url` |
 | Org chart | one matching row with the `bloodbank` block; rerun byte-identical; `provisioned_at` and extension metadata preserved |
 | Desk | real directory; generated config with render marker + real delta + identity metadata + explicit memory pin |
-| Skills | every `symlinked_runtime_skills` member resolves; optional additions do not subtract one |
+| Skills | strict Skillex-only global/project projection; no local shadows or external roots; bundled seeding disabled |
 | Gateway | delta explicitly disables unverified channels; verified channel is stable across the bounded window |
 | Retired units | no `hermes-<agent>-heartbeat.*`, `-consumer.service`, or `-checkpoint.timer` exists |
 | Shared gateway | file/config/enabled/active state unchanged |

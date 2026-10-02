@@ -220,10 +220,10 @@ Every self-check report should end with:
 Minimum acceptance checks for closure:
 
 - Repo board and real desk base-plus-delta state verified from live files
-- Runtime skill core verified against the pin in
-  `[fleet] symlinked_runtime_skills` (`~/.config/hermes-agent-template/config.toml`):
-  every pinned directory resolves to a real `~/.agents/skills/<name>/SKILL.md`,
-  and configuration only adds members
+- PM skill ownership verified with `skillex profile show <name> --project <repo>
+  --json` and a strict sync preview: real root, recorded selected canonical
+  targets, persistent strict policy, bundled opt-out, no local shadows, and
+  empty `skills.external_dirs`. Actual Hermes discovery contains only that map.
 - Shared `mcp_servers` entries inspected from `~/.hermes/config.yaml`
 - Gateway and fleet-bloodbank-gateway status checked from systemd
 - Bounded service window proves successful `Result`, zero `ExecMainStatus`, and a

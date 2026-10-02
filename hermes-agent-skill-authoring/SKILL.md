@@ -13,6 +13,16 @@ metadata:
 
 # Authoring Hermes-Agent Skills (in-repo)
 
+## Skillex-managed PM exception
+
+PM runtime roots on this fleet are read-only Skillex projections. Create/edit
+canonical `all-skills/<name>/SKILL.md`, select in `.agents/skills.json` or
+sets/packs, and preview/apply `skillex profile sync <name> --project <repo>
+--skillex-only`. Do not use local `skill_manage create`, hub installation, or
+copied fallback payloads on a PM. Preserve useful local procedures outside
+active discovery and promote them into the catalog. This overrides the generic
+user-local examples below; upstream Hermes source authoring remains separate.
+
 ## Overview
 
 There are two places a SKILL.md can live:

@@ -55,9 +55,9 @@ Detailed checklist and acceptance criteria:
 - Workforce CLI: `flume` (`~/.local/bin/flume` →
   `~/code/33GOD/flume/packages/flume-hr/dist/index.js`)
 - Canonical global skill root: `/home/delorenj/.agents/skills`
-- Runtime skill core: pinned by `[fleet] symlinked_runtime_skills` in
-  `~/.config/hermes-agent-template/config.toml`; template options may only add
-  skills, never drop a pinned member
+- PM skills: Skillex-only, selected by global/project `.agents/skills.json`;
+  use strict `skillex profile sync <name> --project <repo> --skillex-only`.
+  Retired template skill lists must not override this selection.
 - Self-check reference: this skill's
   `references/fleet-self-check.md`
 - Org chart source of truth: `/home/delorenj/.hermes/agents-registry.yaml`
@@ -99,7 +99,8 @@ Detailed checklist and acceptance criteria:
 - only do this for future-employee provisioning or PM behavior changes
 - `template/SOUL.md.jinja` for PM behavior rules
 - `template/.scripts/10-hermes-profile.sh` for desk/bootstrap defaults
-- create/patch skills in global root (`/home/delorenj/.agents/skills/...`)
+- create/patch canonical skills in `all-skills/`, select them through Skillex
+  manifests/sets/packs, then preview and sync; never write generated roots
 
 3. Backfill current employees
 - Do this only when they must converge immediately or the runtime contract
@@ -113,8 +114,9 @@ Detailed checklist and acceptance criteria:
     the renderer marker and passes drift checks
   - `profile.yaml` contains identity metadata only and
     `hindsight/config.json` explicitly pins the agent bank
-- Sync local fallback skill copy (if applicable):
-  - `runtime/skills/software-development/subagent-driven-development/SKILL.md`
+- Preview strict profile sync and apply only a fully resolved plan.
+  No local fallback copies: preserve foreign content outside discovery roots
+  and route any required procedure into the canonical catalog.
 - Confirm launch/runtime integration:
   - repo-local runtime is ignored/untracked local state, not the desk or a
     nested repository
