@@ -2,17 +2,25 @@
 name: monitoring-stack
 description: |
   Manage the homelab monitoring stack at ~/docker/stacks/monitoring/. Services: Prometheus, Grafana, Alertmanager (Telegram via DeLoNETBot), cadvisor, node-exporter, process-exporter, Loki, OTEL collector, Dockge, Uptime Kuma, health-monitor. Use when: (1) adding, editing, or debugging Prometheus alert rules, (2) managing or restarting monitoring services, (3) checking alert delivery or Telegram bot status, (4) diagnosing system performance issues (CPU hogs, memory bloat, swap pressure), (5) adding new scrape targets to Prometheus, (6) configuring Grafana dashboards or datasources, (7) any task referencing "monitoring", "alerts", "prometheus", "grafana", "cadvisor", "process-exporter", "alertmanager", "telegram alerts", or "DeLoNETBot".
-pipeline-status:
-  - new
 ---
 
 # Monitoring Stack
 
 Stack root: `~/docker/stacks/monitoring/`
 
-## Architecture
+## Architecture and ownership
 
-See [references/architecture.md](references/architecture.md) for full service map, ports, URLs, and data flow.
+See [references/architecture.md](references/architecture.md) for the service map,
+ports, URLs and data flow. The canonical strategy is in
+[references/strategy.md](references/strategy.md): Bloodbank/Candystore owns
+facts, Prometheus owns numeric series, Loki owns logs, Grafana is the operator
+surface, and Holocene is the product control-plane. Grafana is a consumer, not
+an intermediary API between data and Holocene.
+
+When adding a data source, first choose its durable store and cardinality. Do
+not mirror every Bloodbank event into Loki or use session/request IDs as
+Prometheus labels. Live per-session views belong in Candystore or a bounded
+recent-event projection.
 
 ## Common Operations
 

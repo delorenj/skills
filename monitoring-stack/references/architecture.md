@@ -33,15 +33,20 @@ Host metrics
   └─> node-exporter ────> Prometheus
 Docker containers
   └─> cadvisor ──────────> Prometheus
+Docker logs
+  └─> Alloy ───────────> Loki
 App telemetry
   └─> OTEL collector ───> Prometheus (metrics)
-                      └─> Loki (logs)
+                      └─> debug traces (Tempo pending)
+Bloodbank LLM facts
+  └─> NewAPI ledger ──> usage exporter ──> NATS/Candystore ──> metrics projector
 
 Prometheus ──> alert_rules.yml ──────> Alertmanager ──> Telegram (@DeLoNETBot)
            └─> system_alerts.yml ──┘         chat_id: 7564050286
            └─> rules/docker-health.yml ┘
 
-Prometheus + Loki ──> Grafana (dashboards)
+Prometheus + Loki ──> Grafana (operator dashboards and exploration)
+Bloodbank/Candystore + Prometheus/Loki ──> Holocene (control-plane views)
 ```
 
 ## Directory Layout
@@ -65,6 +70,10 @@ monitoring/
 │       └── datasources/
 ├── loki/
 │   └── config.yml
+├── alloy/
+│   └── config.alloy           # Docker log discovery and Loki delivery
+├── tempo/
+│   └── tempo.yml              # Pending activation
 └── otel/
     └── collector-config.yml
 ```

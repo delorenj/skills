@@ -56,6 +56,23 @@ proof of a successful request.
 See [route and effort contract](references/route-contract.md) for all initial
 routes, identities, native mappings and unavailable-route behavior.
 
+## Usage and allowance observability
+
+Settled requests are exported as `bloodbank.evt.llm.usage.recorded`; provider
+allowance windows as `bloodbank.evt.llm.allowance.observed`. Their authoritative
+schemas live in the Bloodbank repo. Subscription gauges use provider-reported
+utilization and reset metadata; gateway token totals split the used portion and
+expose unexplained use as outside-gateway usage. `input_tokens` is normalized as
+uncached input plus cache reads plus cache writes.
+
+The NewAPI ledger remains the request-level source. Prefer a read-only,
+durable-cursor exporter over synchronous publication from the relay hot path.
+Use deterministic event IDs and ordering keys so replay and backfill are
+idempotent. Grafana and Holocene consume Prometheus/Candystore projections;
+Grafana is not an intermediary API. Never place prompts, prompt hashes, proof
+markers or credentials in these events. Load `$monitoring-stack` for store,
+cardinality and dashboard decisions.
+
 ## Workflow
 
 ### Inspect and choose

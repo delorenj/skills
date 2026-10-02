@@ -17,6 +17,10 @@ Route here when a service or harness needs to **emit** or **consume** events on 
 - **Plane enters through one provenance boundary.** Both self-hosted Plane workspaces post over HTTPS to the active `Plane → Bloodbank` n8n workflow. The custom node (`n8n-nodes-bloodbank` `src/plane.ts`, the ONLY Plane normalizer) selects the 1Password secret by payload `webhook_id`, verifies `X-Plane-Signature` over the raw body, routes the board by pjangler enrollment (`.project.json` `ticket_provider.board_id`, which wins) merged with the Hermes registry, normalizes the provider action, and publishes NATS-direct. A board nothing claims goes to the Unrouted output (one ntfy push per board per 24h), never guessed. `plane.*` names are n8n trigger aliases declared as `x-provider-aliases` in the canonical `repo.*` schemas, not bus events. `plane-webhook-bridge` (port `8477`), `bb-triage-invoke`, `bb-ack-labels` and Bloodbank HTTP `/event` are deleted or retired.
 - **Agents never emit `repo.task.*` / `repo.board.*` facts.** Plane is the record; its webhook echo is the fact. To create a ticket run `px task create` (on a Krebs-managed board, send `bloodbank.cmd.lifecycle.task.invoke` with `data.command.operation: create`). Never build "task.created → create Plane ticket" mirroring: it loops and gives one task two IDs.
 - **Agent hooks use one publisher.** All CLI lifecycle hooks call `~/.agents/hooks/bloodbank/publish.py --client <agent> --hook <native-event>`. Client-specific prep lives in `services/agent-hooks/clients/<agent>.py`; per-client `publish.py` files are wrappers.
+- **Observability follows the data shape.** Settled LLM usage uses
+  `bloodbank.llm.usage.recorded`; provider-reported subscription windows use
+  `bloodbank.llm.allowance.observed`. Project them to Prometheus/Candystore
+  consumers rather than mirroring every envelope into Loki.
 - **Fail open at the boundary.** Hooks must never block the host agent. Producer libs should swallow publish failures by default.
 
 ## Triage Table

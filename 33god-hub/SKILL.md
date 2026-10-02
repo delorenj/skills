@@ -32,6 +32,7 @@ changelog, skill routing, and backfill coordination.
 | Recall/retain/journal memory hooks | Hindsight |
 | Compact MCP tool gateway | Pipeline MCP Hub |
 | Topology/event visualization | Candybar |
+| Metrics, logs and operator observability | Monitoring stack + Prometheus/Loki/Grafana |
 | Voice/transcription/TTS interface | HeyMa |
 
 ## Platform skills
@@ -45,10 +46,14 @@ matching one rather than re-deriving its decisions here.
 | Adding or renaming a Plane label, choosing between a label and a state, wiring automation that writes to a board, scaffolding or reconciling a project board | `board-taxonomy` |
 | Landing a change forward across the component repos | `merge-forward` |
 | Publishing or composing skill packs | `skillex-skill-registry` |
+| Designing or changing metrics, logs, traces, dashboards or cross-system observability | `monitoring-stack` |
 | Simplifying repository ignores or reconciling already-tracked paths against the effective global ignore | `gitignore-maintenance` |
 
 ## Event and command spine
 
+- **Observability has one backbone.** Immutable facts belong in
+  Bloodbank/Candystore, numeric series in Prometheus, logs in Loki and traces in
+  Tempo. Grafana and Holocene are consumers, not competing systems of record.
 - **Events are facts.** Producers publish `bloodbank.evt.*`; the
   `BLOODBANK_EVENTS` stream retains them, Candystore projects them durably, and
   Holocene/toaster consume read-side views.
