@@ -9,8 +9,8 @@ The rule is **no PAID runners**; the budget is $0 (operator, 2026-10-01).
 - **Public repos:** standard GitHub-hosted runners are free, so `ubuntu-latest`
   is allowed. Use it where only a hosted runner works. npm OIDC trusted
   publishing and `--provenance` refuse self-hosted runners (E422 "Unsupported
-  GitHub Actions runner environment: self-hosted"), so pjangler tests on its
-  self-hosted runner and publishes from a hosted job (PJAN-163).
+  GitHub Actions runner environment: self-hosted"), so pjangler publishes from a
+  hosted job (PJAN-163).
 
 Check visibility first: `gh repo view <owner/repo> --json visibility`.
 
@@ -22,8 +22,9 @@ Check visibility first: `gh repo view <owner/repo> --json visibility`.
 | delonet-gib-r1 | repo `delorenj/green-in-between` | big-chungus, `~/actions-runner/gib1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-green-in-between.delonet-gib-r1.service` |
 | delonet-holo-r1 | repo `delorenj/holocene` | big-chungus, `~/actions-runner/holo1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-holocene.delonet-holo-r1.service` |
 | delonet-px-r1 | repo `delorenj/pilot` | big-chungus, `~/actions-runner/px1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-pilot.delonet-px-r1.service` |
-| delonet-pjan-r1 | repo `delorenj/pjangler` | big-chungus, `~/actions-runner/pjan1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-pjangler.delonet-pjan-r1.service` |
 | (none) | macOS | -- | -- | planned; iOS builds wait on it |
+
+`delorenj/pjangler` (public) runs all CI on free GitHub-hosted runners since PJAN-164, 2026-10-01; its repo runner delonet-pjan-r1 is retired.
 
 Workflows target Linux with `runs-on: [self-hosted, Linux, delonet]`.
 
