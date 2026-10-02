@@ -122,6 +122,13 @@ Foreign content is preserved outside discovery roots before activation. A
 whole-root alias requires explicit `skillex migrate` inspection; migration alone
 preserves foreign children and is not proof of exclusivity.
 
+A role that declares a `skills:` loadout (roles/<role>.md) supplies the selection
+itself: `flume onboard` writes it to `<desk>/.skillex-selection/.agents/skills.json`
+and syncs the desk against that project, so the desk is the global selection plus
+exactly the declared loadout. The desk then no longer follows its repo's
+`.agents/skills.json`; a `profile sync --project <repo>` re-points it and
+`hermes.runtime-singleton` reports the drift until `flume onboard` repairs it.
+
 A new profile uses `hermes profile create <name> --no-alias --no-skills`. Existing
 profile revalidation must not reset databases, pid/state files, or skill roots.
 For a skills-only task use Skillex, never full step 10. Required skills belong

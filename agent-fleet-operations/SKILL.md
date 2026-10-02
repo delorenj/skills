@@ -262,15 +262,16 @@ process control, service changes, board changes, or Bloodbank activation.
 - Never duplicate fleet `mcp_servers` into a delta; the base owns them. A delta
   that redeclares a base LIST replaces it rather than extending it, which is what
   `hermes.delta-list-override` exists to catch.
-- **`flume audit` enforces all of this.** The eight employee rules and what each
-  one actually reads:
+- **`flume audit` enforces all of this.** The employee rules (not exhaustive: `flume audit --json`
+  lists every one) and what each one actually reads:
 
   | rule | scope | reads |
   |---|---|---|
   | `hermes.pm-scaffold` | project | `agents/hermes/<title>/` scripts and launcher match the pinned template |
   | `hermes.untracked-runtimes` | project | runtime is untracked + gitignored, no gitlink, no stale `.gitmodules` |
   | `systemd.sentinel` | host | gateway unit installed and matching each role's declared `service_state` |
-  | `hermes.runtime-singleton` | project | real desk dir, shared links, Skillex projection, generated `config.yaml` + present `config.delta.yaml` + pinned memory bank |
+  | `hermes.runtime-singleton` | project | real desk dir, shared links, Skillex projection (a role that declares `skills:` is read against its own selection project: manifest matches the declaration, strict marker, no pending `skillex profile show` change, no legacy `<desk>/.agents/skills`), generated `config.yaml` + present `config.delta.yaml` + pinned memory bank |
+  | `hermes.role-declaration` | project | `roles/<role>.md` deployment keys: `skills` resolves in the live Skillex catalog and is one expressible selection, `chain` routes exist in the gateway catalog, `department` and `reports_to` exist, no reporting cycle |
   | `hermes.fleet-config` | host | fleet base: `tts.provider: vox`, a `hooks:` block with all four events calling the canonical publisher, `memory.provider` set, `memory` absent from `agent.disabled_toolsets` |
   | `hermes.delta-list-override` | host | no delta replaces a fleet-base list |
   | `hermes.profile-wiring` | host | launcher and unit `HERMES_HOME` point at the named desk; no dead `HERMES_OAUTH_FILE` |
@@ -342,6 +343,15 @@ process control, service changes, board changes, or Bloodbank activation.
   install directly into generated roots; import/edit `all-skills/`, select in
   manifests/sets, then sync through Skillex. Verify actual Hermes source paths
   and a no-op second preview, not the native list's misleading `local` label.
+  A role file's `skills:` loadout is part of this selection, never a second
+  one: flume writes it as `<desk>/.skillex-selection/.agents/skills.json`
+  (`sets`/`packs`, generated from the role) and runs `skillex profile sync
+  <name> --project <desk>/.skillex-selection --skillex-only`, so the desk is the
+  global selection plus exactly that loadout. flume never writes
+  `skills.external_dirs`, `<desk>/.agents/skills` or a copied payload into a desk.
+  A pack is exclusive (one per role, never with a set). Such a desk's project is the
+  selection, so do not `profile sync` it against its repo, and read its state with
+  `skillex profile show <name>` (the receipt records the project).
 - **Catalog commits resync the desks by themselves.** A strict desk's Skillex
   receipt records the `all-skills` HEAD it was synced against, so every catalog
   commit leaves all of them `sync pending` (`skillex profile show` exit 6, one
