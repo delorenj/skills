@@ -1,0 +1,19 @@
+{
+  "codex_pid": 0,
+  "codex_start_tick": 0,
+  "worker_jsonl": "/absolute/path/to/workers/<TICKET>/worker.jsonl",
+  "worker_stderr": "/absolute/path/to/workers/<TICKET>/worker.stderr",
+  "final_message": "/absolute/path/to/workers/<TICKET>/final-message.md",
+  "handback_file": "/absolute/path/to/workers/<TICKET>/handback/<TICKET>.handback.json",
+  "worker_session": "<native codex thread id from worker.jsonl thread.started>",
+  "worktree": "/absolute/path/to/repo/.worktrees/<branch>",
+  "ticket_key": "<KEY>-<N>",
+  "ticket_id": "<plane workitem uuid>",
+  "board_id": "<plane project uuid — pass on every Plane call>",
+  "workspace": "<plane workspace slug>",
+  "poll_seconds": 10,
+  "timeout_seconds": 14400,
+  "publish_attempts": 5,
+  "state_dir": "/absolute/path/to/workers/<TICKET>/watcher-state",
+  "registry_path": "/home/delorenj/.hermes/agents-registry.yaml"
+}
