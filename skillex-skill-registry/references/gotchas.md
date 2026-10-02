@@ -12,3 +12,7 @@
   extra catalog selection; qualify genuinely distinct imported workflows.
 - **Sync reports foreign content:** classify its writer and preserve it until
   deliberately migrated. Never weaken topology validation to hide the conflict.
+- **Profile sync reports `E_PROFILE_SOURCE_CHANGED` but source is unchanged:** check
+  registry resolution before assuming a real edit. Re-run the preview, then retry with an
+  explicit `--registry-root` pointing at the registry checkout. Do not restore or delete the
+  source skill or hand-edit projections.

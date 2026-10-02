@@ -1,6 +1,6 @@
 ---
 name: skill-maintenance
-description: Skeptically audit and, when requested, prune or repair an agent skill loadout and its global instructions. Use for conflicting policies, duplicate discovery, stale dependencies, broad triggers, and skill cleanup; not as a prerequisite for ordinary tasks.
+description: Skeptically audit and, when requested, prune or repair a skillex/agent skill loadout and its global instructions. Use for conflicting policies, duplicate discovery, stale dependencies, broad triggers, and skill cleanup; not as a prerequisite for ordinary tasks.
 ---
 
 # Skill maintenance

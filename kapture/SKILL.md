@@ -1,6 +1,6 @@
 ---
 name: kapture
-description: "The canonical browser tool on this machine. Kapture drives real Chrome tabs through a DevTools extension and a server on 127.0.0.1:61822, reachable by plain curl with no MCP wiring. Use for anything inside a web page here — in a tab it opens itself, or one the user already has open: opening a URL, reading a live page, filling a form, clicking through a flow, verifying a UI change, reading the console or network traffic, scraping, debugging a running app. Prefer it over the mcp__claude-in-chrome__* tools. Triggers: kapture, browse to, open this page, click that button, fill the form, screenshot the page, read the browser console, scrape this site. Do NOT use for the authenticated Chromium profile on the Mac (ego-browser); work that must stay out of the user's live browser — unattended runs, long loops, parallel sessions, anything destructive or focus-stealing (agent-workspace-linux); the browser inside the Orca app (orca-cli); or native windows, browser chrome and OS dialogs (computer-use)."
+description: "The canonical browser tool on this machine. Set to be retired upon completion of successor `liam`. Kapture drives real Chrome tabs through a DevTools extension and a server on 127.0.0.1:61822, reachable by plain curl with no MCP wiring. Use for anything inside a web page here — in a tab it opens itself, or one the user already has open: opening a URL, reading a live page, filling a form, clicking through a flow, verifying a UI change, reading the console or network traffic, scraping, debugging a running app. Prefer it over the mcp__claude-in-chrome__* tools. Triggers: kapture, browse to, open this page, click that button, fill the form, screenshot the page, read the browser console, scrape this site. Do NOT use for the authenticated Chromium profile on the Mac (ego-browser); work that must stay out of the user's live browser — unattended runs, long loops, parallel sessions, anything destructive or focus-stealing (agent-workspace-linux)"
 ---
 
 # kapture — the browser on this machine
@@ -26,7 +26,7 @@ bash ~/.agents/skills/kapture/scripts/kapture-doctor.sh   # LIVE / ZOMBIE / serv
 ```
 
 `/tabs` alone is not proof of life — a tab that has lost its content script still appears there
-with a *fresh* `lastPing` and fails every command, so the doctor probes each one.
+with a _fresh_ `lastPing` and fails every command, so the doctor probes each one.
 
 If the task names something already open ("the app I have open", "this form") and a tab matches
 by URL or title, **use that tabId** — a connected tab is already yours to read. Two matches or
@@ -52,7 +52,7 @@ use. The HTTP API costs nothing until called, needs no config, and already works
 policy admits any request with no `Origin` header specifically so scripts can drive it.
 
 Every read is a GET and every action a `POST /tab/{id}/{command}`; a read verb posted is a 404,
-`POST /tab/{id}/screenshot` included. **Never use `curl -f` on a read** — a failed *command* on a
+`POST /tab/{id}/screenshot` included. **Never use `curl -f` on a read** — a failed _command_ on a
 GET comes back 200 with an `error` body. Routes and every tool's parameters:
 [references/http-api.md](./references/http-api.md).
 
@@ -76,7 +76,7 @@ EOF
 ```
 
 That is one round trip for what would be five MCP calls. Encode `&` as `%26` or it splits the
-pair; `%0A` is for a newline *inside a value*, not between steps. Max 100 steps. The whole
+pair; `%0A` is for a newline _inside a value_, not between steps. Max 100 steps. The whole
 script is validated before anything runs, so a bad script has no side effects — but one that
 fails at step 4 has already done steps 1-3. It is not transactional.
 
@@ -105,7 +105,7 @@ Poll loops, extraction commands and the pixel math:
 **Console is Chrome's per-page buffer, not Kapture's, and every navigation wipes it.** An empty
 `logs` array means "nothing since this document loaded", never "no errors ever". Filter with
 `?limit=20&level=error` (newest first). **Network capture has no history**: `network_monitor
-{"enabled":true,"clientId":"..."}` first, *then* trigger the traffic.
+{"enabled":true,"clientId":"..."}` first, _then_ trigger the traffic.
 
 **Querying mutates the page.** Kapture stamps `id="kapture-N"` on every unnamed element it
 touches — usable, but yours, not the site's. Never assert on them.
@@ -122,14 +122,14 @@ is in [references/recipes.md](./references/recipes.md).
 
 ## When it breaks
 
-| Symptom | What it means | Move |
-|---|---|---|
-| `Could not establish connection. Receiving end does not exist.` | zombie tab: socket alive, page has no content script | **Abandon the tabId.** Verified here: `reload` times out, `show` fails, neither revives it. Open a fresh tab. `network_*` still answers. |
-| `Command timeout: <cmd>` after 5s | the extension did not answer in time | **Not "it did not happen."** The late result is discarded — re-read state before retrying anything that mutates, or you double-submit. |
-| `DIALOG_OPEN`, or `success: true` **with** a `dialog` field | an alert/confirm/prompt is blocking the tab | `POST /tab/{id}/dialog {"accept":true}` (`text` for a prompt), then retry. Everything else fails fast until you do. |
-| `EVAL_NOT_ALLOWED`, or no `evaluate` in the list | the per-tab JS toggle is off, and the tool is hidden until some tab enables it | No programmatic grant exists. Use the purpose-built tools; ask the user only as a last resort. |
-| `ELEMENT_NOT_FOUND` on something you can see | not rendered yet, or inside an iframe | Poll (see Settling); selectors never reach an iframe — screenshot, then coordinate-click. |
-| a result carrying `warning:` | the tab is hidden; the event may not have landed | `show` it and retry, or verify the effect before moving on. |
+| Symptom                                                         | What it means                                                                  | Move                                                                                                                                     |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `Could not establish connection. Receiving end does not exist.` | zombie tab: socket alive, page has no content script                           | **Abandon the tabId.** Verified here: `reload` times out, `show` fails, neither revives it. Open a fresh tab. `network_*` still answers. |
+| `Command timeout: <cmd>` after 5s                               | the extension did not answer in time                                           | **Not "it did not happen."** The late result is discarded — re-read state before retrying anything that mutates, or you double-submit.   |
+| `DIALOG_OPEN`, or `success: true` **with** a `dialog` field     | an alert/confirm/prompt is blocking the tab                                    | `POST /tab/{id}/dialog {"accept":true}` (`text` for a prompt), then retry. Everything else fails fast until you do.                      |
+| `EVAL_NOT_ALLOWED`, or no `evaluate` in the list                | the per-tab JS toggle is off, and the tool is hidden until some tab enables it | No programmatic grant exists. Use the purpose-built tools; ask the user only as a last resort.                                           |
+| `ELEMENT_NOT_FOUND` on something you can see                    | not rendered yet, or inside an iframe                                          | Poll (see Settling); selectors never reach an iframe — screenshot, then coordinate-click.                                                |
+| a result carrying `warning:`                                    | the tab is hidden; the event may not have landed                               | `show` it and retry, or verify the effect before moving on.                                                                              |
 
 **Never restart or kill the Kapture server.** If `/tabs` answers, the server is healthy and the
 problem is the tab. Starting a second one refuses and exits, and its "Port 61822 is already in
@@ -144,12 +144,12 @@ got over a tabId captured minutes ago.
 
 ## Routing: when it is not kapture
 
-| The task | Use |
-|---|---|
-| needs the authenticated Chromium profile on the MacBook | `ego-browser` |
-| must stay out of the live browser — unattended, long-running, parallel, destructive, focus-stealing | `agent-workspace-linux` |
-| is a native or Electron window, an OS dialog, a file picker, the browser's own chrome | `computer-use` |
-| is the browser embedded inside the Orca app | `orca-cli` |
+| The task                                                                                              | Use                                                              |
+| ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| needs the authenticated Chromium profile on the MacBook                                               | `ego-browser`                                                    |
+| must stay out of the live browser — unattended, long-running, parallel, destructive, focus-stealing   | `agent-workspace-linux`                                          |
+| is a native or Electron window, an OS dialog, a file picker, the browser's own chrome                 | `computer-use`                                                   |
+| is the browser embedded inside the Orca app                                                           | `orca-cli`                                                       |
 | needs something kapture lacks (GIF capture, file upload into a page), or curl gets connection-refused | `mcp__claude-in-chrome__*` — and say out loud that you fell back |
 
 A public page that needs no session needs no browser at all — fetch it. Everything else in a web

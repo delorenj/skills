@@ -44,7 +44,17 @@ neither. Getting it wrong leaves permanent lies on the board.
 
 ## The axes
 
-Closed set. Anything with a colon must appear here.
+The table below is the fleet default. For a scoped grooming pass, first read the
+bound repository's declared taxonomy and the board's live labels: a documented
+project-specific classification axis is not permission to rename or delete it.
+For example, Gruvato's `_bmad-output/planning-artifacts/epic-9-plan-2026-09-30.md`
+§7 declares `kind:bug|feature|enrichment-correction|ux`, and its board uses
+`kind:bug` beside `storage`. Preserve those explicit conventions rather than
+adding a duplicate bare `bug` during one-ticket grooming. Report broader axis
+drift separately; reconcile the board only with board-wide authorization.
+
+Closed fleet set. Any other colon axis needs an explicit project declaration;
+its mere presence on a board is not sufficient to invent more values.
 
 | axis | kind | writer | values |
 |---|---|---|---|

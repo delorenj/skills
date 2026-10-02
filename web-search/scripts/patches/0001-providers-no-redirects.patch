@@ -1,0 +1,104 @@
+diff --git a/src/providers/bing.rs b/src/providers/bing.rs
+index f32f81d..f1d2dc9 100644
+--- a/src/providers/bing.rs
++++ b/src/providers/bing.rs
+@@ -23,7 +23,7 @@ impl BingProvider {
+     pub fn new(api_key: String) -> Self {
+         Self {
+             api_key,
+-            client: Client::new(),
++            client: Client::builder().redirect(reqwest::redirect::Policy::none()).build().expect("http client"),
+         }
+     }
+ }
+diff --git a/src/providers/brave.rs b/src/providers/brave.rs
+index b4e6334..f78e4d1 100644
+--- a/src/providers/brave.rs
++++ b/src/providers/brave.rs
+@@ -20,7 +20,7 @@ impl BraveProvider {
+     pub fn new(api_key: String) -> Self {
+         Self {
+             api_key,
+-            client: Client::new(),
++            client: Client::builder().redirect(reqwest::redirect::Policy::none()).build().expect("http client"),
+         }
+     }
+ }
+diff --git a/src/providers/duckduckgo.rs b/src/providers/duckduckgo.rs
+index 46df878..5d48d81 100644
+--- a/src/providers/duckduckgo.rs
++++ b/src/providers/duckduckgo.rs
+@@ -22,7 +22,7 @@ impl DuckDuckGoProvider {
+     /// Create a new DuckDuckGo provider
+     pub fn new(enabled: bool) -> Self {
+         Self {
+-            client: Client::new(),
++            client: Client::builder().redirect(reqwest::redirect::Policy::none()).build().expect("http client"),
+             enabled,
+         }
+     }
+diff --git a/src/providers/firecrawl.rs b/src/providers/firecrawl.rs
+index 6d281a0..c2c85fa 100644
+--- a/src/providers/firecrawl.rs
++++ b/src/providers/firecrawl.rs
+@@ -19,7 +19,7 @@ impl FirecrawlProvider {
+     pub fn new(api_key: String) -> Self {
+         Self {
+             api_key,
+-            client: Client::new(),
++            client: Client::builder().redirect(reqwest::redirect::Policy::none()).build().expect("http client"),
+         }
+     }
+ }
+diff --git a/src/providers/google.rs b/src/providers/google.rs
+index 51207b3..25625dd 100644
+--- a/src/providers/google.rs
++++ b/src/providers/google.rs
+@@ -22,7 +22,7 @@ impl GoogleProvider {
+         Self {
+             api_key,
+             cx,
+-            client: Client::new(),
++            client: Client::builder().redirect(reqwest::redirect::Policy::none()).build().expect("http client"),
+         }
+     }
+ }
+diff --git a/src/providers/serpapi.rs b/src/providers/serpapi.rs
+index 93768fe..017f160 100644
+--- a/src/providers/serpapi.rs
++++ b/src/providers/serpapi.rs
+@@ -23,7 +23,7 @@ impl SerpApiProvider {
+     pub fn new(api_key: String) -> Self {
+         Self {
+             api_key,
+-            client: Client::new(),
++            client: Client::builder().redirect(reqwest::redirect::Policy::none()).build().expect("http client"),
+         }
+     }
+ }
+diff --git a/src/providers/serper.rs b/src/providers/serper.rs
+index c3a49b8..4625b2b 100644
+--- a/src/providers/serper.rs
++++ b/src/providers/serper.rs
+@@ -23,7 +23,7 @@ impl SerperProvider {
+     pub fn new(api_key: String) -> Self {
+         Self {
+             api_key,
+-            client: Client::new(),
++            client: Client::builder().redirect(reqwest::redirect::Policy::none()).build().expect("http client"),
+         }
+     }
+ }
+diff --git a/src/providers/tavily.rs b/src/providers/tavily.rs
+index de9e231..407fe9a 100644
+--- a/src/providers/tavily.rs
++++ b/src/providers/tavily.rs
+@@ -19,7 +19,7 @@ impl TavilyProvider {
+     pub fn new(api_key: String) -> Self {
+         Self {
+             api_key,
+-            client: Client::new(),
++            client: Client::builder().redirect(reqwest::redirect::Policy::none()).build().expect("http client"),
+         }
+     }
+ }

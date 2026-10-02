@@ -9,6 +9,17 @@ Plane MCP or `https://plane.delo.sh/api/v1/workspaces/{workspace}/projects/{proj
 Credentials come from the process environment or the approved vault resolver;
 never print them. Confirm the target when project identity is ambiguous.
 
+For a non-default Plane workspace, pass the bound board UUID as `project_id`
+on every tool call. `workitem.retrieve_by_identifier` does not accept
+`project_id` and resolves through the server's default workspace; do not use it
+for a non-default board. `workitem.search` likewise rejects `project_id`; do
+not drop the binding to retry a workspace-wide search. Instead,
+`workitem.list(project_id=..., per_page=100)`
+(page if needed), match the ticket's `sequence_id`, then
+`workitem.retrieve(project_id=..., workitem_id=<uuid>)`. Use a sparse fieldset
+for board surveys when full descriptions would swamp the result. A rejected
+`project_id` argument is not permission to retry against the default workspace.
+
 - Use `board-taxonomy` for states, labels, and exclusive axes. Reuse declared
   values; do not invent effort, sprint, priority, or pipeline-position labels.
 - Creating a ticket does not imply creating its board. Route missing-board
@@ -28,8 +39,37 @@ and change one label at a time (px 0.2.2 and the Plane MCP `manage_label` do);
 never touch the pipeline-owned `agent:working`. Verify the provider's returned
 state after each mutation.
 
+For grooming, make `lifecycle:triaged` the final ticket mutation, then read back.
+If a previously retrieved item starts returning 404 or disappears from the bound
+board list, inspect its bound activity and comments once before any write. A
+`deleted` activity is a stop condition: do not comment, classify, recreate, or
+restore it under grooming-only authorization; report that grooming is incomplete
+and leave `lifecycle:triaged` unadded. Do not retry against the default workspace.
+If another writer changes state or labels during the pass, inspect the bound
+work item's activity and comments once; do not revert that writer's changes or
+reclaim the pipeline lease. Report your own writes separately from the latest
+board state. Attribute pre-existing “landed” claims and timestamp read-only git
+observations rather than turning them into unverified completion evidence.
+
 An archived board reads as 0 issues and 0 states through the API with no error.
 Check `archived_at` (or count in the Plane DB) before calling a board empty.
+
+If a named ticket is omitted by the bound list, do not recreate it or fall back
+to an unbound workspace. The archived-workitem endpoint may itself return 404
+on a live board. Use an authorized, project-scoped read-only provider lookup to
+resolve its UUID and check `deleted_at` / `archived_at`, then retrieve that UUID
+through the bound API. A deleted ticket ends grooming: no replacement, restore,
+comment, or completion latch without new authorization. Avoid chaining failing
+404 calls: the MCP wrapper may open its circuit after three failures and call
+the server “unreachable” even when the underlying resource is merely absent.
+Use a read-only alternative for activity/comments rather than polling that
+circuit or treating its error as proof of a Plane outage.
+
+Project page routes may return HTTP 404 even on a live board with pages enabled
+(observed on PJAN). Do not infer that the board has no conventions from that
+failure or retry against an unbound workspace. For grooming, record the page-read
+limitation and use project detail, live state/label/cycle/module definitions,
+nearby tickets, and the bound repository's guidance as the available evidence.
 
 A board audit reports findings first. Apply only requested or already-authorized
 changes. Keep batching bounded to the named project and task.
