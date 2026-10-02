@@ -39,8 +39,9 @@ For higher-touch DeLoNET service operations, also use:
 
 ## CI (GitHub Actions)
 
-Self-hosted runners only; never GitHub-hosted labels. Linux jobs use
-`runs-on: [self-hosted, Linux, delonet]`. Inventory, adding a runner to a personal repo, and the
+No PAID runners. Private repos use self-hosted runners only; public repos may use
+GitHub-hosted `ubuntu-latest` (free), and must when npm OIDC publishing needs it. Self-hosted
+Linux jobs use `runs-on: [self-hosted, Linux, delonet]`. Inventory, adding a runner to a personal repo, and the
 macOS plan: `references/ci-runners.md`.
 
 ## Code Repository Organization

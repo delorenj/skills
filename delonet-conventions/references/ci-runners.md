@@ -1,10 +1,18 @@
 # CI runners (GitHub Actions)
 
-GitHub Actions runs on **self-hosted runners only**. Never write
-`runs-on: ubuntu-latest`, `macos-*` or any other GitHub-hosted label. Hosted
-minutes are billed, the budget is $0, and a hosted job just sits unstarted with
-"recent account payments have failed or your spending limit needs to be
-increased".
+The rule is **no PAID runners**; the budget is $0 (operator, 2026-10-01).
+
+- **Private repos:** self-hosted runners only. Never write `runs-on:
+  ubuntu-latest`, `macos-*` or any other GitHub-hosted label. Hosted minutes
+  are billed, and a hosted job just sits unstarted with "recent account
+  payments have failed or your spending limit needs to be increased".
+- **Public repos:** standard GitHub-hosted runners are free, so `ubuntu-latest`
+  is allowed. Use it where only a hosted runner works. npm OIDC trusted
+  publishing and `--provenance` refuse self-hosted runners (E422 "Unsupported
+  GitHub Actions runner environment: self-hosted"), so pjangler tests on its
+  self-hosted runner and publishes from a hosted job (PJAN-163).
+
+Check visibility first: `gh repo view <owner/repo> --json visibility`.
 
 ## Inventory (verified 2026-10-01)
 
