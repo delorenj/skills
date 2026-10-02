@@ -23,6 +23,17 @@ external archives or bundled roots defeat exclusive selection. Keep local
 archives outside every discovery root. Normal sync must honor the strict policy
 on later runs; dropping the flag does not permit overlays.
 
+Strict desks resync themselves. A desk's receipt records the `all-skills` HEAD, so
+every catalog commit leaves each one `sync pending` (`skillex profile show` exit 6);
+the user units `skillex-hermes-resync.path` (HEAD moved) and `.timer` (every 15
+minutes) run `scripts/hermes-skillex-resync.py` in the Skillex repo, which
+strict-syncs the pending ones and re-checks them. Give it about 20 seconds after a
+commit and look with `scripts/install-hermes-resync.sh status`; the log is
+`~/.local/state/skillex/hermes-resync.jsonl` plus `hermes-resync.last.json`. A desk
+it reports `refused` (exit 3) holds foreign or unowned content and is left
+untouched: never hand-edit it, quarantine through `scripts/hermes-skillex-cutover.py`
+(preview, then `--apply`). Contract: `docs/implementation/hermes-skillex-resync.md`.
+
 ## PM authoring and activation
 
 - Create/edit the canonical `all-skills/<name>/SKILL.md`, not `$HERMES_HOME/skills`.

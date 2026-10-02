@@ -342,6 +342,27 @@ process control, service changes, board changes, or Bloodbank activation.
   install directly into generated roots; import/edit `all-skills/`, select in
   manifests/sets, then sync through Skillex. Verify actual Hermes source paths
   and a no-op second preview, not the native list's misleading `local` label.
+- **Catalog commits resync the desks by themselves.** A strict desk's Skillex
+  receipt records the `all-skills` HEAD it was synced against, so every catalog
+  commit leaves all of them `sync pending` (`skillex profile show` exit 6, one
+  `write-receipt` change) and turns `hermes.runtime-singleton` red. Since
+  2026-10-02 the user units `skillex-hermes-resync.path` (catalog HEAD moved) and
+  `skillex-hermes-resync.timer` (startup, then every 15 min) run
+  `~/code/skillex/scripts/hermes-skillex-resync.py`: it strict-syncs each desk that
+  is merely pending and re-checks it, so do not run per-desk syncs by hand after a
+  commit; give it about 20 seconds. `~/code/skillex/scripts/install-hermes-resync.sh
+  status` shows the units and the last run. Evidence is
+  `~/.local/state/skillex/hermes-resync.jsonl` (a `run` line per run, a `desk` line
+  per desk that was synced, refused, errored or busy) and `hermes-resync.last.json`;
+  `journalctl --user -u skillex-hermes-resync.service` has one summary line per run.
+  A desk reported `refused` (skillex exit 3) holds foreign or unowned content (a
+  local skill, a curator `.archive` or `.hub`, a non-empty `skills.external_dirs`, a
+  marker that is not a regular file) and the resync never touches it. Never
+  hand-edit a strict desk or delete the entry: run
+  `~/code/skillex/scripts/hermes-skillex-cutover.py` (preview, then `--apply`),
+  which quarantines the content under `~/.hermes/.skill-quarantine/<profile>/<stamp>/`,
+  then run the resync again (`mise run hermes:resync` in the Skillex repo). Contract:
+  `~/code/skillex/docs/implementation/hermes-skillex-resync.md`.
 - `flume roster` / `record` / `review` / `audit` are aggregate claims. Verify their
   result against `.project.json`, the registry row, real profile files, and exact
   systemd enabled/active/restart state before declaring success.
