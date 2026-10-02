@@ -35,9 +35,13 @@ the fleet/runtime mechanics behind it live in `agent-fleet-operations`.
 - The org-chart row in `~/.hermes/agents-registry.yaml`. That row is the record;
   `.project.json.agents` is its projection, and `pj init` only carries it
   forward.
-- The skill core pinned by `fleet.symlinked_runtime_skills` in
-  `~/.config/hermes-agent-template/config.toml`. Read the pin rather than
-  trusting a list in a document; configuration may append but never subtract.
+- A Skillex-only skill root. The desk's skills are the union of the global
+  `~/.agents/skills.json` and this project's `.agents/skills.json` selections,
+  linked from `~/code/skillex/all-skills` into a real profile `skills/` root
+  with `skills.external_dirs: []`. To add a skill, select it in the project
+  manifest, then run `skillex profile sync <profile> --project <repo>
+  --skillex-only` (preview with `--dry-run`). The retired
+  `fleet.symlinked_runtime_skills` pin no longer defines a skill core.
 
 If the expected named profile is a legacy symlink, or `.project.json` is
 malformed, hiring aborts before any mutation. The fleet runbook owns the

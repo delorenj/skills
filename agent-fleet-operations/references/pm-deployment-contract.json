@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "deploy_command": [
     "flume",
     "hire",
@@ -42,10 +42,26 @@
     "unreachable_probe_fails_hire": false
   },
   "required_skill_core": {
-    "source": "~/.config/hermes-agent-template/config.toml",
-    "key": "fleet.symlinked_runtime_skills",
-    "resolves_to": "~/.agents/skills/<pinned-directory-name>/SKILL.md",
-    "pinned_name_is_directory_not_frontmatter_name": true
+    "authority": "skillex",
+    "selection": [
+      "~/.agents/skills.json",
+      "<project>/.agents/skills.json"
+    ],
+    "catalog": "~/code/skillex/all-skills",
+    "resolves_to": "<profile>/skills/<directory-name> -> ~/code/skillex/all-skills/<directory-name>",
+    "pinned_name_is_directory_not_frontmatter_name": true,
+    "strict_markers": [
+      ".skillex-only",
+      ".no-bundled-skills"
+    ],
+    "skills_external_dirs": [],
+    "inspect": "skillex profile show <profile> --project <repo> --json",
+    "converge": "skillex profile sync <profile> --project <repo> --skillex-only",
+    "retired_keys": [
+      "fleet.canonical_skills_dir",
+      "fleet.symlinked_runtime_skills",
+      "fleet.pm_external_skill_dirs"
+    ]
   },
   "skill_policy": {
     "core_is_immutable": true,
