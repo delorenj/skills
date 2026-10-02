@@ -70,6 +70,10 @@ Project page routes may return HTTP 404 even on a live board with pages enabled
 failure or retry against an unbound workspace. For grooming, record the page-read
 limitation and use project detail, live state/label/cycle/module definitions,
 nearby tickets, and the bound repository's guidance as the available evidence.
+`project.get_features` may likewise return 404 (observed on DELO); use the bound
+`project.retrieve` fields `cycle_view`, `module_view`, and `page_view` together
+with the corresponding project-scoped lists. Do not enable features or invent
+cycle/module definitions merely to complete one-ticket grooming.
 
 A board audit reports findings first. Apply only requested or already-authorized
 changes. Keep batching bounded to the named project and task.

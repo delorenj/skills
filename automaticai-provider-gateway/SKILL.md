@@ -120,12 +120,18 @@ quirks that the branded overlay and client configs must honor. Never treat
 - **Claude max_tokens**: NewAPI's `claude.default_max_tokens` option controls
   the cap when clients omit it. With thinking at 80% budget, 8192 leaves only
   ~1.6k output tokens. Current setting: `{"default":32768,"claude-opus-5-5":65536}`.
-- **Cloudflare 100s timeout**: `api.automaticai.io` is CF-proxied. Any request
-  where the first SSE byte takes >100 s will be killed. Prompt caching is the
-  primary defense; consider SSE keepalives for providers with long cold-start.
-- **Codex stream retries**: provider must set `stream_max_retries ≥ 5` and
-  `stream_idle_timeout_ms ≥ 300000`. Zero retries turns any transient SSE drop
-  into a permanent cutoff.
+- **Cloudflare idle timeout**: the current deployment investigation identifies
+  an approximately 125 s edge read/idle timeout on quiet Claude Responses streams,
+  not a universal 100 s time-to-first-byte failure. Prompt caching reduces cold
+  latency; `automaticai_stream.heartbeat_seconds` (default 15, clamped to 25)
+  keeps response-phase SSE traffic alive once upstream has answered. Never enable
+  `general_setting.ping_interval_enabled`: its pre-header ping commits HTTP 200
+  before the upstream status is known and hides provider errors. Use the current
+  `AGENTS.md` and `ops/UNIFIED-PROVIDER.md` for deployment-specific evidence.
+- **Codex stream retries**: preserve same-model retries (`stream_max_retries ≥ 5`)
+  and the current documented `stream_idle_timeout_ms=1200000`. SSE comment
+  heartbeats do not reset Codex's event-level timer. Zero retries turns any
+  transient SSE drop into a permanent cutoff.
 - **Responses tool mapping**: upstream `RequestFunctionDeclarations` only
   accepts `type=function`. The branded patch also accepts `type=custom` with a
   default string-input schema. `type=namespace` (MCP tools) still needs mapping.
