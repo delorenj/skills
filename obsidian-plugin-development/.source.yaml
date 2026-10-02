@@ -1,0 +1,16 @@
+origin:
+  type: vendored
+  source: obsidian-plugin-skill
+  upstream: https://github.com/gapmiss/obsidian-plugin-skill.git
+  upstream_version: ff97cb0e2a4d8ae0b000399325d7387f633af262
+  upstream_commit: ff97cb0e2a4d8ae0b000399325d7387f633af262
+  upstream_tree: 7b7623f7be8e7933d2d88af696c2a523bef6ca7c
+  upstream_path: .agents/skills/obsidian
+  extracted_at: 2026-10-01T15:44:52.148Z
+  digest: sha256:e20c5db80248dc4164e0dd07be30cf2247f5c39eb87715b7fe430249691da555
+modified_locally: true
+local_patches:
+  - Rename frontmatter to obsidian-plugin-development to avoid the existing obsidian skill.
+  - Shorten the description to the plugin-development capability.
+  - Point to the pinned upstream generator instead of an uninstalled create-plugin command.
+  - Include the upstream MIT license from the repository root.

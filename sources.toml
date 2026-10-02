@@ -70,3 +70,11 @@ version = "255562b04b1e5ecaa4ba98e5c9aa191d5ba7f6fa"
 checkout = "motion-video-kit"
 subdir = ""
 skills = ["business-motion-film"]
+
+[[source]]
+name = "obsidian-plugin-skill"
+repo = "https://github.com/gapmiss/obsidian-plugin-skill.git"
+version = "ff97cb0e2a4d8ae0b000399325d7387f633af262"
+checkout = "obsidian-plugin-skill"
+subdir = ".agents/skills"
+skills = [{ name = "obsidian-plugin-development", dir = "obsidian" }]
