@@ -380,12 +380,28 @@ if bad:
 PY
   return 0
 }
+title_auth_header() {
+  local ref k
+  ref="$(yamlval WAX_TITLE_API_KEY_OP "$TITLE_YAML")"
+  [ -n "$ref" ] || ref="$(yamlval WAX_TITLE_API_KEY_OP_FALLBACK "$TITLE_YAML")"
+  if [ -n "$ref" ]; then
+    k="$(timeout 5 op read "$ref" 2>/dev/null)"
+    if [ -n "$k" ]; then
+      printf 'Authorization: Bearer %s\n' "$k"
+      return 0
+    fi
+  fi
+  return 1
+}
 chk_title_provider_reachable() {
   local b; b="$(title_base)"
   [ -n "$b" ] || { echo "no provider base URL in $TITLE_YAML"; return 1; }
-  curl -sf -m 8 "$b/models" >/dev/null 2>&1 && return 0
+  local h; h="$(title_auth_header 2>/dev/null)"
+  local auth=()
+  [ -n "$h" ] && auth=(-H "$h")
+  curl -sf -m 8 "${auth[@]}" "$b/models" >/dev/null 2>&1 && return 0
   # A provider that does not expose /models is not necessarily broken.
-  curl -s -o /dev/null -m 8 "$b/models" -w '%{http_code}' 2>/dev/null | grep -qE '^(401|403)$' && {
+  curl -s -o /dev/null -m 8 "${auth[@]}" "$b/models" -w '%{http_code}' 2>/dev/null | grep -qE '^(401|403)$' && {
     echo "$b/models answered but rejected the request — auth problem, not reachability"; return 1; }
   echo "cannot reach $b/models"
   return 1
@@ -393,7 +409,10 @@ chk_title_provider_reachable() {
 chk_title_model_present() {
   local b m; b="$(title_base)"; m="$(yamlval WAX_TITLE_MODEL "$TITLE_YAML")"
   [ -n "$m" ] || { echo "no WAX_TITLE_MODEL pinned in $TITLE_YAML"; return 1; }
-  curl -sf -m 10 "$b/models" 2>/dev/null |
+  local h; h="$(title_auth_header 2>/dev/null)"
+  local auth=()
+  [ -n "$h" ] && auth=(-H "$h")
+  curl -sf -m 10 "${auth[@]}" "$b/models" 2>/dev/null |
     python3 -c "import sys,json;d=json.load(sys.stdin);ids={x.get('id') for x in (d.get('data') or d.get('models') or [])};sys.exit(0 if '$m' in ids else 1)" && return 0
   echo "pinned model '$m' is not offered by $b. Every title-slug run will fail instantly. Repin WAX_TITLE_MODEL in $TITLE_YAML."
   return 1
