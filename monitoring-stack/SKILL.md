@@ -1,7 +1,7 @@
 ---
 name: monitoring-stack
 description: |
-  Manage the homelab monitoring stack at ~/docker/stacks/monitoring/. Services: Prometheus, Grafana, Alertmanager (Telegram via DeLoNETBot), cadvisor, node-exporter, process-exporter, Loki, OTEL collector, Dockge, Uptime Kuma, health-monitor. Use when: (1) adding, editing, or debugging Prometheus alert rules, (2) managing or restarting monitoring services, (3) checking alert delivery or Telegram bot status, (4) diagnosing system performance issues (CPU hogs, memory bloat, swap pressure), (5) adding new scrape targets to Prometheus, (6) configuring Grafana dashboards or datasources, (7) any task referencing "monitoring", "alerts", "prometheus", "grafana", "cadvisor", "process-exporter", "alertmanager", "telegram alerts", or "DeLoNETBot".
+  Manage the homelab monitoring stack at ~/docker/stacks/monitoring/. Services: Prometheus, Grafana, Alertmanager (Telegram via DeLoNETBot), cadvisor, node-exporter, process-exporter, Loki, OTEL collector, AutomaticAI LLM observability, Dockge, Uptime Kuma, health-monitor. Use when: (1) adding, editing, or debugging Prometheus alert rules, (2) managing or restarting monitoring services, (3) checking alert delivery or Telegram bot status, (4) diagnosing system performance issues (CPU hogs, memory bloat, swap pressure), (5) adding new scrape targets to Prometheus, (6) configuring Grafana dashboards or datasources, (7) any task referencing "monitoring", "alerts", "prometheus", "grafana", "cadvisor", "process-exporter", "alertmanager", "telegram alerts", or "DeLoNETBot".
 ---
 
 # Monitoring Stack
@@ -43,6 +43,16 @@ curl -s -X POST http://localhost:9472/-/reload
 ```bash
 curl -s -X POST http://localhost:9784/-/reload
 ```
+
+### Verify AutomaticAI LLM observability
+```bash
+curl -fsS http://localhost:9480/metrics | grep automaticai_llm_ | head
+curl -fsS 'http://localhost:9472/api/v1/query?query=automaticai_llm_allowance_utilization_percent'
+```
+
+The first command proves the exporter is healthy; the second proves Prometheus
+is scraping it. Provider gauges come from `llm.allowance.observed`, not inferred
+token totals.
 
 ### Verify process-exporter is scraping
 ```bash

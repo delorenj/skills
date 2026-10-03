@@ -20,6 +20,7 @@ pipeline-status:
 | process-exporter | ncabatoff/process-exporter | 9256 | 9256 | - |
 | Loki | grafana/loki | 3100 | - | - |
 | OTEL collector | otel/opentelemetry-collector-contrib | 4317/4318 | 4317/4318 | - |
+| AutomaticAI LLM observability | local build | 9480 | - | - |
 | Dockge | louislam/dockge | 5001 | 14654 | https://dockge.delo.sh |
 | Uptime Kuma | louislam/uptime-kuma | 3001 | 13556 | https://uptime.delo.sh |
 | health-monitor | alpine (custom script) | - | - | - |
@@ -74,6 +75,10 @@ monitoring/
 │   └── config.alloy           # Docker log discovery and Loki delivery
 ├── tempo/
 │   └── tempo.yml              # Pending activation
+├── aai-llm-observability/
+│   ├── main.py                 # NewAPI ledger tailer, Bloodbank publisher, Prometheus metrics
+│   ├── transform.py            # deterministic Bloodbank envelope normalization
+│   └── provision.py            # read-only Postgres role and 1Password DSN
 └── otel/
     └── collector-config.yml
 ```
