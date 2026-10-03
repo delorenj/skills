@@ -305,14 +305,14 @@ chk_no_phantom_items() {
 # ── stage outcomes (what the product itself will not tell you) ───────────────
 chk_no_recent_pass_failures() {
   local n
-  n="$(SQ "SELECT COUNT(*) FROM passes WHERE state<>'completed' AND updated_at > strftime('%Y-%m-%dT%H:%M:%SZ','now','-7 days');")"
+  n="$(SQ "SELECT COUNT(*) FROM passes WHERE state NOT IN ('completed', 'skipped') AND updated_at > strftime('%Y-%m-%dT%H:%M:%SZ','now','-7 days');")"
   [ "${n:-0}" -eq 0 ] && return 0
   local expr="ep_slug"
   [ -n "$(SQ_COL_EXISTS passes reason_code)" ] && expr="ep_slug||'('||COALESCE(reason_code,'?')||')'"
   local why
-  why="$(SQ "SELECT DISTINCT $expr FROM passes WHERE state<>'completed' AND updated_at > strftime('%Y-%m-%dT%H:%M:%SZ','now','-7 days');" | tr '\n' ' ')"
-  [ -n "$why" ] || why="$(SQ "SELECT DISTINCT ep_slug FROM passes WHERE state<>'completed';" | tr '\n' ' ')"
-  echo "$n failed pass row(s) in 7d: ${why:-unknown}. Detail: $(SQ "SELECT detail FROM passes WHERE state<>'completed' ORDER BY updated_at DESC LIMIT 1;" | head -c 120)"
+  why="$(SQ "SELECT DISTINCT $expr FROM passes WHERE state NOT IN ('completed', 'skipped') AND updated_at > strftime('%Y-%m-%dT%H:%M:%SZ','now','-7 days');" | tr '\n' ' ')"
+  [ -n "$why" ] || why="$(SQ "SELECT DISTINCT ep_slug FROM passes WHERE state NOT IN ('completed', 'skipped');" | tr '\n' ' ')"
+  echo "$n failed pass row(s) in 7d: ${why:-unknown}. Detail: $(SQ "SELECT detail FROM passes WHERE state NOT IN ('completed', 'skipped') ORDER BY updated_at DESC LIMIT 1;" | head -c 120)"
   return 1
 }
 chk_recent_titles_slugged() {
@@ -341,7 +341,7 @@ chk_no_diarization_error_in_log() {
 chk_tray_colour_honest() {
   local c f d
   c="$(JGET tray.colour)"
-  f="$(SQ "SELECT COUNT(*) FROM passes WHERE state<>'completed' AND updated_at > strftime('%Y-%m-%dT%H:%M:%SZ','now','-7 days');")"
+  f="$(SQ "SELECT COUNT(*) FROM passes WHERE state NOT IN ('completed', 'skipped') AND updated_at > strftime('%Y-%m-%dT%H:%M:%SZ','now','-7 days');")"
   d="$(SQ "SELECT COUNT(*) FROM (SELECT diarized FROM transcripts ORDER BY created_at DESC LIMIT 5) WHERE diarized IS NOT 1;")"
   [ "$c" != "green" ] && return 0
   [ "${f:-0}" -eq 0 ] && [ "${d:-0}" -eq 0 ] && return 0
