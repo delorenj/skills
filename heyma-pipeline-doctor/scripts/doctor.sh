@@ -545,11 +545,11 @@ sys.exit(0 if s.recv(4096).startswith(b'INFO') else 1)" 2>/dev/null && return 0
 }
 chk_outbox_draining() {
   local n
-  n="$(SQ "SELECT COUNT(*) FROM outbox WHERE published_at IS NULL AND created_at < strftime('%Y-%m-%dT%H:%M:%SZ','now','-10 minutes');")"
+  n="$(SQ "SELECT COUNT(*) FROM outbox WHERE published_at IS NULL AND suppressed_reason IS NULL AND created_at < strftime('%Y-%m-%dT%H:%M:%SZ','now','-10 minutes');")"
   [ "${n:-0}" -eq 0 ] && return 0
   # waxd drains every 10 s, so a transient non-zero backlog is normal; only the
   # 10-minute-old rows mean the drain itself has stopped.
-  echo "$n outbox row(s) unpublished for >10 min. Oldest subject: $(SQ "SELECT subject FROM outbox WHERE published_at IS NULL ORDER BY created_at LIMIT 1")"
+  echo "$n outbox row(s) unpublished for >10 min. Oldest subject: $(SQ "SELECT subject FROM outbox WHERE published_at IS NULL AND suppressed_reason IS NULL ORDER BY created_at LIMIT 1")"
   return 1
 }
 
