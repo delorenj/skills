@@ -72,6 +72,8 @@ Reads an evidence bundle (JSON: `acceptance_criteria`, `worker_claims`,
 see README for their schema) and writes a handoff document that separates implemented / tested /
 installed / deployed / outstanding. Recorded evidence is read and hashed; supported textual diff hunks/counts
 and complete supported count/pytest summary lines with per-command exits are validated.
+Proof uses unfenced plain/raw output: any run of at least three backticks or tildes
+anywhere, including nested/inline/control-adjacent or unterminated forms, remains unverified.
 Prose/expected-output notes cannot certify test results; foreign YAML namespaces
 are refused by parsed key identity and section-scoped ownership. Worker claims need explicit
 `claim_evidence` links to known acceptance criteria and parsed changed paths.

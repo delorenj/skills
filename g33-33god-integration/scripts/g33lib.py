@@ -747,6 +747,7 @@ _TEST_SUMMARY_RE = re.compile(
     re.IGNORECASE)
 _TEST_COUNT_RE = re.compile(r"([0-9]+)\s+([a-z]+)", re.IGNORECASE)
 _TEST_COUNT_MENTION_RE = re.compile(_TEST_COUNT_ITEM, re.IGNORECASE)
+_MARKDOWN_FENCE_RUN_RE = re.compile(r"(?:\x60{3,}|~{3,})")
 _EXIT_CODE_RE = re.compile(
     r"^\s*(?:command_)?exit(?:_code)?\s*[=:]\s*(-?\d+)\s*$",
     re.IGNORECASE | re.MULTILINE)
@@ -777,7 +778,10 @@ def parse_test_proof(text: str) -> dict[str, Any]:
 
     Supports N passed/failed/errors textual summaries with explicit exit-code
     markers after each command's summary. Unsupported, incomplete or ambiguous
-    formats are unverified; this validates recorded output, not its provenance."""
+    formats are unverified. Proof is plain/raw output: any Markdown delimiter
+    run of three or more backticks/tildes anywhere makes it ambiguous, including
+    nested/inline/control-adjacent or unterminated forms. This validates recorded
+    output, not its provenance."""
     passed = failed = errors = 0
     exits = [int(m.group(1)) for m in _EXIT_CODE_RE.finditer(text)]
     # Each summary starts its own proof block. Only markers following that
@@ -786,7 +790,7 @@ def parse_test_proof(text: str) -> dict[str, Any]:
     # markers are ambiguous and cannot certify a run.
     blocks = []
     current = None
-    ambiguous = False
+    ambiguous = bool(_MARKDOWN_FENCE_RUN_RE.search(text))
     marker_prefix = re.compile(r"^\s*(?:command_)?exit(?:_code)?\s*[=:]", re.IGNORECASE)
     note_header = re.compile(
         r"^\s*(?:#{1,6}\s*)?(?:expected|example|sample)"
@@ -794,7 +798,7 @@ def parse_test_proof(text: str) -> dict[str, Any]:
     for line in text.splitlines():
         counts = _test_summary_counts(line)
         is_boundary = bool(re.match(r"^\s*(?:block\b|command\s*:|\$\s)", line, re.IGNORECASE))
-        if note_header.fullmatch(line) or line.lstrip().startswith(chr(96) * 3):
+        if note_header.fullmatch(line) or _MARKDOWN_FENCE_RUN_RE.search(line):
             ambiguous = True
             current = None
         if counts is not None:

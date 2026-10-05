@@ -223,6 +223,12 @@ integer counts (`passed`, `failed`, `error[s]`, `skipped`, `deselected`, `xfaile
 prose prefixes/suffixes, expectation/example notes, fenced reports and unsupported
 count-bearing lines keep the proof unverified. Counts come only from complete
 supported summary lines; parsing recorded text does not prove execution provenance.
+The supported proof format is unfenced plain/raw command output. Any contiguous
+run of three or more backticks or tildes anywhere in the proof conservatively
+makes the whole proof unverified, regardless of run length, indentation,
+blockquote/list/nested/inline context, info strings, adjacent controls, or whether
+a closing fence exists. This deliberately refuses ambiguous delimiter-bearing
+logs without trying to infer Markdown example boundaries.
 
 ## Implementation claim linkage
 
