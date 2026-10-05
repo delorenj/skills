@@ -71,7 +71,9 @@ Reads an evidence bundle (JSON: `acceptance_criteria`, `worker_claims`,
 `reviewer`, separate `installed_evidence_path` / `deployed_evidence_path` receipts;
 see README for their schema) and writes a handoff document that separates implemented / tested /
 installed / deployed / outstanding. Recorded evidence is read and hashed; supported textual diff hunks/counts
-and per-command test summaries/exits are validated. Worker claims need explicit
+and complete supported count/pytest summary lines with per-command exits are validated.
+Prose/expected-output notes cannot certify test results; foreign YAML namespaces
+are refused by parsed key identity and section-scoped ownership. Worker claims need explicit
 `claim_evidence` links to known acceptance criteria and parsed changed paths.
 Missing/invalid/unmapped/failing evidence stays claimed-unverified or NOT CLEAN.
 Installed/deployed receipt text remains claimed-unverified even with valid schema;

@@ -103,7 +103,7 @@ def test_S12_foreign_equivalent_namespace_refused_zero_writes(bmad_project, tmp_
     assert result["status"] == "conflict" and result["conflicts"]
     assert any("g33" in c["detail"] for c in result["conflicts"])
     assert (snapshot(bmad_project), snapshot(outside)) == before
-    assert bridge(bmad_project, "apply", {"force": force})["status"] == "conflict"
+    assert bridge(bmad_project, "apply")["status"] == "conflict"
     assert (snapshot(bmad_project), snapshot(outside)) == before
 
 
@@ -127,7 +127,7 @@ def test_S12_foreign_marker_elsewhere_or_scalar_never_authorizes(bmad_project, t
     result = json.loads(proc.stdout)
     assert result["conflicts"] and any("g33" in c["detail"] for c in result["conflicts"])
     assert snapshot(bmad_project) == before
-    assert bridge(bmad_project, "apply", {"force": True})["status"] == "conflict"
+    assert bridge(bmad_project, "apply")["status"] == "conflict"
     assert snapshot(bmad_project) == before
 
 
@@ -147,7 +147,7 @@ def test_S12_equivalent_duplicate_namespace_refused(bmad_project, duplicate):
 
 
 @pytest.mark.parametrize("header", ["'g33':", '"g33":', '"g\\u0033\\u0033":',
-                                  '? "g33"\n:', "? |-\n  g33\n:", "? >-\n  g33\n:"])
+                                  '? "g33"\n:', "? |-\n  g33\n:", "? >-\n  g33\n:", "g33: &owned", '"g33": &owned'])
 @pytest.mark.parametrize("force", [False, True])
 def test_S12_managed_equivalent_block_preserved_observed(bmad_project, header, force):
     stage_skill(bmad_project)

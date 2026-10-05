@@ -99,7 +99,7 @@ root, so the module relocates freely; `options.moduleRoot` and
 - malformed or unsupported `_bmad/config.yaml` (real safe YAML parse, duplicate
   mappings, unclosed quotes/collections, non-mapping document)
 - foreign or duplicate top-level `g33:` shapes in config.yaml (inline values,
-  comment-only headers, sections without the managed marker)
+  comment-only headers, sections without a direct section-scoped managed marker)
 - pre-existing foreign `[modules.g33]` table with another module's `code`
 - pre-broken `_bmad/custom/config.toml` or `_bmad/config.toml` (tomllib —
   the real resolver's parser)
@@ -202,12 +202,27 @@ Invalid option values and unknown option keys return `error`. `observe` returns
 surface is absent; `installed` includes real resolution of at least one g33
 skill override, not file existence alone.
 
-Test proof certification requires a positive pass summary and explicit zero exit
+YAML namespace ownership uses the parsed exact `g33` key identity: unquoted,
+quoted, escaped and explicit/block scalar keys are equivalent. Existing foreign
+namespaces conflict before any writes. Owned editable block mappings require a
+whole `# managed by g33 installer` comment at their direct member indentation;
+markers in scalar values, nested/sibling sections, headers or similarly spelled
+keys do not authorize takeover. Aliases, merge-inherited namespaces and flow
+values are refused as unsupported ownership/edit shapes. Managed equivalent
+block key spellings survive plain/force edits and real bridge observation.
+
+Test proof certification requires a complete supported positive pass summary and explicit zero exit
 markers (`exit_code=0` or `command_exit_code=0`). A nonzero, missing or malformed
 marker leaves the proof uncertified. In a combined log, each summary needs its own following exit markers before
 the next summary/command block. Extra exits in one block cannot cover another
 block; stray or malformed markers leave evidence uncertified. Prose about an
-expected exit is not proof.
+expected exit is not proof. Supported summary lines contain only comma-separated
+integer counts (`passed`, `failed`, `error[s]`, `skipped`, `deselected`, `xfailed`,
+`xpassed`, `warning[s]`, `rerun`), optionally followed by pytest `in Ns` timing and
+`(H:MM:SS)`, with optional paired pytest `===` decoration. Duplicate status counts,
+prose prefixes/suffixes, expectation/example notes, fenced reports and unsupported
+count-bearing lines keep the proof unverified. Counts come only from complete
+supported summary lines; parsing recorded text does not prove execution provenance.
 
 ## Implementation claim linkage
 

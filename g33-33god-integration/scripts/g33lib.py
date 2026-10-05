@@ -740,12 +740,36 @@ def ecosystem_route(
 REQUIRED_BUNDLE_KEYS = ("acceptance_criteria", "worker_claims", "diff_path",
                         "test_proof_path")
 
-_TEST_PASS_RE = re.compile(r"(\d+)\s+passed", re.IGNORECASE)
-_TEST_FAIL_RE = re.compile(r"(\d+)\s+failed", re.IGNORECASE)
-_TEST_ERROR_RE = re.compile(r"(\d+)\s+errors?", re.IGNORECASE)
+_TEST_COUNT_ITEM = r"[0-9]+\s+(?:passed|failed|errors?|skipped|deselected|xfailed|xpassed|warnings?|rerun)"
+_TEST_SUMMARY_RE = re.compile(
+    rf"(?P<counts>{_TEST_COUNT_ITEM}(?:\s*,\s*{_TEST_COUNT_ITEM})*)"
+    r"(?:\s+in\s+[0-9]+(?:\.[0-9]+)?s(?:\s+\([0-9]+:[0-9]{2}:[0-9]{2}\))?)?",
+    re.IGNORECASE)
+_TEST_COUNT_RE = re.compile(r"([0-9]+)\s+([a-z]+)", re.IGNORECASE)
+_TEST_COUNT_MENTION_RE = re.compile(_TEST_COUNT_ITEM, re.IGNORECASE)
 _EXIT_CODE_RE = re.compile(
     r"^\s*(?:command_)?exit(?:_code)?\s*[=:]\s*(-?\d+)\s*$",
     re.IGNORECASE | re.MULTILINE)
+
+
+def _test_summary_counts(line: str) -> dict[str, int] | None:
+    """Complete plain/pytest count summaries; never substring prose counts."""
+    summary = line.strip()
+    if summary.startswith("=") or summary.endswith("="):
+        wrapped = re.fullmatch(r"={2,}\s*(.+?)\s*={2,}", summary)
+        if not wrapped:
+            return None
+        summary = wrapped.group(1)
+    parsed = _TEST_SUMMARY_RE.fullmatch(summary)
+    if not parsed:
+        return None
+    counts = {}
+    for count, label in _TEST_COUNT_RE.findall(parsed["counts"]):
+        label = {"error": "errors", "warning": "warnings"}.get(label.lower(), label.lower())
+        if label in counts:
+            return None
+        counts[label] = int(count)
+    return counts
 
 
 def parse_test_proof(text: str) -> dict[str, Any]:
@@ -755,12 +779,6 @@ def parse_test_proof(text: str) -> dict[str, Any]:
     markers after each command's summary. Unsupported, incomplete or ambiguous
     formats are unverified; this validates recorded output, not its provenance."""
     passed = failed = errors = 0
-    for m in _TEST_PASS_RE.finditer(text):
-        passed += int(m.group(1))
-    for m in _TEST_FAIL_RE.finditer(text):
-        failed += int(m.group(1))
-    for m in _TEST_ERROR_RE.finditer(text):
-        errors += int(m.group(1))
     exits = [int(m.group(1)) for m in _EXIT_CODE_RE.finditer(text)]
     # Each summary starts its own proof block. Only markers following that
     # summary, before the next summary, can attest its command exit. Duplicate
@@ -770,13 +788,26 @@ def parse_test_proof(text: str) -> dict[str, Any]:
     current = None
     ambiguous = False
     marker_prefix = re.compile(r"^\s*(?:command_)?exit(?:_code)?\s*[=:]", re.IGNORECASE)
+    note_header = re.compile(
+        r"^\s*(?:#{1,6}\s*)?(?:expected|example|sample)"
+        r"(?:\s+(?:output|result|summary))?\s*[:=]?\s*$", re.IGNORECASE)
     for line in text.splitlines():
-        is_summary = any(pattern.search(line) for pattern in
-                         (_TEST_PASS_RE, _TEST_FAIL_RE, _TEST_ERROR_RE))
+        counts = _test_summary_counts(line)
         is_boundary = bool(re.match(r"^\s*(?:block\b|command\s*:|\$\s)", line, re.IGNORECASE))
-        if is_summary:
-            current = {"summary": line, "exit_codes": [], "malformed": False}
+        if note_header.fullmatch(line) or line.lstrip().startswith(chr(96) * 3):
+            ambiguous = True
+            current = None
+        if counts is not None:
+            passed += counts.get("passed", 0)
+            failed += counts.get("failed", 0)
+            errors += counts.get("errors", 0)
+            current = {"summary": line, "counts": counts, "exit_codes": [], "malformed": False}
             blocks.append(current)
+        elif _TEST_COUNT_MENTION_RE.search(line):
+            # Unsupported count-bearing text cannot add counts or disappear
+            # silently next to a supported summary in a purported result log.
+            ambiguous = True
+            current = None
         elif is_boundary:
             current = None
         if marker_prefix.match(line):
@@ -790,8 +821,7 @@ def parse_test_proof(text: str) -> dict[str, Any]:
     exits_complete = bool(blocks) and not ambiguous and all(
         block["exit_codes"] and not block["malformed"]
         and all(code == 0 for code in block["exit_codes"]) for block in blocks)
-    recognizable = bool(passed or failed or errors or exits
-                        or re.search(r"\bPASSED\b|\bFAILED\b|\bOK\b", text))
+    recognizable = bool(blocks)
     return {
         "recognized": recognizable,
         "passed": passed,

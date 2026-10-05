@@ -116,3 +116,11 @@ Outputs are staged then replaced atomically. A caught apply failure rolls back
 published files and created directories; rollback failure is returned explicitly.
 Abrupt process termination or machine failure is not a supported update/recovery
 protocol and requires operator inspection before another apply.
+
+The installer and bridge observe share parsed YAML namespace ownership. Quoted,
+escaped and explicit/block `g33` keys are equivalent to the canonical key. An
+existing section requires a whole managed comment at its direct mapping-member
+indentation; marker-like scalar content, nested/sibling comments and header
+comments confer no ownership. Foreign or indirect/flow namespaces refuse before
+writes. Plain/force edits preserve legitimate managed key spelling and operator
+nested content/comments; observe reads the installer ownership result.

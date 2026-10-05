@@ -91,9 +91,9 @@ async function observeState(projectRoot, moduleRoot, options, python) {
   }
   const yaml = join(bmad, "config.yaml");
   const help = join(bmad, "_config/bmad-help.csv");
-  if (!existsSync(yaml) || !/^g33:\s*$/m.test(readFileSync(yaml, "utf8"))
-      || !readFileSync(yaml, "utf8").includes("# managed by g33 installer")
-      || !existsSync(help) || !/33GOD Integration,/.test(readFileSync(help, "utf8"))) {
+  // The installer owns parsed YAML identity and section-scoped ownership.
+  // Raw header spelling is not a second, divergent observation authority.
+  if (!existsSync(yaml) || audit.payload.yaml_namespace?.managed !== true || !existsSync(help)) {
     return reply("conflict", "partial/tampered g33 install: authoring/help surfaces are missing or inconsistent");
   }
   // The authoritative installer plan compares the complete normalized owned

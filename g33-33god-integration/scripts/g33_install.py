@@ -258,13 +258,47 @@ def _merge_yaml_config(text: str, module: dict[str, Any], answers: dict[str, Any
     return result, result != text
 
 
-def _find_yaml_g33_shapes(text: str) -> list[tuple[int, str]]:
-    """All top-level g33 key occurrences: (line_index, full_line)."""
-    shapes = []
-    for i, line in enumerate(text.splitlines()):
-        if re.match(r"^g33\s*:", line):
-            shapes.append((i, line))
-    return shapes
+def _yaml_namespace_ownership(text: str, data: dict[str, Any]) -> dict[str, Any]:
+    """Parsed namespace identity plus a direct-body comment ownership marker.
+
+    Equivalent scalar key spellings share identity. Alias/merge-inherited
+    namespaces and flow values are not editable owned block sections. Markers
+    must be whole comments at the mapping's member indentation, outside scalar
+    token spans, within this namespace's own body.
+    """
+    if G.MODULE_CODE not in data:
+        return {"status": "absent", "managed": False}
+    document = yaml.compose(text, Loader=_yaml_loader())
+    sections = [(key, value) for key, value in document.value
+                if isinstance(key, yaml.ScalarNode)
+                and key.tag == "tag:yaml.org,2002:str" and key.value == G.MODULE_CODE]
+    if len(sections) != 1:
+        return {"status": "foreign", "managed": False,
+                "detail": "foreign g33 namespace is inherited/indirect; an owned direct block mapping is required"}
+    key, section = sections[0]
+    if (not isinstance(section, yaml.MappingNode) or section.flow_style
+            or section.start_mark.index < key.end_mark.index):
+        return {"status": "foreign", "managed": False,
+                "detail": f"foreign/unsupported g33 namespace at line {key.start_mark.line + 1}; direct managed block mapping required"}
+    tokens = list(yaml.scan(text, Loader=_yaml_loader()))
+    scalar_spans = [(token.start_mark.index, token.end_mark.index)
+                    for token in tokens if isinstance(token, yaml.ScalarToken)]
+    # A node's start mark may point at a header anchor, rather than the actual
+    # member indentation. The scanner's own block start identifies that level.
+    member_start = next(token for token in tokens
+                        if isinstance(token, yaml.BlockMappingStartToken)
+                        and section.start_mark.index <= token.start_mark.index < section.end_mark.index)
+    indent = member_start.start_mark.column
+    position = 0
+    for line in text.splitlines(keepends=True):
+        if (key.end_mark.index <= position < section.end_mark.index
+                and re.fullmatch(r" {" + str(indent) + r"}# managed by g33 installer(?:;[^\r\n]*)?\r?\n?", line)
+                and not any(start <= position + indent < stop for start, stop in scalar_spans)):
+            return {"status": "managed", "managed": True,
+                    "key_line": key.start_mark.line + 1}
+        position += len(line)
+    return {"status": "foreign", "managed": False,
+            "detail": f"foreign pre-existing g33 namespace at line {key.start_mark.line + 1}: no direct section-scoped managed comment"}
 
 
 def _toml_table_body(text: str, header: str) -> str | None:
@@ -376,48 +410,12 @@ def plan_install(
                 "remedy": "fix the YAML or remove the g33 section; installer "
                           "refuses to mutate an unparseable target",
             })
-    # 2. foreign/duplicate g33 shapes in config.yaml
-    shapes = _find_yaml_g33_shapes(cfg_text)
-    if len(shapes) > 1:
-        conflicts.append({
-            "path": str(cfg_path),
-            "detail": f"{len(shapes)} duplicate top-level g33 sections at "
-                      f"lines {[s[0] + 1 for s in shapes]}",
-            "remedy": "remove duplicate g33 sections; installer never creates them",
-        })
-    elif len(shapes) == 1:
-        line_no, line_text = shapes[0]
-        rest = line_text.split(":", 1)[1].strip()
-        looks_managed = ("# managed by g33 installer" in cfg_text)
-        if rest and not (rest.startswith("#")):
-            conflicts.append({
-                "path": str(cfg_path),
-                "detail": f"foreign inline g33 value at line {line_no + 1}: "
-                          f"{line_text!r}",
-                "remedy": "g33 section must be a managed block; rename the "
-                          "foreign key or convert it to a section",
-            })
-        elif rest.startswith("#") and not looks_managed:
-            conflicts.append({
-                "path": str(cfg_path),
-                "detail": f"foreign g33 comment-only header at line "
-                          f"{line_no + 1}: {line_text!r}",
-                "remedy": "g33 section must be a managed block",
-            })
-        else:
-            # bare g33: section header — foreign unless it carries the
-            # managed marker inside the section body (P9 repro class)
-            sect = _extract_managed_section(cfg_text)
-            if sect is None or "# managed by g33 installer" not in (sect or ""):
-                conflicts.append({
-                    "path": str(cfg_path),
-                    "detail": "foreign pre-existing g33: section "
-                              "(no managed marker): "
-                              + "; ".join((sect or "").strip().splitlines()[:2]),
-                    "remedy": "owned by another writer; rename the foreign "
-                              "key or remove the section (installer never "
-                              "overwrites foreign content)",
-                })
+    # Parsed g33 identity is independent of equivalent key spelling.
+    # Duplicate identities already fail structural loading before ownership.
+    yaml_namespace = _yaml_namespace_ownership(cfg_text, yaml_data)
+    if yaml_namespace["status"] == "foreign":
+        conflicts.append({"path": str(cfg_path), "detail": yaml_namespace["detail"],
+                          "remedy": "preserve foreign content; rename/remove the foreign namespace rather than taking ownership"})
 
     # 4. malformed custom/config.toml (tomllib — the real resolver's parser)
     custom_cfg = bmad / "custom" / "config.toml"
@@ -688,23 +686,9 @@ def plan_install(
         "preserved": preserved,
         "warnings": warnings,
         "toml_active": resolver_present,
+        "yaml_namespace": yaml_namespace,
         "_project_root": str(project_root),
     }
-
-
-def _extract_managed_section(text: str) -> str | None:
-    """Current g33: section body (managed shape only) or None."""
-    lines = text.splitlines()
-    header = re.compile(r"^g33:\s*(#.*)?$")
-    for i, line in enumerate(lines):
-        if header.match(line):
-            body = []
-            for j in range(i + 1, len(lines)):
-                if lines[j].strip() and lines[j][0] not in (" ", "\t"):
-                    break
-                body.append(lines[j])
-            return "\n".join(body)
-    return None
 
 
 def _merge_override_file(current: str, skill: str) -> str:
@@ -924,6 +908,7 @@ def main(argv: list[str] | None = None) -> int:
         "dry_run": args.dry_run,
         "answers": plan.get("answers", {}),
         "toml_active": plan.get("toml_active", False),
+        "yaml_namespace": plan.get("yaml_namespace", {}),
         "activation": "active" if plan.get("toml_active") else "inactive",
         "actions": [
             {k: v for k, v in a.items() if not k.startswith("_")}
