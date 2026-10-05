@@ -1,0 +1,18 @@
+code: g33
+name: "33GOD Integration"
+description: "Routes 33GOD ecosystem work to owner components and turns worker evidence into BMAD implementation handoffs."
+module_version: 1.1.0
+default_selected: false
+module_greeting: >
+  33GOD Integration (g33) registered. Run preflight before build, route via
+  ecosystem-route, and close with evidence-to-handoff. This module informs
+  existing workflows; it does not orchestrate or schedule.
+
+ecosystem_root:
+  prompt: "Repository root of the 33GOD ecosystem monorepo (repo-relative ok, used for doctrine pointers only)"
+  default: "."
+
+g33_output_folder:
+  prompt: "Where should g33 evidence handoffs be written?"
+  default: "{project-root}/_bmad-output/implementation-artifacts"
+  result: "{project-root}/{value}"

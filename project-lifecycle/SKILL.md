@@ -10,7 +10,15 @@ Credentials come from the process environment or the approved vault resolver;
 never print them. Confirm the target when project identity is ambiguous.
 
 For a non-default Plane workspace, pass the bound board UUID as `project_id`
-on every tool call. `workitem.retrieve_by_identifier` does not accept
+on every tool call. If the installed `plane-mcp-server` entrypoint fails before
+startup with an SDK import error (for example, `CustomerWorkItem` missing), do
+not patch application code or upgrade the shared installation during grooming.
+When a compatible, existing checkout environment is available, use its Python
+with `-m plane_mcp stdio` through `mcporter`, passing `PLANE_WORKSPACE_SLUG`,
+`PLANE_BASE_URL`, and the existing credential environment without printing keys.
+Discover the live schemas first and retain `project_id` on every call; this is
+a session-local transport fallback, not authorization for fleet reconfiguration.
+`workitem.retrieve_by_identifier` does not accept
 `project_id` and resolves through the server's default workspace; do not use it
 for a non-default board. `workitem.search` likewise rejects `project_id`; do
 not drop the binding to retry a workspace-wide search. Instead,
@@ -37,7 +45,10 @@ boards (refs like `33GOD-68` work), `px claim` / `px close`. A Plane `PATCH` wit
 `labels` replaces the whole list and there is no per-label endpoint, so re-read
 and change one label at a time (px 0.2.2 and the Plane MCP `manage_label` do);
 never touch the pipeline-owned `agent:working`. Verify the provider's returned
-state after each mutation.
+state after each mutation. Plane may normalize `description_html` by adding a
+`<div>` wrapper; verify preserved text, headings, list items, and scope rather
+than requiring byte-identical HTML. An uncertain write must be read back before
+retrying it.
 
 For grooming, make `lifecycle:triaged` the final ticket mutation, then read back.
 If a previously retrieved item starts returning 404 or disappears from the bound
@@ -50,6 +61,32 @@ work item's activity and comments once; do not revert that writer's changes or
 reclaim the pipeline lease. Report your own writes separately from the latest
 board state. Attribute pre-existing “landed” claims and timestamp read-only git
 observations rather than turning them into unverified completion evidence.
+
+Project-scoped `retrieve_work_item` reads on the older Pipeline MCP Hub can
+fail local `WorkItemDetail` validation for assigned tickets: the API returns
+UUID strings while the SDK expects `UserLite`/`Label` objects. Include
+`assignees,labels,state` in `expand` for a read. This is a model-validation
+failure, not a workspace permission error; keep the same project binding.
+The older hub's `manage_work_item_label` can fail in its internal unexpanded
+read before issuing the write. Read the ticket back before retrying or claiming
+a label landed. An already-installed checkout environment with `plane-sdk`
+0.2.20 accepts both UUID-string lists and expanded objects; its native
+`workitem action=manage_label` works through a session-local stdio transport.
+Verify that SDK version and a bound read before using it. For example, from
+that compatible checkout, with the existing credential inherited in the
+process environment:
+
+```bash
+PLANE_BASE_URL=https://plane.delo.sh PLANE_WORKSPACE_SLUG=<bound-workspace> \
+  mcporter call --stdio .venv/bin/python --stdio-arg -m \
+  --stdio-arg plane_mcp --stdio-arg stdio --cwd <compatible-checkout> \
+  --name plane-local --output json workitem action=manage_label \
+  project_id=<bound-board-uuid> workitem_id=<issue-uuid> add_label_id=<one-label-uuid>
+```
+
+This uses the existing Plane tool's fresh-read delta action; it does not
+reconfigure or repair the shared hub. Do not clear assignees, rewrite the full
+label array, touch `agent:working`, or fall back to the default workspace.
 
 An archived board reads as 0 issues and 0 states through the API with no error.
 Check `archived_at` (or count in the Plane DB) before calling a board empty.
@@ -70,6 +107,11 @@ Project page routes may return HTTP 404 even on a live board with pages enabled
 failure or retry against an unbound workspace. For grooming, record the page-read
 limitation and use project detail, live state/label/cycle/module definitions,
 nearby tickets, and the bound repository's guidance as the available evidence.
+For read-only membership fallbacks, inspect the current SDK routes first: this
+instance uses `modules/{module_id}/module-issues/` and
+`cycles/{cycle_id}/cycle-issues/`, not a `/work-items/` subresource. Prefer the
+bound `module` / `cycle` tool's `list_workitems` action and page all results before
+concluding a ticket has no membership; do not treat a guessed-route 404 as absence.
 `project.get_features` may likewise return 404 (observed on DELO); use the bound
 `project.retrieve` fields `cycle_view`, `module_view`, and `page_view` together
 with the corresponding project-scoped lists. Do not enable features or invent

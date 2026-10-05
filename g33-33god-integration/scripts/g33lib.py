@@ -1,0 +1,985 @@
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# ///
+"""g33 shared library: YAML-subset reader, surgical TOML/YAML editors, CSV merge,
+preflight checks, ecosystem routing, evidence-to-handoff, secret scrubbing,
+canonical execution-readiness adapter (policyVersion 2), project-config loading.
+
+Pure stdlib (Python >= 3.11, tomllib). No pyyaml, no network, no writes except
+through the explicit installer entry points.
+"""
+
+from __future__ import annotations
+
+import csv
+import hashlib
+import io
+import json
+import re
+import shutil
+import sys
+import tomllib
+from pathlib import Path
+from typing import Any
+
+MODULE_CODE = "g33"
+MODULE_NAME = "33GOD Integration"
+MODULE_VERSION = "1.1.0"
+MODULE_DIR_NAME = "g33-33god-integration"
+
+CSV_HEADER = [
+    "module", "skill", "display-name", "menu-code", "description", "action",
+    "args", "phase", "after", "before", "required", "output-location", "outputs",
+]
+# bmb variant column order used by this repo's installed module-help.csv
+CSV_HEADER_BMB = [
+    "module", "skill", "display-name", "menu-code", "description", "action",
+    "args", "phase", "preceded-by", "followed-by", "required",
+    "output-location", "outputs",
+]
+
+_SECRET_KEY_RE = re.compile(
+    r"token|secret|password|key|credential|passwd", re.IGNORECASE
+)
+
+
+def secret_free(value: Any) -> Any:
+    """Recursively replace values whose key name looks secret-y."""
+    if isinstance(value, dict):
+        return {
+            k: ("[REDACTED]" if _SECRET_KEY_RE.search(str(k)) else secret_free(v))
+            for k, v in value.items()
+        }
+    if isinstance(value, list):
+        return [secret_free(item) for item in value]
+    return value
+
+
+def emit_json(payload: dict, path: Path | None = None) -> None:
+    text = json.dumps(secret_free(payload), indent=2, ensure_ascii=False)
+    if path is not None:
+        path.write_text(text + "\n", encoding="utf-8")
+    else:
+        sys.stdout.write(text + "\n")
+
+
+# ---------------------------------------------------------------- YAML subset
+#
+# module.yaml uses a restricted subset: top-level scalar keys, quoted or bare
+# strings, booleans, numbers, block scalar (`>` / `|`) values, and two-level
+# variable tables (name -> {prompt/default/result/user_setting}).
+
+_YAML_KV = re.compile(r'^([A-Za-z0-9_]+):\s*(.*)$')
+
+
+def _parse_scalar(text: str) -> Any:
+    text = text.strip()
+    if not text:
+        return ""
+    if text in ("true", "True"):
+        return True
+    if text in ("false", "False"):
+        return False
+    if text in ("null", "~"):
+        return None
+    if (text.startswith('"') and text.endswith('"')) or (
+        text.startswith("'") and text.endswith("'")
+    ):
+        return text[1:-1]
+    try:
+        return int(text)
+    except ValueError:
+        pass
+    try:
+        return float(text)
+    except ValueError:
+        pass
+    return text
+
+
+def parse_module_yaml(text: str) -> dict[str, Any]:
+    """Parse the module.yaml YAML subset into a dict (order preserved)."""
+    result: dict[str, Any] = {}
+    lines = text.splitlines()
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            i += 1
+            continue
+        m = _YAML_KV.match(line)
+        if not m:
+            i += 1
+            continue
+        key, rest = m.group(1), m.group(2)
+        if rest in (">", "|", ">-", "|-"):
+            # block scalar: consume indented lines
+            block: list[str] = []
+            i += 1
+            while i < n and (not lines[i].strip() or lines[i].startswith(" ")):
+                block.append(lines[i])
+                i += 1
+            joined = "\n".join(l.rstrip() for l in block).strip("\n")
+            result[key] = " ".join(joined.split()) if rest.startswith(">") else joined
+            continue
+        if rest == "":
+            # nested table (one level)
+            table: dict[str, Any] = {}
+            i += 1
+            while i < n and (lines[i].startswith("  ") and lines[i].strip()):
+                sub = _YAML_KV.match(lines[i].strip())
+                if sub:
+                    table[sub.group(1)] = _parse_scalar(sub.group(2))
+                i += 1
+            result[key] = table
+            continue
+        result[key] = _parse_scalar(rest)
+        i += 1
+    return result
+
+
+def load_module_yaml(path: Path) -> dict[str, Any]:
+    return parse_module_yaml(path.read_text(encoding="utf-8"))
+
+
+# --------------------------------------------- project runtime config (real)
+
+HELP_CSV_ACTIVE = "_config/bmad-help.csv"
+HELP_CSV_LEGACY = "module-help.csv"
+CUSTOM_CONFIG_REL = Path("_bmad") / "custom" / "config.toml"
+
+
+def load_project_config(project_root: Path) -> dict[str, Any]:
+    """Load the g33 team TOML layer (custom/config.toml) if parseable.
+
+    This is the same layer the REAL upstream resolver (resolve_config.py)
+    merges; we read it directly so route/preflight consume the module config
+    without shelling out. Returns {} when absent or unparsable.
+    """
+    path = Path(project_root) / CUSTOM_CONFIG_REL
+    try:
+        with path.open("rb") as f:
+            data = tomllib.load(f)
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+    module_tbl = data.get("modules", {})
+    if isinstance(module_tbl, dict):
+        g33 = module_tbl.get(MODULE_CODE)
+        if isinstance(g33, dict):
+            return dict(g33)
+    return {}
+
+
+def effective_config(module_root: Path, project_root: Path | None) -> dict[str, Any]:
+    """Module answers effective at runtime: bundled defaults overlaid by the
+    project's installed [modules.g33] answers (the layer the real resolver
+    merges). Portable doctrine/output overrides come from the same table."""
+    module = load_module_yaml(module_root / "assets" / "module.yaml")
+    answers: dict[str, Any] = {}
+    for var in ("ecosystem_root", "g33_output_folder", "doctrine_pointer"):
+        spec = module.get(var)
+        if isinstance(spec, dict) and "default" in spec:
+            answers[var] = spec["default"]
+        elif spec is not None and not isinstance(spec, dict):
+            answers[var] = spec
+    if project_root is not None:
+        answers.update(load_project_config(project_root))
+    return answers
+
+
+# ------------------------------------------------------- surgical file editors
+
+def replace_yaml_section(
+    text: str, section: str, new_body_lines: list[str]
+) -> tuple[str, bool]:
+    """Replace (or append) a single top-level ``section:`` block in a YAML doc,
+    leaving every other byte untouched. Returns (new_text, changed).
+    """
+    lines = text.splitlines(keepends=False)
+    out: list[str] = []
+    start = re.compile(rf"^{re.escape(section)}:\s*$")
+    start_loose = re.compile(rf"^{re.escape(section)}:\s*#.*$")
+    replaced = False
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        if not replaced and (start.match(line) or start_loose.match(line)):
+            # skip old body (indented or blank lines)
+            j = i + 1
+            while j < n and (not lines[j].strip() or lines[j][0] in (" ", "\t")):
+                j += 1
+            out.append(f"{section}:")
+            out.extend(new_body_lines)
+            replaced = True
+            i = j
+            continue
+        out.append(line)
+        i += 1
+    if not replaced:
+        if out and out[-1].strip():
+            out.append("")
+        out.append(f"{section}:")
+        out.extend(new_body_lines)
+    new_text = "\n".join(out)
+    if not new_text.endswith("\n"):
+        new_text += "\n"
+    return new_text, new_text != text
+
+
+def render_yaml_scalar(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value is None:
+        return "null"
+    if isinstance(value, (int, float)):
+        return str(value)
+    s = str(value)
+    if s == "" or re.search(r"[:#{}\[\]&*!|>'\"%@`]", s) or s != s.strip():
+        return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    return s
+
+
+def build_module_yaml_section(module: dict[str, Any], answers: dict[str, Any]) -> list[str]:
+    lines = ["  # managed by g33 installer; rerun replaces only this section"]
+    for key in ("name", "description"):
+        if key in module:
+            lines.append(f"  {key}: {render_yaml_scalar(module[key])}")
+    lines.append(f"  version: {render_yaml_scalar(module.get('module_version', MODULE_VERSION))}")
+    for key in sorted(answers):
+        lines.append(f"  {key}: {render_yaml_scalar(answers[key])}")
+    return lines
+
+
+TOML_TABLE_HEADER = "[modules.g33]"
+
+
+def replace_toml_table(
+    text: str, table_header: str, new_body_lines: list[str]
+) -> tuple[str, bool]:
+    """Replace (or append) a single TOML table, preserving every other byte."""
+    lines = text.splitlines(keepends=False)
+    out: list[str] = []
+    header_re = re.compile(r"^\s*" + re.escape(table_header) + r"\s*$")
+    replaced = False
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        if not replaced and header_re.match(line):
+            j = i + 1
+            while j < n and lines[j].strip() and not lines[j].lstrip().startswith("["):
+                j += 1
+            # drop our managed-comment if it directly precedes the old table
+            if out and out[-1].strip() == "# g33 managed table — rerun replaces only this table":
+                out.pop()
+            out.append("# g33 managed table — rerun replaces only this table")
+            out.append(table_header)
+            out.extend(new_body_lines)
+            replaced = True
+            i = j
+            continue
+        out.append(line)
+        i += 1
+    if not replaced:
+        if out and out[-1].strip():
+            out.append("")
+        out.append(f"# g33 managed table — rerun replaces only this table")
+        out.append(table_header)
+        out.extend(new_body_lines)
+    new_text = "\n".join(out)
+    if not new_text.endswith("\n"):
+        new_text += "\n"
+    return new_text, new_text != text
+
+
+def render_toml_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(render_toml_value(v) for v in value) + "]"
+    s = str(value)
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def build_module_toml_rows(module: dict[str, Any], answers: dict[str, Any]) -> list[str]:
+    rows: list[str] = []
+    rows.append("code = " + render_toml_value(module.get("code", MODULE_CODE)))
+    rows.append("name = " + render_toml_value(module.get("name", MODULE_NAME)))
+    rows.append("version = " + render_toml_value(module.get("module_version", MODULE_VERSION)))
+    for key in sorted(answers):
+        rows.append(f"{key} = " + render_toml_value(answers[key]))
+    return rows
+
+
+def merge_toml_tables(
+    managed_lines: list[str], operator_text: str | None
+) -> list[str]:
+    """Additive merge for reinstall: keep operator keys, re-emit managed rows.
+
+    ``operator_text`` is the current [modules.g33] body (may be None). Managed
+    keys (code/name/version/answers) are re-emitted from the module; operator
+    keys not in the managed set are preserved in their original order after
+    the managed block. Multiline arrays are preserved verbatim.
+    """
+    managed_keys = set()
+    for line in managed_lines:
+        m = re.match(r"^([A-Za-z0-9_.-]+)\s*=", line)
+        if m:
+            managed_keys.add(m.group(1))
+    out = list(managed_lines)
+    if operator_text:
+        seen: set[str] = set()
+        in_multiline = False
+        key = None
+        buffer: list[str] = []
+        for line in operator_text.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            if in_multiline:
+                buffer.append(line)
+                if _brackets_closed("".join(buffer)):
+                    in_multiline = False
+                    if key and key not in managed_keys:
+                        out.extend(buffer)
+                    buffer, key = [], None
+                continue
+            m = re.match(r"^([A-Za-z0-9_.-]+)\s*=\s*(.*)$", stripped)
+            if not m:
+                continue
+            key = m.group(1)
+            buffer = [line]
+            if not _brackets_closed(m.group(2)):
+                in_multiline = True
+                continue
+            if key not in managed_keys and key not in seen:
+                out.extend(buffer)
+            seen.add(key)
+            buffer, key = [], None
+    return out
+
+
+def merge_toml_tables_preserving_operator(
+    managed_lines: list[str], operator_text: str | None
+) -> list[str]:
+    """Non-force reinstall merge: operator values win for keys they define.
+
+    Managed rows are emitted only for keys ABSENT from the operator table;
+    unknown operator keys and comments are preserved. This keeps an
+    operator-edited [modules.g33] byte-stable on a plain rerun while still
+    adding newly introduced managed keys."""
+    if not operator_text:
+        return list(managed_lines)
+    operator_keys: set[str] = set()
+    in_multiline = False
+    for line in operator_text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if in_multiline:
+            if _brackets_closed(line):
+                in_multiline = False
+            continue
+        m = re.match(r"^([A-Za-z0-9_.-]+)\s*=\s*(.*)$", stripped)
+        if not m:
+            continue
+        if not _brackets_closed(m.group(2)):
+            in_multiline = True
+        operator_keys.add(m.group(1))
+    # operator body first (verbatim, comments included), then absent managed rows
+    absent = [ln for ln in managed_lines
+              if not (m := re.match(r"^([A-Za-z0-9_.-]+)\s*=", ln))
+              or m.group(1) not in operator_keys]
+    body = [ln for ln in operator_text.splitlines() if ln.strip()]
+    return body + absent
+
+
+def _brackets_closed(text: str) -> bool:
+    depth = 0
+    quote = None
+    for ch in text:
+        if quote:
+            if ch == quote:
+                quote = None
+            continue
+        if ch in "\"'":
+            quote = ch
+        elif ch == "[":
+            depth += 1
+        elif ch == "]":
+            depth -= 1
+    return depth <= 0
+
+
+# ------------------------------------------------------------------- CSV merge
+
+def merge_help_csv(target_text: str, source_csv_path: Path) -> tuple[str, list[dict]]:
+    """Anti-zombie merge of module rows into a help CSV (bmad-help or legacy).
+
+    Existing rows whose `module` column equals our display name are removed;
+    our rows are appended (re-mapped onto the target's header variant).
+    Other modules' rows and the header are preserved byte-for-byte semantics.
+    Returns (new_text, appended_rows).
+    """
+    reader = csv.DictReader(io.StringIO(target_text)) if target_text.strip() else None
+    target_header = list(reader.fieldnames or []) if reader else []
+    target_rows = list(reader) if reader else []
+
+    with source_csv_path.open("r", encoding="utf-8", newline="") as f:
+        sreader = csv.DictReader(f)
+        source_header = list(sreader.fieldnames or [])
+        source_rows = list(sreader)
+
+    if not target_header:
+        target_header = CSV_HEADER_BMB
+    module_col = "module"
+    kept = [r for r in target_rows if r.get(module_col) != MODULE_NAME]
+    appended: list[dict] = []
+    for row in source_rows:
+        mapped = {}
+        for col in target_header:
+            if col in ("after", "before") and col not in row:
+                mapped[col] = row.get(
+                    "preceded-by" if col == "after" else "followed-by", ""
+                )
+            elif col in ("preceded-by", "followed-by") and col not in row:
+                mapped[col] = row.get(
+                    "after" if col == "preceded-by" else "before", ""
+                )
+            else:
+                mapped[col] = row.get(col, "")
+        appended.append(mapped)
+
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=target_header, lineterminator="\n")
+    writer.writeheader()
+    for row in kept:
+        writer.writerow({col: row.get(col, "") for col in target_header})
+    for row in appended:
+        writer.writerow(row)
+    return buf.getvalue(), appended
+
+
+# ------------------------------------- canonical execution readiness (adapter)
+
+# Ported from /home/delorenj/code/33GOD/pjangler/src/project/executionBinding.ts
+# (policyVersion 2). This is an ADAPTER around the canonical contract: the
+# field set mirrors executionReadiness() so g33 preflight and the canonical
+# validator agree. Pure function, no state writes, no shelling out.
+
+EXECUTION_LANES = [
+    "Backlog", "Needs Re-evaluation", "Todo", "In Progress",
+    "E2E Testing & QA", "Ready for Documentation", "Done",
+    "Needs Attention", "Cancelled",
+]
+_SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
+_VALID_ROLES = {"pm", "operator", "reviewer", "interactive"}
+_VALID_MODES = {"legacy", "shadow", "managed"}
+
+
+def execution_readiness(manifest: dict[str, Any]) -> list[str]:
+    """Canonical executionReadiness port. Returns a list of error strings
+    (empty = ready). legacy/absent execution returns [] like the original."""
+    execution = manifest.get("execution")
+    if not execution or execution.get("mode") == "legacy":
+        return []
+    errors: list[str] = []
+    if execution.get("mode") not in ("shadow", "managed"):
+        errors.append("execution.mode must be legacy, shadow or managed")
+    if not manifest.get("project_id"):
+        errors.append("canonical project_id missing")
+    tp = manifest.get("ticket_provider") or {}
+    if (tp.get("type") != "plane" or not tp.get("workspace")
+            or not tp.get("board_id")):
+        errors.append("exact Plane binding missing")
+    if execution.get("policy_version") != 2 or not execution.get("skill_version"):
+        errors.append("execution policy or skill pin missing")
+    states = execution.get("states") or {}
+    for lane in EXECUTION_LANES:
+        if not states.get(lane):
+            errors.append(f"lane binding missing: {lane}")
+    for pin in ("pilot_bundle_sha256", "momo_bundle_sha256"):
+        if not _SHA256_RE.match(str(execution.get(pin) or "")):
+            errors.append(f"{pin} missing")
+    if not execution.get("working_label"):
+        errors.append("working label binding missing")
+    actors = execution.get("actors") or {}
+    pm_actor = execution.get("pm_actor")
+    controller = execution.get("controller_actor")
+    pm = actors.get(pm_actor)
+    if not pm or pm.get("role") != "pm":
+        errors.append("PM actor enrollment missing")
+    ctl = actors.get(controller)
+    if not ctl or ctl.get("role") != "operator":
+        errors.append("controller repair actor enrollment missing")
+    ids: set[str] = set()
+    for name, actor in (actors or {}).items():
+        actor = actor or {}
+        if (not actor.get("native_user_id")
+                or not str(actor.get("key_ref", "")).startswith("op://")
+                or not actor.get("runtime_id")):
+            errors.append(
+                f"actor {name}: native identity, op reference and runtime required")
+        native = actor.get("native_user_id")
+        if native in ids:
+            errors.append(f"actor {name}: duplicate native identity")
+        if native:
+            ids.add(native)
+        if actor.get("role") not in _VALID_ROLES:
+            errors.append(f"actor {name}: invalid role")
+        if name == pm_actor:
+            planner = ((actor.get("runtime") or {}).get("planner_argv"))
+            if (not isinstance(planner, list) or not planner
+                    or any(not isinstance(x, str) or not x or "\0" in x
+                           for x in planner)):
+                errors.append("PM planner argv missing")
+        runtime = actor.get("runtime") or {}
+        if (runtime.get("adapter") != "systemd"
+                or not re.match(r"^[a-zA-Z0-9_-]+$", str(runtime.get("unit_prefix") or ""))):
+            errors.append(f"actor {name}: supervised runtime missing")
+    if execution.get("legacy_writers_fenced") is not True:
+        errors.append("legacy writers not fenced")
+    return errors
+
+
+def execution_mode_status(manifest: dict[str, Any]) -> str:
+    """legacy|shadow|managed|invalid (invalid mode never downgrades to legacy)."""
+    execution = manifest.get("execution")
+    if not execution:
+        return "legacy"
+    mode = execution.get("mode")
+    if mode in _VALID_MODES:
+        return str(mode)
+    return "invalid"
+
+
+# ------------------------------------------------------------------ preflight
+
+def run_preflight(project_root: Path, module_root: Path) -> dict[str, Any]:
+    findings: list[dict[str, str]] = []
+
+    def add(check: str, status: str, evidence: str) -> None:
+        findings.append({"check": check, "status": status, "evidence": evidence})
+
+    # 0. effective module config (consumed, not ornamental)
+    config = effective_config(module_root, project_root)
+
+    # 1. project binding
+    pj = project_root / ".project.json"
+    execution_status = "absent"
+    manifest: dict[str, Any] = {}
+    if not pj.is_file():
+        add("project-binding", "FAIL", f"{pj} not found: missing ticket binding")
+    else:
+        try:
+            manifest = json.loads(pj.read_text(encoding="utf-8"))
+            if not isinstance(manifest, dict):
+                raise ValueError("not an object")
+        except (OSError, json.JSONDecodeError, ValueError) as err:
+            add("project-binding", "FAIL", f"cannot read {pj}: {err}")
+            manifest = {}
+        tp = manifest.get("ticket_provider") or {}
+        if not tp.get("type"):
+            add("project-binding", "FAIL", ".project.json has no ticket_provider.type")
+        else:
+            state = tp.get("state")
+            missing_fields = [k for k in ("workspace", "board_id", "identifier")
+                              if not tp.get(k)]
+            if state == "linked" and not missing_fields:
+                add("project-binding", "PASS",
+                    f"ticket_provider {tp.get('type')} linked "
+                    f"(workspace={tp.get('workspace')!r}, board_id present)")
+            elif state == "linked":
+                add("project-binding", "WARN",
+                    f"ticket_provider {tp.get('type')} linked but missing "
+                    f"{missing_fields}")
+            else:
+                add(
+                    "project-binding", "WARN",
+                    f"ticket_provider {tp.get('type')} state={state!r} (not linked)",
+                )
+        # 2. Krebs enrollment via the canonical adapter
+        execution = manifest.get("execution")
+        mode = (execution or {}).get("mode") if isinstance(execution, dict) else None
+        if isinstance(execution, dict) and execution:
+            execution_status = execution_mode_status(manifest)
+            if execution_status == "legacy":
+                add("krebs-enrollment", "WARN",
+                    "execution.mode=legacy (explicit) — legacy adapter mode")
+            elif execution_status == "invalid":
+                add("krebs-enrollment", "FAIL",
+                    f"execution.mode={mode!r} invalid (must be "
+                    "legacy|shadow|managed) — not downgraded to legacy")
+            elif execution_status == "managed":
+                errors = execution_readiness(manifest)
+                if errors:
+                    add("krebs-enrollment", "FAIL",
+                        "managed execution not ready (canonical "
+                        f"executionReadiness): {'; '.join(errors)}")
+                else:
+                    add("krebs-enrollment", "PASS",
+                        "mode=managed, canonical readiness satisfied "
+                        f"({len((execution.get('actors') or {}))} actor(s))")
+            else:  # shadow
+                errors = execution_readiness(manifest)
+                if errors:
+                    add("krebs-enrollment", "WARN",
+                        "mode=shadow — incremental enrollment allowed, NOT "
+                        f"managed-ready: {'; '.join(errors[:5])}"
+                        + (" …" if len(errors) > 5 else ""))
+                else:
+                    add("krebs-enrollment", "PASS",
+                        "mode=shadow, canonical readiness fields complete "
+                        "(shadow performs no mutations; does not certify "
+                        "managed readiness)")
+        else:
+            execution_status = "legacy"
+            add("krebs-enrollment", "WARN",
+                "execution key absent — legacy adapter mode")
+
+    # 3. tool availability
+    for tool in ("px", "node", "uv", "python3"):
+        found = shutil.which(tool)
+        if found:
+            add("tool-" + tool, "PASS", found)
+        else:
+            add("tool-" + tool, "WARN", f"{tool} not found on PATH")
+
+    # 4. module + BMAD structure
+    if (module_root / "SKILL.md").is_file() and (
+        module_root / "assets" / "ecosystem-map.toml"
+    ).is_file():
+        add("module-files", "PASS", str(module_root))
+    else:
+        add("module-files", "FAIL", f"module incomplete at {module_root}")
+    bmad_dir = project_root / "_bmad"
+    if bmad_dir.is_dir():
+        add("bmad-structure", "PASS", str(bmad_dir))
+    else:
+        add("bmad-structure", "FAIL", f"{bmad_dir} not found")
+    resolver = bmad_dir / "scripts" / "resolve_config.py"
+    if resolver.is_file():
+        add("bmad-resolver", "PASS", str(resolver))
+    else:
+        add("bmad-resolver", "WARN", f"{resolver} not found (absent upstream baseline)")
+
+    has_fail = any(f["status"] == "FAIL" for f in findings)
+    return {
+        "status": "FAIL" if has_fail else "PASS",
+        "execution_mode": execution_status,
+        "config": config,
+        "findings": findings,
+    }
+
+
+# -------------------------------------------------------------------- routing
+
+ROUTE_KEYWORDS: dict[str, list[str]] = {
+    "execution": ["execute", "implement", "build", "code", "story", "dev", "fix", "bug"],
+    "story_breakdown": ["breakdown", "epic", "child board", "stories", "split"],
+    "analysis": ["analyze", "analysis", "plan", "spec", "architecture", "prd", "research"],
+    "templates_deployment": ["template", "deploy", "provision", "release"],
+    "skills": ["skill", "skillex", "pack", "agentpack"],
+    "runtime": ["runtime", "supervise", "daemon", "profile", "hermes"],
+    "event_naming": ["event", "naming", "bloodbank", "nats", "webhook"],
+    "operational_evidence": ["evidence", "candystore", "context", "history", "session"],
+    "ui": ["ui", "dashboard", "holocene", "display", "status page"],
+    "project_provisioning": ["provision", "new project", "registry", "pjangler", "bootstrap"],
+    "code_review": ["review", "reviewer", "audit code", "pr review"],
+}
+
+
+def load_ecosystem_map(module_root: Path) -> dict[str, Any]:
+    with (module_root / "assets" / "ecosystem-map.toml").open("rb") as f:
+        return tomllib.load(f)
+
+
+def classify_route(request: str) -> list[str]:
+    text = request.lower()
+    scores: dict[str, int] = {}
+    for route, words in ROUTE_KEYWORDS.items():
+        score = sum(1 for w in words if w in text)
+        if score:
+            scores[route] = score
+    ordered = sorted(scores, key=lambda r: -scores[r])
+    if not ordered:
+        return ["analysis"]
+    return ordered
+
+
+def ecosystem_route(
+    module_root: Path, request: str, project_root: Path | None = None
+) -> dict[str, Any]:
+    cmap = load_ecosystem_map(module_root)
+    config = effective_config(module_root, project_root)
+    routes = classify_route(request)
+    out_routes = []
+    for r in routes:
+        node = cmap.get("routes", {}).get(r)
+        if not node:
+            continue
+        out_routes.append({
+            "route": r,
+            "label": node.get("label", ""),
+            "owner": node.get("owner", ""),
+            "entrypoint": node.get("entrypoint", ""),
+            "notes": node.get("notes", ""),
+        })
+    meta = cmap.get("meta", {})
+    # doctrine pointer: portable project override wins over the bundled default
+    doctrine_pointer = config.get("doctrine_pointer") or meta.get(
+        "doctrine_pointer", "momo/PILLARS.md")
+    return {
+        "request": request,
+        "routes": out_routes,
+        "ecosystem_root": config.get("ecosystem_root"),
+        "g33_output_folder": config.get("g33_output_folder"),
+        "doctrine": {
+            "pointer": doctrine_pointer,
+            "pillars": cmap.get("doctrine", {}).get("pillars", {}),
+            "source": "project-config" if "doctrine_pointer" in config else "bundled-map",
+        },
+        "event_naming": {
+            "contract": meta.get("event_naming_contract", ""),
+            "shape": meta.get("event_type_shape", ""),
+        },
+    }
+
+
+# --------------------------------------------------------- evidence to handoff
+
+REQUIRED_BUNDLE_KEYS = ("acceptance_criteria", "worker_claims", "diff_path",
+                        "test_proof_path")
+
+_TEST_PASS_RE = re.compile(r"(\d+)\s+passed", re.IGNORECASE)
+_TEST_FAIL_RE = re.compile(r"(\d+)\s+failed", re.IGNORECASE)
+_TEST_ERROR_RE = re.compile(r"(\d+)\s+errors?", re.IGNORECASE)
+_EXIT_CODE_RE = re.compile(r"exit(?:_code)?\s*[=:]\s*(\d+)", re.IGNORECASE)
+
+
+def parse_test_proof(text: str) -> dict[str, Any]:
+    """Parse a test-proof log for pass/fail counts and exit codes.
+
+    Honest about limitations: recognizes pytest/jest/go-test style summary
+    lines and `exit[_=]N` markers. Returns counts plus booleans; absence of
+    any recognizable summary is reported as unparseable (never success)."""
+    passed = failed = errors = 0
+    for m in _TEST_PASS_RE.finditer(text):
+        passed += int(m.group(1))
+    for m in _TEST_FAIL_RE.finditer(text):
+        failed += int(m.group(1))
+    for m in _TEST_ERROR_RE.finditer(text):
+        errors += int(m.group(1))
+    exits = [int(m.group(1)) for m in _EXIT_CODE_RE.finditer(text)]
+    recognizable = bool(passed or failed or errors or exits
+                        or re.search(r"\bPASSED\b|\bFAILED\b|\bOK\b", text))
+    return {
+        "recognized": recognizable,
+        "passed": passed,
+        "failed": failed,
+        "errors": errors,
+        "exit_codes": exits,
+        "clean_pass": bool(
+            recognizable and not failed and not errors
+            and (passed > 0 or (bool(exits) and all(e == 0 for e in exits)))
+        ),
+    }
+
+
+def inspect_evidence_path(value: Any) -> dict[str, Any]:
+    """Stat+hash a claimed evidence path. Never invents success."""
+    if not value or not isinstance(value, str):
+        return {"path": str(value), "exists": False, "status": "missing"}
+    p = Path(value)
+    if not p.exists():
+        return {"path": value, "exists": False, "status": "missing"}
+    if not p.is_file():
+        return {"path": value, "exists": True, "status": "not-a-file"}
+    try:
+        data = p.read_bytes()
+    except OSError as err:
+        return {"path": value, "exists": True, "status": f"unreadable: {err}"}
+    if not data.strip():
+        return {"path": value, "exists": True, "size": 0,
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "status": "empty"}
+    return {"path": value, "exists": True, "size": len(data),
+            "sha256": hashlib.sha256(data).hexdigest(),
+            "status": "ok"}
+
+
+def validate_bundle(bundle: dict[str, Any]) -> list[str]:
+    errors = []
+    for key in REQUIRED_BUNDLE_KEYS:
+        if key not in bundle:
+            errors.append(f"missing required key: {key}")
+    for path_key in ("diff_path", "test_proof_path"):
+        value = bundle.get(path_key)
+        if value is not None and not isinstance(value, str):
+            errors.append(f"{path_key} must be a path string")
+    for id_key in ("implementer", "reviewer"):
+        value = bundle.get(id_key)
+        if value is not None and not isinstance(value, str):
+            errors.append(f"{id_key} must be a string when provided")
+    return errors
+
+
+def _pillar_citation(module_root: Path, doctrine_pointer: str) -> str:
+    try:
+        cmap = load_ecosystem_map(module_root)
+        pillars = cmap.get("doctrine", {}).get("pillars", {})
+    except (OSError, tomllib.TOMLDecodeError):
+        pillars = {}
+    nums = ", ".join(f"#{i.upper().lstrip('P')} {name}" for i, name in sorted(pillars.items()))
+    return f"{doctrine_pointer} — {nums}"
+
+
+def generate_handoff(module_root: Path, bundle: dict[str, Any]) -> str:
+    ac = bundle.get("acceptance_criteria") or []
+    claims = bundle.get("worker_claims") or []
+    diff = bundle.get("diff_path", "")
+    tests = bundle.get("test_proof_path", "")
+    review = bundle.get("review_notes") or []
+    installed = bundle.get("installed") or []
+    deployed = bundle.get("deployed") or []
+    outstanding = bundle.get("outstanding") or []
+    implementer = bundle.get("implementer")
+    reviewer = bundle.get("reviewer")
+
+    # ---- real evidence inspection (read + hash + parse, no trust)
+    diff_ev = inspect_evidence_path(diff)
+    proof_ev = inspect_evidence_path(tests)
+    proof_parse: dict[str, Any] = {}
+    if proof_ev["status"] == "ok":
+        try:
+            proof_parse = parse_test_proof(
+                Path(tests).read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            proof_parse = {"recognized": False}
+
+    evidence_ok = diff_ev["status"] == "ok" and proof_ev["status"] == "ok"
+    proof_clean = bool(proof_parse.get("clean_pass"))
+    # identity validation for the attestation
+    identities_ok = (
+        isinstance(implementer, str) and bool(implementer.strip())
+        and isinstance(reviewer, str) and bool(reviewer.strip())
+        and implementer.strip() != reviewer.strip()
+    )
+
+    def bullet_list(items: list[str]) -> str:
+        if not items:
+            return "- none reported\n"
+        return "".join(f"- {item}\n" for item in items)
+
+    lines: list[str] = []
+    lines.append("# Implementation Handoff (g33 evidence-to-handoff)\n")
+    lines.append(
+        "Separation of state: implemented / tested / installed / deployed / "
+        "outstanding are distinct; each claim carries its evidence path.\n"
+    )
+
+    lines.append("## Implemented\n")
+    if evidence_ok:
+        lines.append(bullet_list([str(c) for c in claims]) if claims
+                     else "- none reported\n")
+    else:
+        lines.append(
+            "- [unverified — unresolved evidence, claims not certified]\n")
+        for c in claims:
+            lines.append(f"- claimed-unverified: {c}\n")
+
+    lines.append("\n## Tested\n")
+    if proof_ev["status"] == "ok" and proof_parse:
+        if proof_clean:
+            lines.append(
+                f"- test proof VERIFIED: {tests} "
+                f"(sha256 {proof_ev.get('sha256', '')[:12]}…, "
+                f"{proof_parse.get('passed', 0)} passed, "
+                f"{proof_parse.get('failed', 0)} failed, "
+                f"{proof_parse.get('errors', 0)} errors)\n")
+        else:
+            lines.append(
+                f"- test proof READ but NOT CLEAN: {tests} — "
+                f"{proof_parse.get('passed', 0)} passed, "
+                f"{proof_parse.get('failed', 0)} failed, "
+                f"{proof_parse.get('errors', 0)} errors"
+                + ("" if proof_parse.get("recognized") else
+                   " (no recognizable test summary — cannot certify)") + "\n")
+    elif proof_ev["status"] == "empty":
+        lines.append(f"- test proof EMPTY: {tests} — cannot certify\n")
+    elif tests:
+        lines.append(
+            f"- test proof MISSING ({proof_ev['status']}): {tests} — "
+            "cannot certify\n")
+    else:
+        lines.append("- none reported\n")
+
+    lines.append("\n## Installed\n")
+    if evidence_ok:
+        lines.append(bullet_list([str(i) for i in installed]) if installed
+                     else "- none reported\n")
+    else:
+        for i in installed:
+            lines.append(f"- claimed-unverified: {i}\n")
+        if not installed:
+            lines.append("- none reported\n")
+
+    lines.append("\n## Deployed\n")
+    lines.append(bullet_list([str(d) for d in deployed]))
+
+    lines.append("\n## Outstanding\n")
+    lines.append(bullet_list([str(o) for o in outstanding]))
+
+    lines.append("## Acceptance criteria\n")
+    lines.append(bullet_list([str(a) for a in ac]) if ac else "- none provided\n")
+
+    lines.append("\n## Diff\n")
+    if diff_ev["status"] == "ok":
+        lines.append(
+            f"- diff VERIFIED: {diff} (sha256 {diff_ev.get('sha256', '')[:12]}…, "
+            f"{diff_ev.get('size')} bytes)\n")
+    elif diff:
+        lines.append(
+            f"- diff MISSING ({diff_ev['status']}): {diff} — not verified\n")
+    else:
+        lines.append("- none provided\n")
+
+    if review:
+        lines.append("\n## Review notes\n")
+        lines.append(bullet_list([str(r) for r in review]))
+
+    lines.append("\n## Evidence verification\n")
+    lines.append(
+        f"- diff_path: {diff_ev['status']}"
+        + (f" (sha256 {diff_ev['sha256']})" if diff_ev.get("sha256") else "") + "\n")
+    lines.append(
+        f"- test_proof_path: {proof_ev['status']}"
+        + (f" (sha256 {proof_ev['sha256']})" if proof_ev.get("sha256") else "") + "\n")
+    lines.append(
+        f"- overall: {'evidence verified' if evidence_ok else 'unresolved evidence — claims above are NOT certified'}\n")
+
+    lines.append("\n## Attestation\n")
+    if identities_ok:
+        lines.append(
+            f"- Reviewer {reviewer!r} is a distinct identity from implementer "
+            f"{implementer!r}: independence VALIDATED from bundle inputs.\n")
+    elif implementer and reviewer and implementer.strip() == reviewer.strip():
+        lines.append(
+            f"- NOT VALIDATED: implementer and reviewer are the same identity "
+            f"({implementer!r}) — independence requirement violated.\n")
+    else:
+        lines.append(
+            "- NOT VALIDATED: distinct implementer/reviewer identities were "
+            "not provided in the bundle; independence is unproven.\n")
+    lines.append(
+        "- Decision compass: "
+        + _pillar_citation(module_root, str(
+            (effective_config(module_root, None).get("doctrine_pointer"))
+            or "momo/PILLARS.md")) + "\n")
+    return "".join(lines)

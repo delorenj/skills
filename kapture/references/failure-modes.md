@@ -101,6 +101,21 @@ they cover nearly everything. Ask the user only when nothing else can do the job
 | `UNKNOWN_COMMAND` | server/extension version skew | update the extension |
 | HTTP 403 `Origin not allowed` | a browser Origin not on the allow-list | curl sends none, which is always allowed. The one exception is `/assistants*`, which *requires* a browser origin by design |
 
+## Binding / network reachability
+
+The HTTP server binds hard to `127.0.0.1` — `server/src/index.ts` `startServer()`
+calls `httpServer.listen(PORT, '127.0.0.1', ...)`, with no env override for the
+host (only `KAPTURE_PORT` for the port). To expose it on the LAN you must patch
+the installed copy: `ss -tlnp | grep 61822` → pid → `/proc/<pid>/exe` (node
+install) → the matching `~/.npm/_npx/<hash>/node_modules/kapture-mcp/dist/index.js`
+→ change the `'127.0.0.1'` arg in `startServer()` to `'0.0.0.0'` → kill the
+"Kapture MCP Server" process and let the bridge respawn it. The healthy server
+runs detached from a zellij pane (session "Workspace", workdir `~/code/infra`)
+as `npm exec kapture-mcp@latest bridge`. After rebinding, the `Origin`
+allow-list still applies to browser callers — curl with no Origin header is
+unaffected. Rebinding does not survive a `kapture-mcp` package update; re-apply
+or vendor a local fork.
+
 ## Things that are not errors but will mislead you
 
 - **`elements` with no match returns `success: true` and `"elements": []`.** Only the

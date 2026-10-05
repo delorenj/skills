@@ -98,6 +98,15 @@ column-0 anchoring that protects dependency pins, and how to add a new type are 
 When a bump touches the wrong line, `check` flags drift after init, the build doesn't bump, or
 `current` reads `v0.0.0` in a versioned repo — see [references/gotchas.md](./references/gotchas.md).
 
+## CommonProject / pjangler repos
+
+`pj init` / CommonProject bootstrap auto-installs this skill's output (`.mise/scripts/versioning.sh`,
+`version:*` tasks in `mise.toml`, `.mise/version-files.conf`). If you find a repo with the
+scripts and conf present but `mise.toml` lacking the `version:*` task block, the bootstrap
+was interrupted — re-run `bash scripts/init.sh` from this skill to idempotently repair the
+managed block. The `.mise/version-files.conf` is hand-editable and authoritative; review it
+after any bootstrap.
+
 ## Out of scope
 
 - **Changelogs / release notes.** This skill moves version numbers; it does not write release

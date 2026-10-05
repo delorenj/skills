@@ -13,9 +13,16 @@ from html.parser import HTMLParser
 from urllib.parse import urljoin, urlsplit
 
 MAX_DEPTH = 400
+#: Output amplifiers. A hostile table pads every row to the widest row, so
+#: rows x columns is quadratic in emitted size (a 1 MB page amplified to ~15 GB
+#: before these caps); deeply nested quotes/lists pay their prefix on every
+#: line. Real tables and nesting never approach these bounds.
+MAX_TABLE_ROWS = 500
+MAX_TABLE_COLS = 60
+MAX_PREFIX_DEPTH = 20
 
 _DROP = frozenset("script style noscript template svg iframe object embed canvas input select option optgroup datalist "
-                  "textarea button".split())
+                  "textarea button noembed noframes rp".split())
 _VOID = frozenset("area base br col embed hr img input link meta param source track wbr".split())
 _BLOCK = frozenset("p div section article header footer main aside nav figure figcaption address form fieldset details "
                    "summary center".split())
@@ -23,10 +30,21 @@ _HEADINGS = {f"h{i}": i for i in range(1, 7)}
 _AUTOCLOSE = {"p": ({"p"}, set()), "li": ({"li"}, {"ul", "ol"}), "dt": ({"dt", "dd"}, {"dl"}),
               "dd": ({"dt", "dd"}, {"dl"}), "tr": ({"tr"}, {"table"}), "td": ({"td", "th"}, {"tr", "table"}),
               "th": ({"td", "th"}, {"tr", "table"})}
-_HIDDEN_STYLE = re.compile(r"display\s*:\s*none|visibility\s*:\s*hidden", re.I)
+_HIDDEN_STYLE = re.compile(r"display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse)", re.I)
+_CSS_COMMENT = re.compile(r"/\*.*?\*/", re.S)
+_CSS_ESCAPE = re.compile(r"\\([0-9a-fA-F]{1,6})[ \t\r\n\f]?")
 _SPACE = re.compile("[ \t\r\n\f\v ]+")
 _CTRL = re.compile("[\x00-\x08\x0b-\x1f\x7f]")
 _SAFE_SCHEMES = ("http", "https", "mailto")
+
+
+def _normalize_style(value):
+    # Strip CSS comments and decode \-hex escapes before matching, so
+    # "display/**/:none" or "d\69splay:none" cannot smuggle a hidden rule past
+    # the regex; a rule that only ever existed inside a comment disappears and
+    # correctly does not count as hiding.
+    value = _CSS_COMMENT.sub(" ", value)
+    return _CSS_ESCAPE.sub(lambda m: chr(int(m.group(1), 16)), value)
 
 
 def _hidden(attrs):
@@ -35,7 +53,7 @@ def _hidden(attrs):
             return True
         if name == "type" and (value or "").strip().lower() == "hidden":
             return True
-        if name == "style" and value and _HIDDEN_STYLE.search(value):
+        if name == "style" and value and _HIDDEN_STYLE.search(_normalize_style(value)):
             return True
     return False
 
@@ -91,7 +109,7 @@ class _Converter(HTMLParser):
     def emit_lines(self, text):
         if not self.visible():
             return
-        prefix = "" if self.plain else "> " * self.quote
+        prefix = "" if self.plain else "> " * min(self.quote, MAX_PREFIX_DEPTH)
         for line in text.split("\n"):
             self.out.append((prefix + line).rstrip() if prefix else line.rstrip())
 
@@ -174,14 +192,17 @@ class _Converter(HTMLParser):
             self.in_title = True
         void = tag in _VOID
         if self.drop:
-            if not void:
+            # Cap the frame stack even while dropping: a hostile page of
+            # nested tags inside one hidden subtree used to push unbounded
+            # frames (~120 B each) and balloon memory past the input size.
+            if not void and len(self.stack) < MAX_DEPTH:
                 self.push(tag, True)
             return
         if tag in _AUTOCLOSE:
             self.autoclose(tag)
         dropped = tag in _DROP or _hidden(attrs) or len(self.stack) >= MAX_DEPTH or self.is_site_chrome(tag, attrs)
         if dropped:
-            if not void:
+            if not void and len(self.stack) < MAX_DEPTH:
                 self.push(tag, True)
             return
         attr_map = dict(attrs)
@@ -225,7 +246,7 @@ class _Converter(HTMLParser):
                 self.lists.append([False, 0])
             frame = self.lists[-1]
             frame[1] += 1
-            self.item_prefix = "  " * (len(self.lists) - 1) + (f"{frame[1]}. " if frame[0] else "- ")
+            self.item_prefix = "  " * min(len(self.lists) - 1, MAX_PREFIX_DEPTH) + (f"{frame[1]}. " if frame[0] else "- ")
         elif tag == "dt":
             self.block_break(blank=False)
         elif tag == "dd":
@@ -377,7 +398,10 @@ class _Converter(HTMLParser):
             self.emit_table()
         text = "\n".join(self.out)
         text = _CTRL.sub("", text)
-        text = re.sub(r"[ \t]+\n", "\n", text)
+        # Linear per-line rstrip; a r"[ \t]+\n" regex backtracks
+        # catastrophically on long space-runs (hostile pages emitted minutes-
+        # long stalls here).
+        text = "\n".join(line.rstrip(" \t") for line in text.split("\n"))
         return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 

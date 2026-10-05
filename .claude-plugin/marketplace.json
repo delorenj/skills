@@ -1,0 +1,6 @@
+{
+  "name": "g33-33god-integration",
+  "description": "33GOD Integration (g33): routes 33GOD ecosystem work to owner components and turns worker evidence into BMAD implementation handoffs.",
+  "version": "1.0.0",
+  "type": "skill"
+}

@@ -102,7 +102,10 @@ def clean(value, limit=None):
 def clean_block(value, limit=None):
     text = str(value if value is not None else "").replace("\r\n", "\n").replace("\r", "\n")
     text = _INVISIBLE.sub("", _LINE_BREAKS.sub("\n", text))
-    text = re.sub(r"[ \t]+\n", "\n", text)
+    # Linear per-line rstrip: a regex like r"[ \t]+\n" over a long run of
+    # "space, non-newline, space" backtracks catastrophically. Never cap a
+    # string before this point — clean the whole block, then truncate.
+    text = "\n".join(line.rstrip(" \t") for line in text.split("\n"))
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
     return text if not limit or len(text) <= limit else text[:limit].rstrip() + "\n…[truncated]"
 

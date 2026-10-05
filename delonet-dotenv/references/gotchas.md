@@ -240,3 +240,41 @@ dos2unix .env.op            # if CRLF
 ```
 
 **Prevention.** Author `.env.op` in a Unix-mode editor (vim, lazyvim, VSCode set to LF).
+
+---
+
+## 12. `FATAL: password authentication failed` for the RIGHT user on the WRONG port
+
+**Symptom.** Postgres client (psql, psycopg2, SQLAlchemy, prisma) reports:
+
+```
+connection to server at "localhost" (127.0.0.1), port 5432 failed:
+FATAL:  password authentication failed for user "<service>"
+```
+
+…even though you are CERTAIN the password is right. Or: "it worked yesterday" with no config change.
+
+**Cause.** The client is talking to a DIFFERENT Postgres server than the one you set the password on. Big-chungus runs a dozen Postgres containers, each with its own port mapping — the code's default `DATABASE_URL` (or your env) points at `localhost:5432`, but the actual container listens on a remapped port (5434, 15432, 55432, …). Whatever IS on 5432 rejects the credential. The error names the user correctly, so it LOOKS like a password problem — it isn't.
+
+**Fix.** Trace the actual port and set `DATABASE_URL` to match:
+
+```bash
+# 1. Find the container and its real port mapping
+docker ps --format "table {{.Names}}\t{{.Ports}}" | grep <service>
+# e.g. candystore-postgres   127.0.0.1:5434->5432/tcp
+
+# 2. Verify connectivity THROUGH the mapped host port
+PGPASSWORD=<pass> psql -h localhost -p <mapped-port> -U <user> -d <db> -c "SELECT 1"
+
+# 3. Find where the wrong default is baked in
+grep -rn "5432\|DATABASE_URL" <repo>/.env* <repo>/db.py <repo>/config.py
+
+# 4. Override at the right layer (project .env, .env.op, or shell export) —
+#    do NOT hardcode the mapped port into application source.
+export DATABASE_URL="postgresql://<user>:<pass>@localhost:<mapped-port>/<db>"
+```
+
+**Prevention.**
+- The "password auth failed" error is a PORT mismatch until proven otherwise on a multi-Postgres host. Always `docker ps` first to see the actual mapping before touching credentials.
+- Application code defaults should use the stack-internal service name (`postgres:5432`) inside Docker, or require `DATABASE_URL` to be set explicitly for host-side CLI use — never a hardcoded host port.
+- Repo `.env.example` files that ship `DATABASE_URL=...@localhost:5432/...` are a trap when the compose file remaps the port. Fix the example to use the service name, or document the host-side port in a comment.

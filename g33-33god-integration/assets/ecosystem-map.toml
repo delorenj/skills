@@ -1,0 +1,97 @@
+# 33GOD Ecosystem Owner Map (portable — no machine-absolute paths)
+
+# Doctrine pointer: pillars are cited BY NUMBER from momo/PILLARS.md inside the
+# 33GOD monorepo (repo-relative). Never copy doctrine content into this file.
+# A project may override the pointer via doctrine_pointer in the installed
+# [modules.g33] table (_bmad/custom/config.toml).
+
+[meta]
+version = 1
+ecosystem = "33GOD"
+doctrine_pointer = "momo/PILLARS.md"
+event_naming_contract = "bloodbank/docs/event-naming.md"
+event_type_shape = "bloodbank.<domain>.<entity>.<action>"
+
+[doctrine.pillars]
+p1 = "Chase the Check"
+p2 = "Dogfood the Platform"
+p3 = "Build LEGO, Not Statues"
+p4 = "Gang of Four by Default"
+
+[routes.analysis]
+label = "Analysis / planning / spec / architecture"
+owner = "BMAD artifacts + Hindsight"
+entrypoint = "{project-root}/_bmad-output/planning-artifacts"
+notes = "Existing BMAD analysis/planning/spec/architecture skills own the artifacts; Hindsight retains decisions. Two distinct Hindsight namespaces — do not conflate them: the PROJECT bank is the org-wide project bank '33GOD' (exact case; the lowercase '33god' and consolidated-deleted '33god-core'/'33god-infra' names were removed 2026-08-17 — using one silently creates a NEW empty bank); the IDENTITY bank is agent-<identity>, resolved from the agent registry's declared identity field, NOT from the Hermes routing profile directory. The 33GOD root PM declares identity 'grolf' → writes to 'agent-grolf'. Never target the stale 'agent-33god-pm' bank (pre-identity-era trap)."
+
+[routes.story_breakdown]
+label = "Story breakdown to the owning child board"
+owner = "Pilot (Plane)"
+entrypoint = "px"
+notes = "Story breakdown lands on the owning child board via Pilot's authenticated Plane CLI. Plane webhook (n8n normalizer) owns task facts; agents never write them."
+
+[routes.execution]
+label = "Execution orchestration"
+owner = "Momo"
+entrypoint = "momo (shared PM skill)"
+notes = "Existing Momo orchestration owns execution. Krebs is the execution authority ONLY when .project.json execution.mode is managed or shadow (validate enrollment first); otherwise the legacy adapter path applies."
+
+[routes.execution_krebs_gate]
+label = "Krebs execution authority gate"
+owner = "Krebs"
+entrypoint = ".project.json execution binding"
+notes = "Managed/shadow mode requires validated enrollment per the canonical policyVersion-2 readiness field set (pm_actor/controller_actor roles, op:// key refs, runtime ids, supervised systemd adapter, all 9 lane bindings, bundle sha256 pins, working label, legacy writers fenced; distinct native_user_id per actor). Never assume every board is Krebs-enrolled. No duplicate ticket scheduler."
+
+[routes.templates_deployment]
+label = "Templates and deployment"
+owner = "Flume + Hermes Fleet"
+entrypoint = "flume"
+notes = "Split ownership: agent lifecycle (hire/onboard/review/org chart) belongs to Flume; the shared runtime, profiles, systemd units and job-description/role template scaffolds belong to Hermes Fleet (hermes-agent-template repo). Flume renders what Hermes Fleet scaffolds."
+
+[routes.skills]
+label = "Skill authoring and distribution"
+owner = "Skillex"
+entrypoint = "skillex"
+notes = "Skills are defined once in the canonical catalog (all-skills/) and referenced by compositions; packs/sets are reference-only and never contain a real SKILL.md body."
+
+[routes.runtime]
+label = "Agent runtime supervision"
+owner = "Hermes Fleet"
+entrypoint = "hermes"
+notes = "Hermes Fleet owns the shared runtime, profiles and long-running agent supervision."
+
+[routes.event_naming]
+label = "Event identity and naming"
+owner = "Bloodbank"
+entrypoint = "bloodbank/docs/event-naming.md"
+notes = "Four dotted tokens, provider-neutral facts. No new event types without the contract."
+
+[routes.operational_evidence]
+label = "Operational evidence and durable context"
+owner = "Candystore"
+entrypoint = "candystore context latest"
+notes = "Candystore is the operational evidence source for cross-CLI handoffs."
+
+[routes.ui]
+label = "Command/result UI"
+owner = "Holocene"
+entrypoint = "holocene"
+notes = "Holocene is a supported command/result UI surface, not read-only."
+
+[routes.project_provisioning]
+label = "Project provisioning and registry"
+owner = "PJangler"
+entrypoint = "pj"
+notes = "PJangler provisions projects and owns canonical .project.json bindings. Identity join: routing/agent identity is declared in the Flume-owned agents registry (identity field); board-to-repo identity lives in the PJangler-owned .project.json; 'pj project identity --apply' is the ONE supported join; nothing else crosses stores."
+
+[routes.code_review]
+label = "Independent review"
+owner = "BMAD review skills"
+entrypoint = "bmad-code-review"
+notes = "Reviewer must not be the implementer; independence is validated from distinct declared identities, not attested boilerplate. Review layers surface through customize.toml overrides."
+
+[tools]
+px = "Pilot Plane CLI"
+node = "Node runtime (Pilot helper, g33 ES bridge)"
+uv = "Python runner (BMAD scripts)"
+python3 = "Python runtime (g33 scripts)"
