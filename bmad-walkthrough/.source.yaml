@@ -1,0 +1,25 @@
+# Provenance recorded by skillex bmad freeze.
+origin:
+  type: bmad-freeze
+  bmad_version: 6.12.1-next.1
+  bmad_source_root: /tmp/skillex020-bmad-target
+  imported_from: /tmp/skillex020-bmad-target/.agents/skills/bmad-walkthrough
+  extracted_at: 2026-10-05T00:56:49.871Z
+  digest: sha256:5325b8a722f3f51d5585236fcb2ee1e07b6b8e9119a44cde6c3ecc499e4283b4
+  skill_manifest_sha256: sha256:f2c8b62eb63fe4196c404acc67e38ce0afa5d47f1c5042a505b2cf21940b83bc
+  files_manifest_sha256: sha256:074586581aa324fa4a2f45b46b0eb11d3a20c48af85b8ce8de17367d78711296
+  modules:
+    - name: bmad-loop
+      version: main
+      sha: 68645cbd3e1a8aa2d7d3b2e69a5f2bee834e8ae3
+    - name: bmb
+      version: v2.2.2
+      sha: 4a1422274a2acb0fb0ec0511753da6263948f072
+    - name: bmm
+      version: 6.12.1-next.1
+    - name: cis
+      version: v0.3.2
+      sha: 97298b22fee1c7e482710d3a8414adb5cfccccd9
+    - name: core
+      version: 6.12.1-next.1
+modified_locally: false
