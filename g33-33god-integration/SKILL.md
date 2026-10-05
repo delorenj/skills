@@ -70,10 +70,12 @@ Reads an evidence bundle (JSON: `acceptance_criteria`, `worker_claims`,
 `diff_path`, `test_proof_path`, optional `review_notes`, `implementer`,
 `reviewer`, separate `installed_evidence_path` / `deployed_evidence_path` receipts;
 see README for their schema) and writes a handoff document that separates implemented / tested /
-installed / deployed / outstanding. Evidence is VERIFIED, not trusted: the
-diff and test proof are read, hashed and parsed (pass/fail counts, exit
-codes); nonexistent/empty/failing evidence is labeled claimed-unverified or
-NOT CLEAN and never certified. The reviewer != implementer attestation is
+installed / deployed / outstanding. Recorded evidence is read and hashed; supported textual diff hunks/counts
+and per-command test summaries/exits are validated. Worker claims need explicit
+`claim_evidence` links to known acceptance criteria and parsed changed paths.
+Missing/invalid/unmapped/failing evidence stays claimed-unverified or NOT CLEAN.
+Installed/deployed receipt text remains claimed-unverified even with valid schema;
+receipt commands are never executed. See README for the complete bundle schema. The reviewer != implementer attestation is
 VALIDATED from distinct declared identities in the bundle (or explicitly NOT
 VALIDATED). Decision compass cites pillars by number from the doctrine path
 recorded in the owner map or the project's doctrine_pointer override.

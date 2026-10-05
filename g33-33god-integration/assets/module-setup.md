@@ -21,6 +21,15 @@ Registers g33 into a project that ALREADY has BMAD installed. Writes:
   overrides using only customize.toml-supported keys (activation steps,
   persistent facts)
 
+## Python prerequisite
+
+Use Python >=3.11 with PyYAML>=6.0 (declared in `../requirements.txt` and the
+installer's PEP 723 metadata). The interpreter used by manual commands or the
+bridge must have that dependency; `uv run` can consume script metadata. Missing
+PyYAML produces an actionable preflight refusal and zero writes. The module does
+not install dependencies into the operator's environment or fall back to partial
+YAML validation.
+
 ## Check Existing Config
 
 1. Read `./assets/module.yaml` (code `g33`, version 1.1.0).

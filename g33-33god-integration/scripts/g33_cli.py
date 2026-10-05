@@ -60,7 +60,7 @@ def cmd_evidence(args: argparse.Namespace) -> int:
     if errors:
         G.emit_json({"status": "error", "errors": errors})
         return 1
-    handoff = G.generate_handoff(MODULE_ROOT, bundle)
+    handoff = G.generate_handoff(MODULE_ROOT, bundle, project_root=Path(args.project_root).resolve())
     out_path = Path(args.out).resolve() if args.out else None
     if out_path is not None:
         out_path.parent.mkdir(parents=True, exist_ok=True)

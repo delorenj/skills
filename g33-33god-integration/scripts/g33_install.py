@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.11"
+# dependencies = ["PyYAML>=6.0"]
 # ///
 """g33 safe consumable installer for BMAD projects.
 
@@ -54,6 +55,33 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import g33lib as G  # noqa: E402
+
+try:
+    import yaml
+except ImportError:
+    yaml = None
+
+
+def _yaml_loader():
+    if yaml is None:
+        raise ValueError("PyYAML>=6.0 is required for structural YAML validation; "
+                         "install module requirements with your Python environment owner "
+                         "or run the installer with uv run (script dependency metadata)")
+    class UniqueSafeLoader(yaml.SafeLoader):
+        def construct_mapping(self, node, deep=False):
+            self.flatten_mapping(node)
+            seen = set()
+            for key_node, _ in node.value:
+                key = self.construct_object(key_node, deep=deep)
+                try:
+                    duplicate = key in seen
+                    seen.add(key)
+                except TypeError as err:
+                    raise ValueError("unsupported non-scalar YAML mapping key") from err
+                if duplicate:
+                    raise ValueError(f"duplicate YAML mapping key {key!r} at line {key_node.start_mark.line + 1}")
+            return super().construct_mapping(node, deep=deep)
+    return UniqueSafeLoader
 
 MODULE_ROOT = Path(__file__).resolve().parent.parent
 
@@ -174,51 +202,60 @@ def load_answers(path: Path | None, module: dict[str, Any]) -> dict[str, Any]:
 
 
 def _parse_existing_yaml(text: str) -> dict[str, Any]:
-    """Best-effort structural parse of the target config.yaml (subset).
-
-    Raises ValueError on shapes we cannot safely merge into (tabs used for
-    indentation, unclosed flow collections in top-level sections)."""
-    for i, line in enumerate(text.splitlines()):
-        if "\t" in line[: len(line) - len(line.lstrip())]:
-            raise ValueError(f"tab indentation at config.yaml line {i + 1}")
-    top: dict[str, Any] = {}
-    current: str | None = None
-    for i, line in enumerate(text.splitlines()):
-        if not line.strip() or line.strip().startswith("#"):
-            continue
-        m = re.match(r"^([A-Za-z0-9_-]+):\s*(.*)$", line)
-        if not m:
-            continue
-        key, rest = m.group(1), m.group(2).strip()
-        if rest.startswith("[") and not _closed(rest):
-            raise ValueError(
-                f"unclosed flow collection at config.yaml line {i + 1}")
-        if rest == "":
-            current = key
-            top[key] = {}
-        else:
-            if current is None:
-                top[key] = rest
-            elif isinstance(top.get(current), dict):
-                top[current][key] = rest
-    return top
+    """Real safe YAML validation; ambiguous duplicate mappings are refused."""
+    loader = _yaml_loader()
+    try:
+        data = yaml.load(text, Loader=loader)
+    except yaml.YAMLError as err:
+        mark = getattr(err, "problem_mark", None)
+        location = f" at line {mark.line + 1}, column {mark.column + 1}" if mark else ""
+        raise ValueError(f"{getattr(err, 'problem', None) or type(err).__name__}{location}") from err
+    if data is None:
+        return {}
+    if not isinstance(data, dict):
+        raise ValueError("YAML config must contain a top-level mapping")
+    return data
 
 
-def _closed(text: str) -> bool:
-    depth = 0
-    quote = None
-    for ch in text:
-        if quote:
-            if ch == quote:
-                quote = None
-            continue
-        if ch in "\"'":
-            quote = ch
-        elif ch == "[":
-            depth += 1
-        elif ch == "]":
-            depth -= 1
-    return depth <= 0
+def _merge_yaml_config(text: str, module: dict[str, Any], answers: dict[str, Any], force: bool) -> tuple[str, bool]:
+    """Edit only actual g33 root scalar spans; retain foreign hierarchy/comments."""
+    data = _parse_existing_yaml(text)
+    body = G.build_module_yaml_section(module, answers)
+    if G.MODULE_CODE not in data:
+        newline = "\r\n" if "\r\n" in text else "\n"
+        separator = "" if not text or text.endswith(newline * 2) else newline if text.endswith(newline) else newline * 2
+        result = text + separator + "g33:" + newline + newline.join(body) + newline
+        return result, result != text
+    document = yaml.compose(text, Loader=_yaml_loader())
+    section = next(value for key, value in document.value if key.value == G.MODULE_CODE)
+    if not isinstance(section, yaml.MappingNode) or section.flow_style:
+        raise ValueError("g33 section must be an editable block mapping")
+    managed = {"name": module["name"], "description": module["description"],
+               "version": str(module.get("module_version", G.MODULE_VERSION)), **answers}
+    edits = []
+    existing = set()
+    indent = section.value[0][0].start_mark.column if section.value else 2
+    for key, value in section.value:
+        existing.add(key.value)
+        if force and key.value in managed:
+            if not isinstance(value, yaml.ScalarNode):
+                raise ValueError(f"managed root key g33.{key.value} is not a scalar; refusing loss of operator content")
+            replacement = G.render_yaml_scalar(managed[key.value])
+            # Node spans exclude inline comments. Scalar-only substitution retains
+            # the exact key spelling, indentation, trailing comment and hierarchy.
+            edits.append((value.start_mark.index, value.end_mark.index, replacement))
+    missing = [key for key in managed if key not in existing]
+    if missing:
+        # Insert AFTER the complete section, never inside an operator child table.
+        end = section.end_mark.index
+        additions = "".join(" " * indent + f"{key}: {G.render_yaml_scalar(managed[key])}\n" for key in missing)
+        if end and text[end - 1] != "\n":
+            additions = "\n" + additions
+        edits.append((end, end, additions))
+    result = text
+    for start, stop, replacement in sorted(edits, reverse=True):
+        result = result[:start] + replacement + result[stop:]
+    return result, result != text
 
 
 def _find_yaml_g33_shapes(text: str) -> list[tuple[int, str]]:
@@ -324,12 +361,16 @@ def plan_install(
     # ---------- prerequisite preflight: zero writes on any failure below
     # 1. malformed YAML target
     cfg_path = bmad / "config.yaml"
-    cfg_text = cfg_path.read_text(encoding="utf-8") if cfg_path.exists() else ""
-    if cfg_text:
-        try:
-            _parse_existing_yaml(cfg_text)
-        except ValueError as err:
-            conflicts.append({
+    if cfg_path.exists():
+        with cfg_path.open("r", encoding="utf-8", newline="") as stream:
+            cfg_text = stream.read()
+    else:
+        cfg_text = ""
+    try:
+        yaml_data = _parse_existing_yaml(cfg_text)
+    except ValueError as err:
+        yaml_data = {}
+        conflicts.append({
                 "path": str(cfg_path),
                 "detail": f"malformed YAML authoring config: {err}",
                 "remedy": "fix the YAML or remove the g33 section; installer "
@@ -383,7 +424,7 @@ def plan_install(
     custom_text = custom_cfg.read_text(encoding="utf-8") if custom_cfg.exists() else ""
     if custom_text:
         try:
-            tomllib.loads(custom_text)
+            custom_data = tomllib.loads(custom_text)
         except tomllib.TOMLDecodeError as err:
             conflicts.append({
                 "path": str(custom_cfg),
@@ -392,8 +433,10 @@ def plan_install(
                           "(resolve_config.py) cannot load it",
             })
         else:
-            existing_code = _table_code(_toml_table_body(custom_text, G.TOML_TABLE_HEADER))
-            if existing_code is not None and existing_code != G.MODULE_CODE:
+            namespaces = custom_data.get("modules", {})
+            g33_table = namespaces.get(G.MODULE_CODE) if isinstance(namespaces, dict) else None
+            existing_code = g33_table.get("code") if isinstance(g33_table, dict) else None
+            if g33_table is not None and (not isinstance(g33_table, dict) or existing_code != G.MODULE_CODE):
                 conflicts.append({
                     "path": str(custom_cfg),
                     "detail": f"foreign [modules.g33] table (code="
@@ -453,50 +496,20 @@ def plan_install(
     body = G.build_module_yaml_section(module, answers)
     core_additions: dict[str, str] = {}
     for key, default in CORE_DEFAULTS.items():
-        if not re.search(rf"(?m)^{key}\s*:", cfg_text):
+        if key not in yaml_data:
             core_additions[key] = default
-    existing_g33_yaml = _extract_managed_section(cfg_text)
-    new_cfg, cfg_changed = "", False
-    if existing_g33_yaml is not None:
-        # preserve operator-edited managed values in the YAML section too:
-        # keep the existing section body verbatim, re-emit only keys it lacks
-        operator_keys = set()
-        for ln in existing_g33_yaml.splitlines():
-            m = re.match(r"^\s*([A-Za-z0-9_.-]+)\s*:", ln)
-            if m:
-                operator_keys.add(m.group(1))
-        additions = [ln for ln in body
-                     if not (m := re.match(r"^\s*([A-Za-z0-9_.-]+)\s*:", ln))
-                     or m.group(1) not in operator_keys]
-        additions = [ln for ln in additions
-                     if "managed by g33 installer" not in ln]
-        if force:
-            managed_values = {m.group(1): ln for ln in body
-                              if (m := re.match(r"^\s*([A-Za-z0-9_.-]+)\s*:", ln))}
-            merged_yaml_body = []
-            for ln in existing_g33_yaml.splitlines():
-                match = re.match(r"^\s*([A-Za-z0-9_.-]+)\s*:", ln)
-                if match and match.group(1) in managed_values:
-                    merged_yaml_body.append(managed_values.pop(match.group(1)))
-                else:
-                    merged_yaml_body.append(ln)
-            merged_yaml_body.extend(managed_values.values())
-            new_cfg, cfg_changed = G.replace_yaml_section(cfg_text, G.MODULE_CODE, merged_yaml_body)
-        elif additions:
-            merged_yaml_body = [
-                ln for ln in existing_g33_yaml.splitlines() if ln.strip()
-            ] + additions
-            new_cfg, cfg_changed = G.replace_yaml_section(
-                cfg_text, G.MODULE_CODE, merged_yaml_body)
-    else:
-        # no existing section (or --force): emit the managed body wholesale
-        new_cfg, cfg_changed = G.replace_yaml_section(
-            cfg_text, G.MODULE_CODE, body)
+    try:
+        new_cfg, cfg_changed = _merge_yaml_config(cfg_text, module, answers, force)
+    except ValueError as err:
+        return {"status": "conflict", "actions": [], "conflicts": [
+            {"path": str(cfg_path), "detail": f"unsupported authoring edit: {err}", "remedy": "preserve operator content and use an editable g33 scalar mapping"}],
+            "preserved": [], "warnings": warnings}
     if cfg_changed or core_additions:
         final_cfg = new_cfg
         if core_additions:
-            prefix_lines = [f"{k}: {G.render_yaml_scalar(v)}" for k, v in core_additions.items()]
-            existing_lines = final_cfg.splitlines()
+            newline = "\r\n" if "\r\n" in final_cfg else "\n"
+            prefix_lines = [f"{k}: {G.render_yaml_scalar(v)}" + newline for k, v in core_additions.items()]
+            existing_lines = final_cfg.splitlines(keepends=True)
             insert_at = 0
             for idx, line in enumerate(existing_lines):
                 if line.strip() and not line.startswith((" ", "#")):
@@ -505,12 +518,21 @@ def plan_install(
             else:
                 insert_at = len(existing_lines)
             existing_lines[insert_at:insert_at] = prefix_lines
-            final_cfg = "\n".join(existing_lines)
-            if not final_cfg.endswith("\n"):
-                final_cfg += "\n"
+            final_cfg = "".join(existing_lines)
         detail = "section g33 rewritten" if cfg_changed else "section g33 unchanged"
         if core_additions:
             detail += f"; core keys added (absent): {sorted(core_additions)}"
+        try:
+            final_yaml = _parse_existing_yaml(final_cfg)
+            # Every answer is a string in both authoring/runtime formats.
+            for key, value in answers.items():
+                expected = value if force or key not in yaml_data.get(G.MODULE_CODE, {}) else yaml_data[G.MODULE_CODE][key]
+                if final_yaml[G.MODULE_CODE].get(key) != expected:
+                    raise ValueError(f"planned g33.{key} differs from intended preserved/managed value")
+        except ValueError as err:
+            return {"status": "conflict", "actions": [], "conflicts": [
+                {"path": str(cfg_path), "detail": f"invalid planned YAML: {err}", "remedy": "repair authoring configuration before installation"}],
+                "preserved": [], "warnings": warnings}
         actions.append({
             "path": str(cfg_path), "action": "write",
             "detail": detail,

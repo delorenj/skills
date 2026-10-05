@@ -16,7 +16,14 @@ engine, or scheduler.
 
 ## Install
 
-Requires an existing BMAD install (`_bmad/`) in the target project.
+Requires an existing BMAD install (`_bmad/`) in the target project and
+Python >=3.11 with **PyYAML>=6.0** for structural authoring-config validation.
+The dependency is declared in `requirements.txt` and the installer's PEP 723
+script metadata. An environment owner may provision those requirements, or
+invoke `uv run scripts/g33_install.py ...` to consume that metadata. The bridge's
+`pythonExecutable` must select an environment with PyYAML. Missing PyYAML is an
+explicit actionable preflight refusal with zero writes; there is no subset-parser
+fallback and no automatic environment install by this module.
 
 Manual:
 
@@ -89,7 +96,8 @@ root, so the module relocates freely; `options.moduleRoot` and
 
 ## Conflicts (rejected before any mutation, exit 2)
 
-- malformed `_bmad/config.yaml` (tab indent, unclosed flow collections)
+- malformed or unsupported `_bmad/config.yaml` (real safe YAML parse, duplicate
+  mappings, unclosed quotes/collections, non-mapping document)
 - foreign or duplicate top-level `g33:` shapes in config.yaml (inline values,
   comment-only headers, sections without the managed marker)
 - pre-existing foreign `[modules.g33]` table with another module's `code`
@@ -178,11 +186,13 @@ An evidence bundle may provide `installed_evidence_path` and
 `deployed_evidence_path`. Each is a distinct JSON evidence file, separate from
 the diff, test proof and other state receipt. The schema is
 `{"state":"installed|deployed","claims":["exact claim"],"checks":[{"command":"verification command","exit_code":0,"observed":"recorded target observation"}]}`.
-Each check must have a nonempty command/observation and an integer zero exit.
-Claims without a matching valid receipt are `claimed-unverified`; diff/test
-success cannot certify installation or deployment. The handoff reads and hashes
-receipts; the independent reviewer must verify their provenance and target
-observations. No receipt command is executed by the handoff generator.
+The receipt is read, hashed and structurally inspected. A valid record still
+has unproven provenance and target observations: every supplied installed/deployed
+claim remains `claimed-unverified`. A zero exit field or command string cannot
+establish that a command actually ran. The generator never executes receipt
+commands and never invents trust mechanisms; independent target verification
+belongs to the owning workflow/reviewer. Evidence syntax and state truth are
+separate.
 
 Bridge `plan` and `apply` validate the same `answers` object through the installer.
 Their temporary answers file is outside the project and cleaned up on success
@@ -194,5 +204,37 @@ skill override, not file existence alone.
 
 Test proof certification requires a positive pass summary and explicit zero exit
 markers (`exit_code=0` or `command_exit_code=0`). A nonzero, missing or malformed
-marker leaves the proof uncertified. In a combined log, provide an exit marker
-for each command's summary; prose about an expected exit is not proof.
+marker leaves the proof uncertified. In a combined log, each summary needs its own following exit markers before
+the next summary/command block. Extra exits in one block cannot cover another
+block; stray or malformed markers leave evidence uncertified. Prose about an
+expected exit is not proof.
+
+## Implementation claim linkage
+
+A readable file is not implementation proof. The handoff parser validates
+supported textual unified patches: paired file headers, valid hunk headers and
+exact old/new line counts with actual changed lines. Empty, prose, malformed,
+binary, combined and metadata-only patches stay invalid/unsupported evidence.
+It reads recorded patches; it does not apply them or attest their provenance.
+
+To link a worker claim to evidence, supply `claim_evidence`, for example:
+
+```json
+{
+  "acceptance_criteria": ["AC1 safe installer"],
+  "worker_claims": ["implemented safe installer"],
+  "claim_evidence": [{
+    "claim": "implemented safe installer",
+    "acceptance_criteria": ["AC1 safe installer"],
+    "diff_paths": ["scripts/g33_install.py"]
+  }]
+}
+```
+
+Each claim requires a unique link to known exact acceptance-criterion strings
+and paths parsed from the valid diff, plus clean per-command test proof. Missing,
+invalid or duplicate links leave the claim `claimed-unverified`. A successful
+link is printed as `linked recorded evidence`; it validates artifact syntax and
+references, while independent review determines semantic AC fulfillment. Overall
+output retains this distinction and never certifies installed/deployed state.
+The evidence CLI consumes the selected project's installed doctrine pointer.

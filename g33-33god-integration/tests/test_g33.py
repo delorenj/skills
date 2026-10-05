@@ -154,7 +154,7 @@ def test_operator_edits_preserved_then_force(bmad_project):
     custom.write_text(text, encoding="utf-8")
     cfg = bmad_project / "_bmad" / "config.yaml"
     cfg_text = cfg.read_text(encoding="utf-8").replace(
-        "ecosystem_root: .", 'ecosystem_root: "my/ecosystem"')
+        'ecosystem_root: "."', 'ecosystem_root: "my/ecosystem"')
     cfg.write_text(cfg_text, encoding="utf-8")
 
     proc = install(bmad_project)

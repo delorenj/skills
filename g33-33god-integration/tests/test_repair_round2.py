@@ -70,6 +70,22 @@ def test_S1_valid_link_is_visible_in_implementation_evidence(tmp_path):
     assert 'AC1' in section and 'src/a.py' in section
     assert 'linked recorded evidence' in section
 
+
+def test_S1_duplicate_links_cannot_certify(tmp_path):
+    links = [{'claim': 'implemented change', 'acceptance_criteria': ['UNKNOWN'], 'diff_paths': ['src/a.py']},
+             {'claim': 'implemented change', 'acceptance_criteria': ['AC1'], 'diff_paths': ['src/a.py']}]
+    text = G.generate_handoff(MODULE, bundle(tmp_path, VALID, links=links))
+    assert 'claimed-unverified: implemented change' in implementation_section(text)
+
+
+def test_S3_initial_install_preserves_foreign_crlf_and_comments(bmad_project):
+    path = bmad_project / '_bmad/config.yaml'
+    original = b'# foreign operator comment\r\nproject_name: demo\r\noperator:\r\n  nested: keep # inline\r\n'
+    path.write_bytes(original)
+    assert install(bmad_project).returncode == 0
+    assert b'# foreign operator comment\r\n' in path.read_bytes()
+    assert b'project_name: demo\r\noperator:\r\n  nested: keep # inline\r\n' in path.read_bytes()
+
 @pytest.mark.parametrize("text", ['bmm: {unterminated\n', 'project_name: "unterminated\n',
     'bmm:\n  one: [unterminated\n', 'bmm:\n  duplicate: one\n  duplicate: two\n'])
 def test_S2_malformed_yaml_refused_without_writes(bmad_project, text):
@@ -94,7 +110,7 @@ def test_S2_missing_yaml_parser_actionable_refusal(bmad_project, monkeypatch):
 def test_S3_force_preserves_nested_keys_and_inline_comments(bmad_project):
     assert install(bmad_project).returncode == 0
     path = bmad_project / "_bmad/config.yaml"
-    text = path.read_text().replace('  ecosystem_root: .', '  ecosystem_root: "operator-root" # root inline')
+    text = path.read_text().replace('  ecosystem_root: .', '  ecosystem_root: "operator-root" # root inline').replace('  ecosystem_root: "."', '  ecosystem_root: "operator-root" # root inline')
     text += '  operator_nested:\n    ecosystem_root: keep-nested # nested comment\n    deeper:\n      name: "operator name"\n'
     path.write_text(text)
     assert install(bmad_project, "--force").returncode == 0

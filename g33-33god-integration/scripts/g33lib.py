@@ -237,10 +237,9 @@ def render_yaml_scalar(value: Any) -> str:
         return "null"
     if isinstance(value, (int, float)):
         return str(value)
-    s = str(value)
-    if s == "" or re.search(r"[:#{}\[\]&*!|>'\"%@`\x00-\x1f]", s) or s != s.strip():
-        return json.dumps(s, ensure_ascii=False)
-    return s
+    # Quote strings consistently: YAML implicit booleans/numbers/null/dates
+    # otherwise change their type while TOML retains strings.
+    return json.dumps(str(value), ensure_ascii=False)
 
 
 def build_module_yaml_section(module: dict[str, Any], answers: dict[str, Any]) -> list[str]:
@@ -752,9 +751,9 @@ _EXIT_CODE_RE = re.compile(
 def parse_test_proof(text: str) -> dict[str, Any]:
     """Parse a test-proof log for pass/fail counts and exit codes.
 
-    Honest about limitations: recognizes pytest/jest/go-test style summary
-    lines and `exit[_=]N` markers. Returns counts plus booleans; absence of
-    any recognizable summary is reported as unparseable (never success)."""
+    Supports N passed/failed/errors textual summaries with explicit exit-code
+    markers after each command's summary. Unsupported, incomplete or ambiguous
+    formats are unverified; this validates recorded output, not its provenance."""
     passed = failed = errors = 0
     for m in _TEST_PASS_RE.finditer(text):
         passed += int(m.group(1))
@@ -763,12 +762,34 @@ def parse_test_proof(text: str) -> dict[str, Any]:
     for m in _TEST_ERROR_RE.finditer(text):
         errors += int(m.group(1))
     exits = [int(m.group(1)) for m in _EXIT_CODE_RE.finditer(text)]
-    summary_lines = [line for line in text.splitlines() if any(
-        pattern.search(line) for pattern in (_TEST_PASS_RE, _TEST_FAIL_RE, _TEST_ERROR_RE))]
-    marker_lines = [line for line in text.splitlines() if re.match(
-        r"^\s*(?:command_)?exit(?:_code)?\s*[=:]", line, re.IGNORECASE)]
-    exits_complete = (bool(exits) and len(marker_lines) == len(exits)
-                      and len(exits) >= len(summary_lines))
+    # Each summary starts its own proof block. Only markers following that
+    # summary, before the next summary, can attest its command exit. Duplicate
+    # markers within A never cover a missing marker in B; stray/pre-summary
+    # markers are ambiguous and cannot certify a run.
+    blocks = []
+    current = None
+    ambiguous = False
+    marker_prefix = re.compile(r"^\s*(?:command_)?exit(?:_code)?\s*[=:]", re.IGNORECASE)
+    for line in text.splitlines():
+        is_summary = any(pattern.search(line) for pattern in
+                         (_TEST_PASS_RE, _TEST_FAIL_RE, _TEST_ERROR_RE))
+        is_boundary = bool(re.match(r"^\s*(?:block\b|command\s*:|\$\s)", line, re.IGNORECASE))
+        if is_summary:
+            current = {"summary": line, "exit_codes": [], "malformed": False}
+            blocks.append(current)
+        elif is_boundary:
+            current = None
+        if marker_prefix.match(line):
+            parsed = _EXIT_CODE_RE.fullmatch(line)
+            if current is None:
+                ambiguous = True
+            elif parsed is None:
+                current["malformed"] = True
+            else:
+                current["exit_codes"].append(int(parsed.group(1)))
+    exits_complete = bool(blocks) and not ambiguous and all(
+        block["exit_codes"] and not block["malformed"]
+        and all(code == 0 for code in block["exit_codes"]) for block in blocks)
     recognizable = bool(passed or failed or errors or exits
                         or re.search(r"\bPASSED\b|\bFAILED\b|\bOK\b", text))
     return {
@@ -777,11 +798,151 @@ def parse_test_proof(text: str) -> dict[str, Any]:
         "failed": failed,
         "errors": errors,
         "exit_codes": exits,
+        "blocks": blocks,
         "clean_pass": bool(
             recognizable and passed > 0 and not failed and not errors
             and exits_complete and all(e == 0 for e in exits)
         ),
     }
+
+
+_DIFF_HUNK_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(?: .*)?$")
+
+
+def parse_diff_evidence(text: str) -> dict[str, Any]:
+    """Validate supported textual unified patches with exact hunk counts.
+
+    Binary, combined and metadata-only changes are explicit unsupported proof,
+    never success. This parses a recorded patch; it does not attest provenance
+    or apply it to a checkout. No commands from evidence are executed.
+    """
+    lines = text.splitlines()
+    changed = set()
+    files = hunks = additions = deletions = 0
+
+    def fail(reason):
+        return {"valid": False, "reason": reason, "changed_paths": sorted(changed),
+                "files": files, "hunks": hunks, "additions": additions, "deletions": deletions}
+
+    def path_from_header(line):
+        raw = line[4:].split("\t", 1)[0]
+        if raw == "/dev/null":
+            return None
+        if raw.startswith('"'):
+            raw = json.loads(raw)
+        if raw.startswith(("a/", "b/")):
+            raw = raw[2:]
+        if not raw or raw.startswith("/") or ".." in raw.split("/") or "\x00" in raw:
+            raise ValueError("unsupported absolute/escaping/empty diff path")
+        return raw
+
+    index = 0
+    pending_git_file = False
+    while index < len(lines):
+        line = lines[index]
+        if not line:
+            index += 1
+            continue
+        if line.startswith("diff --git "):
+            if pending_git_file:
+                return fail("metadata-only/binary change is unsupported")
+            pending_git_file = True
+            index += 1
+            continue
+        if re.match(r"^(?:index [0-9a-f]+\.\.[0-9a-f]+(?: \d+)?|(?:new file|deleted file|old|new) mode \d+)$", line):
+            if not pending_git_file:
+                return fail("orphan Git metadata")
+            index += 1
+            continue
+        if not line.startswith("--- "):
+            return fail(f"unsupported/malformed patch content at line {index + 1}")
+        if index + 1 >= len(lines) or not lines[index + 1].startswith("+++ "):
+            return fail("old file header lacks matching new file header")
+        try:
+            old_path = path_from_header(line)
+            new_path = path_from_header(lines[index + 1])
+        except (ValueError, TypeError):
+            return fail("invalid/unsupported patch path")
+        if old_path is None and new_path is None:
+            return fail("both patch paths are /dev/null")
+        pending_git_file = False
+        index += 2
+        file_hunks = 0
+        last_old_end = last_new_end = -1
+        while index < len(lines) and lines[index].startswith("@@"):
+            match = _DIFF_HUNK_RE.fullmatch(lines[index])
+            if not match:
+                return fail(f"malformed hunk header at line {index + 1}")
+            old_start, old_count, new_start, new_count = (
+                int(match.group(1)), int(match.group(2) or 1),
+                int(match.group(3)), int(match.group(4) or 1))
+            if (old_start < last_old_end or new_start < last_new_end
+                    or (old_start == 0 and old_count) or (new_start == 0 and new_count)):
+                return fail("invalid/overlapping hunk coordinates")
+            last_old_end, last_new_end = old_start + old_count, new_start + new_count
+            index += 1
+            seen_old = seen_new = 0
+            changed_here = False
+            while index < len(lines) and (seen_old < old_count or seen_new < new_count):
+                body = lines[index]
+                if body == "\\ No newline at end of file":
+                    if not (seen_old or seen_new):
+                        return fail("orphan no-newline marker")
+                    index += 1
+                    continue
+                if not body or body[0] not in " +-":
+                    return fail(f"truncated/invalid hunk body at line {index + 1}")
+                marker = body[0]
+                if marker in " -": seen_old += 1
+                if marker in " +": seen_new += 1
+                if marker == "+": additions += 1; changed_here = True
+                if marker == "-": deletions += 1; changed_here = True
+                if seen_old > old_count or seen_new > new_count:
+                    return fail("hunk body exceeds declared line counts")
+                index += 1
+            if seen_old != old_count or seen_new != new_count:
+                return fail("hunk body does not match declared line counts")
+            if not changed_here:
+                return fail("hunk contains no changed lines")
+            while index < len(lines) and lines[index] == "\\ No newline at end of file":
+                index += 1
+            file_hunks += 1
+            hunks += 1
+        if not file_hunks:
+            return fail("file headers have no supported changed hunk")
+        files += 1
+        changed.update(p for p in (old_path, new_path) if p is not None)
+    if pending_git_file or not files:
+        return fail("no supported complete textual file patch")
+    return {"valid": True, "reason": "supported unified patch parsed",
+            "changed_paths": sorted(changed), "files": files, "hunks": hunks,
+            "additions": additions, "deletions": deletions}
+
+
+def link_claim_evidence(bundle: dict[str, Any], changed_paths: list[str]) -> dict[str, dict[str, Any]]:
+    """Validate declared claim→known AC→parsed path links, not semantic acceptance."""
+    claims = bundle.get("worker_claims") or []
+    criteria = bundle.get("acceptance_criteria") or []
+    links = bundle.get("claim_evidence") or []
+    if not isinstance(links, list):
+        return {}
+    out, duplicates, seen = {}, set(), set()
+    for link in links:
+        if not isinstance(link, dict):
+            continue
+        claim = link.get("claim")
+        acs, paths = link.get("acceptance_criteria"), link.get("diff_paths")
+        valid = (isinstance(claim, str) and claim in claims and isinstance(acs, list)
+                 and bool(acs) and all(isinstance(ac, str) and ac in criteria for ac in acs)
+                 and isinstance(paths, list) and bool(paths)
+                 and all(isinstance(path, str) and path in changed_paths for path in paths))
+        if isinstance(claim, str):
+            if claim in seen:
+                duplicates.add(claim)
+            seen.add(claim)
+        if valid:
+            out[claim] = link
+    return {claim: link for claim, link in out.items() if claim not in duplicates}
 
 
 def inspect_evidence_path(value: Any) -> dict[str, Any]:
@@ -810,11 +971,12 @@ def inspect_state_receipt(bundle: dict[str, Any], state: str) -> dict[str, Any]:
     """Validate a separate state receipt; test/diff evidence proves no install/deploy.
 
     Checks are recorded observations, not commands executed by this handoff.
-    Receipt authenticity and target reachability belong to the external reviewer.
+    Schema/hash validity does not establish provenance or target reachability.
+    Every supplied state receipt remains recorded-unverified.
     """
     value = bundle.get(f"{state}_evidence_path")
     evidence = inspect_evidence_path(value)
-    evidence["verified_claims"] = []
+    evidence["recorded_claims"] = []
     if evidence["status"] != "ok":
         return evidence
     path = Path(value).resolve()
@@ -837,7 +999,8 @@ def inspect_state_receipt(bundle: dict[str, Any], state: str) -> dict[str, Any]:
     except (OSError, ValueError, AttributeError, TypeError):
         valid = False
     if valid:
-        evidence["verified_claims"] = claims
+        evidence["recorded_claims"] = claims
+        evidence["status"] = "recorded-unverified"
     else:
         evidence["status"] = "invalid-state-receipt"
     return evidence
@@ -848,6 +1011,12 @@ def validate_bundle(bundle: dict[str, Any]) -> list[str]:
     for key in REQUIRED_BUNDLE_KEYS:
         if key not in bundle:
             errors.append(f"missing required key: {key}")
+    for key in ("acceptance_criteria", "worker_claims", "installed", "deployed", "outstanding", "review_notes"):
+        value = bundle.get(key)
+        if value is not None and (not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value)):
+            errors.append(f"{key} must be an array of nonempty strings")
+    if "claim_evidence" in bundle and not isinstance(bundle["claim_evidence"], list):
+        errors.append("claim_evidence must be an array")
     for path_key in ("diff_path", "test_proof_path"):
         value = bundle.get(path_key)
         if value is not None and not isinstance(value, str):
@@ -869,7 +1038,8 @@ def _pillar_citation(module_root: Path, doctrine_pointer: str) -> str:
     return f"{doctrine_pointer} — {nums}"
 
 
-def generate_handoff(module_root: Path, bundle: dict[str, Any]) -> str:
+def generate_handoff(module_root: Path, bundle: dict[str, Any],
+                     project_root: Path | None = None) -> str:
     ac = bundle.get("acceptance_criteria") or []
     claims = bundle.get("worker_claims") or []
     diff = bundle.get("diff_path", "")
@@ -892,8 +1062,16 @@ def generate_handoff(module_root: Path, bundle: dict[str, Any]) -> str:
         except OSError:
             proof_parse = {"recognized": False}
 
-    evidence_ok = diff_ev["status"] == "ok" and proof_ev["status"] == "ok"
+    diff_parse = {"valid": False, "reason": diff_ev["status"], "changed_paths": []}
+    if diff_ev["status"] == "ok":
+        try:
+            diff_parse = parse_diff_evidence(Path(diff).read_text(encoding="utf-8"))
+        except (OSError, UnicodeError):
+            diff_parse = {"valid": False, "reason": "unreadable/unsupported textual diff", "changed_paths": []}
     proof_clean = bool(proof_parse.get("clean_pass"))
+    evidence_ok = bool(diff_parse["valid"] and proof_clean)
+    linked_claims = link_claim_evidence(bundle, diff_parse["changed_paths"]) if evidence_ok else {}
+    claims_certified = bool(claims) and all(claim in linked_claims for claim in claims)
     state_receipts = {state: inspect_state_receipt(bundle, state)
                       for state in ("installed", "deployed")}
     # identity validation for the attestation
@@ -916,14 +1094,20 @@ def generate_handoff(module_root: Path, bundle: dict[str, Any]) -> str:
     )
 
     lines.append("## Implemented\n")
-    if evidence_ok:
-        lines.append(bullet_list([str(c) for c in claims]) if claims
-                     else "- none reported\n")
-    else:
-        lines.append(
-            "- [unverified — unresolved evidence, claims not certified]\n")
-        for c in claims:
-            lines.append(f"- claimed-unverified: {c}\n")
+    for claim in claims:
+        if claim in linked_claims:
+            link = linked_claims[claim]
+            lines.append(f"- {claim} — linked recorded evidence: "
+                         f"AC {', '.join(link['acceptance_criteria'])}; "
+                         f"changed paths {', '.join(link['diff_paths'])}; "
+                         f"diff {diff_ev['sha256']}; tests {proof_ev['sha256']}\n")
+        else:
+            lines.append(f"- claimed-unverified: {claim}\n")
+    if not claims:
+        lines.append("- none reported\n")
+    if claims and not claims_certified:
+        lines.append("- [unverified — unresolved evidence or missing AC/path linkage; claims not certified]\n")
+    lines.append("- Linkage validates recorded artifacts and references; semantic AC fulfillment requires independent review.\n")
 
     lines.append("\n## Tested\n")
     if proof_ev["status"] == "ok" and proof_parse:
@@ -953,19 +1137,19 @@ def generate_handoff(module_root: Path, bundle: dict[str, Any]) -> str:
     else:
         lines.append("- none reported\n")
 
-    for state, claims in (("installed", installed), ("deployed", deployed)):
+    for state, state_claims in (("installed", installed), ("deployed", deployed)):
         lines.append(f"\n## {state.title()}\n")
         receipt = state_receipts[state]
-        for claim in claims:
-            if claim in receipt["verified_claims"]:
-                lines.append(f"- {claim} — {state} receipt VERIFIED: {receipt['path']} "
-                             f"(sha256 {receipt['sha256']})\n")
-            else:
-                lines.append(f"- claimed-unverified: {claim}\n")
-        if not claims:
+        for claim in state_claims:
+            lines.append(f"- claimed-unverified: {claim}\n")
+        if not state_claims:
             lines.append("- none reported\n")
-        if any(claim not in receipt["verified_claims"] for claim in claims):
-            lines.append(f"- {state} claims are NOT certified: separate receipt {receipt['status']}\n")
+        if receipt.get("sha256"):
+            lines.append(f"- recorded {state} evidence READ: {receipt['path']} "
+                         f"(sha256 {receipt['sha256']}); {receipt['status']} — "
+                         "independent provenance and target observation are unproven\n")
+        if state_claims:
+            lines.append(f"- {state} claims are NOT certified; receipt text/format cannot prove target state\n")
 
     lines.append("\n## Outstanding\n")
     lines.append(bullet_list([str(o) for o in outstanding]))
@@ -974,10 +1158,13 @@ def generate_handoff(module_root: Path, bundle: dict[str, Any]) -> str:
     lines.append(bullet_list([str(a) for a in ac]) if ac else "- none provided\n")
 
     lines.append("\n## Diff\n")
-    if diff_ev["status"] == "ok":
+    if diff_parse["valid"]:
         lines.append(
             f"- diff VERIFIED: {diff} (sha256 {diff_ev.get('sha256', '')[:12]}…, "
-            f"{diff_ev.get('size')} bytes)\n")
+            f"{diff_ev.get('size')} bytes; {diff_parse['hunks']} hunks; "
+            f"changed paths {', '.join(diff_parse['changed_paths'])})\n")
+    elif diff_ev["status"] == "ok":
+        lines.append(f"- diff READ but INVALID/UNSUPPORTED: {diff} — {diff_parse['reason']}; cannot certify\n")
     elif diff:
         lines.append(
             f"- diff MISSING ({diff_ev['status']}): {diff} — not verified\n")
@@ -996,7 +1183,8 @@ def generate_handoff(module_root: Path, bundle: dict[str, Any]) -> str:
         f"- test_proof_path: {proof_ev['status']}"
         + (f" (sha256 {proof_ev['sha256']})" if proof_ev.get("sha256") else "") + "\n")
     lines.append(
-        f"- overall: {'evidence verified' if evidence_ok else 'unresolved evidence — claims above are NOT certified'}\n")
+        "- overall: " + ("recorded diff/test evidence and claim links validated; independent acceptance and installed/deployed state remain unverified"
+                          if evidence_ok and claims_certified else "unresolved evidence or unlinked claims — claims above are NOT certified") + "\n")
 
     lines.append("\n## Attestation\n")
     if identities_ok:
@@ -1014,6 +1202,6 @@ def generate_handoff(module_root: Path, bundle: dict[str, Any]) -> str:
     lines.append(
         "- Decision compass: "
         + _pillar_citation(module_root, str(
-            (effective_config(module_root, None).get("doctrine_pointer"))
+            (effective_config(module_root, project_root).get("doctrine_pointer"))
             or "momo/PILLARS.md")) + "\n")
     return "".join(lines)

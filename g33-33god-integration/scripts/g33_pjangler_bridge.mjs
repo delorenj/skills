@@ -96,6 +96,14 @@ async function observeState(projectRoot, moduleRoot, options, python) {
       || !existsSync(help) || !/33GOD Integration,/.test(readFileSync(help, "utf8"))) {
     return reply("conflict", "partial/tampered g33 install: authoring/help surfaces are missing or inconsistent");
   }
+  // The authoritative installer plan compares the complete normalized owned
+  // CSV rows to canonical content. Any help repair action means observation
+  // has found missing/tampered owned rows, including duplicates or args changes.
+  const helpAction = (audit.payload.actions || []).find((action) =>
+    resolve(action.path) === resolve(help));
+  if (!helpAction || helpAction.action !== "already-present") {
+    return reply("conflict", "owned g33 help registry rows are missing, duplicated or tampered; all canonical rows are required");
+  }
   const evidence = [`real resolve_config.py resolves modules.g33 (exit 0): ${JSON.stringify(configuration)}`,
     `managed config.yaml g33 section present`, `help rows present in ${relative(projectRoot, help)}`];
   const customizationResolver = join(bmad, "scripts/resolve_customization.py");

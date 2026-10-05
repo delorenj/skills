@@ -151,7 +151,11 @@ def test_R3_installed_deployed_require_separate_receipts(tmp_path):
             "checks": [{"command": "fixture verification", "exit_code": 0, "observed": "expected fixture state"}]}))
         bundle[f"{state}_evidence_path"] = str(receipt)
     text = G.generate_handoff(MODULE_ROOT, bundle)
-    assert "deployed receipt VERIFIED" in text and "installed receipt VERIFIED" in text
+    # A self-authored receipt remains recorded evidence; schema validity alone
+    # cannot establish independently observed installation/deployment state.
+    assert "deployed receipt VERIFIED" not in text and "installed receipt VERIFIED" not in text
+    assert "recorded deployed evidence READ" in text and "recorded installed evidence READ" in text
+    assert "claimed-unverified: prod deployed" in text and "claimed-unverified: fixture installed" in text
     bundle["deployed_evidence_path"] = str(tests)
     assert "claimed-unverified: prod deployed" in G.generate_handoff(MODULE_ROOT, bundle)
 

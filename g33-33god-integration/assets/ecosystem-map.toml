@@ -82,7 +82,7 @@ notes = "Holocene is a supported command/result UI surface, not read-only."
 label = "Project provisioning and registry"
 owner = "PJangler"
 entrypoint = "pj"
-notes = "PJangler provisions projects and owns canonical .project.json bindings. Identity join: routing/agent identity is declared in the Flume-owned agents registry (identity field); board-to-repo identity lives in the PJangler-owned .project.json; 'pj project identity --apply' is the ONE supported join; nothing else crosses stores."
+notes = "PJangler provisions projects and owns canonical .project.json bindings. Identity join: routing/agent identity is declared in the agent-registry-owned agents registry (identity field); board-to-repo identity lives in the PJangler-owned .project.json; 'pj project identity --apply' is the ONE supported join; nothing else crosses stores."
 
 [routes.code_review]
 label = "Independent review"
