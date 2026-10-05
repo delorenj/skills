@@ -1,6 +1,6 @@
 # Module Setup
 
-Standalone module self-registration for the 33GOD Integration (g) expansion
+Standalone module self-registration for the 33GOD Integration (g33) expansion
 module. This file is loaded when:
 
 - The user passes `setup`, `configure`, or `install` as an argument
@@ -12,17 +12,18 @@ Registers g33 into a project that ALREADY has BMAD installed. Writes:
 
 - **`{project-root}/_bmad/config.yaml`** — `g33:` section (surgical; other
   sections and operator edits preserved byte-for-byte)
-- **`{project-root}/_bmad/module-help.csv`** — g33 capability rows (anti-zombie)
+- **`{project-root}/_bmad/_config/bmad-help.csv`** — active g33 capability rows
+  (anti-zombie; YAML-only layouts use legacy `module-help.csv` and stay inactive)
 - **`{project-root}/_bmad/custom/config.toml`** — `[modules.g33]` team TOML
   registration, active in the REAL upstream 4-layer runtime resolver
-- **`{project-root}/_bmad/custom/bmad-build.toml`** and
-  **`{project-root}/_bmad/custom/bmad-code-review.toml`** — sparse team
+- **`{project-root}/_bmad/custom/bmad-*.toml`** — build, code-review, prd, spec
+  and architecture overrides only for actually installed skill surfaces; sparse team
   overrides using only customize.toml-supported keys (activation steps,
   persistent facts)
 
 ## Check Existing Config
 
-1. Read `./assets/module.yaml` (code `g33`, version 1.0.0).
+1. Read `./assets/module.yaml` (code `g33`, version 1.1.0).
 2. If `{project-root}/_bmad/config.yaml` already has a `g33` section, this is a
    reconfiguration/update.
 3. Run a dry run first and show the plan:
@@ -54,7 +55,8 @@ python3 ./scripts/g33_install.py --project-root {resolved-project-root}
 ```
 
 The installer is idempotent: a rerun with no operator edits changes nothing;
-operator-edited g33 content is preserved on rerun unless `--force` is passed.
+operator-edited g33 content is preserved on rerun. `--force` re-emits managed
+values while preserving unknown keys, comments and operator array entries.
 All conflicts are detected before any mutation — a rejected conflict leaves
 zero mutations.
 
@@ -66,12 +68,42 @@ After install, verify the module is ACTIVE in the real upstream TOML resolver:
 python3 {project-root}/_bmad/scripts/resolve_config.py --project-root {resolved-project-root} --key modules.g33
 ```
 
-The output must show `code = "g33"`. Then display the `module_greeting` from
+The JSON output must show `modules.g33.code` equal to `g33`.
+A supported active layout contains `_bmad/config.toml`, the real configuration
+and customization resolvers, and an installed BMAD customization surface.
+BMAD 6.12.0 YAML-only registration is inactive; the bridge reports `unavailable`.
+Use the real `resolve_customization.py` with an installed skill to verify its
+g33 activation steps and persistent facts. Then display the `module_greeting` from
 `./assets/module.yaml`.
 
 ## Manual install (alternative)
 
-Copy this skill directory into the project's skill root, then run the same
-`g33_install.py` command. For PJangler-driven provisioning, invoke
+Select `g33-33god-integration` through the canonical Skillex registry in the
+project's `.agents/skills.json`, then run
+`skillex --registry-root <registry-root> sync --project <project-root> --json`.
+The activated skill is a reference symlink to the canonical body; do not copy
+its source into a reference-only pack. Run the canonical module's
+`g33_install.py` command after activation. For PJangler-driven provisioning, invoke
 `scripts/g33_cli.py setup --project-root <root>` which delegates to the same
 installer.
+
+## Upstream BMAD update boundary
+
+**update-preservation: unavailable.** The observe/plan/apply v1 bridge does not
+supply pre-update capture/protection, post-update restore/reconcile/verify, or
+failure recovery for an upstream BMAD installer. It must not authorize a safe
+upstream update. The owning updater must refuse updates before mutation until
+it supplies that contract, including native installed BMAD projection bytes,
+operator-edited help/SKILL.md, customizations, g33 declarations and foreign
+mappings. Retained g33 trees and declarations remain protected after opt-out.
+This module's additive rerun applies only to its own contained write targets.
+
+Write containment uses the real project root: a supplied project-root symlink
+is allowed as an alias for that real directory; every existing descendant
+write component and leaf must be a regular directory/file, never a symlink
+(including dangling links and links that point back inside the project).
+Read-only reference activation symlinks in `.agents/skills` remain allowed.
+Outputs are staged then replaced atomically. A caught apply failure rolls back
+published files and created directories; rollback failure is returned explicitly.
+Abrupt process termination or machine failure is not a supported update/recovery
+protocol and requires operator inspection before another apply.

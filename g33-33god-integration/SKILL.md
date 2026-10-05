@@ -68,7 +68,8 @@ python3 {skill-root}/scripts/g33_cli.py evidence --project-root {project-root} -
 
 Reads an evidence bundle (JSON: `acceptance_criteria`, `worker_claims`,
 `diff_path`, `test_proof_path`, optional `review_notes`, `implementer`,
-`reviewer`) and writes a handoff document that separates implemented / tested /
+`reviewer`, separate `installed_evidence_path` / `deployed_evidence_path` receipts;
+see README for their schema) and writes a handoff document that separates implemented / tested /
 installed / deployed / outstanding. Evidence is VERIFIED, not trusted: the
 diff and test proof are read, hashed and parsed (pass/fail counts, exit
 codes); nonexistent/empty/failing evidence is labeled claimed-unverified or
@@ -95,3 +96,24 @@ recorded in the owner map or the project's doctrine_pointer override.
 User receives either a routing/preflight/evidence result or a completed module
 registration. Summarize findings with evidence paths; never overstate
 installed/deployed state (see `modules.g33` in `{project-root}/_bmad/custom/config.toml`).
+
+## Upstream BMAD update boundary
+
+**update-preservation: unavailable.** The observe/plan/apply v1 bridge does not
+supply pre-update capture/protection, post-update restore/reconcile/verify, or
+failure recovery for an upstream BMAD installer. It must not authorize a safe
+upstream update. The owning updater must refuse updates before mutation until
+it supplies that contract, including native installed BMAD projection bytes,
+operator-edited help/SKILL.md, customizations, g33 declarations and foreign
+mappings. Retained g33 trees and declarations remain protected after opt-out.
+This module's additive rerun applies only to its own contained write targets.
+
+Write containment uses the real project root: a supplied project-root symlink
+is allowed as an alias for that real directory; every existing descendant
+write component and leaf must be a regular directory/file, never a symlink
+(including dangling links and links that point back inside the project).
+Read-only reference activation symlinks in `.agents/skills` remain allowed.
+Outputs are staged then replaced atomically. A caught apply failure rolls back
+published files and created directories; rollback failure is returned explicitly.
+Abrupt process termination or machine failure is not a supported update/recovery
+protocol and requires operator inspection before another apply.

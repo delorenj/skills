@@ -61,7 +61,7 @@ Statuses per operation — observe: installed|missing|unavailable|conflict|error
 plan: planned|unchanged|unavailable|conflict|error; apply:
 changed|unchanged|unavailable|conflict|error. `installed` requires real
 content verification (customization content, resolver activation, help rows,
-canonical links), never metadata claims; partial/tampered installs report
+installed skill sources), never metadata claims; partial/tampered installs report
 missing/conflict. plan performs zero writes. apply runs the installer then
 re-observes. Unknown option keys are rejected, never silently ignored. Python
 subprocesses run with `-B`/`PYTHONDONTWRITEBYTECODE=1` (no bytecode writes).
@@ -95,7 +95,8 @@ root, so the module relocates freely; `options.moduleRoot` and
 - pre-existing foreign `[modules.g33]` table with another module's `code`
 - pre-broken `_bmad/custom/config.toml` or `_bmad/config.toml` (tomllib —
   the real resolver's parser)
-- symlinked write targets (config.yaml, custom/config.toml, help CSVs)
+- symlinked write ancestors or leaves, including every installed-skill override
+- malformed or incompatible existing skill overrides
 
 A rejected conflict leaves ZERO mutations.
 
@@ -149,3 +150,49 @@ runtime/profiles/templates — Flume renders what Hermes Fleet scaffolds.
   any gap) or shadow (WARN; never certifies managed readiness).
 - No new event types; event identity follows the Bloodbank contract.
 - Live 33GOD install awaits explicit parent readiness — **deployed: false**.
+
+## Upstream BMAD update boundary
+
+**update-preservation: unavailable.** The observe/plan/apply v1 bridge does not
+supply pre-update capture/protection, post-update restore/reconcile/verify, or
+failure recovery for an upstream BMAD installer. It must not authorize a safe
+upstream update. The owning updater must refuse updates before mutation until
+it supplies that contract, including native installed BMAD projection bytes,
+operator-edited help/SKILL.md, customizations, g33 declarations and foreign
+mappings. Retained g33 trees and declarations remain protected after opt-out.
+This module's additive rerun applies only to its own contained write targets.
+
+Write containment uses the real project root: a supplied project-root symlink
+is allowed as an alias for that real directory; every existing descendant
+write component and leaf must be a regular directory/file, never a symlink
+(including dangling links and links that point back inside the project).
+Read-only reference activation symlinks in `.agents/skills` remain allowed.
+Outputs are staged then replaced atomically. A caught apply failure rolls back
+published files and created directories; rollback failure is returned explicitly.
+Abrupt process termination or machine failure is not a supported update/recovery
+protocol and requires operator inspection before another apply.
+
+## Separate installed and deployed receipts
+
+An evidence bundle may provide `installed_evidence_path` and
+`deployed_evidence_path`. Each is a distinct JSON evidence file, separate from
+the diff, test proof and other state receipt. The schema is
+`{"state":"installed|deployed","claims":["exact claim"],"checks":[{"command":"verification command","exit_code":0,"observed":"recorded target observation"}]}`.
+Each check must have a nonempty command/observation and an integer zero exit.
+Claims without a matching valid receipt are `claimed-unverified`; diff/test
+success cannot certify installation or deployment. The handoff reads and hashes
+receipts; the independent reviewer must verify their provenance and target
+observations. No receipt command is executed by the handoff generator.
+
+Bridge `plan` and `apply` validate the same `answers` object through the installer.
+Their temporary answers file is outside the project and cleaned up on success
+and failure. `answers` is unsupported for `observe`, which reads installed state.
+Invalid option values and unknown option keys return `error`. `observe` returns
+`unavailable` if the runtime/customization resolver or an installed customization
+surface is absent; `installed` includes real resolution of at least one g33
+skill override, not file existence alone.
+
+Test proof certification requires a positive pass summary and explicit zero exit
+markers (`exit_code=0` or `command_exit_code=0`). A nonzero, missing or malformed
+marker leaves the proof uncertified. In a combined log, provide an exit marker
+for each command's summary; prose about an expected exit is not proof.

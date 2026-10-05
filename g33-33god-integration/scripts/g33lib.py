@@ -86,7 +86,7 @@ def _parse_scalar(text: str) -> Any:
     if (text.startswith('"') and text.endswith('"')) or (
         text.startswith("'") and text.endswith("'")
     ):
-        return text[1:-1]
+        return json.loads(text) if text.startswith('"') else text[1:-1].replace("''", "'")
     try:
         return int(text)
     except ValueError:
@@ -238,8 +238,8 @@ def render_yaml_scalar(value: Any) -> str:
     if isinstance(value, (int, float)):
         return str(value)
     s = str(value)
-    if s == "" or re.search(r"[:#{}\[\]&*!|>'\"%@`]", s) or s != s.strip():
-        return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    if s == "" or re.search(r"[:#{}\[\]&*!|>'\"%@`\x00-\x1f]", s) or s != s.strip():
+        return json.dumps(s, ensure_ascii=False)
     return s
 
 
@@ -257,42 +257,67 @@ def build_module_yaml_section(module: dict[str, Any], answers: dict[str, Any]) -
 TOML_TABLE_HEADER = "[modules.g33]"
 
 
+def toml_statements(text: str) -> list[dict[str, Any]]:
+    """Split validated TOML into whole statements, respecting multiline values.
+
+    The real parser establishes statement boundaries; bracket-looking lines
+    inside arrays or multiline strings cannot become synthetic table headers.
+    Comments and blank lines remain individual, byte-preserved statements.
+    """
+    out = []
+    buffer = []
+    start = 0
+    for index, line in enumerate(text.splitlines(keepends=True)):
+        buffer.append(line)
+        raw = "".join(buffer)
+        try:
+            parsed = tomllib.loads(raw)
+        except tomllib.TOMLDecodeError:
+            continue
+        stripped = raw.strip()
+        kind = ("table" if stripped.startswith("[") else
+                "assignment" if parsed else "other")
+        key = next(iter(parsed), None) if kind == "assignment" else None
+        out.append({"text": raw, "kind": kind, "key": key,
+                    "start": start, "end": index + 1})
+        start = index + 1
+        buffer = []
+    if buffer:
+        raise ValueError("incomplete TOML statement")
+    return out
+
+
+def toml_table_range(text: str, header: str) -> tuple[int, int] | None:
+    statements = toml_statements(text)
+    for index, item in enumerate(statements):
+        if item["kind"] == "table" and item["text"].split("#", 1)[0].strip() == header:
+            end = next((following["start"] for following in statements[index + 1:]
+                        if following["kind"] == "table"), len(text.splitlines()))
+            return item["end"], end
+    return None
+
+
+def toml_table_body(text: str, header: str) -> str | None:
+    span = toml_table_range(text, header)
+    if span is None:
+        return None
+    return "".join(text.splitlines(keepends=True)[span[0]:span[1]])
+
+
 def replace_toml_table(
     text: str, table_header: str, new_body_lines: list[str]
 ) -> tuple[str, bool]:
-    """Replace (or append) a single TOML table, preserving every other byte."""
-    lines = text.splitlines(keepends=False)
-    out: list[str] = []
-    header_re = re.compile(r"^\s*" + re.escape(table_header) + r"\s*$")
-    replaced = False
-    i = 0
-    n = len(lines)
-    while i < n:
-        line = lines[i]
-        if not replaced and header_re.match(line):
-            j = i + 1
-            while j < n and lines[j].strip() and not lines[j].lstrip().startswith("["):
-                j += 1
-            # drop our managed-comment if it directly precedes the old table
-            if out and out[-1].strip() == "# g33 managed table — rerun replaces only this table":
-                out.pop()
-            out.append("# g33 managed table — rerun replaces only this table")
-            out.append(table_header)
-            out.extend(new_body_lines)
-            replaced = True
-            i = j
-            continue
-        out.append(line)
-        i += 1
-    if not replaced:
-        if out and out[-1].strip():
-            out.append("")
-        out.append(f"# g33 managed table — rerun replaces only this table")
-        out.append(table_header)
-        out.extend(new_body_lines)
-    new_text = "\n".join(out)
-    if not new_text.endswith("\n"):
-        new_text += "\n"
+    """Replace one parsed table body; preserve nested tables and foreign bytes."""
+    span = toml_table_range(text, table_header)
+    body = "\n".join(new_body_lines)
+    if body and not body.endswith("\n"):
+        body += "\n"
+    if span is None:
+        separator = "" if not text or text.endswith("\n\n") else "\n" if text.endswith("\n") else "\n\n"
+        new_text = text + separator + "# g33 managed table — rerun replaces only this table\n" + table_header + "\n" + body
+    else:
+        lines = text.splitlines(keepends=True)
+        new_text = "".join(lines[:span[0]]) + body + "".join(lines[span[1]:])
     return new_text, new_text != text
 
 
@@ -303,118 +328,77 @@ def render_toml_value(value: Any) -> str:
         return str(value)
     if isinstance(value, list):
         return "[" + ", ".join(render_toml_value(v) for v in value) + "]"
-    s = str(value)
-    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    return json.dumps(str(value), ensure_ascii=False)
 
 
 def build_module_toml_rows(module: dict[str, Any], answers: dict[str, Any]) -> list[str]:
-    rows: list[str] = []
-    rows.append("code = " + render_toml_value(module.get("code", MODULE_CODE)))
-    rows.append("name = " + render_toml_value(module.get("name", MODULE_NAME)))
-    rows.append("version = " + render_toml_value(module.get("module_version", MODULE_VERSION)))
-    for key in sorted(answers):
-        rows.append(f"{key} = " + render_toml_value(answers[key]))
+    rows = ["code = " + render_toml_value(module.get("code", MODULE_CODE)),
+            "name = " + render_toml_value(module.get("name", MODULE_NAME)),
+            "version = " + render_toml_value(module.get("module_version", MODULE_VERSION))]
+    rows.extend(f"{key} = {render_toml_value(answers[key])}" for key in sorted(answers))
     return rows
 
 
-def merge_toml_tables(
-    managed_lines: list[str], operator_text: str | None
-) -> list[str]:
-    """Additive merge for reinstall: keep operator keys, re-emit managed rows.
+def _toml_comments(raw: str) -> list[str]:
+    """Extract comments outside quoted/multiline values before replacing a key."""
+    comments = []
+    quote = None
+    index = 0
+    while index < len(raw):
+        char = raw[index]
+        if quote:
+            if quote.startswith('"') and char == "\\":
+                index += 2
+                continue
+            if raw.startswith(quote, index):
+                index += len(quote)
+                quote = None
+                continue
+        elif char in ("'", '"'):
+            quote = char * 3 if raw.startswith(char * 3, index) else char
+            index += len(quote)
+            continue
+        elif char == "#":
+            end = raw.find("\n", index)
+            if end == -1:
+                end = len(raw)
+            comments.append(raw[index:end] + "\n")
+            index = end
+        index += 1
+    return comments
 
-    ``operator_text`` is the current [modules.g33] body (may be None). Managed
-    keys (code/name/version/answers) are re-emitted from the module; operator
-    keys not in the managed set are preserved in their original order after
-    the managed block. Multiline arrays are preserved verbatim.
-    """
-    managed_keys = set()
-    for line in managed_lines:
-        m = re.match(r"^([A-Za-z0-9_.-]+)\s*=", line)
-        if m:
-            managed_keys.add(m.group(1))
-    out = list(managed_lines)
-    if operator_text:
-        seen: set[str] = set()
-        in_multiline = False
-        key = None
-        buffer: list[str] = []
-        for line in operator_text.splitlines():
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            if in_multiline:
-                buffer.append(line)
-                if _brackets_closed("".join(buffer)):
-                    in_multiline = False
-                    if key and key not in managed_keys:
-                        out.extend(buffer)
-                    buffer, key = [], None
-                continue
-            m = re.match(r"^([A-Za-z0-9_.-]+)\s*=\s*(.*)$", stripped)
-            if not m:
-                continue
-            key = m.group(1)
-            buffer = [line]
-            if not _brackets_closed(m.group(2)):
-                in_multiline = True
-                continue
-            if key not in managed_keys and key not in seen:
-                out.extend(buffer)
-            seen.add(key)
-            buffer, key = [], None
-    return out
+
+def merge_toml_tables(managed_lines: list[str], operator_text: str | None) -> list[str]:
+    """Replace managed assignments only; preserve comments and unknown values."""
+    replacements = {item["key"]: item["text"] for item in
+                    toml_statements("\n".join(managed_lines) + "\n")
+                    if item["kind"] == "assignment"}
+    chunks = []
+    for item in toml_statements(operator_text or ""):
+        if item["kind"] == "assignment" and item["key"] in replacements:
+            replacement = replacements.pop(item["key"])
+            # Keep the original statement byte-stable when values are unchanged.
+            if tomllib.loads(item["text"]) == tomllib.loads(replacement):
+                chunks.append(item["text"])
+            else:
+                chunks.extend(_toml_comments(item["text"]))
+                chunks.append(replacement)
+        else:
+            chunks.append(item["text"])
+    chunks.extend(replacements.values())
+    return "".join(chunks).splitlines()
 
 
 def merge_toml_tables_preserving_operator(
     managed_lines: list[str], operator_text: str | None
 ) -> list[str]:
-    """Non-force reinstall merge: operator values win for keys they define.
-
-    Managed rows are emitted only for keys ABSENT from the operator table;
-    unknown operator keys and comments are preserved. This keeps an
-    operator-edited [modules.g33] byte-stable on a plain rerun while still
-    adding newly introduced managed keys."""
     if not operator_text:
         return list(managed_lines)
-    operator_keys: set[str] = set()
-    in_multiline = False
-    for line in operator_text.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if in_multiline:
-            if _brackets_closed(line):
-                in_multiline = False
-            continue
-        m = re.match(r"^([A-Za-z0-9_.-]+)\s*=\s*(.*)$", stripped)
-        if not m:
-            continue
-        if not _brackets_closed(m.group(2)):
-            in_multiline = True
-        operator_keys.add(m.group(1))
-    # operator body first (verbatim, comments included), then absent managed rows
-    absent = [ln for ln in managed_lines
-              if not (m := re.match(r"^([A-Za-z0-9_.-]+)\s*=", ln))
-              or m.group(1) not in operator_keys]
-    body = [ln for ln in operator_text.splitlines() if ln.strip()]
-    return body + absent
-
-
-def _brackets_closed(text: str) -> bool:
-    depth = 0
-    quote = None
-    for ch in text:
-        if quote:
-            if ch == quote:
-                quote = None
-            continue
-        if ch in "\"'":
-            quote = ch
-        elif ch == "[":
-            depth += 1
-        elif ch == "]":
-            depth -= 1
-    return depth <= 0
+    operator_keys = {item["key"] for item in toml_statements(operator_text)
+                     if item["kind"] == "assignment"}
+    absent = [item["text"] for item in toml_statements("\n".join(managed_lines) + "\n")
+              if item["key"] not in operator_keys]
+    return (operator_text + "".join(absent)).splitlines()
 
 
 # ------------------------------------------------------------------- CSV merge
@@ -760,7 +744,9 @@ REQUIRED_BUNDLE_KEYS = ("acceptance_criteria", "worker_claims", "diff_path",
 _TEST_PASS_RE = re.compile(r"(\d+)\s+passed", re.IGNORECASE)
 _TEST_FAIL_RE = re.compile(r"(\d+)\s+failed", re.IGNORECASE)
 _TEST_ERROR_RE = re.compile(r"(\d+)\s+errors?", re.IGNORECASE)
-_EXIT_CODE_RE = re.compile(r"exit(?:_code)?\s*[=:]\s*(\d+)", re.IGNORECASE)
+_EXIT_CODE_RE = re.compile(
+    r"^\s*(?:command_)?exit(?:_code)?\s*[=:]\s*(-?\d+)\s*$",
+    re.IGNORECASE | re.MULTILINE)
 
 
 def parse_test_proof(text: str) -> dict[str, Any]:
@@ -777,6 +763,12 @@ def parse_test_proof(text: str) -> dict[str, Any]:
     for m in _TEST_ERROR_RE.finditer(text):
         errors += int(m.group(1))
     exits = [int(m.group(1)) for m in _EXIT_CODE_RE.finditer(text)]
+    summary_lines = [line for line in text.splitlines() if any(
+        pattern.search(line) for pattern in (_TEST_PASS_RE, _TEST_FAIL_RE, _TEST_ERROR_RE))]
+    marker_lines = [line for line in text.splitlines() if re.match(
+        r"^\s*(?:command_)?exit(?:_code)?\s*[=:]", line, re.IGNORECASE)]
+    exits_complete = (bool(exits) and len(marker_lines) == len(exits)
+                      and len(exits) >= len(summary_lines))
     recognizable = bool(passed or failed or errors or exits
                         or re.search(r"\bPASSED\b|\bFAILED\b|\bOK\b", text))
     return {
@@ -786,8 +778,8 @@ def parse_test_proof(text: str) -> dict[str, Any]:
         "errors": errors,
         "exit_codes": exits,
         "clean_pass": bool(
-            recognizable and not failed and not errors
-            and (passed > 0 or (bool(exits) and all(e == 0 for e in exits)))
+            recognizable and passed > 0 and not failed and not errors
+            and exits_complete and all(e == 0 for e in exits)
         ),
     }
 
@@ -812,6 +804,43 @@ def inspect_evidence_path(value: Any) -> dict[str, Any]:
     return {"path": value, "exists": True, "size": len(data),
             "sha256": hashlib.sha256(data).hexdigest(),
             "status": "ok"}
+
+
+def inspect_state_receipt(bundle: dict[str, Any], state: str) -> dict[str, Any]:
+    """Validate a separate state receipt; test/diff evidence proves no install/deploy.
+
+    Checks are recorded observations, not commands executed by this handoff.
+    Receipt authenticity and target reachability belong to the external reviewer.
+    """
+    value = bundle.get(f"{state}_evidence_path")
+    evidence = inspect_evidence_path(value)
+    evidence["verified_claims"] = []
+    if evidence["status"] != "ok":
+        return evidence
+    path = Path(value).resolve()
+    unrelated = ("diff_path", "test_proof_path", f"{'deployed' if state == 'installed' else 'installed'}_evidence_path")
+    if any(isinstance(bundle.get(key), str) and path == Path(bundle[key]).resolve()
+           for key in unrelated):
+        evidence["status"] = "not-separate-state-evidence"
+        return evidence
+    try:
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+        checks = receipt.get("checks")
+        claims = receipt.get("claims")
+        valid = (receipt.get("state") == state and isinstance(claims, list)
+                 and all(isinstance(c, str) and c.strip() for c in claims)
+                 and isinstance(checks, list) and bool(checks)
+                 and all(isinstance(c, dict) and isinstance(c.get("command"), str)
+                         and c["command"].strip() and type(c.get("exit_code")) is int
+                         and c["exit_code"] == 0 and isinstance(c.get("observed"), str)
+                         and c["observed"].strip() for c in checks))
+    except (OSError, ValueError, AttributeError, TypeError):
+        valid = False
+    if valid:
+        evidence["verified_claims"] = claims
+    else:
+        evidence["status"] = "invalid-state-receipt"
+    return evidence
 
 
 def validate_bundle(bundle: dict[str, Any]) -> list[str]:
@@ -865,6 +894,8 @@ def generate_handoff(module_root: Path, bundle: dict[str, Any]) -> str:
 
     evidence_ok = diff_ev["status"] == "ok" and proof_ev["status"] == "ok"
     proof_clean = bool(proof_parse.get("clean_pass"))
+    state_receipts = {state: inspect_state_receipt(bundle, state)
+                      for state in ("installed", "deployed")}
     # identity validation for the attestation
     identities_ok = (
         isinstance(implementer, str) and bool(implementer.strip())
@@ -902,13 +933,15 @@ def generate_handoff(module_root: Path, bundle: dict[str, Any]) -> str:
                 f"(sha256 {proof_ev.get('sha256', '')[:12]}…, "
                 f"{proof_parse.get('passed', 0)} passed, "
                 f"{proof_parse.get('failed', 0)} failed, "
-                f"{proof_parse.get('errors', 0)} errors)\n")
+                f"{proof_parse.get('errors', 0)} errors; "
+                f"exit codes {proof_parse.get('exit_codes', [])})\n")
         else:
             lines.append(
                 f"- test proof READ but NOT CLEAN: {tests} — "
                 f"{proof_parse.get('passed', 0)} passed, "
                 f"{proof_parse.get('failed', 0)} failed, "
-                f"{proof_parse.get('errors', 0)} errors"
+                f"{proof_parse.get('errors', 0)} errors; "
+                f"exit codes {proof_parse.get('exit_codes', [])}"
                 + ("" if proof_parse.get("recognized") else
                    " (no recognizable test summary — cannot certify)") + "\n")
     elif proof_ev["status"] == "empty":
@@ -920,18 +953,19 @@ def generate_handoff(module_root: Path, bundle: dict[str, Any]) -> str:
     else:
         lines.append("- none reported\n")
 
-    lines.append("\n## Installed\n")
-    if evidence_ok:
-        lines.append(bullet_list([str(i) for i in installed]) if installed
-                     else "- none reported\n")
-    else:
-        for i in installed:
-            lines.append(f"- claimed-unverified: {i}\n")
-        if not installed:
+    for state, claims in (("installed", installed), ("deployed", deployed)):
+        lines.append(f"\n## {state.title()}\n")
+        receipt = state_receipts[state]
+        for claim in claims:
+            if claim in receipt["verified_claims"]:
+                lines.append(f"- {claim} — {state} receipt VERIFIED: {receipt['path']} "
+                             f"(sha256 {receipt['sha256']})\n")
+            else:
+                lines.append(f"- claimed-unverified: {claim}\n")
+        if not claims:
             lines.append("- none reported\n")
-
-    lines.append("\n## Deployed\n")
-    lines.append(bullet_list([str(d) for d in deployed]))
+        if any(claim not in receipt["verified_claims"] for claim in claims):
+            lines.append(f"- {state} claims are NOT certified: separate receipt {receipt['status']}\n")
 
     lines.append("\n## Outstanding\n")
     lines.append(bullet_list([str(o) for o in outstanding]))

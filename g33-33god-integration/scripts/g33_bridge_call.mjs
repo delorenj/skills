@@ -7,12 +7,12 @@
  * Usage: node g33_bridge_call.mjs '<request-json>' [--module PATH.mjs] [--python BIN]
  * Exit code is always 0 when the bridge replied (reply.status says the rest).
  */
-import { pathToFileURL } from "node:url";
-import { resolve } from "node:path";
+import { pathToFileURL, fileURLToPath } from "node:url";
+import { resolve, dirname } from "node:path";
 
 const argv = process.argv.slice(2);
 let requestJson = argv[0] ?? "{}";
-let modulePath = resolve(import.meta.dirname, "g33_pjangler_bridge.mjs");
+let modulePath = resolve(import.meta.dirname || dirname(fileURLToPath(import.meta.url)), "g33_pjangler_bridge.mjs");
 let python;
 for (let i = 1; i < argv.length; i += 2) {
   if (argv[i] === "--module") modulePath = resolve(argv[i + 1]);

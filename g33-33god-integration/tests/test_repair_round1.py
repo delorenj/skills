@@ -83,6 +83,13 @@ def test_R1_prose_exit_is_not_proof():
     assert G.parse_test_proof("3 passed\nexit_code=0\n")["clean_pass"] is True
 
 
+@pytest.mark.parametrize("proof", ["3 passed\n", "3 passed\nexit_code=oops\n",
+    "block A\n3 passed\nexit_code=0\nblock B\n2 passed\n", "exit_code=0\n",
+    "3 passed\nexit_code=0\ncommand_exit_code=not-known\n"])
+def test_R1_missing_or_malformed_exit_uncertified(proof):
+    assert G.parse_test_proof(proof)["clean_pass"] is False
+
+
 @pytest.mark.parametrize("rel", [
     "_bmad", "_bmad/_config", "_bmad/custom", "_bmad/config.yaml",
     "_bmad/custom/config.toml", "_bmad/_config/bmad-help.csv",
@@ -255,3 +262,25 @@ def test_hidden_force_preserves_keys_comments_arrays(bmad_project):
     before = snapshot(bmad_project)
     assert install(bmad_project, "--force").returncode == 0
     assert snapshot(bmad_project) == before
+
+
+@pytest.mark.parametrize("value", [None, ["bad"], {"nested": "bad"}])
+def test_hidden_invalid_answer_values_rejected(bmad_project, tmp_path, value):
+    path = tmp_path / "invalid-answer.json"
+    path.write_text(json.dumps({"ecosystem_root": value}))
+    before = snapshot(bmad_project)
+    proc = install(bmad_project, "--answers", str(path))
+    assert proc.returncode != 0, proc.stdout
+    assert snapshot(bmad_project) == before
+    assert bridge(bmad_project, "plan", {"answers": {"ecosystem_root": value}})["status"] == "error"
+
+
+def test_hidden_force_preserves_yaml_blank_sections_and_inline_comments(bmad_project):
+    assert install(bmad_project).returncode == 0
+    cfg = bmad_project / "_bmad/config.yaml"
+    cfg.write_text(cfg.read_text() + '\n  # operator YAML comment\n  extra:\n    - one\n    - two\n')
+    toml = bmad_project / "_bmad/custom/config.toml"
+    toml.write_text(toml.read_text().replace('ecosystem_root = "."', 'ecosystem_root = "." # operator inline comment'))
+    assert install(bmad_project, "--force").returncode == 0
+    assert "# operator YAML comment" in cfg.read_text() and "    - two" in cfg.read_text()
+    assert "# operator inline comment" in toml.read_text()

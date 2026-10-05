@@ -42,10 +42,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
+import stat
 import sys
 import tomllib
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -164,8 +167,10 @@ def load_answers(path: Path | None, module: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(
             f"answers file contains unknown module variables: {unknown} "
             f"(supported: {sorted(known)})")
-    return {k: v for k, v in data.items()
-            if isinstance(v, (str, int, float, bool))}
+    invalid = [key for key, value in data.items() if not isinstance(value, str)]
+    if invalid:
+        raise ValueError(f"module answers must be strings: {sorted(invalid)}")
+    return data
 
 
 def _parse_existing_yaml(text: str) -> dict[str, Any]:
@@ -226,20 +231,33 @@ def _find_yaml_g33_shapes(text: str) -> list[tuple[int, str]]:
 
 
 def _toml_table_body(text: str, header: str) -> str | None:
-    lines = text.splitlines()
-    header_re = re.compile(r"^\s*" + re.escape(header) + r"\s*$")
-    for i, line in enumerate(lines):
-        if header_re.match(line):
-            body = []
-            for j in range(i + 1, len(lines)):
-                candidate = lines[j]
-                if candidate.lstrip().startswith("[") and candidate.strip():
-                    break
-                body.append(candidate)
-            # trim trailing blank lines
-            while body and not body[-1].strip():
-                body.pop()
-            return "\n".join(body)
+    return G.toml_table_body(text, header)
+
+
+def _write_boundary(root: Path, target: Path) -> str | None:
+    """Refuse every symlink below the real root, including dangling leaves.
+
+    An explicitly supplied project-root symlink is a supported alias for its
+    real directory. No write descendant may be a symlink, even one pointing
+    back inside that directory. Reference-only skill reads are unaffected.
+    """
+    try:
+        relative = target.relative_to(root)
+    except ValueError:
+        return f"write target outside real project root {root}"
+    current = root
+    for index, part in enumerate(relative.parts):
+        current /= part
+        try:
+            info = current.lstat()
+        except FileNotFoundError:
+            continue
+        if stat.S_ISLNK(info.st_mode):
+            return f"symlink write component {current} -> {os.readlink(current)} (refused)"
+        if index < len(relative.parts) - 1 and not stat.S_ISDIR(info.st_mode):
+            return f"write ancestor is not a directory: {current}"
+    if not target.resolve().is_relative_to(root):
+        return f"resolved write target escapes real project root {root}: {target.resolve()}"
     return None
 
 
@@ -257,6 +275,7 @@ def plan_install(
 ) -> dict[str, Any]:
     """Compute the full action plan (preflight everything, mutate nothing)."""
     module = G.load_module_yaml(MODULE_ROOT / "assets" / "module.yaml")
+    project_root = project_root.resolve()
     answers: dict[str, Any] = {}
     for var in ("ecosystem_root", "g33_output_folder"):
         spec = module.get(var)
@@ -279,6 +298,21 @@ def plan_install(
     conflicts: list[dict[str, str]] = []
     preserved: list[dict[str, str]] = []
     warnings: list[str] = []
+
+    # Containment is checked before opening any target, and includes every
+    # potential override leaf even when its activation directory is absent.
+    targets = [bmad / "config.yaml", bmad / "custom/config.toml",
+               bmad / G.HELP_CSV_ACTIVE, bmad / G.HELP_CSV_LEGACY,
+               *[bmad / "custom" / f"{skill}.toml" for skill in
+                 (BUILD_SKILL, REVIEW_SKILL, *PLANNING_SKILLS)]]
+    for target in targets:
+        reason = _write_boundary(project_root, target)
+        if reason:
+            conflicts.append({"path": str(target), "detail": reason,
+                              "remedy": "use regular contained project paths; no write-through symlinks"})
+    if conflicts:
+        return {"status": "conflict", "actions": [], "conflicts": conflicts,
+                "preserved": [], "warnings": []}
 
     if not bmad.is_dir():
         return {
@@ -344,17 +378,6 @@ def plan_install(
                               "overwrites foreign content)",
                 })
 
-    # 3. symlinked targets (write would escape the project)
-    for target in (cfg_path, bmad / "custom" / "config.toml",
-                   bmad / G.HELP_CSV_ACTIVE, bmad / G.HELP_CSV_LEGACY):
-        if target.is_symlink():
-            conflicts.append({
-                "path": str(target),
-                "detail": f"target is a symlink to {target.resolve()}",
-                "remedy": "installer refuses to write through symlinks; "
-                          "replace with a regular file",
-            })
-
     # 4. malformed custom/config.toml (tomllib — the real resolver's parser)
     custom_cfg = bmad / "custom" / "config.toml"
     custom_text = custom_cfg.read_text(encoding="utf-8") if custom_cfg.exists() else ""
@@ -390,6 +413,22 @@ def plan_install(
                 "remedy": "repair the base runtime config before installing",
             })
 
+    for skill in (BUILD_SKILL, REVIEW_SKILL, *PLANNING_SKILLS):
+        override = bmad / "custom" / f"{skill}.toml"
+        if override.exists():
+            try:
+                data = tomllib.loads(override.read_text(encoding="utf-8"))
+                workflow = data.get("workflow", {})
+                if not isinstance(workflow, dict):
+                    raise ValueError("workflow must be a table")
+                for key in ("activation_steps_prepend", "activation_steps_append", "persistent_facts"):
+                    if key in workflow and (not isinstance(workflow[key], list)
+                                            or not all(isinstance(v, str) for v in workflow[key])):
+                        raise ValueError(f"workflow.{key} must be an array of strings")
+            except (OSError, ValueError) as err:
+                conflicts.append({"path": str(override), "detail": f"malformed skill override: {err}",
+                                  "remedy": "repair the operator override before installation"})
+
     if conflicts:
         return {
             "status": "conflict",
@@ -418,7 +457,7 @@ def plan_install(
             core_additions[key] = default
     existing_g33_yaml = _extract_managed_section(cfg_text)
     new_cfg, cfg_changed = "", False
-    if existing_g33_yaml is not None and not force:
+    if existing_g33_yaml is not None:
         # preserve operator-edited managed values in the YAML section too:
         # keep the existing section body verbatim, re-emit only keys it lacks
         operator_keys = set()
@@ -431,7 +470,19 @@ def plan_install(
                      or m.group(1) not in operator_keys]
         additions = [ln for ln in additions
                      if "managed by g33 installer" not in ln]
-        if additions:
+        if force:
+            managed_values = {m.group(1): ln for ln in body
+                              if (m := re.match(r"^\s*([A-Za-z0-9_.-]+)\s*:", ln))}
+            merged_yaml_body = []
+            for ln in existing_g33_yaml.splitlines():
+                match = re.match(r"^\s*([A-Za-z0-9_.-]+)\s*:", ln)
+                if match and match.group(1) in managed_values:
+                    merged_yaml_body.append(managed_values.pop(match.group(1)))
+                else:
+                    merged_yaml_body.append(ln)
+            merged_yaml_body.extend(managed_values.values())
+            new_cfg, cfg_changed = G.replace_yaml_section(cfg_text, G.MODULE_CODE, merged_yaml_body)
+        elif additions:
             merged_yaml_body = [
                 ln for ln in existing_g33_yaml.splitlines() if ln.strip()
             ] + additions
@@ -572,7 +623,12 @@ def plan_install(
                 # additive merge for operator-edited override: preserve their
                 # added array entries and unknown keys; re-emit managed ones
                 merged = _merge_override_file(p.read_text(encoding="utf-8"), skill)
-                if merged == content:
+                if not force:
+                    preserved.append({
+                        "path": str(p),
+                        "reason": "operator-edited override preserved (use --force to merge managed entries)",
+                    })
+                elif merged == p.read_text(encoding="utf-8"):
                     actions.append({"path": str(p), "action": "already-present",
                                     "detail": "managed override current"})
                 elif force:
@@ -582,11 +638,6 @@ def plan_install(
                                   "(operator entries preserved via merge)",
                         "new_sha256": sha256_text(merged),
                         "_new_content": merged,
-                    })
-                else:
-                    preserved.append({
-                        "path": str(p),
-                        "reason": "operator-edited override preserved (use --force to overwrite)",
                     })
         if not emitted:
             warnings.append(
@@ -600,6 +651,11 @@ def plan_install(
                       "unsupported/inactive on this layout)",
         })
 
+    for action in actions:
+        if action.get("action") in ("write", "create", "overwrite"):
+            target = Path(action["path"])
+            action["_expected_before"] = (hashlib.sha256(target.read_bytes()).hexdigest()
+                                          if target.exists() else None)
     return {
         "status": "ok",
         "module": module.get("code", G.MODULE_CODE),
@@ -610,6 +666,7 @@ def plan_install(
         "preserved": preserved,
         "warnings": warnings,
         "toml_active": resolver_present,
+        "_project_root": str(project_root),
     }
 
 
@@ -621,74 +678,165 @@ def _extract_managed_section(text: str) -> str | None:
         if header.match(line):
             body = []
             for j in range(i + 1, len(lines)):
-                if not lines[j].strip() or lines[j][0] not in (" ", "\t"):
+                if lines[j].strip() and lines[j][0] not in (" ", "\t"):
                     break
-                if lines[j].strip():
-                    body.append(lines[j].rstrip())
+                body.append(lines[j])
             return "\n".join(body)
     return None
 
 
 def _merge_override_file(current: str, skill: str) -> str:
-    """Merge a managed override over the operator's file: keeps operator-added
-    array entries and unknown keys, re-emits managed template content."""
+    """Union each supported array independently, preserving all other bytes."""
     managed = _override_content(skill)
-    # collect operator extra lines inside [workflow] arrays
-    op_lines: list[str] = []
-    in_workflow = False
-    current_key = None
-    for line in current.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("[") and stripped.endswith("]"):
-            in_workflow = stripped == "[workflow]"
-            current_key = None
-            continue
-        if not in_workflow or not stripped or stripped.startswith("#"):
-            continue
-        m = re.match(r"^([A-Za-z0-9_]+)\s*=", stripped)
-        if m:
-            current_key = m.group(1)
-            continue
-        if current_key in ("activation_steps_prepend", "activation_steps_append",
-                           "persistent_facts") and stripped not in (
-                "]", "["):
-            if stripped != "]":
-                op_lines.append(stripped.rstrip(","))
-    if not op_lines:
-        return managed
-    quote = '"'
-    # append operator entries to the matching arrays in the managed template
-    out: list[str] = []
-    key = None
-    for line in managed.splitlines():
-        m = re.match(r"^([A-Za-z0-9_]+)\s*=\s*\[$", line.strip())
-        if m:
-            key = m.group(1)
-        if line.strip() == "]" and key in (
-                "activation_steps_prepend", "activation_steps_append",
-                "persistent_facts"):
-            for e in op_lines:
-                inner = e.strip().strip(quote)
-                out.append(f'  "{inner}",')
-            key = None
-        out.append(line)
-    return "\n".join(out)
+    current_data = tomllib.loads(current).get("workflow", {})
+    managed_data = tomllib.loads(managed)["workflow"]
+    rows = []
+    for key, defaults in managed_data.items():
+        values = list(defaults)
+        for value in current_data.get(key, []):
+            if value not in values:
+                values.append(value)
+        rows.append(f"{key} = {G.render_toml_value(values)}")
+    body = G.toml_table_body(current, "[workflow]")
+    merged = G.merge_toml_tables(rows, body)
+    new_text, _ = G.replace_toml_table(current, "[workflow]", merged)
+    tomllib.loads(new_text)
+    return new_text
+
+
+class AtomicApplyError(RuntimeError):
+    def __init__(self, cause: Exception, rollback_errors: list[str]):
+        self.rollback_errors = rollback_errors
+        super().__init__(f"apply failed: {cause}; rollback " +
+                         ("FAILED: " + "; ".join(rollback_errors) if rollback_errors else "complete"))
+
+
+def _open_parent(root_fd: int, relative: Path, created: list) -> int:
+    """Walk/create directories via descriptors; never follow a symlink."""
+    fd = os.dup(root_fd)
+    try:
+        for component in relative.parts[:-1]:
+            try:
+                next_fd = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            except FileNotFoundError:
+                os.mkdir(component, dir_fd=fd)
+                created.append((os.dup(fd), component))
+                next_fd = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            os.close(fd)
+            fd = next_fd
+        return fd
+    except BaseException:
+        os.close(fd)
+        raise
+
+
+def _stage_bytes(fd: int, data: bytes, mode: int) -> str:
+    name = ".g33-stage-" + uuid.uuid4().hex
+    handle = os.open(name, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, mode, dir_fd=fd)
+    try:
+        with os.fdopen(handle, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fchmod(stream.fileno(), mode)
+            os.fsync(stream.fileno())
+    except BaseException:
+        os.unlink(name, dir_fd=fd)
+        raise
+    return name
 
 
 def execute_plan(plan: dict[str, Any], dry_run: bool) -> list[dict[str, Any]]:
-    performed: list[dict[str, Any]] = []
-    for action in plan.get("actions", []):
-        if action.get("action") in ("write", "create", "overwrite"):
-            path = Path(action["path"])
-            performed.append({
-                "path": action["path"], "action": action["action"],
-                "detail": action.get("detail", ""),
-                **({"new_sha256": action["new_sha256"]} if not dry_run else {}),
-            })
-            if not dry_run:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(action["_new_content"], encoding="utf-8")
-    return performed
+    writes = [a for a in plan.get("actions", []) if a.get("action") in ("write", "create", "overwrite")]
+    performed = [{"path": a["path"], "action": a["action"], "detail": a.get("detail", ""),
+                  **({"new_sha256": a["new_sha256"]} if not dry_run else {})} for a in writes]
+    if dry_run or not writes:
+        return performed
+    root = Path(plan["_project_root"]).resolve()
+    # Validate the WHOLE transaction before any directory creation.
+    for action in writes:
+        reason = _write_boundary(root, Path(action["path"]))
+        if reason:
+            raise AtomicApplyError(ValueError(reason), [])
+    root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    staged = []
+    created = []
+    published = []
+    try:
+        # Stage every output before publishing the first one. Snapshot original
+        # bytes in memory, preserving original modes and avoiding backup files.
+        for action in writes:
+            target = Path(action["path"])
+            reason = _write_boundary(root, target)
+            if reason:
+                raise ValueError(reason)
+            fd = _open_parent(root_fd, target.relative_to(root), created)
+            item = {"target": target, "fd": fd, "temp": None, "original": None, "mode": 0o644}
+            staged.append(item)
+            try:
+                handle = os.open(target.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=fd)
+            except FileNotFoundError:
+                pass
+            else:
+                with os.fdopen(handle, "rb") as stream:
+                    info = os.fstat(stream.fileno())
+                    if not stat.S_ISREG(info.st_mode):
+                        raise ValueError(f"non-regular write target: {target}")
+                    item["original"] = stream.read()
+                    item["mode"] = stat.S_IMODE(info.st_mode)
+            before = hashlib.sha256(item["original"]).hexdigest() if item["original"] is not None else None
+            if before != action.get("_expected_before"):
+                raise ValueError(f"write target changed after planning: {target}")
+            item["temp"] = _stage_bytes(fd, action["_new_content"].encode("utf-8"), item["mode"])
+        for item in staged:
+            reason = _write_boundary(root, item["target"])
+            if reason:
+                raise ValueError(reason)
+            os.replace(item["temp"], item["target"].name, src_dir_fd=item["fd"], dst_dir_fd=item["fd"])
+            item["temp"] = None
+            published.append(item)
+        return performed
+    except BaseException as err:
+        rollback_errors = []
+        for item in reversed(published):
+            try:
+                if item["original"] is None:
+                    os.unlink(item["target"].name, dir_fd=item["fd"])
+                else:
+                    restore = _stage_bytes(item["fd"], item["original"], item["mode"])
+                    try:
+                        os.replace(restore, item["target"].name, src_dir_fd=item["fd"], dst_dir_fd=item["fd"])
+                    finally:
+                        try:
+                            os.unlink(restore, dir_fd=item["fd"])
+                        except FileNotFoundError:
+                            pass
+            except OSError as recovery:
+                rollback_errors.append(f"{item['target']}: {recovery}")
+        # Temp outputs must be removed before removing newly-created directories.
+        for item in staged:
+            if item["temp"]:
+                try:
+                    os.unlink(item["temp"], dir_fd=item["fd"])
+                    item["temp"] = None
+                except OSError as recovery:
+                    rollback_errors.append(f"staged file {item['target']}: {recovery}")
+        for fd, name in reversed(created):
+            try:
+                os.rmdir(name, dir_fd=fd)
+            except OSError as recovery:
+                rollback_errors.append(f"created directory {name}: {recovery}")
+        raise AtomicApplyError(err, rollback_errors) from err
+    finally:
+        for item in staged:
+            if item["temp"]:
+                try:
+                    os.unlink(item["temp"], dir_fd=item["fd"])
+                except FileNotFoundError:
+                    pass
+            os.close(item["fd"])
+        for fd, _ in created:
+            os.close(fd)
+        os.close(root_fd)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -724,8 +872,13 @@ def main(argv: list[str] | None = None) -> int:
                      "error": f"answers file not found: {answers_path}"})
         return 1
 
-    plan = plan_install(project_root, force=args.force,
-                        answers_path=answers_path)
+    try:
+        plan = plan_install(project_root, force=args.force, answers_path=answers_path)
+    except (OSError, ValueError) as err:
+        G.emit_json({"status": "conflict", "actions": [], "conflicts": [
+            {"path": str(project_root), "detail": f"unreadable or invalid prerequisite: {err}"}],
+            "preserved": [], "warnings": []})
+        return 2
     if plan.get("status") == "error":
         G.emit_json(plan)
         return 1
@@ -733,7 +886,13 @@ def main(argv: list[str] | None = None) -> int:
         G.emit_json(plan)
         return 2
 
-    performed = execute_plan(plan, dry_run=args.dry_run)
+    try:
+        performed = execute_plan(plan, dry_run=args.dry_run)
+    except AtomicApplyError as err:
+        G.emit_json({"status": "error", "error": str(err), "performed": [],
+                     "rollback": {"status": "failed" if err.rollback_errors else "complete",
+                                  "errors": err.rollback_errors}, "conflicts": []})
+        return 2
 
     result = {
         "status": "ok",

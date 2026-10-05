@@ -99,7 +99,7 @@ def test_evidence_test_proof_parsed_pass_fail(bmad_project, tmp_path):
     failing = tmp_path / "fail.log"
     failing.write_text("2 failed, 0 passed\n", encoding="utf-8")
     passing = tmp_path / "pass.log"
-    passing.write_text("5 passed, 0 failed\n", encoding="utf-8")
+    passing.write_text("5 passed, 0 failed\nexit_code=0\n", encoding="utf-8")
     for proof, expect_fail in ((failing, True), (passing, False)):
         bundle = _write_bundle(tmp_path, diff_path=str(diff),
                                test_proof_path=str(proof))
@@ -647,6 +647,10 @@ class TestPjanglerBridge:
         for name in ("config_utils.py", "resolve_config.py", "resolve_customization.py"):
             shutil.copy2(UPSTREAM_SCRIPTS / name, target / "_bmad" / "scripts" / name)
         (target / "_bmad" / "config.toml").write_text("[core]\n", encoding="utf-8")
+        # Installation proof includes a real installed customization surface.
+        skill = target / ".agents" / "skills" / "bmad-build"
+        skill.parent.mkdir(parents=True)
+        skill.symlink_to(REPO_ROOT / "all-skills" / "bmad-build", target_is_directory=True)
         req = {"schemaVersion": 1, "moduleId": "g33", "operation": "apply",
                "reason": "bmad-install", "options": {}}
         req = {**req, "projectRoot": str(target)}
@@ -772,6 +776,16 @@ def test_reference_only_fixture_activation(tmp_path):
     skillex_bin = shutil.which("skillex")
     if skillex_bin is None:
         pytest.skip("skillex CLI not on PATH")
+    isolated_home = tmp_path / "activation-home"
+    isolated_home.mkdir()
+    activation_env = {
+        **clean_env(), "HOME": str(isolated_home),
+        "XDG_CONFIG_HOME": str(isolated_home / ".config"),
+        "XDG_DATA_HOME": str(isolated_home / ".local/share"),
+        "XDG_CACHE_HOME": str(isolated_home / ".cache"),
+        "XDG_STATE_HOME": str(isolated_home / ".local/state"),
+        "SKILLEX_REGISTRY_ROOT": str(REPO_ROOT),
+    }
     fixture = tmp_path / "fx"
     fixture.mkdir()
     # fixture manifest: registry is the real skillex checkout (read-only use)
@@ -783,9 +797,9 @@ def test_reference_only_fixture_activation(tmp_path):
         "skills": ["g33-33god-integration"],
     }), encoding="utf-8")
     proc = subprocess.run(
-        [skillex_bin, "sync", "--project", str(fixture), "--json"],
+        [skillex_bin, "--registry-root", str(REPO_ROOT), "sync", "--project", str(fixture), "--json"],
         capture_output=True, text=True, check=False,
-        env={**clean_env(), "SKILLEX_REGISTRY_ROOT": str(REPO_ROOT)},
+        env=activation_env,
     )
     payload = json.loads(proc.stdout) if proc.stdout.strip() else {}
     assert proc.returncode == 0, proc.stdout + proc.stderr
@@ -797,8 +811,9 @@ def test_reference_only_fixture_activation(tmp_path):
     assert activated.resolve() == (REPO_ROOT / "all-skills" / "g33-33god-integration").resolve()
     # owner observation through the CLI
     proc2 = subprocess.run(
-        [skillex_bin, "status", "--scope", "project", "--project", str(fixture), "--json"],
+        [skillex_bin, "--registry-root", str(REPO_ROOT), "status", "--scope", "project", "--project", str(fixture), "--json"],
         capture_output=True, text=True, check=False,
+        env=activation_env,
     )
     assert proc2.returncode in (0, 6)
     data = json.loads(proc2.stdout)
