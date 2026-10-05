@@ -687,6 +687,12 @@ def plan_install(
         "warnings": warnings,
         "toml_active": resolver_present,
         "yaml_namespace": yaml_namespace,
+        # The bridge verifies real resolved arrays against these owner-generated
+        # requirements, sharing exactly the mappings emitted by the installer.
+        "required_customizations": {
+            skill: tomllib.loads(_override_content(skill))["workflow"]
+            for skill in (BUILD_SKILL, REVIEW_SKILL, *PLANNING_SKILLS)
+        },
         "_project_root": str(project_root),
     }
 
@@ -909,6 +915,7 @@ def main(argv: list[str] | None = None) -> int:
         "answers": plan.get("answers", {}),
         "toml_active": plan.get("toml_active", False),
         "yaml_namespace": plan.get("yaml_namespace", {}),
+        "required_customizations": plan.get("required_customizations", {}),
         "activation": "active" if plan.get("toml_active") else "inactive",
         "actions": [
             {k: v for k, v in a.items() if not k.startswith("_")}

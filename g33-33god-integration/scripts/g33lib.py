@@ -256,6 +256,24 @@ def build_module_yaml_section(module: dict[str, Any], answers: dict[str, Any]) -
 TOML_TABLE_HEADER = "[modules.g33]"
 
 
+def _toml_table_identity(parsed: dict[str, Any]) -> tuple[tuple[str, ...], bool]:
+    """Recover key components from a standalone parsed table declaration.
+
+    tomllib resolves quoted, escaped and bare keys identically. Array tables
+    retain a distinct identity; they must never match a normal owned table.
+    """
+    components = []
+    value: Any = parsed
+    array_table = False
+    while isinstance(value, dict) and len(value) == 1:
+        key, value = next(iter(value.items()))
+        components.append(key)
+        if isinstance(value, list):
+            array_table = True
+            value = value[0]
+    return tuple(components), array_table
+
+
 def toml_statements(text: str) -> list[dict[str, Any]]:
     """Split validated TOML into whole statements, respecting multiline values.
 
@@ -278,6 +296,7 @@ def toml_statements(text: str) -> list[dict[str, Any]]:
                 "assignment" if parsed else "other")
         key = next(iter(parsed), None) if kind == "assignment" else None
         out.append({"text": raw, "kind": kind, "key": key,
+                    "table_identity": _toml_table_identity(parsed) if kind == "table" else None,
                     "start": start, "end": index + 1})
         start = index + 1
         buffer = []
@@ -287,9 +306,10 @@ def toml_statements(text: str) -> list[dict[str, Any]]:
 
 
 def toml_table_range(text: str, header: str) -> tuple[int, int] | None:
+    identity = _toml_table_identity(tomllib.loads(header))
     statements = toml_statements(text)
     for index, item in enumerate(statements):
-        if item["kind"] == "table" and item["text"].split("#", 1)[0].strip() == header:
+        if item["kind"] == "table" and item["table_identity"] == identity:
             end = next((following["start"] for following in statements[index + 1:]
                         if following["kind"] == "table"), len(text.splitlines()))
             return item["end"], end
@@ -466,11 +486,31 @@ _VALID_ROLES = {"pm", "operator", "reviewer", "interactive"}
 _VALID_MODES = {"legacy", "shadow", "managed"}
 
 
+def _js_truthy(value: Any) -> bool:
+    """JSON-value truthiness used by the canonical JavaScript predicate.
+
+    Empty objects/arrays are present in JavaScript. Python container truthiness
+    would incorrectly erase their declared execution binding.
+    """
+    if value is None or value is False:
+        return False
+    if isinstance(value, (int, float)) and value == 0:
+        return False
+    if isinstance(value, str) and value == "":
+        return False
+    return True
+
+
 def execution_readiness(manifest: dict[str, Any]) -> list[str]:
     """Canonical executionReadiness port. Returns a list of error strings
     (empty = ready). legacy/absent execution returns [] like the original."""
     execution = manifest.get("execution")
-    if not execution or execution.get("mode") == "legacy":
+    if not _js_truthy(execution):
+        return []
+    # Truthy non-object JSON values have no named enrollment fields in the
+    # canonical predicate. Mode classification separately rejects their shape.
+    execution = execution if isinstance(execution, dict) else {}
+    if execution.get("mode") == "legacy":
         return []
     errors: list[str] = []
     if execution.get("mode") not in ("shadow", "managed"):
@@ -534,10 +574,12 @@ def execution_readiness(manifest: dict[str, Any]) -> list[str]:
 def execution_mode_status(manifest: dict[str, Any]) -> str:
     """legacy|shadow|managed|invalid (invalid mode never downgrades to legacy)."""
     execution = manifest.get("execution")
-    if not execution:
+    if execution is None:
         return "legacy"
+    if not isinstance(execution, dict):
+        return "invalid"
     mode = execution.get("mode")
-    if mode in _VALID_MODES:
+    if isinstance(mode, str) and mode in _VALID_MODES:
         return str(mode)
     return "invalid"
 
@@ -590,15 +632,17 @@ def run_preflight(project_root: Path, module_root: Path) -> dict[str, Any]:
         # 2. Krebs enrollment via the canonical adapter
         execution = manifest.get("execution")
         mode = (execution or {}).get("mode") if isinstance(execution, dict) else None
-        if isinstance(execution, dict) and execution:
+        if execution is not None:
             execution_status = execution_mode_status(manifest)
             if execution_status == "legacy":
                 add("krebs-enrollment", "WARN",
                     "execution.mode=legacy (explicit) — legacy adapter mode")
             elif execution_status == "invalid":
                 add("krebs-enrollment", "FAIL",
-                    f"execution.mode={mode!r} invalid (must be "
-                    "legacy|shadow|managed) — not downgraded to legacy")
+                    ("execution must be an object with a valid mode — not downgraded to legacy"
+                     if not isinstance(execution, dict) else
+                     f"execution.mode={mode!r} invalid (must be "
+                     "legacy|shadow|managed) — not downgraded to legacy"))
             elif execution_status == "managed":
                 errors = execution_readiness(manifest)
                 if errors:

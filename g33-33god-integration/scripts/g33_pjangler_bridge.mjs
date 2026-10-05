@@ -5,7 +5,7 @@
  * no pre-updater capture/protect/restore/recovery protocol.
  */
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, mkdtempSync, writeFileSync, rmSync, lstatSync, realpathSync } from "node:fs";
 import { dirname, join, resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
@@ -18,6 +18,7 @@ const SUPPORTED_OPTIONS = new Set(["moduleRoot", "pythonExecutable", "answers"])
 const PRESERVATION = "update-preservation: unavailable; no supported pre-update capture/protection, post-update restore/reconcile/verify or failure recovery. Refuse upstream BMAD updates before mutation until the owning updater supplies that contract.";
 const DEFAULT_MODULE_ROOT = resolve(import.meta.dirname || dirname(fileURLToPath(import.meta.url)), "..");
 const SKILLS = ["bmad-build", "bmad-code-review", "bmad-prd", "bmad-spec", "bmad-architecture"];
+const SKILL_SURFACES = [".agents/skills", "skills", "_bmad/skills"];
 
 function reply(status, summary, details = [], evidence = []) {
   return { schemaVersion: API_VERSION, status, summary, details: [...details, PRESERVATION], evidence };
@@ -70,6 +71,33 @@ function installerFailure(run) {
     ...(run.payload?.rollback ? [`rollback: ${run.payload.rollback.status}`, ...(run.payload.rollback.errors || [])] : [])]);
 }
 
+function observeActivation(projectRoot, moduleRoot) {
+  let selected;
+  // Select the first present binding in supported surface order. A foreign or
+  // dangling earlier binding cannot be hidden by a valid later fallback.
+  for (const surface of SKILL_SURFACES) {
+    const candidate = join(projectRoot, surface, "g33-33god-integration");
+    try { lstatSync(candidate); selected = candidate; break; }
+    catch (error) {
+      if (error.code !== "ENOENT" && error.code !== "ENOTDIR") throw error;
+    }
+  }
+  if (!selected) return { failure: reply("missing", "canonical g33 activation binding absent from supported skill surfaces") };
+  try {
+    const canonicalRoot = realpathSync(moduleRoot);
+    const source = join(canonicalRoot, "SKILL.md");
+    const body = join(selected, "SKILL.md");
+    if (realpathSync(selected) !== canonicalRoot
+        || realpathSync(body) !== realpathSync(source)
+        || !readFileSync(body).equals(readFileSync(source))) {
+      return { failure: reply("conflict", `g33 activation at ${relative(projectRoot, selected)} does not resolve to the canonical module source and body`) };
+    }
+    return { evidence: `canonical g33 activation verified at ${relative(projectRoot, selected)}: source ${canonicalRoot}; SKILL.md identity and content match (reference-only symlinks allowed)` };
+  } catch (error) {
+    return { failure: reply("conflict", `g33 activation at ${relative(projectRoot, selected)} is unreadable or incomplete`, [String(error.message)]) };
+  }
+}
+
 async function observeState(projectRoot, moduleRoot, options, python) {
   const bmad = join(projectRoot, "_bmad");
   if (!existsSync(bmad)) return reply("missing", "no _bmad directory: BMAD not installed in this project");
@@ -81,6 +109,8 @@ async function observeState(projectRoot, moduleRoot, options, python) {
   if (!audit.payload.toml_active) {
     return reply("unavailable", "TOML runtime resolver absent: g33 is inactive on this YAML-only layout; PJAN-166 migration is outside this module", audit.payload.warnings || []);
   }
+  const activation = observeActivation(projectRoot, moduleRoot);
+  if (activation.failure) return activation.failure;
   const resolver = join(bmad, "scripts/resolve_config.py");
   const resolved = await runPython(python, [resolver, "--project-root", projectRoot, "--key", "modules.g33"]);
   let configuration;
@@ -104,34 +134,39 @@ async function observeState(projectRoot, moduleRoot, options, python) {
   if (!helpAction || helpAction.action !== "already-present") {
     return reply("conflict", "owned g33 help registry rows are missing, duplicated or tampered; all canonical rows are required");
   }
-  const evidence = [`real resolve_config.py resolves modules.g33 (exit 0): ${JSON.stringify(configuration)}`,
+  const evidence = [activation.evidence,
+    `real resolve_config.py resolves modules.g33 (exit 0): ${JSON.stringify(configuration)}`,
     `managed config.yaml g33 section present`, `help rows present in ${relative(projectRoot, help)}`];
   const customizationResolver = join(bmad, "scripts/resolve_customization.py");
   if (!existsSync(customizationResolver)) return reply("unavailable", "real customization resolver absent: installed override merge cannot be verified", [], evidence);
   let observed = 0;
   for (const name of SKILLS) {
-    const skill = [".agents/skills", "skills", "_bmad/skills"].map((rel) => join(projectRoot, rel, name))
+    const skill = SKILL_SURFACES.map((rel) => join(projectRoot, rel, name))
       .find((path) => existsSync(join(path, "customize.toml")) && existsSync(join(path, "SKILL.md")));
     if (!skill) continue;
     const override = join(bmad, "custom", `${name}.toml`);
     if (!existsSync(override)) return reply("conflict", `installed skill ${name} has no g33 team override`, [], evidence);
+    const required = audit.payload.required_customizations?.[name];
+    if (!isObject(required) || !Object.keys(required).length) return reply("error", `owner-required customization mapping missing for ${name}`, [], evidence);
     const merged = await runPython(python, [customizationResolver, "--skill", skill,
-      "--project-root", projectRoot, "--key", "workflow.activation_steps_prepend", "--key", "workflow.persistent_facts"]);
+      "--project-root", projectRoot, ...Object.keys(required).flatMap((key) => ["--key", `workflow.${key}`])]);
     let data;
     try { data = JSON.parse(merged.stdout); } catch { /* handled below */ }
     if (merged.code !== 0 || !isObject(data)) return reply("error", `real customization resolver failed for ${name}`, [merged.stderr.trim() || `resolver exit ${merged.code}`], evidence);
-    const steps = data["workflow.activation_steps_prepend"];
-    const facts = data["workflow.persistent_facts"];
-    if (!Array.isArray(steps) || !steps.some((s) => typeof s === "string" && s.includes("g33"))
-        || !Array.isArray(facts) || !facts.some((s) => typeof s === "string" && s.includes("g33"))) {
-      return reply("conflict", `real customization merge for ${name} does not contain the g33 activation and persistent facts`, [], evidence);
+    for (const [key, entries] of Object.entries(required)) {
+      if (!Array.isArray(entries) || !entries.every((entry) => typeof entry === "string")) return reply("error", `owner-required workflow.${key} mapping invalid for ${name}`, [], evidence);
+      const actual = data[`workflow.${key}`];
+      const absent = entries.filter((entry) => !Array.isArray(actual) || !actual.includes(entry));
+      if (!Array.isArray(actual) || absent.length) {
+        return reply("conflict", `real customization merge for ${name} is missing required workflow.${key} entries`, absent, evidence);
+      }
     }
     observed++;
     evidence.push(`real resolve_customization.py merges g33 override for ${name} (exit 0): ${JSON.stringify(data)}`);
     evidence.push(`installed skill source readable at ${relative(projectRoot, skill)} (reference-only symlinks allowed)`);
   }
   if (!observed) return reply("unavailable", "no installed BMAD skill customization surface: g33 merge cannot be verified", [], evidence);
-  return reply("installed", "g33 installed: real config and customization resolvers verify active runtime, authoring and help surfaces", [], evidence);
+  return reply("installed", "g33 installed: canonical activation and real resolvers verify required workflow content, active runtime, authoring and help surfaces", [], evidence);
 }
 
 export async function g33Companion(request) {

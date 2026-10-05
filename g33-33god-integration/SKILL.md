@@ -42,7 +42,8 @@ Reports PASS/FAIL/WARN per check: `.project.json` ticket binding, Krebs
 execution enrollment via the canonical policyVersion-2 executionReadiness
 adapter (managed must be fully ready — FAIL on any gap; invalid mode is FAIL
 never downgraded to legacy; shadow may be incrementally enrolled as WARN but
-never certifies managed readiness; absent/legacy is a WARN), tool availability
+never certifies managed readiness; absent/null or explicit legacy is a WARN;
+present empty/malformed execution is FAIL), tool availability
 (`px`, `node`, `uv`, `python3` via PATH), and the effective module config from
 `_bmad/custom/config.toml` (consumed, not ornamental).
 
@@ -87,7 +88,8 @@ recorded in the owner map or the project's doctrine_pointer override.
 ## Guards
 
 - Never assume Krebs enrollment. Validate it from `.project.json` when mode is
-  managed|shadow; otherwise route to the legacy adapter.
+  managed|shadow; only absent/null or explicit legacy uses the legacy adapter.
+  A present empty/malformed binding or unknown mode is FAIL.
 - Never assume every board is Krebs-enrolled.
 - No new event types — event identity follows the Bloodbank contract
   (`bloodbank.<domain>.<entity>.<action>`, `bloodbank/docs/event-naming.md`).

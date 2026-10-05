@@ -31,10 +31,15 @@ def snapshot(root):
     return entries
 
 
-def stage_skill(root, skill="bmad-build"):
+def stage_skill(root, skill="bmad-build", activate_module=True):
     dest = root / ".agents" / "skills" / skill
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.symlink_to(REPO_ROOT / "all-skills" / skill, target_is_directory=True)
+    # Observation fixtures require the canonical module activation as well as
+    # a workflow skill. Tamper tests can establish their own selected binding.
+    module = dest.parent / "g33-33god-integration"
+    if activate_module and not module.exists():
+        module.symlink_to(MODULE_ROOT, target_is_directory=True)
     return dest
 
 

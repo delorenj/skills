@@ -31,7 +31,7 @@ def activate(root, module=MODULE_ROOT, surface=".agents/skills"):
 
 def installed(root):
     for name in SKILLS:
-        stage_skill(root, name)
+        stage_skill(root, name, activate_module=False)
     activate(root)
     assert install(root).returncode == 0
     assert bridge(root, "observe")["status"] == "installed"
@@ -97,7 +97,7 @@ def test_Q3_canonical_activation_required(bmad_project, tmp_path, tamper):
 
 @pytest.mark.parametrize("surface", [".agents/skills", "skills", "_bmad/skills"])
 def test_Q3_supported_activation_surfaces(bmad_project, surface):
-    stage_skill(bmad_project)
+    stage_skill(bmad_project, activate_module=False)
     activate(bmad_project, surface=surface)
     assert install(bmad_project).returncode == 0
     before = snapshot(bmad_project)
@@ -110,7 +110,7 @@ def test_Q3_supported_activation_surfaces(bmad_project, surface):
 
 @pytest.mark.parametrize("earlier", [".agents/skills", "skills"])
 def test_Q3_earlier_foreign_binding_not_hidden_by_fallback(bmad_project, earlier):
-    stage_skill(bmad_project)
+    stage_skill(bmad_project, activate_module=False)
     activate(bmad_project, surface="_bmad/skills")
     activate(bmad_project, module=REPO_ROOT / "all-skills/bmad-build", surface=earlier)
     assert install(bmad_project).returncode == 0
@@ -124,7 +124,7 @@ def test_Q3_earlier_foreign_binding_not_hidden_by_fallback(bmad_project, earlier
 def test_Q3_relocated_source_and_relative_activation(bmad_project, tmp_path):
     moved = tmp_path / "relocated-module"
     shutil.copytree(MODULE_ROOT, moved, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-    stage_skill(bmad_project)
+    stage_skill(bmad_project, activate_module=False)
     binding = bmad_project / ".agents/skills/g33-33god-integration"
     binding.symlink_to("../../../relocated-module", target_is_directory=True)
     options = {"moduleRoot": str(moved), "pythonExecutable": sys.executable}
@@ -209,7 +209,9 @@ def test_Q4_present_invalid_execution_never_legacy(bmad_project, value):
     proc = cli("preflight", "--project-root", str(bmad_project), "--json")
     result = json.loads(proc.stdout)
     enrollment = next(x for x in result["findings"] if x["check"] == "krebs-enrollment")
-    assert proc.returncode == 1 and result["execution_mode"] == "invalid", result
+    # Findings use the CLI's existing exit-0 JSON protocol; readiness is the
+    # structured FAIL, not a usage/IO error.
+    assert proc.returncode == 0 and result["execution_mode"] == "invalid", result
     assert enrollment["status"] == "FAIL" and "absent" not in enrollment["evidence"], result
     assert snapshot(bmad_project) == before
 

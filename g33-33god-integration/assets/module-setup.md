@@ -79,10 +79,15 @@ python3 {project-root}/_bmad/scripts/resolve_config.py --project-root {resolved-
 
 The JSON output must show `modules.g33.code` equal to `g33`.
 A supported active layout contains `_bmad/config.toml`, the real configuration
-and customization resolvers, and an installed BMAD customization surface.
+and customization resolvers, a canonical g33 reference activation, and an
+installed BMAD customization surface.
 BMAD 6.12.0 YAML-only registration is inactive; the bridge reports `unavailable`.
 Use the real `resolve_customization.py` with an installed skill to verify its
-g33 activation steps and persistent facts. Then display the `module_greeting` from
+every exact owner-required g33 entry in its activation steps and persistent facts;
+operator additions are allowed. The bridge checks each selected workflow merge
+against the installer-generated requirements. Its g33 activation binding must
+resolve to the selected canonical module root and `SKILL.md`; a copied/foreign
+body or missing binding cannot produce `installed`. Then display the `module_greeting` from
 `./assets/module.yaml`.
 
 ## Manual install (alternative)

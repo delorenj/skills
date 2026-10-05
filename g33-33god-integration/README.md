@@ -67,8 +67,9 @@ const reply = await g33Companion({
 Statuses per operation — observe: installed|missing|unavailable|conflict|error;
 plan: planned|unchanged|unavailable|conflict|error; apply:
 changed|unchanged|unavailable|conflict|error. `installed` requires real
-content verification (customization content, resolver activation, help rows,
-installed skill sources), never metadata claims; partial/tampered installs report
+content verification (canonical g33 activation, exact required customization
+entries, resolver activation, help rows, installed skill sources), never metadata
+claims; partial/tampered installs report
 missing/conflict. plan performs zero writes. apply runs the installer then
 re-observes. Unknown option keys are rejected, never silently ignored. Python
 subprocesses run with `-B`/`PYTHONDONTWRITEBYTECODE=1` (no bytecode writes).
@@ -155,7 +156,9 @@ runtime/profiles/templates — Flume renders what Hermes Fleet scaffolds.
 - No secrets are read or printed; CLI output is secret-scrubbed.
 - Never assumes Krebs enrollment; validates it via the canonical
   policyVersion-2 executionReadiness field set when mode is managed (FAIL on
-  any gap) or shadow (WARN; never certifies managed readiness).
+  any gap) or shadow (WARN; never certifies managed readiness). Only absent/null
+  execution or explicit legacy mode uses the legacy adapter; present empty or
+  malformed execution reports FAIL. JSON findings retain the CLI exit-0 protocol.
 - No new event types; event identity follows the Bloodbank contract.
 - Live 33GOD install awaits explicit parent readiness — **deployed: false**.
 
@@ -200,7 +203,17 @@ and failure. `answers` is unsupported for `observe`, which reads installed state
 Invalid option values and unknown option keys return `error`. `observe` returns
 `unavailable` if the runtime/customization resolver or an installed customization
 surface is absent; `installed` includes real resolution of at least one g33
-skill override, not file existence alone.
+skill override. Every owner-required entry in every selected workflow's resolved
+arrays must match the installer-generated mapping; operator additions are allowed.
+The selected g33 binding is the first present entry in `.agents/skills`, `skills`,
+then `_bmad/skills`. It must resolve to `moduleRoot` and its canonical `SKILL.md`
+identity/body. Missing activation is `missing`; foreign, copied or unreadable
+activation is `conflict`, even if a later surface points at the canonical module.
+Reference symlinks and relocation through `options.moduleRoot` remain supported.
+
+Owned TOML tables are matched by parsed key components, so `[modules."g33"]`,
+quoted/escaped equivalents and `[modules.g33]` share one surgical edit target.
+The original header, nested tables, comments and unrelated values are preserved.
 
 YAML namespace ownership uses the parsed exact `g33` key identity: unquoted,
 quoted, escaped and explicit/block scalar keys are equivalent. Existing foreign

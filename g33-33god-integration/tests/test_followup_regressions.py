@@ -651,6 +651,7 @@ class TestPjanglerBridge:
         skill = target / ".agents" / "skills" / "bmad-build"
         skill.parent.mkdir(parents=True)
         skill.symlink_to(REPO_ROOT / "all-skills" / "bmad-build", target_is_directory=True)
+        (skill.parent / "g33-33god-integration").symlink_to(MODULE_ROOT, target_is_directory=True)
         req = {"schemaVersion": 1, "moduleId": "g33", "operation": "apply",
                "reason": "bmad-install", "options": {}}
         req = {**req, "projectRoot": str(target)}
