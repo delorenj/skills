@@ -1,0 +1,5 @@
+module,skill,display-name,menu-code,description,action,args,phase,preceded-by,followed-by,required,output-location,outputs
+33GOD Integration,g33-33god-integration,Preflight,PF,"Validate project bindings, tool availability, and Krebs enrollment before build.",preflight,"{--project-root PATH}|{--json}",anytime,,,false,g33_output_folder,preflight report
+33GOD Integration,g33-33god-integration,Ecosystem Route,ER,"Route a 33GOD work request to owner components with contract entrypoints.",ecosystem-route,"{--project-root PATH}|{--request TEXT}|{--json}",anytime,,,false,g33_output_folder,routing result
+33GOD Integration,g33-33god-integration,Evidence to Handoff,EH,"Turn an evidence bundle into a separated BMAD implementation handoff.",evidence-to-handoff,"{--project-root PATH}|{--bundle PATH}|{--out PATH}|{--json}",anytime,g33-33god-integration:preflight,,false,g33_output_folder,handoff markdown
+33GOD Integration,g33-33god-integration,Setup Module,SU,"Install or reconfigure the g33 module (safe, idempotent, dry-run capable).",configure,"{--project-root PATH}|{--dry-run}|{--json}",anytime,,,false,{project-root}/_bmad,config.yaml and bmad-help.csv and custom overrides
