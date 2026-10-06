@@ -75,6 +75,39 @@ nearby tickets, and the bound repository's guidance as the available evidence.
 with the corresponding project-scoped lists. Do not enable features or invent
 cycle/module definitions merely to complete one-ticket grooming.
 
+If native Plane tools are absent, use the live Pipeline MCP Hub at
+`https://mcp.delo.sh/mcp` through the installed Python MCP client. Authenticate
+with the existing `PLANE_API_KEY` in the Bearer header (never print it), set
+`x-workspace-slug` explicitly, initialize the session, and load
+`list_domain_tools(domain="plane")` in that same session before dispatching
+`call_domain_tool`. Inspect live schemas: current hub names include
+`retrieve_work_item`, `update_work_item`, `manage_work_item_label`, and
+`list_work_item_comments`, with `work_item_id` rather than the older wrapper's
+`workitem_id`. Pass the bound `project_id` on every Plane domain call.
+Unexpanded `retrieve_work_item` on DELO can fail Pydantic
+`WorkItemDetail.labels.0` validation because the provider returns UUID strings
+while the SDK expects Label objects. Read with
+`expand="labels,state,assignees"`; this is a response-shape issue, not an auth
+failure. A write may land before response-model validation fails, so inspect
+the expanded bound read and activity before retrying any mutation. Check MCP
+`isError` before decoding text as JSON.
+
+If the hub's `manage_work_item_label` fails on its internal unexpanded read,
+passing `expand` to that action does not help: the current handler does not
+forward it. Do not infer malformed live data or a pipeline-label problem from
+that model error alone. A separately installed official Plane MCP/SDK may have
+a compatible response model (DELO observed hub failure while local
+`plane-sdk==0.2.20`, `WorkItemDetail.labels: list[str] | list[Label]`, succeeded).
+Read back the bound ticket and activity first to determine whether a write
+landed. If not, verify the installed client's unexpanded bound read and use
+that unmodified server's official `workitem(action="manage_label",
+project_id=..., workitem_id=..., add_label_id=...)` action via
+`fastmcp.Client(get_stdio_mcp())`, with the existing environment key, explicit
+workspace and correct Plane base URL. Verify all preserved fields and the
+label activity afterward. Never monkeypatch the tool, directly PATCH the full
+label list, clear `agent:working`, or repair unrelated source during grooming.
+If no compatible tool route works, report the marker as incomplete.
+
 A board audit reports findings first. Apply only requested or already-authorized
 changes. Keep batching bounded to the named project and task.
 
