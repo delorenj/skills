@@ -41,6 +41,8 @@ seems to, `px --help` is right: file the discrepancy with `px idea`.
 px todo list                             # what's in immediate scope (the unstarted lanes)
 px backlog list                          # what's queued for later (the Backlog lane)
 px task list [--group GROUP]             # every issue on the board, with its state
+px show <ref>                            # print one ticket: lane, labels, people, description, sub-issues, comments
+px task get <ref>                        # one ticket as data: on a legacy board what px show prints; managed: the Krebs snapshot
 px task create "<title>" [--state NAME]  # create a ticket; no --state: Backlog (managed: Krebs create, lands in Backlog)
 px claim <ref>                           # take a ticket: In Progress, assigned to you, labelled agent:working
 px release <ref> [-m MSG]                # give it back: Todo, agent:working and your assignment removed
@@ -56,7 +58,7 @@ px board list                            # boards in the workspace
 px whoami                                # show the resolved binding and the board's mode
 ```
 
-On a Krebs-managed board the verbs above take the Krebs flags and an -f payload instead of -m, --state, --dry-run, -d and -l; px <command> --help there lists them.
+On a Krebs-managed board the verbs above take the Krebs flags and an -f payload instead of -m, --state, --dry-run, -d, -l, --parent and --priority; px <command> --help there lists them.
 
 **Legacy boards only (no Krebs execution block: every board today)**
 
@@ -72,7 +74,7 @@ px board delete --force         # destroy the bound board and everything on it
 
 ```bash
 px task handoff|complete|attention|resume|takeover|status <ref>  # worker lifecycle through Krebs (claim, release, cancel, comment: the top-level verbs)
-px task get|update|review <ref>                                  # provider reads and evidence through Krebs
+px task update|review <ref>                                      # field updates and review evidence through Krebs
 px task start|heartbeat|finish <ref>                             # supervised run steps (also as px run <op>)
 px task plan|reevaluate|override|reconcile|planner [<ref>]       # PM and operator operations
 px run <op> <ref>                                                # any Krebs operation from inside a supervised run: start, heartbeat, finish, planner (success never means Done)
@@ -113,6 +115,7 @@ legacy board points at `px move <ref> <next lane> -m MSG`.
 On a legacy board (every board today):
 
 ```bash
+px show PX-3                          # read it first: lane, labels, description, sub-issues, comments
 px claim PX-3                         # In Progress, assigned to the key's user, agent:working
 px comment PX-3 -m "found the cause"  # a note, no move
 px move PX-3 "E2E Testing & QA" -m "ready for QA"   # any other lane, strictly by name
@@ -122,8 +125,16 @@ px cancel PX-3 -m "superseded by PX-9"              # Cancelled, marker removed
 ```
 
 Refs accept `PX-3`, `3`, `33GOD-68` (identifiers may start with a digit), or a
-raw uuid. **A ref whose prefix names another board is refused**, on legacy and
-managed boards alike: run px from the repo bound to that board.
+raw uuid. **A ref whose prefix names another board is refused** by every verb
+that writes, on legacy and managed boards alike: run px from the repo bound to
+that board. `px show` is the exception because it only reads: `px show FLUME-15`
+finds that ticket from any repo in the workspace (add `--workspace` for a board
+in another one). `--json` gives `{ok, ticket}`, the shape of the Krebs get
+receipt, and on a legacy board `px task get` prints the same.
+
+An epic's stories hang off it as sub-issues: `px task create "Story" --parent
+FLUME-16 --priority high` files one under FLUME-16 on the same board, and
+`px show FLUME-16` lists them with their lanes.
 
 Lanes resolve strictly. `in_progress` finds "In Progress", and a Plane group
 name (`cancelled`) works only when the board has exactly one state in it; a
