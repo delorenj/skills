@@ -192,13 +192,26 @@ def validate_config(config: dict) -> None:
         raise ConfigError(f"{CONFIG_KEY}.board.exposure_labels needs distinct external and internal names")
 
 
+def manifest_identity(manifest: dict) -> object:
+    """The project's identity as pjangler writes it.
+
+    `pj migrate` (PJAN-137, 2026-09-23) made `project_id` the canonical field and
+    removed the legacy `project_slug` from migrated manifests. Reading only
+    `project_slug` turned every migrated project into "None is not a lowercase
+    slug" and stopped its nightly report (James Brennan, 2026-10-07). The legacy
+    field is still read for manifests that were never migrated; when both are
+    present, the canonical one wins.
+    """
+    return manifest.get("project_id") or manifest.get("project_slug")
+
+
 def load_project(slug: str | None = None, cwd: str | None = None) -> Project:
     """Resolve the project and its merged config. Raises ConfigError (exit 2)."""
     path = find_project_json(cwd)
     if slug:
         if path:
             try:
-                if read_json(path).get("project_slug") != slug:
+                if manifest_identity(read_json(path)) != slug:
                     path = None
             except (OSError, ValueError):
                 path = None
@@ -216,9 +229,9 @@ def load_project(slug: str | None = None, cwd: str | None = None) -> Project:
     if not isinstance(manifest, dict):
         raise ConfigError(f"{path} must hold an object")
 
-    project_slug = manifest.get("project_slug")
+    project_slug = manifest_identity(manifest)
     if not isinstance(project_slug, str) or not _SLUG_RE.match(project_slug):
-        raise ConfigError(f"{path}: project_slug {project_slug!r} is not a lowercase slug")
+        raise ConfigError(f"{path}: project_id {project_slug!r} is not a lowercase slug")
     if slug and project_slug != slug:
         raise ConfigError(f"{path} belongs to {project_slug!r}, not {slug!r}")
 

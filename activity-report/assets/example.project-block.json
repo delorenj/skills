@@ -1,6 +1,6 @@
 {
   "_readme": [
-    "Paste the `activity_report` object below into the project's .project.json, next to project_slug, project_name and ticket_provider. Then run `activity-report init` in the repo.",
+    "Paste the `activity_report` object below into the project's .project.json, next to project_id, project_name and ticket_provider. Then run `activity-report init` in the repo.",
     "Every key is optional. A missing key takes the default in scripts/ar/config.py (DEFAULTS); the values here follow the james-brennan setup (its extra_repo_paths names the client-portal checkout).",
     "enabled: false makes every subcommand exit 2 with 'nothing to do for this project'.",
     "audiences: which reports to produce, in run order. internal first is the convention: the external pass reads the internal body.",
