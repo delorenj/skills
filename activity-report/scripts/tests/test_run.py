@@ -19,6 +19,13 @@ SCRIPTS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SKILL = os.path.dirname(SCRIPTS)
 FX = os.path.join(SCRIPTS, "tests", "fixtures", "publish")
 GRANT = "Read,Write,Edit,Glob,Grep,Skill,Bash(activity-report lint:*),Bash(git log:*),Bash(git show:*),Bash(git diff:*)"
+ROUTE = "automaticai/personal/claude-opus-5.5"
+TOKEN_REF = "op://DeLoSecrets/yeurk5dpqkaarspvsn3cjtmkki/activity-report-compose"
+FAKE_TOKEN = "sk-fake-gateway-token"
+MODEL_SLOTS = ("ANTHROPIC_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL",
+               "ANTHROPIC_DEFAULT_HAIKU_MODEL", "CLAUDE_CODE_SUBAGENT_MODEL")
+AUTH_ENV = ("ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN",
+            "CLAUDE_CODE_EFFORT_LEVEL") + MODEL_SLOTS
 
 FAKE_CLI = textwrap.dedent("""\
     #!/usr/bin/env python3
@@ -71,12 +78,25 @@ FAKE_CLI = textwrap.dedent("""\
         sys.exit(9)
 """)
 
+FAKE_OP = textwrap.dedent("""\
+    #!/usr/bin/env python3
+    import json, os, sys
+    with open(os.environ["FAKE_OP_LOG"], "a") as fh:
+        fh.write(json.dumps(sys.argv[1:]) + "\\n")
+    if os.environ.get("FAKE_OP_FAIL"):
+        sys.stderr.write("[ERROR] could not read secret\\n")
+        sys.exit(1)
+    print(os.environ["FAKE_OP_TOKEN"])
+""")
+
 FAKE_CLAUDE = textwrap.dedent("""\
     #!/usr/bin/env python3
     import json, os, re, sys
     argv = sys.argv[1:]
     with open(os.environ["FAKE_LOG"], "a") as fh:
         fh.write(json.dumps(["claude"] + argv) + "\\n")
+    with open(os.environ["FAKE_ENV_LOG"], "a") as fh:
+        fh.write(json.dumps({k: os.environ[k] for k in json.loads(os.environ["FAKE_AUTH_ENV"]) if k in os.environ}) + "\\n")
     prompt = argv[-1]
     m = re.search(r"Write exactly ONE file:\\n(\\S+)", prompt)
     if m and not os.environ.get("FAKE_CLAUDE_NO_RAW"):
@@ -98,22 +118,27 @@ class Harness:
         self.skill = os.path.join(self.tmp, "skill")
         self.state = os.path.join(self.tmp, "state")
         self.log = os.path.join(self.tmp, "calls.jsonl")
+        self.op_log = os.path.join(self.tmp, "op.jsonl")
+        self.env_log = os.path.join(self.tmp, "claude-env.jsonl")
         for d in (os.path.join(self.home, ".local", "bin"), self.repo, os.path.join(self.skill, "scripts"), self.state):
             os.makedirs(d, exist_ok=True)
         shutil.copytree(os.path.join(SKILL, "templates"), os.path.join(self.skill, "templates"))
         shutil.copy(os.path.join(SCRIPTS, "run.sh"), os.path.join(self.skill, "scripts", "run.sh"))
         for path, body in ((os.path.join(self.skill, "scripts", "activity-report"), FAKE_CLI),
                            (os.path.join(self.home, ".local", "bin", "activity-report"), FAKE_CLI),
-                           (os.path.join(self.home, ".local", "bin", "claude"), FAKE_CLAUDE)):
+                           (os.path.join(self.home, ".local", "bin", "claude"), FAKE_CLAUDE),
+                           (os.path.join(self.home, ".local", "bin", "op"), FAKE_OP)):
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(body)
             os.chmod(path, 0o755)
         self.work = os.path.join(self.repo, "runtime", "activity-report", "smoketest-project")
 
     def run(self, *args, env=None):
-        full_env = {k: v for k, v in os.environ.items() if not k.startswith("FAKE_") and k != "ACTIVITY_REPORT_DRY"}
+        full_env = {k: v for k, v in os.environ.items()
+                    if not k.startswith("FAKE_") and k != "ACTIVITY_REPORT_DRY" and k not in AUTH_ENV}
         full_env.update({"HOME": self.home, "XDG_STATE_HOME": self.state, "FAKE_LOG": self.log, "FAKE_FIXTURES": FX,
-                         "FAKE_REPO": self.repo, "FAKE_PORTAL": "1"})
+                         "FAKE_REPO": self.repo, "FAKE_PORTAL": "1", "FAKE_OP_LOG": self.op_log,
+                         "FAKE_OP_TOKEN": FAKE_TOKEN, "FAKE_ENV_LOG": self.env_log, "FAKE_AUTH_ENV": json.dumps(AUTH_ENV)})
         full_env.update(env or {})
         return subprocess.run(["bash", os.path.join(self.skill, "scripts", "run.sh"), *args], env=full_env,
                               capture_output=True, text=True, timeout=120)
@@ -123,6 +148,18 @@ class Harness:
             return []
         with open(self.log, encoding="utf-8") as fh:
             return [json.loads(line) for line in fh if line.strip()]
+
+    def _jsonl(self, path):
+        if not os.path.exists(path):
+            return []
+        with open(path, encoding="utf-8") as fh:
+            return [json.loads(line) for line in fh if line.strip()]
+
+    def op_calls(self):
+        return self._jsonl(self.op_log)
+
+    def claude_envs(self):
+        return self._jsonl(self.env_log)
 
     def stages(self):
         return [c[0] + ("" if c[0] in ("resolve", "claude") else ":" + (c[c.index("--audience") + 1] if "--audience" in c else "-"))
@@ -157,7 +194,7 @@ class RunSh(unittest.TestCase):
             self.assertIn("--print", c)
             self.assertEqual(c[c.index("--output-format") + 1], "json")
             self.assertIn("Nobody is watching", c[c.index("--append-system-prompt") + 1])
-            self.assertNotIn("--model", c)
+            self.assertEqual(c[c.index("--model") + 1], ROUTE)
         internal_raw = glob.glob(os.path.join(self.h.work, "*-internal.raw.txt"))
         self.assertEqual(len(internal_raw), 1)
         self.assertIn(internal_raw[0], claude_calls[1][-1])
@@ -283,8 +320,36 @@ class RunSh(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         claude = [c for c in self.h.calls() if c[0] == "claude"][0]
         self.assertEqual(claude[claude.index("--model") + 1], "claude-sonnet-5")
+        (env,) = self.h.claude_envs()
+        for slot in MODEL_SLOTS:
+            self.assertEqual(env[slot], "claude-sonnet-5", slot)
         assemble = [c for c in self.h.calls() if c[0] == "assemble"][0]
         self.assertEqual(assemble[assemble.index("--model") + 1], "claude-opus-5")
+
+    def test_compose_goes_through_the_gateway(self):
+        # What an interactive shell leaks into a manual run: a Kimi key, a stale
+        # direct endpoint and a native OAuth token. None may reach the compose.
+        leaked = {"ANTHROPIC_API_KEY": "kimi-key", "ANTHROPIC_BASE_URL": "https://api.anthropic.com",
+                  "CLAUDE_CODE_OAUTH_TOKEN": "native-oauth"}
+        proc = self.h.run("--project", "smoketest-project", env=leaked)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(self.h.op_calls(), [["read", TOKEN_REF]])
+        envs = self.h.claude_envs()
+        self.assertEqual(len(envs), 2)
+        for env in envs:
+            self.assertEqual(env["ANTHROPIC_BASE_URL"], "https://api.automaticai.io")
+            self.assertEqual(env["ANTHROPIC_AUTH_TOKEN"], FAKE_TOKEN)
+            for slot in MODEL_SLOTS:
+                self.assertEqual(env[slot], ROUTE, slot)
+            self.assertNotIn("ANTHROPIC_API_KEY", env)
+            self.assertNotIn("CLAUDE_CODE_OAUTH_TOKEN", env)
+        self.assertNotIn(FAKE_TOKEN, proc.stdout + proc.stderr)
+
+    def test_unreadable_gateway_token_is_exit_2_before_collect(self):
+        proc = self.h.run("--project", "smoketest-project", env={"FAKE_OP_FAIL": "1"})
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertEqual(self.h.stages(), ["resolve"])
+        self.assertIn(f"FATAL: could not read the gateway token {TOKEN_REF}", proc.stdout)
 
 
 if __name__ == "__main__":

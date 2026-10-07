@@ -79,15 +79,24 @@ export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/local/bin:/usr/
 # wrong account, which is worse. Same rule as every other script here.
 unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
 
-# The same trap, one layer up, and it cost this script its first real run.
-# ANTHROPIC_API_KEY is set in the interactive shell to a Kimi key (Kimi Code
-# reuses Anthropic's variable names). With no matching ANTHROPIC_BASE_URL it
-# gets sent to api.anthropic.com, which correctly rejects it -- and because an
-# API key outranks the claude.ai OAuth login, the working credential never gets
-# a turn. The compose stage died with "401 API key is invalid" while `claude`
-# worked fine by hand. Clearing these three makes the OAuth session the only
-# candidate, which is the subscription this job is meant to spend.
-unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL
+# The compose stage spends Jarad's personal Claude subscription, reached the way
+# every agent on this machine reaches a model: through the AutomaticAI gateway.
+# There is no claude.ai login to fall back on. Until 2026-10-07 this script
+# cleared the gateway variables so an OAuth login would be "the only candidate",
+# and with no login left a compose dies "Not logged in".
+#
+# The token is this job's own (gateway consumer activity-report-compose, scoped
+# to the default route), read from 1Password into this process once per run and
+# never written anywhere. ANTHROPIC_API_KEY is cleared because the interactive
+# shell holds a Kimi key in it (Kimi Code reuses Anthropic's variable names), and
+# an API key or OAuth token would outrank the gateway token. Every model slot is
+# pinned to one route, so no helper lands on another account; left alone, the
+# CLI takes its model from ~/.claude/settings.json. A project's compose.model
+# replaces the route, and the token's scope must include it.
+gateway_url="https://api.automaticai.io"
+gateway_default_route="automaticai/personal/claude-opus-5.5"
+gateway_token_ref="op://DeLoSecrets/yeurk5dpqkaarspvsn3cjtmkki/activity-report-compose"
+unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CODE_OAUTH_TOKEN
 
 trap 'log "run.sh: unexpected error at line $LINENO (exit $?)"' ERR
 
@@ -155,6 +164,14 @@ exec 9>"$lock"
 if ! flock -n 9; then
   log "another activity-report run holds $lock; exit 5"
   exit 5
+fi
+
+# Read once, before any audience spends a collect on a compose that cannot
+# start. Not exported: only the compose subshell puts it in the environment.
+route="${model:-$gateway_default_route}"
+if ! gateway_token="$(op read "$gateway_token_ref")" || [ -z "$gateway_token" ]; then
+  log "FATAL: could not read the gateway token $gateway_token_ref; cannot compose"
+  exit 2
 fi
 
 dry_note=""
@@ -249,22 +266,28 @@ sys.stdout.write(text)
   # raw.txt from an earlier attempt must not pass for this one.
   rm -f "$raw"
   local tools="Read,Write,Edit,Glob,Grep,Skill,Bash(activity-report lint:*),Bash(git log:*),Bash(git show:*),Bash(git diff:*)"
-  local model_args=()
-  if [ -n "$model" ]; then model_args=(--model "$model"); fi
-  log "composing $audience (headless, scoped tool grant, timeout ${timeout_minutes}m)"
+  log "composing $audience (headless, scoped tool grant, $route via $gateway_url, timeout ${timeout_minutes}m)"
   local compose_rc=0
   (
     cd "$repo_path"
+    export ANTHROPIC_BASE_URL="$gateway_url"
+    export ANTHROPIC_AUTH_TOKEN="$gateway_token"
+    export ANTHROPIC_MODEL="$route"
+    export ANTHROPIC_DEFAULT_OPUS_MODEL="$route"
+    export ANTHROPIC_DEFAULT_SONNET_MODEL="$route"
+    export ANTHROPIC_DEFAULT_HAIKU_MODEL="$route"
+    export CLAUDE_CODE_SUBAGENT_MODEL="$route"
+    export CLAUDE_CODE_EFFORT_LEVEL=xhigh
     timeout --kill-after=60s "${timeout_minutes}m" "$claude_bin" --print --output-format json \
+      --model "$route" \
       --allowed-tools "$tools" \
       --append-system-prompt "You are the unattended activity-report job for $name. Nobody is watching. Finish the whole task without asking questions." \
-      ${model_args[@]+"${model_args[@]}"} \
       "$prompt"
   ) >"$compose_json" || compose_rc=$?
   log "compose exited $compose_rc"
 
   # The model that actually answered: the modelUsage entry with the most
-  # output tokens, by canonical name. Falls back to the configured model.
+  # output tokens, by canonical name. Falls back to the requested route.
   local compose_model
   compose_model="$(python3 -c '
 import json, sys
@@ -286,7 +309,7 @@ print(str(doc.get("is_error")).lower(), doc.get("num_turns"), doc.get("total_cos
   local compose_stats
   compose_stats="$(printf '%s\n' "$compose_model" | sed -n 2p)"
   compose_model="$(printf '%s\n' "$compose_model" | sed -n 1p)"
-  if [ -z "$compose_model" ]; then compose_model="$model"; fi
+  if [ -z "$compose_model" ]; then compose_model="$route"; fi
   log "compose model: ${compose_model:-unknown}; is_error/turns/cost/stop: ${compose_stats:-unknown}"
 
   if [ "$compose_rc" -ne 0 ] || [ ! -s "$raw" ]; then
