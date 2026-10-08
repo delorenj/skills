@@ -1,0 +1,14 @@
+{
+  "_comment": "EXAMPLE assumptions from the BookJangler pilot (Oct 2026). Verify against the provider's current published pricing before use. Not credentials; no secrets belong here.",
+  "basis": "Counterfactual Standard API pricing for gpt-6.1-sol; the real route is subscription-billed, so this is NOT an actual charge",
+  "native_model": "gpt-6.1-sol",
+  "gateway_route": "automaticai/personal/sol-6.1",
+  "long_context_threshold_input_tokens": 272000,
+  "long_context_multipliers": {"input_and_cache": 2.0, "output": 1.5},
+  "rates_usd_per_million": {
+    "uncached_input_per_million": 2.0,
+    "cache_read_per_million": 0.1,
+    "cache_write_per_million": 2.5,
+    "output_per_million": 10.0
+  }
+}
