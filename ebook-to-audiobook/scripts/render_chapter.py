@@ -447,8 +447,15 @@ def generate_request(
     append_request(root, record)
     start = time.perf_counter()
     try:
-        done = subprocess.run(engine.synth_command(), input=canonical(payload), capture_output=True,
-                              check=True, timeout=engine.timeout + 10)
+        try:
+            done = subprocess.run(engine.synth_command(), input=canonical(payload), capture_output=True,
+                                  check=True, timeout=engine.timeout + 10)
+        except subprocess.CalledProcessError as exc:  # keep curl's reason (connect refused, 28 = timeout, 22 = HTTP)
+            detail = (exc.stderr or b"").decode("utf-8", errors="replace").strip()[-500:] or "no stderr"
+            hint = "; client timeout, the GPU may still be working" if exc.returncode == 28 else ""
+            raise ChapterError(f"Synthesis call failed (exit {exc.returncode}{hint}): {detail}") from exc
+        except subprocess.TimeoutExpired as exc:
+            raise ChapterError(f"Synthesis call exceeded {engine.timeout + 10}s; the GPU may still be working") from exc
         audio, wav = decode_response(json.loads(done.stdout))
         record["wav"] = wav
         record["wall_seconds"] = time.perf_counter() - start
@@ -803,14 +810,16 @@ def output_lock(root: Path):
             fcntl.flock(handle, fcntl.LOCK_UN)
 
 
-def sync_book(book_dir: Path | None, chapter: int | None, output: Path) -> None:
+def sync_book(book_dir: Path | None, chapter: int | None, output: Path, manifest: Path | None = None) -> None:
     """Best-effort: mirror disk state into book.json. Never masks the real result."""
     if book_dir is None:
         return
     try:
         import book as bookmod
 
-        bookmod.import_render(book_dir, chapter if chapter is not None else 0, output)
+        summary = bookmod.import_render(book_dir, chapter if chapter is not None else 0, output, manifest)
+        for conflict in summary.get("conflicts", []):
+            print(f"book.json voice conflict: {json.dumps(conflict, ensure_ascii=False)}", file=sys.stderr)
     except Exception as exc:  # noqa: BLE001
         print(f"book.json sync skipped: {type(exc).__name__}: {exc}", file=sys.stderr)
 
@@ -851,24 +860,28 @@ def main(argv: list[str] | None = None) -> int:
             if chapter is None and args.book:
                 chapter = validate_manifest(read_json(args.manifest))["chapter"]
                 chapter = chapter if isinstance(chapter, int) else None
+            sync = lambda: sync_book(args.book, chapter, args.output, args.manifest)  # noqa: E731
             if args.command == "prepare":
                 plan = prepare(args.manifest, args.output, engine)
                 result = {"chunks": len(plan["chunks"]), "voices_to_design": len(plan["designs"]),
                           "voices_pinned": sorted(plan["pinned"]),
                           "planned_input_text_tokens": plan["planned_input_text_tokens"],
                           "model_revision": plan["model_revision"], "token_label": TOKEN_LABEL}
-                sync_book(args.book, chapter, args.output)
+                sync()
             elif args.command == "report":
                 snapshot = read_json(args.llm_usage_snapshot) if args.llm_usage_snapshot else None
                 result = report(args.output, snapshot)
+                sync()  # registers metrics + qa-*.json and advances the marker to `qa`
             else:
                 plan = load_plan(args.manifest, args.output, engine)
                 if args.command == "status":
                     result = status(plan, args.output)
                 elif args.command == "preview":
                     result = preview(plan, args.output, engine)
+                    sync()
                 elif args.command == "redo":
                     result = redo(plan, args.output, args.chunk, args.reason)
+                    sync()  # the moved chapter.mp3 is marked stale, the marker drops to `rendering` for this chapter
                 else:
                     try:
                         if args.command == "voices":
@@ -883,10 +896,10 @@ def main(argv: list[str] | None = None) -> int:
                             report(args.output)
                         except Exception as report_error:  # noqa: BLE001
                             print(f"Metrics update failed: {report_error}", file=sys.stderr)
-                        sync_book(args.book, chapter, args.output)
+                        sync()
                         raise
                     report(args.output)
-                    sync_book(args.book, chapter, args.output)
+                    sync()
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     except (ChapterError, OSError, subprocess.SubprocessError, ValueError, KeyError) as exc:

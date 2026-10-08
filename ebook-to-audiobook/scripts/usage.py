@@ -280,7 +280,7 @@ def main(argv: list[str] | None = None) -> int:
             snapshot = read_json(args.snapshot)
             entry = {
                 "label": args.label, "chapter": args.chapter, "recorded_utc": utc_now(),
-                "snapshot": str(args.snapshot), "totals": snapshot["totals"],
+                "snapshot": bookmod.rel(args.book, args.snapshot), "totals": snapshot["totals"],
                 "api_equivalent_usd": api_equivalent(snapshot["totals"], read_json(args.pricing))["usd"] if args.pricing else None,
                 "actual_llm_charge_usd": snapshot.get("actual_llm_charge_usd"),
             }

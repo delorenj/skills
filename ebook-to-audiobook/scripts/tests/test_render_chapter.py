@@ -178,8 +178,10 @@ class PipelineTests(unittest.TestCase):
         plan = self.prepared()
         rc.voices(plan, self.out, self.engine)
         self.fake.fail_on = {"Where is the tea"}
-        with self.assertRaises(subprocess.CalledProcessError):
+        with self.assertRaises(AbkError) as failed:
             rc.render(plan, self.out, self.engine)
+        self.assertIn("engine exploded", str(failed.exception))  # curl's stderr survives into the error
+        self.assertIn("engine exploded", [r for r in rc.request_records(self.out) if r["status"] == "failure"][0]["error"])
         self.fake.fail_on = set()
         with self.assertRaises(AbkError) as ctx:
             rc.render(plan, self.out, self.engine)
@@ -273,6 +275,33 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(kinds["chunk-cache"], "complete")
         self.assertEqual(kinds["chapter-mp3"], "complete")
         self.assertEqual(book.verify_artifacts(root), [])
+
+    def test_cli_redo_and_report_keep_book_json_honest(self):
+        import book
+
+        root = self.dir / "book"
+        book.init_book(root, "Tiny")
+        manifest_path = root / "chapters/01/chapter.json"
+        manifest_path.parent.mkdir(parents=True)
+        manifest_path.write_text(json.dumps(manifest()))
+        out = root / "chapters/01/audio"
+        base = ["--manifest", str(manifest_path), "--output", str(out), "--book", str(root)]
+        for command in ("prepare", "voices", "render"):
+            self.assertEqual(rc.main([command, *base]), 0, command)
+        self.assertEqual(book.load(root)["chapters"]["1"]["manifest"], "chapters/01/chapter.json")
+        self.assertEqual(rc.main(["redo", *base, "--chunk", "000002", "--reason", "ASR: mangled"]), 0)
+        data = book.load(root)
+        self.assertEqual(data["progress"]["furthest"]["stage"], "rendering")
+        self.assertEqual({a["kind"]: a["status"] for a in data["artifacts"]}["chapter-mp3"], "stale")
+        self.assertIn("render_chapter.py render", " ".join(book.resume_hint(root)["commands"]))
+        self.assertEqual(rc.main(["render", *base]), 0)
+        (out / "qa-all.json").write_text(json.dumps(
+            {"status": "complete", "selection": {"selected_chunks": 2}, "timestamp_utc": rc.utc_now()}))
+        self.assertEqual(rc.main(["report", *base]), 0)
+        data = book.load(root)
+        self.assertEqual(data["progress"]["furthest"]["stage"], "qa")
+        kinds = {a["kind"]: a["status"] for a in data["artifacts"]}
+        self.assertEqual((kinds["chapter-mp3"], kinds["asr-qa"], kinds["metrics"]), ("complete", "complete", "complete"))
 
     def test_llm_metrics_never_estimates(self):
         self.assertIsNone(rc.llm_metrics(None)["input_tokens"])

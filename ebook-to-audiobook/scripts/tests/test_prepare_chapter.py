@@ -97,6 +97,18 @@ class TextTests(unittest.TestCase):
             with self.assertRaises(AbkError):
                 pc.assemble_text(pages, 1, 4)
 
+    def test_end_marker_is_found_before_the_last_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pages = Path(tmp)
+            (pages / "page-001.txt").write_text("CHAPTER ONE\nFirst page.\n")
+            (pages / "page-002.txt").write_text("Second page.\n\nCHAPTER TWO\nNot this chapter.\n")
+            (pages / "page-003.txt").write_text("Still chapter two.\n")
+            paragraphs, report = pc.assemble_text(pages, 1, 3, start_marker="CHAPTER ONE", end_marker="CHAPTER TWO")
+            self.assertEqual(paragraphs, ["First page.", "Second page."])
+            self.assertEqual(report["end_marker_found"], 2)
+            _, report = pc.assemble_text(pages, 1, 1, end_marker="CHAPTER NINE")
+            self.assertFalse(report["end_marker_found"])
+
     def test_auto_join_only_when_sentence_unfinished(self):
         with tempfile.TemporaryDirectory() as tmp:
             pages = Path(tmp)
@@ -127,6 +139,11 @@ class CliTests(unittest.TestCase):
             self.assertEqual(manifest["title"], "Tiny")
             self.assertTrue(manifest["voices"]["narrator"]["reference_audio"].endswith("voices/narrator.wav"))
             self.assertNotIn("reference_audio", manifest["voices"]["boy"])
+            data = book.load(root)  # build --book records the chapter and moves the marker for resume
+            self.assertEqual(data["chapters"]["1"]["manifest"], "chapters/01/chapter.json")
+            self.assertEqual(data["chapters"]["1"]["text"], "chapter.txt")
+            self.assertEqual(data["progress"]["furthest"]["stage"], "prepared")
+            self.assertIn("render_chapter.py prepare", " ".join(book.resume_hint(root)["commands"]))
 
     def test_quotes_cli_and_failures_exit_nonzero(self):
         with tempfile.TemporaryDirectory() as tmp:

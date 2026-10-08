@@ -18,16 +18,19 @@ python3 -B $S/book.py --dir $B progress set --chapter N --stage STAGE [--chunk-i
 python3 -B $S/book.py --dir $B progress show
 python3 -B $S/book.py --dir $B artifact add --kind K --path P [--chapter N] [--status partial|complete|stale] [--note ...]
 python3 -B $S/book.py --dir $B artifact verify [--no-mark]     # exit 2 + list when something drifted
-python3 -B $S/book.py --dir $B import-render --chapter N --output chapters/NN/audio
-python3 -B $S/book.py --dir $B resume                          # the next concrete action
+python3 -B $S/book.py --dir $B import-render --chapter N --output chapters/NN/audio [--manifest chapters/NN/chapter.json]
+python3 -B $S/book.py --dir $B resume                          # the next concrete commands
 python3 -B $S/book.py --dir $B show [--json]
 ```
 
 You rarely call `voice add`, `progress set`, `artifact add` or `import-render` by hand:
-`render_chapter.py ... --book $B` runs `import-render` after every `prepare`, `voices` and `render`
-(also after a failure), registering designed voices, the chunk cache, the final audio and the
-progress marker. Call them directly for work done outside the scripts: a voice you selected from the
-Voxxy library, a hand-edited reference clip, a chapter produced elsewhere.
+`prepare_chapter.py build --book` records the chapter's text and manifest and sets `prepared`;
+`design_voice.py freeze` registers a voice; `render_chapter.py ... --book $B` runs `import-render` after every
+`prepare`, `voices`, `preview`, `render`, `redo` and `report` (also after a failure), registering designed voices,
+the chunk cache, the final audio, QA reports and the progress marker. Call them directly for work done outside the
+scripts: a voice you selected from the Voxxy library, a hand-edited reference clip, a chapter produced elsewhere,
+and the human sign-off (`progress set --stage done`). Paths passed on the command line are resolved from the cwd
+and stored relative to the book.
 
 ## Schema (`"schema": "ebook-to-audiobook/book/1"`)
 
@@ -86,27 +89,49 @@ Voxxy library, a hand-edited reference clip, a chapter produced elsewhere.
   `render_chapter.py` skips design and conditions chunks on that exact file.
 - `voice add` on an existing id is refused without `--replace`. Replacing a voice mid-book changes the sound of
   every later chapter, so do it deliberately and rerender nothing silently.
-- Reference audio from outside the book is copied to `voices/<id>.<ext>` and hashed; `description`
-  may not contain parentheses (the renderer wraps them).
+- Reference audio must be PCM WAV (anything else is refused with an `ffmpeg` conversion hint, because the renderer
+  validates pinned clips as RIFF PCM). A clip from outside the book is copied to `voices/<id>.wav` and hashed;
+  `description` may not contain parentheses (the renderer wraps them).
+- `import-render` never overwrites a library voice. If a chapter designed its own clip for an id the book already
+  has (built without `--book`), the result lists it under `conflicts` (and the renderer prints it to stderr).
 
 ### Progress marker
 
 `furthest` is a high-water mark ordered by (chapter, stage, chunks_done, char_offset), so redoing an old
-chapter never drags it backwards. Stages, in order: `new, researched, prepared, voices, rendering,
-assembled, qa, done`. `chunk_id` is the last chunk with a validated WAV; `char_offset` is cumulative
-characters of chunk text consumed (position within the chunked chapter text, approximate by one space
-per chunk). The chapter's own `status` only ever advances.
+chapter never drags it backwards. Stages, in order, and what puts a chapter there:
 
-`book.py resume` turns the marker into the next action. The chunk cache, not the marker, is the real
-resume state: `render_chapter.py status` counts valid chunks and names the next one.
+| stage | meaning | set by |
+| --- | --- | --- |
+| `new` | nothing yet | `init` |
+| `researched` | cast and `speakers.json` reviewed | you: `chapter set N --status researched --text ...` |
+| `prepared` | `chapter.json` built (voices not all designed yet) | `prepare_chapter.py build --book`, `import-render` |
+| `voices` | every speaker designed or pinned, no chunks yet | `import-render` |
+| `rendering` | some chunks cached | `import-render` |
+| `assembled` | `chapter.mp3` exists | `import-render` |
+| `qa` | a complete `qa-*.json` that sampled chunks and postdates `assembly.json` | `import-render` (via `report --book`) |
+| `done` | listened to and signed off | you: `progress set --chapter N --stage done` |
+
+`chunk_id` is the last chunk of the contiguous run of cached WAVs (a `redo` leaves a hole); `char_offset` is the
+characters of chunk text consumed up to it (approximate by one space per chunk); `note` names the next chunk.
+The chapter's own `status` only advances, with one exception: `import-render` is authoritative about the disk
+for its own chapter, so when the audio really went backwards (a `redo` moved `chapter.mp3` away, a fresh output
+directory after a manifest change) the chapter and, if it is the furthest chapter, `furthest` move back with it
+(`regressed_from` in the result). An idempotent re-run after sign-off keeps `done`. Artifacts under that output
+directory whose files vanished are marked `stale`.
+
+`book.py resume` turns `furthest` into the next runnable commands, with absolute script, manifest and output paths
+taken from the chapter row (`done` points at the next chapter), and lists `unfinished_earlier_chapters`. The chunk
+cache, not the marker, is the real resume state: `render_chapter.py status` counts valid chunks and names the next
+one, and `render` skips every cached chunk.
 
 ### Artifacts
 
 | kind | meaning | status rule |
 | --- | --- | --- |
 | `chunk-cache` | `audio/chunks/` directory (count recorded, no hash) | `partial` until every planned chunk exists |
-| `chapter-mp3`, `chapter-wav` | mastered final audio | `complete` once assembled |
+| `chapter-mp3`, `chapter-wav` | mastered final audio | `complete` once assembled; `stale` after a `redo` |
 | `requests-ledger`, `metrics`, `assembly` | `requests.jsonl`, `metrics.json`, `assembly.json` | `complete` |
+| `voice-preview` | `voice-preview.mp3` cast sampler | `complete` |
 | `asr-qa` | `qa-*.json` | `complete` |
 | anything else | free-form `--kind` | caller decides |
 

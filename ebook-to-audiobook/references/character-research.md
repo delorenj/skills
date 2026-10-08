@@ -31,7 +31,9 @@ register, pacing - choices, not facts), plus a **reviewed speaker for every quot
    judgement of someone (Old Mistress calls O-lan slow) is not a reason to perform them as foolish.
 7. **Check rights** and record them in `book.json` `source.rights`.
 8. **Save**: `research/characters.json` (book-level bible, append per chapter) and `research/chapter-NN.json`.
-   Then `book.py chapter set N --status researched`.
+   Then `book.py --dir $B chapter set N --status researched --text chapters/NN/chapter.txt` (the marker that
+   `book.py resume` reads). A voice you want before writing `speakers.json` can be designed and frozen on its own
+   with `design_voice.py` (voice-design.md, path A).
 
 ## `research/characters.json` (cast bible, cumulative)
 
@@ -93,8 +95,11 @@ register, pacing - choices, not facts), plus a **reviewed speaker for every quot
 - `quotes` has **exactly one entry per quoted span, in text order**. Each entry is `"speaker"`, `["speaker", "exact
   quote text"]`, or `{"speaker","text"}`. Include the text: it **pins** the attribution, so if OCR cleanup later
   changes a quote, `build` refuses ("Quote 50 changed...") instead of silently misassigning every span after it.
-- Voices already registered in `book.json` are pinned automatically with `--book` when the speaker is listed under
-  `voices` (an empty `{}` or just `"character"` is enough: no `description`/`reference_text` needed). New speakers need both.
+- Voices already registered in `book.json` (from an earlier chapter or `design_voice.py freeze`) are pinned
+  automatically with `--book` when the speaker is listed under `voices` (an empty `{}` or just `"character"` is
+  enough: no `description`/`reference_text` needed). New speakers need both. `build --book` also records the
+  chapter's text and manifest in `book.json` and moves the marker to `prepared`; an optional top-level
+  `"chapter_title"` is stored as the chapter's title.
 - `unused_voices` in the build output lists voices with no segments; delete them so no design call is wasted.
 - `build` also proves the text survived: every paragraph, and the whole chapter, must reconstruct exactly from the
   segments once dialogue delimiters and whitespace are removed. Keep `source.uncertainties` for every place you
@@ -103,7 +108,9 @@ register, pacing - choices, not facts), plus a **reviewed speaker for every quot
 ## Turning text into clean paragraphs (scanned books)
 
 `extract_pages.py` writes `page-NNN.txt` (1-based PDF page numbers, not printed folios). Then
-`prepare_chapter.py text` assembles a chapter: `--start-marker/--end-marker` cut at headings,
+`prepare_chapter.py text` assembles a chapter: `--start-marker/--end-marker` cut at headings (the end marker is
+searched on every page, so an overshooting `--last` is harmless; `end_marker_found` reports the page, and a missing
+marker warns),
 `--strip-folio` drops the page-number line, `--join-previous 10,12` (or `--auto-join`) rejoins paragraphs split by a
 page break, soft-hyphen line wraps are repaired, and `--corrections corrections.json` applies reviewed fixes
 `[{"page": 9, "before": "carthen", "after": "earthen"}]`. A correction that no longer matches aborts the build

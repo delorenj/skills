@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -55,7 +56,8 @@ def assemble_text(
     for item in corrections or []:
         by_page.setdefault(int(item["page"]), []).append(item)
     paragraphs: list[str] = []
-    report: dict[str, Any] = {"corrections_applied": [], "joined_pages": [], "wrap_repairs": 0}
+    report: dict[str, Any] = {"corrections_applied": [], "joined_pages": [], "wrap_repairs": 0,
+                              "end_marker_found": None if end_marker is None else False}
     for number, path in page_files(pages_dir, first, last):
         lines = path.read_text(encoding="utf-8").strip().splitlines()
         if not lines:
@@ -68,10 +70,12 @@ def assemble_text(
             if index < 0:
                 raise AbkError(f"start marker {start_marker!r} not found on page {number}")
             text = text[index + len(start_marker):].strip()
-        if number == last and end_marker and end_marker in text:
+        ended = bool(end_marker) and end_marker in text  # checked on every page: --last may overshoot the chapter
+        if ended:
             text = text.split(end_marker, 1)[0].strip()
+            report["end_marker_found"] = number
             if not text:  # chapter ended exactly at the previous page boundary
-                continue
+                break
         for item in by_page.get(number, []):
             count = text.count(item["before"])
             if count == 0:
@@ -91,6 +95,8 @@ def assemble_text(
             paragraphs[-1] += " " + blocks.pop(0)
             report["joined_pages"].append(number)
         paragraphs.extend(blocks)
+        if ended:
+            break
     if not paragraphs:
         raise AbkError("No paragraphs produced")
     return paragraphs, report
@@ -253,6 +259,9 @@ def cmd_text(args: argparse.Namespace) -> dict[str, Any]:
     )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text("\n\n".join(paragraphs) + "\n", encoding="utf-8")
+    if args.end_marker and not report["end_marker_found"]:
+        print(f"warning: end marker {args.end_marker!r} not found on pages {args.first}-{args.last}; "
+              "the chapter runs to the last page", file=sys.stderr)
     return {"out": str(args.out), "paragraphs": len(paragraphs), "words": sum(words(p) for p in paragraphs), **report}
 
 
@@ -286,10 +295,12 @@ def cmd_build(args: argparse.Namespace) -> dict[str, Any]:
     manifest = build_manifest(paragraphs, spec, pinned)
     base = out.resolve().parent
     for speaker, path in pinned.items():  # keep manifests relocatable: paths relative to the manifest
-        import os
         manifest["voices"][speaker]["reference_audio"] = os.path.relpath(path, base)
     out.parent.mkdir(parents=True, exist_ok=True)
     write_json(out, manifest)
+    if args.book:  # record the chapter's files and move the marker to `prepared` (resume picks it up)
+        bookmod.set_chapter(args.book, args.chapter, title=spec.get("chapter_title"), text=args.text, manifest=out)
+        bookmod.set_progress(args.book, args.chapter, "prepared")
     counts: dict[str, int] = {}
     for segment in manifest["segments"]:
         counts[segment["speaker"]] = counts.get(segment["speaker"], 0) + 1

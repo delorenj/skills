@@ -65,11 +65,35 @@ prompt - they become constant tics across hundreds of lines.
 
 ## Design, check, freeze
 
+Two entry points, same request path and guarantees (direct sidecar, engine check, `requests.jsonl` ledger,
+`--retry-failed` after a failure):
+
+**A. One voice, before or between chapters** (`design_voice.py`, no chapter manifest needed):
+
+```bash
+S=~/.agents/skills/ebook-to-audiobook/scripts; B=<book dir>; V=o_lan      # V: letters, digits, _ -
+python3 -B $S/design_voice.py design --book $B --id $V --takes 2 \
+    --description "Twenty-year-old woman, grounded plain restrained middle-low register." \
+    --reference-text "The morning light falls across the room, and a gentle breeze moves the curtains beside the open window."
+python3 -B $S/design_voice.py list --book $B --id $V --samples-out $B/voices/takes/$V/samples.json
+python3 -B $S/verify_audio.py --root $B/voices/takes/$V --samples $B/voices/takes/$V/samples.json \
+    --phase refs --out $B/voices/takes/$V/qa-takes.json                   # each take vs its reference_text
+python3 -B $S/design_voice.py freeze --book $B --id $V --take 2 --character "O-lan" [--chapter 1] [--replace]
+```
+
+Takes go to `<book>/voices/takes/<id>/refs/take-NN.wav` with receipts (about 3 s of GPU each; `--takes` 1-5,
+`--cfg`/`--steps` default to `book.json` `engine.settings`). Listen to every take; `freeze` copies the chosen one to
+`voices/<id>.wav`, records `description`, `reference_text`, `mode: designed` in `book.json`, and refuses to replace an
+existing voice without `--replace`. In the chapter's `speakers.json` the voice then needs only `{"character": ...}`;
+`prepare_chapter.py build --book` pins it.
+
+**B. A chapter's whole new cast** (the pilot path):
+
 1. Put the voices in `speakers.json`; `prepare_chapter.py build` validates length rules and writes `chapter.json`.
 2. `render_chapter.py prepare` (exact token counts, plan fingerprint) then `render_chapter.py voices`. Each voice
    is one synth call (~4 s). Results land in `audio/refs/<id>.wav` with a request receipt; they are never regenerated
-   once they exist. Do not rerun `voices` hoping for a "better take" - change the description and use a fresh output
-   directory, or `book.py voice add --replace` a hand-picked clip.
+   once they exist. Do not rerun `voices` hoping for a "better take" - use path A for alternatives, change the
+   description and use a fresh output directory, or `book.py voice add --replace` a hand-picked clip.
 3. **Audition**: `render_chapter.py preview` concatenates every reference (with pauses) into
    `audio/voice-preview.wav/.mp3`. Listen to all voices back to back. The pilot's `voice-preview.mp3` was 85 s for 11 voices. Confirm: distinct from one another,
    no spoken design instructions, right sex/age, no artifacts.
@@ -77,31 +101,47 @@ prompt - they become constant tics across hundreds of lines.
    (pilot: 197 of 198 words matched, no spoken instructions). A failing clip usually means the description was
    read aloud (misplaced parenthesis) or the voice is too exotic.
 5. `render_chapter.py ... --book $B` (or `book.py import-render`) copies each clip to `<book>/voices/<id>.wav`,
-   hashes it, and records `description`, `reference_text`, `mode: designed` in `book.json`.
+   hashes it, and records `description`, `reference_text`, `mode: designed` in `book.json`. If the book already has
+   a different clip under that id (chapter built without `--book`), it is reported as a `conflict`, never overwritten.
 
 ## Reusing and choosing voices later
 
 - **Next chapter, same cast**: `prepare_chapter.py build --book $B --chapter N` pins every registered speaker to
   its library clip; `render_chapter.py prepare` hashes the clip into the plan, `voices` only designs *new* speakers,
   and a changed clip invalidates the plan (fresh output directory).
-- **Selected voice** (an existing Voxxy profile): `voxxy voice list`, then
-  `book.py voice add ID --mode selected --voxxy-slug SLUG --reference-audio PATH`. The direct VoxCPM path needs the
-  profile's reference *clip*, not its slug: use the original upload or copy it out of the core container
-  (`docker cp vox:/data/voices/<slug>.wav .`, the location vox-tts uses for `rick`). Check the `engine` field on any
-  render that goes through the public API: `vibevoice`/`voxcpm` is the voice, `elevenlabs` is a stranger.
+- **Selected voice** (an existing Voxxy profile): `voxxy voice list --json`, then `voxxy voice info SLUG --json`. The
+  direct VoxCPM path needs the profile's reference *clip*, not its slug. The clip's file name is the info's
+  `vibevoice_ref_path` (it is not always `<slug>.wav`) inside core's `/data/voices`, bind-mounted from
+  `~/code/voxxy/voices/` on big-chungus: copy it from there (or `docker cp vox:/data/voices/<file> .`), then
+  `book.py voice add ID --mode selected --voxxy-slug SLUG --reference-audio CLIP.wav`. Only PCM WAV is accepted; convert
+  others with `ffmpeg -i IN -ac 1 -ar 48000 -c:a pcm_s16le OUT.wav`. Check the `engine` field on any render that goes
+  through the public API: `vibevoice`/`voxcpm` is the voice, `elevenlabs` is a stranger.
 - **Cloned voice**: only when the user supplies a recording and asks (vox-tts "Interactive voice cloning"). Do not run
   STT on it; it is a reference, not text. Reference budget is ~10 s of clean speech for VibeVoice, 30 s for VoxCPM.
   Register with `book.py voice add ID --mode cloned --reference-audio WAV`.
 - **Mood without a new clone**: a description prefix can shift prosody on top of a reference (vox-tts voice_design.md),
   but chapter chunks here deliberately carry no description; keep it that way for audiobook consistency.
 - Do not register book voices into the shared Voxxy library as a side effect; the library is shared state. If the user
-  wants them there, add them explicitly with `voxxy voice add`, then record the slug in `book.json`.
+  wants them there (e.g. to use them from `voxxy speak`), add each one explicitly and record the slug:
+
+  ```bash
+  voxxy voice add $B/voices/o_lan.wav --name <book-slug>-o-lan --display-name "O-lan (<Title>)" \
+      --tags audiobook,<book-slug> --no-prompt          # then: book.py voice add ... --voxxy-slug <book-slug>-o-lan --replace
+  ```
+
+  Real flags (voxxy CLI source `cli/voxxy/commands/voice.py`): `--name/-n` must match `^[a-z0-9-]+$`, so book ids with
+  `_` need a hyphenated slug; `--no-prompt/-N` requires `--name`; the upload is resampled to `--sample-rate/-R` 24000 mono
+  and trimmed to `--trim-seconds/-T` 30; `--engine/-e` is only printed, not sent; no reference transcript is stored.
+  Playback through the library (`voxxy speak -v SLUG --out x.ogg "..."`, `-c` cfg, `-S` steps) uses whichever engine
+  core routes, so it is a convenience, never the book's renderer.
 
 ## Failure modes seen or expected
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| Response `engine` is not `voxcpm` | public route or engine down | Use the sidecar directly; start `voxxy-engine-voxcpm` with `--profile voxcpm` |
+| Response `engine` is not `voxcpm` | public route or engine down | Use the sidecar directly (the scripts do) |
+| `/healthz` unreachable, `No such container` | VoxCPM sidecar stopped (e.g. by `voxxy daemon start` with VibeVoice routed) | `docker start voxxy-engine-voxcpm`; if it does not exist: `cd ~/code/voxxy && op run --env-file .env.template -- docker compose -f compose.yml -f compose.engines.yml --profile voxcpm up -d --no-deps --no-build voxxy-engine-voxcpm`. Neither touches routing. Wait for `ready: true` |
+| `Synthesis call failed (exit 7/52/56)` mid-render | `vox` was recreated (`voxxy daemon restart`, `engine use`) | Wait for both containers healthy, confirm the GPU is idle, `--retry-failed` |
 | "Prior failed/unfinished request" | timeout, container restart | Confirm idle GPU, then `--retry-failed` |
 | Clip transcript includes the description | parenthesis lost or description too long | Shorten (<20 words), remove punctuation oddities |
 | Two voices sound alike | prompts differ only in adjectives | Change sex/age/register, not mood |

@@ -9,8 +9,8 @@
     book.py progress show
     book.py artifact add --kind K --path P [--chapter N] [--status partial|complete]
     book.py artifact verify
-    book.py import-render --chapter N --output AUDIO_DIR
-    book.py resume
+    book.py import-render --chapter N --output AUDIO_DIR [--manifest CHAPTER_JSON]
+    book.py resume                 # the next concrete commands, from the furthest-progress marker
     book.py show [--json]
 
 All paths stored in book.json are relative to the book directory so the whole
@@ -31,7 +31,11 @@ from typing import Any, Iterator
 from abk_common import AbkError, atomic_write, file_hash, read_json, safe_id, utc_now, wav_metadata
 
 SCHEMA = "ebook-to-audiobook/book/1"
+SCRIPTS = Path(__file__).resolve().parent
 VOICE_MODES = ("designed", "selected", "cloned")
+# new: nothing yet | researched: cast + speakers.json reviewed | prepared: chapter.json built |
+# voices: every voice designed or pinned | rendering: some chunks cached | assembled: chapter.mp3 |
+# qa: a complete ASR report covering chunks | done: listened to and signed off
 STAGES = ("new", "researched", "prepared", "voices", "rendering", "assembled", "qa", "done")
 ARTIFACT_STATUS = ("partial", "complete", "stale")
 LAYOUT = (
@@ -154,7 +158,13 @@ def add_voice(
         raise AbkError("description must not contain parentheses (the engine wraps it itself)")
     audio_info = None
     if reference_audio is not None:
-        info = wav_metadata(reference_audio) if reference_audio.suffix.lower() == ".wav" else None
+        if reference_audio.suffix.lower() != ".wav":
+            # render_chapter.py pins clips by validating RIFF PCM; catch other formats here, not mid-render.
+            raise AbkError(
+                f"reference audio must be a PCM WAV (got {reference_audio.name}); convert first: "
+                f"ffmpeg -i {reference_audio} -ac 1 -ar 48000 -c:a pcm_s16le {reference_audio.with_suffix('.wav').name}"
+            )
+        info = wav_metadata(reference_audio)
         target = reference_audio
         if not reference_audio.resolve().is_relative_to(directory.resolve()):
             target = directory / "voices" / f"{voice_id}{reference_audio.suffix.lower()}"
@@ -180,8 +190,9 @@ def add_voice(
 
 def set_chapter(
     directory: Path, chapter: int, title: str | None = None, status: str | None = None,
-    manifest: str | None = None, output: str | None = None, text: str | None = None,
+    manifest: str | Path | None = None, output: str | Path | None = None, text: str | Path | None = None,
 ) -> dict[str, Any]:
+    """Record a chapter's files. Path values (cwd-relative or absolute) are stored relative to the book."""
     if chapter < 0:
         raise AbkError("chapter must be >= 0 (0 = front matter)")
     with locked(directory) as data:
@@ -193,7 +204,7 @@ def set_chapter(
             if value is not None:
                 if key == "status" and value not in STAGES:
                     raise AbkError(f"status must be one of {STAGES}")
-                row[key] = value
+                row[key] = rel(directory, value) if isinstance(value, Path) else value
         row["updated_utc"] = utc_now()
         return row
 
@@ -209,8 +220,13 @@ def position(marker: dict[str, Any] | None) -> tuple[int, int, int, int]:
 def set_progress(
     directory: Path, chapter: int, stage: str, *, chunk_id: str | None = None,
     chunks_done: int | None = None, chunks_total: int | None = None,
-    char_offset: int | None = None, note: str | None = None,
+    char_offset: int | None = None, note: str | None = None, authoritative: bool = False,
 ) -> dict[str, Any]:
+    """Write the current marker and advance the high-water `furthest` marker.
+
+    `authoritative` (import-render only) lets disk evidence move *this* chapter backwards, e.g. after
+    `redo` retired the assembled audio; an earlier chapter still never drags a later furthest back.
+    """
     if stage not in STAGES:
         raise AbkError(f"stage must be one of {STAGES}")
     if chapter < 0:
@@ -228,12 +244,12 @@ def set_progress(
         # furthest = high-water mark; a re-render of an earlier chapter never drags it back.
         best = progress.get("furthest")
         stage_rank = STAGES.index(stage)
-        if best is None or position(marker) > position(best):
+        if best is None or position(marker) > position(best) or (authoritative and best["chapter"] == chapter):
             progress["furthest"] = marker
         chapter_row = data["chapters"].setdefault(str(chapter), {
             "title": None, "status": "new", "text": None, "manifest": None, "output": None,
         })
-        if STAGES.index(chapter_row["status"]) < stage_rank:
+        if authoritative or STAGES.index(chapter_row["status"]) < stage_rank:
             chapter_row["status"] = stage
         return progress
 
@@ -291,22 +307,72 @@ def verify_artifacts(directory: Path, mark_stale: bool = True) -> list[dict[str,
     return problems
 
 
-def import_render(directory: Path, chapter: int, output: Path) -> dict[str, Any]:
-    """Register what render_chapter.py produced: designed voices + artifacts + progress."""
+def chunk_progress(plan: dict[str, Any], chunks_dir: Path) -> dict[str, Any]:
+    """Count cached chunk WAVs; the marker's chunk_id/char_offset is the contiguous prefix (a redo leaves a hole)."""
+    present = {p.stem for p in chunks_dir.glob("*.wav")} if chunks_dir.is_dir() else set()
+    ids = [chunk["id"] for chunk in plan["chunks"]]
+    prefix = 0
+    while prefix < len(ids) and ids[prefix] in present:
+        prefix += 1
+    return {
+        "done": sum(i in present for i in ids), "total": len(ids), "prefix": prefix,
+        "chunk_id": ids[prefix - 1] if prefix else None,
+        "next_chunk": ids[prefix] if prefix < len(ids) else None,
+        "char_offset": sum(len(chunk["text"]) + 1 for chunk in plan["chunks"][:prefix]),
+    }
+
+
+def qa_covers_chunks(output: Path) -> bool:
+    """A complete ASR report that sampled chunks and postdates the current assembly (a redo invalidates QA)."""
+    assembly = output / "assembly.json"
+    if not assembly.is_file():
+        return False
+    try:
+        assembled_at = read_json(assembly).get("timestamp_utc") or ""
+    except (OSError, ValueError):
+        return False
+    for path in output.glob("qa-*.json"):
+        try:
+            report = read_json(path)
+        except (OSError, ValueError):
+            continue
+        if (report.get("status") == "complete" and (report.get("selection") or {}).get("selected_chunks", 0) > 0
+                and (report.get("timestamp_utc") or "") >= assembled_at):
+            return True
+    return False
+
+
+def import_render(directory: Path, chapter: int, output: Path, manifest_path: Path | None = None) -> dict[str, Any]:
+    """Register what render_chapter.py produced: designed voices + artifacts + progress.
+
+    Idempotent; run after every render step (render_chapter.py --book does it for you).
+    """
     prepared_path = output / "prepared.json"
     if not prepared_path.is_file():
         raise AbkError(f"{prepared_path} missing; run render_chapter.py prepare first")
     plan = read_json(prepared_path)
     manifest = plan["manifest"]
-    summary: dict[str, Any] = {"voices": [], "artifacts": []}
+    summary: dict[str, Any] = {"voices": [], "artifacts": [], "stale": [], "conflicts": []}
+    designs_done = True
     for item in plan["designs"]:
         ref = output / "refs" / f"{item['id']}.wav"
         if not ref.is_file():
+            designs_done = False
             continue
         voice = manifest["voices"][item["id"]]
         with locked(directory) as data:
-            already = item["id"] in data["voices"]
-        if already:
+            existing = data["voices"].get(item["id"])
+        if existing is not None:
+            library = (existing.get("reference_audio") or {}).get("sha256")
+            if library and library != file_hash(ref):
+                # Chapter was built without --book (or the voice was replaced): the library clip is not
+                # what this chapter used. Never overwrite silently; surface it.
+                summary["conflicts"].append({
+                    "voice": item["id"], "chapter_clip": rel(directory, ref),
+                    "library_clip": existing["reference_audio"]["path"],
+                    "fix": "rebuild the chapter with prepare_chapter.py build --book (pins the library clip), "
+                           "or book.py voice add --replace to adopt this take",
+                })
             continue
         target = directory / "voices" / f"{item['id']}.wav"
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -323,53 +389,122 @@ def import_render(directory: Path, chapter: int, output: Path) -> dict[str, Any]
             if row is not None and chapter not in row["chapters"]:
                 row["chapters"] = sorted(row["chapters"] + [chapter])
     chunks_dir = output / "chunks"
-    done = len(list(chunks_dir.glob("*.wav"))) if chunks_dir.is_dir() else 0
-    total = len(plan["chunks"])
+    progress = chunk_progress(plan, chunks_dir)
     final = output / "chapter.mp3"
     if chunks_dir.is_dir():
         add_artifact(directory, "chunk-cache", chunks_dir, chapter=chapter,
-                     status="complete" if done == total else "partial")
+                     status="complete" if progress["done"] == progress["total"] else "partial")
         summary["artifacts"].append("chunk-cache")
     for kind, name in (("chapter-mp3", "chapter.mp3"), ("chapter-wav", "chapter.wav"),
                        ("requests-ledger", "requests.jsonl"), ("metrics", "metrics.json"),
-                       ("assembly", "assembly.json")):
+                       ("assembly", "assembly.json"), ("voice-preview", "voice-preview.mp3")):
         if (output / name).is_file():
             add_artifact(directory, kind, output / name, chapter=chapter, status="complete")
             summary["artifacts"].append(kind)
     for qa in sorted(output.glob("qa-*.json")):
         add_artifact(directory, "asr-qa", qa, chapter=chapter, status="complete")
         summary["artifacts"].append(qa.name)
-    stage = "assembled" if final.is_file() else ("rendering" if done else "voices")
-    chars = 0
-    for chunk in plan["chunks"][:done]:
-        chars += len(chunk["text"]) + 1
-    set_chapter(directory, chapter, manifest=None, output=rel(directory, output), status=stage)
-    set_progress(
-        directory, chapter, stage, chunk_id=plan["chunks"][done - 1]["id"] if done else None,
-        chunks_done=done, chunks_total=total, char_offset=chars,
+    prefix = rel(directory, output).rstrip("/") + "/"
+    with locked(directory) as data:  # e.g. `redo` moved chapter.mp3 into superseded/: it is no longer complete
+        for row in data["artifacts"]:
+            inside = row["path"] == prefix.rstrip("/") or row["path"].startswith(prefix)
+            if inside and row["status"] != "stale" and not absolute(directory, row["path"]).exists():
+                row.update(status="stale", note=f"missing at import-render {utc_now()}", updated_utc=utc_now())
+                summary["stale"].append(row["path"])
+    if final.is_file():
+        stage = "qa" if qa_covers_chunks(output) else "assembled"
+    elif progress["done"]:
+        stage = "rendering"
+    else:
+        stage = "voices" if designs_done else "prepared"
+    set_chapter(directory, chapter, output=output, manifest=manifest_path)
+    with locked(directory) as data:
+        recorded = data["chapters"][str(chapter)]["status"]
+    # Disk is the truth for the derived stages. Regress this chapter only when its audio really went
+    # backwards (redo, fresh output dir); an idempotent re-run after sign-off keeps `done`.
+    regress = STAGES.index(stage) < STAGES.index(recorded) and not (recorded == "done" and stage == "qa") \
+        and STAGES.index(recorded) >= STAGES.index("prepared")
+    set_progress(  # advances the chapter status and the high-water mark
+        directory, chapter, stage, chunk_id=progress["chunk_id"], chunks_done=progress["done"],
+        chunks_total=progress["total"], char_offset=progress["char_offset"], authoritative=regress,
+        note=f"next chunk {progress['next_chunk']}" if progress["next_chunk"] and progress["done"] else None,
     )
-    summary.update(stage=stage, chunks_done=done, chunks_total=total)
+    summary.update(stage=stage, regressed_from=recorded if regress else None, chunks_done=progress["done"],
+                   chunks_total=progress["total"], next_chunk=progress["next_chunk"])
     return summary
 
 
-def resume_hint(directory: Path) -> dict[str, Any]:
-    data = load(directory)
-    current = data["progress"].get("furthest")
-    if current is None:
-        return {"next": "Research the first chapter's cast, then run prepare_chapter.py", "marker": None}
-    chapter, stage = current["chapter"], current["stage"]
-    adir = f"chapters/{chapter:02d}"
-    steps = {
-        "new": f"research the cast of chapter {chapter} (references/character-research.md)",
-        "researched": f"prepare_chapter.py --book {directory} --chapter {chapter} ...",
-        "prepared": f"render_chapter.py prepare, then `voices`, in {adir}/audio",
-        "voices": f"render_chapter.py render --output {adir}/audio",
-        "rendering": f"render_chapter.py render --output {adir}/audio (cached chunks are skipped; add --retry-failed only if the engine is idle)",
-        "assembled": f"verify_audio.py --root {adir}/audio, then record usage",
-        "qa": f"record usage/accounting (optional), then book.py progress set --stage done",
-        "done": f"start chapter {chapter + 1}",
+def chapter_paths(directory: Path, data: dict[str, Any], chapter: int) -> dict[str, Path]:
+    row = data["chapters"].get(str(chapter)) or {}
+    base = chapter_dir(directory, chapter)
+    pick = lambda key, default: absolute(directory, row[key]) if row.get(key) else default  # noqa: E731
+    return {
+        "text": pick("text", base / "chapter.txt"), "manifest": pick("manifest", base / "chapter.json"),
+        "output": pick("output", base / "audio"),
     }
-    return {"next": steps[stage], "marker": current}
+
+
+def resume_hint(directory: Path) -> dict[str, Any]:
+    """Turn the furthest-progress marker into the next runnable commands (absolute paths)."""
+    data = load(directory)
+    marker = data["progress"].get("furthest")
+    chapter, stage = (marker["chapter"], marker["stage"]) if marker else (1, "new")
+    if stage == "done":
+        chapter, stage = chapter + 1, "new"
+    book = directory.resolve()
+    paths = {k: v.resolve() for k, v in chapter_paths(directory, data, chapter).items()}
+    text, manifest, output = paths["text"], paths["manifest"], paths["output"]
+    py = f"python3 -B {SCRIPTS}"
+    common = f"--manifest {manifest} --output {output} --book {book}"
+    source = data["source"].get("path") or "<ebook.pdf|epub>"
+    if source != "<ebook.pdf|epub>":
+        source = str(absolute(directory, source).resolve())
+    plans: dict[str, tuple[str, list[str]]] = {
+        "new": (f"Research chapter {chapter}: extract its text, number the quotes, attribute every span, "
+                "write the cast (references/character-research.md)", [
+            f"{py}/extract_pages.py {source} --out {book}/source/pages --first <first-page> --last <last-page>",
+            f"{py}/prepare_chapter.py text --pages-dir {book}/source/pages --first <first-page> --last <last-page> "
+            f"--out {text} --start-marker '<heading>' --end-marker '<next heading>' --strip-folio --auto-join",
+            f"{py}/prepare_chapter.py quotes --text {text}",
+            f"{py}/book.py --dir {book} chapter set {chapter} --status researched --text {text}",
+        ]),
+        "researched": (f"Build chapter {chapter}'s manifest from the reviewed speakers.json (pins book voices)", [
+            f"{py}/prepare_chapter.py build --text {text} --speakers {text.parent / 'speakers.json'} "
+            f"--book {book} --chapter {chapter}",
+        ]),
+        "prepared": ("Plan the render, design only the new voices, then audition the cast", [
+            f"{py}/render_chapter.py prepare {common}",
+            f"{py}/render_chapter.py voices {common}",
+            f"{py}/render_chapter.py preview {common}",
+        ]),
+        "voices": ("Render the chapter (cached chunks cost nothing; run it in the background)", [
+            f"{py}/render_chapter.py render {common}",
+        ]),
+        "rendering": (
+            f"Resume rendering chapter {chapter}"
+            + (f" after chunk {marker['chunk_id']} ({marker['chunks_done']}/{marker['chunks_total']} cached)"
+               if marker and marker.get("chunk_id") else "")
+            + ". If status lists unfinished/failed requests, confirm the engine is idle (nvidia-smi, "
+              "docker logs voxxy-engine-voxcpm) and add --retry-failed", [
+                f"{py}/render_chapter.py status {common}",
+                f"{py}/render_chapter.py render {common}",
+            ]),
+        "assembled": ("ASR spot-check the chapter, then register the report", [
+            f"{py}/verify_audio.py --manifest {manifest} --root {output} --phase all --max-chunks 24",
+            f"{py}/render_chapter.py report {common}",
+        ]),
+        "qa": ("Listen to the worst ASR samples (redo any bad chunk), then sign the chapter off", [
+            f"{py}/book.py --dir {book} artifact verify",
+            f"{py}/book.py --dir {book} progress set --chapter {chapter} --stage done",
+        ]),
+    }
+    summary, commands = plans[stage]
+    unfinished = [  # earlier chapters a redo or an abandoned render left behind the high-water mark
+        {"chapter": int(key), "status": row["status"]} for key, row in sorted(data["chapters"].items(), key=lambda kv: int(kv[0]))
+        if int(key) < chapter and row["status"] != "done"
+    ]
+    return {"next": summary, "chapter": chapter, "stage": stage, "commands": commands, "marker": marker,
+            "unfinished_earlier_chapters": unfinished}
 
 
 # ------------------------------------------------------------------------ CLI
@@ -432,9 +567,9 @@ def build_parser() -> argparse.ArgumentParser:
     cset.add_argument("number", type=int)
     cset.add_argument("--title")
     cset.add_argument("--status", choices=STAGES)
-    cset.add_argument("--manifest")
-    cset.add_argument("--output")
-    cset.add_argument("--text")
+    cset.add_argument("--manifest", type=Path)
+    cset.add_argument("--output", type=Path)
+    cset.add_argument("--text", type=Path)
 
     progress = sub.add_parser("progress").add_subparsers(dest="action", required=True)
     pset = progress.add_parser("set")
@@ -460,6 +595,7 @@ def build_parser() -> argparse.ArgumentParser:
     imp = sub.add_parser("import-render", help="register voices/artifacts/progress from a render output dir")
     imp.add_argument("--chapter", type=int, required=True)
     imp.add_argument("--output", type=Path, required=True)
+    imp.add_argument("--manifest", type=Path, help="chapter.json the render was planned from (recorded for resume)")
 
     sub.add_parser("resume")
     show = sub.add_parser("show")
@@ -494,7 +630,7 @@ def run(args: argparse.Namespace) -> Any:
             return verify_artifacts(directory, mark_stale=not args.no_mark)
         return add_artifact(directory, args.kind, args.path, chapter=args.chapter, status=args.status, note=args.note)
     if args.command == "import-render":
-        return import_render(directory, args.chapter, args.output)
+        return import_render(directory, args.chapter, args.output, args.manifest)
     if args.command == "resume":
         return resume_hint(directory)
     return load(directory)

@@ -103,13 +103,104 @@ class BookTests(unittest.TestCase):
         self.assertEqual(row["files"], 1)
         self.assertIsNone(row["sha256"])
 
-    def test_resume_hint_follows_stage(self):
+    def test_resume_hint_follows_stage_with_runnable_commands(self):
         self.init()
-        self.assertIn("Research", book.resume_hint(self.dir)["next"])
-        book.set_progress(self.dir, 1, "rendering", chunks_done=3, chunks_total=9)
-        self.assertIn("render_chapter.py render", book.resume_hint(self.dir)["next"])
+        hint = book.resume_hint(self.dir)
+        self.assertIn("Research", hint["next"])
+        self.assertTrue(any("extract_pages.py" in c for c in hint["commands"]))
+        book.set_chapter(self.dir, 1, output=self.dir / "chapters/01/take2", manifest=self.dir / "chapters/01/chapter.json")
+        book.set_progress(self.dir, 1, "rendering", chunks_done=3, chunks_total=9, chunk_id="000003")
+        hint = book.resume_hint(self.dir)
+        self.assertIn("after chunk 000003", hint["next"])
+        render = [c for c in hint["commands"] if "render_chapter.py render" in c][0]
+        self.assertIn(str((self.dir / "chapters/01/take2").resolve()), render)  # the recorded output, not a guess
+        self.assertIn(f"--book {self.dir.resolve()}", render)
+        self.assertTrue(Path(render.split()[2]).is_file())  # absolute script path that exists
+        book.set_progress(self.dir, 1, "researched")  # earlier stage never drags furthest back
+        self.assertEqual(book.resume_hint(self.dir)["stage"], "rendering")
         book.set_progress(self.dir, 1, "done")
-        self.assertIn("chapter 2", book.resume_hint(self.dir)["next"])
+        hint = book.resume_hint(self.dir)
+        self.assertIn("chapter 2", hint["next"])
+        self.assertEqual((hint["chapter"], hint["stage"]), (2, "new"))
+        self.assertEqual(hint["unfinished_earlier_chapters"], [])
+
+    def test_non_wav_reference_audio_is_refused_early(self):
+        self.init()
+        clip = Path(self.tmp.name) / "voice.mp3"
+        clip.write_bytes(b"ID3")
+        with self.assertRaises(AbkError) as ctx:
+            book.add_voice(self.dir, "v", "cloned", "V", reference_audio=clip)
+        self.assertIn("ffmpeg", str(ctx.exception))
+
+    def _render_dir(self, chapter, designs=(), chunks=2):
+        out = self.dir / f"chapters/{chapter:02d}/audio"
+        out.mkdir(parents=True, exist_ok=True)
+        plan = {"manifest": {"voices": {d: {"description": "d", "reference_text": "t"} for d in designs}},
+                "designs": [{"id": d} for d in designs], "pinned": {},
+                "chunks": [{"id": f"{i + 1:06d}", "text": f"Chunk {i + 1}."} for i in range(chunks)]}
+        (out / "prepared.json").write_text(json.dumps(plan))
+        return out
+
+    def test_import_render_stage_tracks_disk_and_regresses_after_redo(self):
+        self.init()
+        out = self._render_dir(1, designs=("narrator",))
+        manifest = self.dir / "chapters/01/chapter.json"
+        self.assertEqual(book.import_render(self.dir, 1, out, manifest)["stage"], "prepared")  # voices not designed yet
+        self.assertEqual(book.load(self.dir)["chapters"]["1"]["manifest"], "chapters/01/chapter.json")
+        self.assertIn("render_chapter.py voices", " ".join(book.resume_hint(self.dir)["commands"]))
+        (out / "refs").mkdir()
+        (out / "refs/narrator.wav").write_bytes(helpers.make_wav(0.2))
+        self.assertEqual(book.import_render(self.dir, 1, out)["stage"], "voices")
+        (out / "chunks").mkdir()
+        (out / "chunks/000001.wav").write_bytes(helpers.make_wav(0.1))
+        summary = book.import_render(self.dir, 1, out)
+        self.assertEqual((summary["stage"], summary["next_chunk"]), ("rendering", "000002"))
+        furthest = book.load(self.dir)["progress"]["furthest"]
+        self.assertEqual((furthest["chunk_id"], furthest["char_offset"]), ("000001", len("Chunk 1.") + 1))
+        (out / "chunks/000002.wav").write_bytes(helpers.make_wav(0.1))
+        (out / "chapter.mp3").write_bytes(b"ID3")
+        (out / "assembly.json").write_text(json.dumps({"timestamp_utc": "2026-10-07T10:00:00+00:00"}))
+        self.assertEqual(book.import_render(self.dir, 1, out)["stage"], "assembled")
+        qa = {"status": "complete", "selection": {"selected_chunks": 2}, "timestamp_utc": "2026-10-07T11:00:00+00:00"}
+        (out / "qa-all.json").write_text(json.dumps(qa))
+        self.assertEqual(book.import_render(self.dir, 1, out)["stage"], "qa")
+        book.set_progress(self.dir, 1, "done")
+        self.assertEqual(book.import_render(self.dir, 1, out)["stage"], "qa")  # idempotent rerun keeps sign-off
+        self.assertEqual(book.load(self.dir)["chapters"]["1"]["status"], "done")
+        # redo: one chunk and the assembled outputs move away
+        (out / "chunks/000002.wav").unlink()
+        (out / "chapter.mp3").unlink()
+        summary = book.import_render(self.dir, 1, out)
+        self.assertEqual((summary["stage"], summary["regressed_from"]), ("rendering", "done"))
+        self.assertIn("chapters/01/audio/chapter.mp3", summary["stale"])
+        data = book.load(self.dir)
+        self.assertEqual(data["chapters"]["1"]["status"], "rendering")
+        self.assertEqual(data["progress"]["furthest"]["stage"], "rendering")
+        mp3 = [a for a in data["artifacts"] if a["kind"] == "chapter-mp3"][0]
+        self.assertEqual(mp3["status"], "stale")
+
+    def test_redoing_an_earlier_chapter_never_drags_a_later_furthest_back(self):
+        self.init()
+        book.set_progress(self.dir, 2, "rendering", chunks_done=1, chunks_total=5)
+        book.set_progress(self.dir, 1, "done")
+        out = self._render_dir(1)
+        summary = book.import_render(self.dir, 1, out)
+        self.assertEqual(summary["regressed_from"], "done")
+        self.assertEqual(book.load(self.dir)["progress"]["furthest"]["chapter"], 2)
+        self.assertEqual(book.resume_hint(self.dir)["unfinished_earlier_chapters"], [{"chapter": 1, "status": "voices"}])
+
+    def test_import_render_reports_a_voice_clip_conflict(self):
+        self.init()
+        clip = Path(self.tmp.name) / "n.wav"
+        clip.write_bytes(helpers.make_wav(0.2, value=1))
+        book.add_voice(self.dir, "narrator", "designed", "Narrator", description="d", reference_text="t", reference_audio=clip)
+        out = self._render_dir(2, designs=("narrator",))
+        (out / "refs").mkdir()
+        (out / "refs/narrator.wav").write_bytes(helpers.make_wav(0.2, value=2))  # chapter built without --book
+        summary = book.import_render(self.dir, 2, out)
+        self.assertEqual(summary["conflicts"][0]["voice"], "narrator")
+        self.assertEqual(book.load(self.dir)["voices"]["narrator"]["reference_audio"]["sha256"],
+                         book.file_hash(self.dir / "voices/narrator.wav"))
 
     def test_import_render_marks_pinned_voices_as_used_in_the_new_chapter(self):
         self.init()

@@ -4,7 +4,7 @@
     extract_pages.py book.pdf  --out source/pages --first 1 --last 40 [--ocr auto|always|never]
     extract_pages.py book.epub --out source/pages
 
-PDF: uses the text layer (pdftotext). Scanned/image-only pages (the Good Earth PDF was
+PDF: uses the text layer (pdftotext). Scanned/image-only pages (the pilot book's PDF was
 entirely image-only) fall back to pdftoppm + tesseract. Numbers in file names are 1-based
 PDF page numbers (or spine order), never printed folios. Existing files are kept unless
 --force, so a long OCR run is resumable.

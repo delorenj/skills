@@ -10,8 +10,8 @@ audio, 11 designed voices, 307 local synthesis calls (0 failures, 0 paid TTS), 2
 chunks at 1.14% ASR word error. Everything below is what that run taught.
 
 ```
-extract_pages -> prepare_chapter text -> research cast -> prepare_chapter quotes/build
-   -> render_chapter prepare -> voices -> render -> verify_audio -> (usage.py)
+extract_pages -> prepare_chapter text -> research cast -> (design_voice) -> prepare_chapter quotes/build
+   -> render_chapter prepare -> voices -> render -> verify_audio -> report -> (usage.py)
                  every step mirrors into  <book>/book.json  (voices, progress, artifacts)
 ```
 
@@ -20,8 +20,9 @@ Scripts live in `scripts/` (stdlib-first Python 3.11+, `python3 -B`). Set
 
 ## Preflight (30 seconds, before any render)
 
-1. `voxxy health --json` is not enough. Check VoxCPM itself:
+1. `voxxy health --json` is not enough (it lists only the *routed* engines). Check VoxCPM itself:
    `docker exec vox curl -fsS --max-time 10 http://voxxy-engine-voxcpm:8000/healthz` must say `ready: true`.
+   Stopped? `docker start voxxy-engine-voxcpm` (details: [voice-design](references/voice-design.md#failure-modes-seen-or-expected)).
 2. `nvidia-smi` has headroom (VoxCPM ~5 GB; VibeVoice ~7.5 GB; both can be resident).
 3. `ffmpeg`, and for QA the `transcription-worker-1` container (override with `ABK_ASR_*` env).
 4. Rights: record them in `book.json` (`source.rights`). A 1931 US work enters the public domain
@@ -47,10 +48,10 @@ Never put the book under a git-tracked repo with the audio (WAVs are ~290 MB per
 
 | Task | Do this | Detail |
 | --- | --- | --- |
-| New book, or "where was I?" | `book.py init`, `book.py show`, `book.py resume` | [book-metadata](references/book-metadata.md) |
+| New book, or "where was I?" | `book.py init`, `book.py show`, `book.py resume` (prints the next commands) | [book-metadata](references/book-metadata.md) |
 | Research the characters in a chapter | extract text, number the quotes, attribute speakers, write the cast | [character-research](references/character-research.md) |
-| Create a voice with Voxxy/VoxCPM2 | design prompt + neutral reference text, freeze the clip, check it | [voice-design](references/voice-design.md) |
-| Convert one chapter to audio | prepare -> voices -> render -> verify | [chapter-conversion](references/chapter-conversion.md) |
+| Create a voice with Voxxy/VoxCPM2 | `design_voice.py design` takes -> listen + ASR -> `freeze`; or let `render_chapter.py voices` design a chapter's new cast | [voice-design](references/voice-design.md) |
+| Convert one chapter to audio | prepare -> voices -> render -> verify -> report; resume with `book.py resume` | [chapter-conversion](references/chapter-conversion.md) |
 | Track tokens and cost (optional) | `usage.py capture --children`, `cost`, `record` | [usage-accounting](references/usage-accounting.md) |
 
 | Script | Role |
@@ -58,27 +59,30 @@ Never put the book under a git-tracked repo with the audio (WAVs are ~290 MB per
 | `book.py` | manifest CLI: `init`, `voice add/list`, `chapter set`, `progress set/show`, `artifact add/verify`, `import-render`, `resume`, `show` |
 | `extract_pages.py` | PDF (text layer, else OCR) or EPUB -> `page-NNN.txt` |
 | `prepare_chapter.py` | `text` (pages -> chapter.txt), `quotes` (numbered spans), `build` (-> `chapter.json`, verified lossless) |
+| `design_voice.py` | `design` (N takes from a description), `list`, `freeze` (take -> `voices/<id>.wav` + `book.json`); no chapter needed |
 | `render_chapter.py` | `prepare`, `voices`, `preview`, `render`, `redo`, `status`, `report`; direct VoxCPM2, resumable, ledgered |
 | `verify_audio.py` | CPU Whisper spot-check, sample-scoped WER |
 | `usage.py` | optional: OpenCode token capture (with child sessions), API-equivalent cost, energy scenario, `record` into `book.json` |
 
-Fast path for a fresh chapter once the book exists (all paths relative to the book dir):
+Fast path for one chapter (replace every `<...>`; the pilot's values are in the reference files):
 
 ```bash
-S=~/.agents/skills/ebook-to-audiobook/scripts; B=~/audiobooks/the-good-earth
-python3 -B $S/book.py --dir $B init --title "The Good Earth" --author "Pearl S. Buck" --source ~/Downloads/the-good-earth.pdf
-python3 -B $S/extract_pages.py ~/Downloads/the-good-earth.pdf --out $B/source/pages --first 8 --last 31
-python3 -B $S/prepare_chapter.py text --pages-dir $B/source/pages --first 8 --last 31 --out $B/chapters/01/chapter.txt \
-    --start-marker "CHAPTER ONE" --end-marker "CHAPTER TWO" --strip-folio --auto-join
-python3 -B $S/prepare_chapter.py quotes --text $B/chapters/01/chapter.txt      # attribute every span, write speakers.json
-python3 -B $S/prepare_chapter.py build --text $B/chapters/01/chapter.txt --speakers $B/chapters/01/speakers.json --book $B --chapter 1
-M=$B/chapters/01/chapter.json; O=$B/chapters/01/audio
-for c in prepare voices render; do python3 -B $S/render_chapter.py $c --manifest $M --output $O --book $B; done
+S=~/.agents/skills/ebook-to-audiobook/scripts; B=~/audiobooks/<slug>; SRC=<path/to/book.pdf|epub>; N=1; NN=01
+python3 -B $S/book.py --dir $B init --title "<Title>" --author "<Author>" --source $SRC    # once per book
+python3 -B $S/extract_pages.py $SRC --out $B/source/pages --first <p> --last <q>
+python3 -B $S/prepare_chapter.py text --pages-dir $B/source/pages --first <p> --last <q> --out $B/chapters/$NN/chapter.txt \
+    --start-marker "<this chapter's heading>" --end-marker "<next chapter's heading>" --strip-folio --auto-join
+python3 -B $S/prepare_chapter.py quotes --text $B/chapters/$NN/chapter.txt      # attribute every span, write speakers.json
+python3 -B $S/prepare_chapter.py build --text $B/chapters/$NN/chapter.txt --speakers $B/chapters/$NN/speakers.json --book $B --chapter $N
+M=$B/chapters/$NN/chapter.json; O=$B/chapters/$NN/audio
+for c in prepare voices render; do python3 -B $S/render_chapter.py $c --manifest $M --output $O --book $B || break; done
 python3 -B $S/verify_audio.py --manifest $M --root $O --phase all --max-chunks 24
+python3 -B $S/render_chapter.py report --manifest $M --output $O --book $B      # registers QA, marker -> qa
 ```
 
 `--book` makes every render step mirror voices, artifacts and the progress marker into `book.json`,
-including after a failure, so a hung session or a crashed render is resumable from the file alone.
+including after a failure, so a hung session or a crashed render is resumable from the file alone:
+`book.py --dir $B resume` prints the exact commands for the furthest chapter and stage.
 
 ## Gotchas that cost real time
 
@@ -86,6 +90,9 @@ including after a failure, so a hung session or a crashed render is resumable fr
   pilot day core's chain was VibeVoice -> ElevenLabs with VoxCPM2 absent; a request would have come back
   in a different voice and looked fine. `render_chapter.py` calls the VoxCPM sidecar directly and treats
   `engine != "voxcpm"` as a hard failure. `voxxy engine use` changes shared service state; do not.
+- **Do not run `voxxy daemon start|restart` or `voxxy engine use` during a render.** `daemon start` stops
+  every local engine except the routed one (VoxCPM when VibeVoice is routed), and `restart`/`engine use`
+  recreate `vox`, which carries every synth call (`docker exec vox curl ...`): in-flight chunks fail.
 - **Design once, freeze, reuse.** `(description)reference_text` is for the reference clip only. Chapter text
   is conditioned on the clip's audio and never carries a description (a description mid-text is read aloud).
   Pin a book's voices across chapters (`prepare_chapter.py build --book`), or each chapter will cast new actors.
