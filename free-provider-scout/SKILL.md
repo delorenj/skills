@@ -25,9 +25,9 @@ Contract and router design: `gateway/ops/FREE-ROUTER.md`. Provider list: `gatewa
   whether the provider trains on prompts or logs them; the integrate stage maps that to `data_policy`.
 - **Challenges.** Clicking a single "I'm not a robot" checkbox is fine. Do not attempt image,
   puzzle, or audio challenges, and do not try to get around bot detection. Report `needs_human` and stop.
-- **Phone.** Use only the number your prompt names (the Telnyx number, whose texts reach the
-  runner). Never give the personal cell: its texts cannot be read yet. If SMS is unavailable or
-  the provider refuses the number (some refuse VoIP numbers), report `needs_phone`.
+- **Phone.** Use only the number your prompt names (by default the operator's cell, whose texts
+  are forwarded to the SMS inbox the runner polls). If SMS is unavailable or the provider refuses
+  the number, report `needs_phone`.
 - **One account per provider.** If an account already exists for the operator, sign in to it.
   Do not create a second account.
 - **Secrets.** Read identity and card values with `op read` / `op item get --reveal` when you
@@ -40,7 +40,7 @@ Contract and router design: `gateway/ops/FREE-ROUTER.md`. Provider list: `gatewa
 | What | Where |
 | --- | --- |
 | Email for email sign-ups | `op://DeLoSecrets/Jarad/Email/main` |
-| Phone | the reference in your prompt (default the Telnyx number, `op://DeLoSecrets/2zlolrgqalvybke5l6pxaeqnpe/sms number`). The personal cell `op://DeLoSecrets/Jarad/Address/cell` is not readable until it forwards or ports to Telnyx |
+| Phone | the reference in your prompt (default the cell, `op://DeLoSecrets/Jarad/Address/cell`; its texts are forwarded to the SMS inbox). The Telnyx number `op://DeLoSecrets/2zlolrgqalvybke5l6pxaeqnpe/sms number` also lands there, but VoIP checks often refuse it |
 | Name, address, company and other profile fields | identity item `c4cqd2brp7c6bb2c3lvy3wtbui` (`op item get c4cqd2brp7c6bb2c3lvy3wtbui --vault DeLoSecrets --reveal --format json`) |
 | Card, only under the card rule above | item `wtsd2u4uqdvae6pqu3rkigz2ge` |
 | Company | AutomaticAI (automaticai.io). Use case: "internal developer tooling and memory summarization". |
@@ -123,8 +123,8 @@ Your prompt carries the candidate messages the runner found.
   `gog -a jaradd@gmail.com -j gmail thread get <threadId>`. Open the verification link in
   kapture, or enter the code in the provider's page. Ignore look-alike senders and anything that
   asks for a password.
-- **SMS.** Every text the Telnyx number received around the sign-up is in the prompt, with its
-  sender and time. Pick the provider's code (verification texts rarely name the provider, so go
+- **SMS.** Every verification-looking text the cell or the Telnyx number received around the
+  sign-up is in the prompt, with its sender and time. Pick the provider's code (verification texts rarely name the provider, so go
   by the time and the wording) and enter it in the provider's page.
 
 Then confirm that the console works.
