@@ -169,15 +169,20 @@ For any FAILED pages:
 
 Upload all passing pages (PNG + vector pairs) to `media.delo.sh` album 1.
 
-**Auth:** username=`delorenj`, password=`Ittr5eesol`
+**Auth:** 1Password "Piwigo (media.delo.sh)": `op read op://DeLoSecrets/56shztqigvr5pe4znrmurutevy/username` and `op read op://DeLoSecrets/56shztqigvr5pe4znrmurutevy/password` (read at call time, never written into a file)
 
 ```python
+import subprocess
 import requests
+
+def op_read(ref):
+    return subprocess.run(["op", "read", "--no-newline", ref], capture_output=True, text=True, check=True).stdout
+
 BASE = "https://media.delo.sh"
 s = requests.Session()
 s.headers.update({"User-Agent": "Dumply/1.0", "Referer": f"{BASE}/"})
 s.post(f"{BASE}/ws.php?format=json", data={
-    "method": "pwg.session.login", "username": "delorenj", "password": "Ittr5eesol"
+    "method": "pwg.session.login", "username": op_read("op://DeLoSecrets/56shztqigvr5pe4znrmurutevy/username"), "password": op_read("op://DeLoSecrets/56shztqigvr5pe4znrmurutevy/password")
 })
 # Upload each file
 for file_path in files:
@@ -460,7 +465,7 @@ All run artifacts go in the daily ephemeral doc vault:
 
 - OpenClaw browser available (`profile=openclaw`)
 - ImageMagick (`magick`) for SVG→JPG fallback
-- Piwigo credentials: `delorenj` / `Ittr5eesol`
+- Piwigo credentials: 1Password "Piwigo (media.delo.sh)", `op://DeLoSecrets/56shztqigvr5pe4znrmurutevy/username` and `op://DeLoSecrets/56shztqigvr5pe4znrmurutevy/password`
 - Storefront accounts (Etsy, Creative Market, Gumroad, etc.) — logged in via openclaw browser
 
 ---
