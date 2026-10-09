@@ -29,7 +29,16 @@ Every mobile app version on DeLoNET ships through one reusable hub:
   verbatim from the hub's `templates/deploy.yml`, pinning `@v1`), a manifest
   (`tools/ci/mobile-deploy.json`, schema 2) and the `mise run deploy` task that
   fetches the hub's front door. Nothing in an app bumps, tags or announces a
-  version on its own.
+  version on its own. The git guard enforces it: a staged hub `uses:` outside
+  `deploy.yml` or not at `@v1` is refused, and so is an app workflow line that
+  uploads a build; the hub's commands also refuse any run whose caller is not
+  the app's `deploy.yml`.
+- On the devices, one-time: subscribe ntfy-ios on the iPad to the `deploys`
+  topic (the upstream gate forwards it), set Syncthing on the S26 to sync on
+  Wi-Fi only, and keep the Safari `https://s3.delo.sh/builds/index.html`
+  bookmark. An S26 install from the notification is: **Install APK (size)**,
+  then Download (Chrome's harm warning), Open, Update — the first time also
+  allow the browser to install unknown apps. Never uninstall.
 
 ## Front door (how a deploy starts)
 
@@ -91,9 +100,11 @@ Every mobile app version on DeLoNET ships through one reusable hub:
 - One `bloodbank.project.deployment.completed|.failed` per run attempt, sent
   `--strict`. Never mint `lifecycle.*` types; the bus's naming contract
   rejects them.
-- `data.links` (`apk` "Install APK", `ota` "Install on iPad", `page`
+- `data.links` (`apk` "Install APK (74.7 MB)", `ota` "Install on iPad", `page`
   "Builds", `run` "Run") become the ntfy notification's buttons; the Click
-  opens the build page.
+  opens the build page. The router also publishes every deploy event to the
+  `deploys` topic, which the upstream gate forwards to ntfy.sh for the iPad's
+  ntfy-ios subscription.
 - Catch-up installs send their own event (`data.trigger: catch-up`), one per
   device status change, reusing the deploy's run and correlation.
 
@@ -104,13 +115,26 @@ Every mobile app version on DeLoNET ships through one reusable hub:
   always in place, with sha256 and signer checks — then report one event per
   status change. After three failures on one version: one `.failed`, then
   silence until the next deploy or `catchup.mjs retry <slug> <platform>`.
+- Both hosts run live (mode in `~/.config/mobile-deploy-hub/catchup.json`;
+  `watch` is the safe default for a new host). A deploy in flight holds every
+  pending build at or below its version on both passes; the S26 waits while
+  the app is on top with the screen on, the iPad while the app runs. The Mac
+  validates its pointers with the strong ETag and reads over ssh from
+  big-chungus when `s3.delo.sh` does not answer.
+- A Mac that goes away after the gate cannot hold a deploy: the iPad lane is
+  `skip-lost` at the plan, and the host watchdog (`tools/ci/macwatch.mjs`, a
+  systemd timer every 2 min) cancels a run whose Mac job waited past
+  `mac.queue_limit_min` with its runner not busy — only once `deliver-android`
+  is done, so the S26's publish is never cut short.
 
 ## Reading a run
 
 - Markers tell the story: `HUB_GATE`, `HUB_GATE_REFUSED`, `HUB_POLICY`,
   `HUB_PLAN`, `HUB_S26_PENDING`, `HUB_IPAD_PENDING`, `HUB_IPAD_NEWER`,
-  `HUB_IOS_DEFERRED`, `HUB_MAC_LINK`, `HUB_MAC_BYTES`, `HUB_HANDOFF_DELTA`,
-  `HUB_PUBLISHED`, `HUB_PUBLISH_DRY_RUN`, `HUB_QUICKDROP`, `HUB_EVENT_SENT`,
-  and the `HUB_CATCHUP_*` family.
+  `HUB_IOS_DEFERRED`, `HUB_MAC_LINK`, `HUB_MAC_BYTES`, `HUB_MAC_LOST`,
+  `HUB_HANDOFF_DELTA`, `HUB_PUBLISHED`, `HUB_PUBLISH_DRY_RUN`,
+  `HUB_POINTER`, `HUB_QUICKDROP`, `HUB_EVENT_SENT`, and the `HUB_CATCHUP_*`
+  family. The job graph ends in `deliver-android` (never waits for the Mac)
+  and `deliver-ios`; announce needs both.
 - A dry run changes nothing: no tag, no Release, no S3 object, no Quickdrop
   file, no event.
