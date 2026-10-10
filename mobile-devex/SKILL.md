@@ -8,7 +8,7 @@ description: Operate mobile app releases on DeLoNET through mobile-deploy-hub. U
 Every mobile app version on DeLoNET ships through one reusable hub:
 [delorenj/mobile-deploy-hub](https://github.com/delorenj/mobile-deploy-hub)
 (local: `~/code/mobile-deploy-hub`). The apps are Tower of Lost Things
-(`pile-of-dumb-things`), Green In Between (`green-in-between`) and Gruvato
+(`tower-of-lost-things`), Green In Between (`green-in-between`) and Gruvato
 (`gruvato`). The design of record is `docs/design-hub-v1.1.md` in the hub repo.
 
 ## The one rule
