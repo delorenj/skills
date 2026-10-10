@@ -4,6 +4,14 @@ pipeline-status:
 ---
 # Project-scoped agent hooks & skill fan-out (canonical source committed)
 
+> **Skill portions superseded, 2026-10-10:** the mise skill tasks, enter hooks,
+> manifest watchers, `provision-packs.py`, and `sync-skills.py` recipes below are
+> historical, not activation instructions. Remove skill-operation mise tasks and
+> callers with `skillex integrations retire-mise` (preview, then `--apply`). Use
+> `skillex` directly, never repinned or replacement wrappers. Skill selection and
+> discovery belong to `skillex-skill-registry`; hooks remain a separate concern.
+> Follow the user-confirmed set/pack model rather than this old precedence list.
+
 The layer that gives **every dev who clones the repo** — and each of their agent CLIs
 (Claude Code, Codex, Hermes, Kimi) — the *same* hooks and skills, without anyone hand-wiring
 their machine. It is **committed to the repo** and driven by `mise enter/leave`.

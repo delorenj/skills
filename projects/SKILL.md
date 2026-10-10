@@ -48,7 +48,7 @@ The **PM** that works the repo is a separate concern with its own tool. `flume h
   Bloodbank hub's `candystore-context` handler. For a manual handoff, run
   `candystore context latest` in the registered project; a newly registered
   project may have no history yet. Read `candystore-context` for scope and coverage.
-- **Hooks and skills fan out from the repo, per-dev.** A repo that adopts the project-scoped agent layer commits one hooks SSOT + one skill manifest (`.agents/skills.json`, declaring `packs[]` and/or `skills[]`) and lets `mise enter` run `provision-packs.py` then `sync-skills.py` to securely install them into each dev's six supported local CLIs (see [references/project-scoped-hooks.md](references/project-scoped-hooks.md); pack mechanics → **agent-config-fanout** `references/skill-packs.md`).
+- **Skills use Skillex directly, not mise tasks or enter hooks.** Keep `.agents/skills.json` as the selection source and route skill operations to `skillex-skill-registry`. Remove existing skill-operation mise tasks and their call edges with `skillex integrations retire-mise` (preview, then `--apply`); never repin or recreate the wrappers. `provision-packs.py` / `sync-skills.py` are retired writers. Hook dialect generation is separate and still belongs to `agent-config-fanout`. Fix template generation within the authorized rollout scope so skill tasks cannot return.
 - **Templates are version-locked.** pjangler runs its vendored `templates/commonproject` submodule; the employee template is version-locked inside Flume.
 
 ## Route by intent

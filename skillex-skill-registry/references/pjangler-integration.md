@@ -11,3 +11,9 @@ published CLI is broken, hard-code a local build alias, or copy obsolete
 
 After applying, check the project's manifest, scope root, client aliases, and
 actual selected skills. Treat generated file drift at its template source.
+
+User policy (2026-10-10): remove all existing skill-operation mise tasks and their
+call edges. Do not repin `skills:sync`, preserve it for compatibility, or generate
+another mise wrapper. Skill operations use the `skillex` CLI directly. Detect and
+retire tasks with `skillex integrations retire-mise` (preview, then `--apply`);
+repair template generation through its owner within the authorized rollout scope.

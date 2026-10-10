@@ -65,7 +65,14 @@ Runs on `enter` and whenever `AGENTS.md` changes (the `watch_files` trigger). Ed
 - **Never commit `.env`.** Ensure `.gitignore` excludes `.env`, `.env.*` (but keep `.env.op`).
   See [[shell-snapshot-secret-leak-recurrence]] for the burn procedure if a secret leaks.
 
-## Agent-hooks / skill fan-out additions (adopted layer, not yet in base template)
+## Historical agent-layer recipe — skill portions retired
+
+> **User policy, 2026-10-10:** do not install the skill tasks, enter hooks, or
+> manifest watchers shown in the historical example below. Remove existing ones
+> with `skillex integrations retire-mise` (preview, then `--apply`); use `skillex`
+> directly. Never repin `skills-sync`/`skills:sync` or recreate wrapper tasks.
+> Hook dialect generation is separate; preserve unrelated hook tasks. The
+> template owner must stop regenerating skill-operation tasks during migration.
 
 A repo that adopts the project-scoped agent layer (see
 [project-scoped-hooks.md](project-scoped-hooks.md)) extends the mise contract — these are

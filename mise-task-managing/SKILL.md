@@ -4,6 +4,15 @@ description: Conventions for creating and managing development workflow tasks.Us
 ---
 # Mise Task Conventions
 
+## Skill-operation exception (2026-10-10)
+
+Skill management is not a mise workflow. Remove existing skill-operation tasks
+and their callers; do not repair version pins or create replacement wrappers.
+Invoke `skillex` directly and use its `integrations retire-mise` command for
+repeatable cleanup (preview, then `--apply`). Preserve unrelated tasks/tool
+installation and follow the authorized pilot/rollout boundary. This exception
+outranks the general interface-wrapping guidance below.
+
 ## Mandatory
 
 - Every project root _MUST_ contain a `mise.toml`

@@ -73,6 +73,22 @@ untouched: never hand-edit it, quarantine through `scripts/hermes-skillex-cutove
   bodies belong only in the canonical catalog. Promote a captured procedure
   there and select it explicitly.
 
+## No skill-operation mise tasks — user policy 2026-10-10
+
+Assume every existing mise task that manages skills is wrong. Remove it; do not
+repin it, repair the wrapper, or create a replacement mise task. Invoke `skillex`
+directly. This includes sync/provision/activation/migration wrappers and their
+skill-task dependencies, watchers, and enter-hook invocations. Preserve unrelated
+build/test/env tasks and runtime/tool installation. Fix the generating template
+at its owner when encountered so retired tasks cannot return.
+
+Use `skillex integrations retire-mise --project <repo>` to preview and repeat with
+`--apply` to remove supported task forms; `--file <config>` targets one explicit
+source, `-g` targets global mise configs. If the installed version lacks the
+command, upgrade the CLI rather than hand-editing a consumer as a one-off remedy.
+A refused mixed/unsupported config is not clean; extend the command and retest.
+Follow the currently authorized pilot/rollout boundary, not an unbounded sweep.
+
 ## Operate
 
 1. Identify the canonical source, selection manifest, activation root, and writer.
