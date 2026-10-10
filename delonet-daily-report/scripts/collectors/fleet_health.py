@@ -501,7 +501,7 @@ def _read_profiles(
                 profiles.append(record)
                 continue
             for raw_job in raw_jobs:
-                job = _read_job(raw_job, profile, resolved, skills_dir, now)
+                job = _read_job(raw_job, profile, resolved, entry / "skills", now)
                 jobs.append(job)
                 record["jobs_total"] += 1
                 record["jobs_enabled"] += 1 if job.get("enabled") else 0
