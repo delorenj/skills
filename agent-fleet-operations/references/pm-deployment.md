@@ -124,10 +124,15 @@ preserves foreign children and is not proof of exclusivity.
 
 A role that declares a `skills:` loadout (roles/<role>.md) supplies the selection
 itself: `flume onboard` writes it to `<desk>/.skillex-selection/.agents/skills.json`
-and syncs the desk against that project, so the desk is the global selection plus
-exactly the declared loadout. The desk then no longer follows its repo's
-`.agents/skills.json`; a `profile sync --project <repo>` re-points it and
+and syncs the desk against that project. The desk then no longer follows its
+repo's `.agents/skills.json`; a `profile sync --project <repo>` re-points it and
 `hermes.runtime-singleton` reports the drift until `flume onboard` repairs it.
+
+Do not derive Skillex semantics from legacy role validation: sets replace the
+canonical skill root and are mutually exclusive; packs populate an existing root
+with per-skill symlinks and are composable (user clarification, 2026-10-10).
+Exclusive-pack restrictions are implementation drift. Preview before applying;
+do not promise additive set inheritance or silently change shared set membership.
 
 A new profile uses `hermes profile create <name> --no-alias --no-skills`. Existing
 profile revalidation must not reset databases, pid/state files, or skill roots.

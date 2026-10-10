@@ -1,5 +1,11 @@
 # Troubleshooting
 
+- **Reversed set/pack semantics:** older code, docs, and memory claim packs are
+  exclusive root replacements and sets are additive. The user explicitly
+  corrected this on 2026-10-10: sets replace roots and are mutually exclusive;
+  packs add member symlinks to existing roots and compose. A passing test for
+  reversed behavior is evidence of implementation drift, not product intent.
+
 - **Source checks pass; clients disagree:** inspect actual roots, nested imports,
   disabled entries, and frontmatter name collisions. Catalog health is separate.
 - **Removed skill returns:** a selection or another installer still owns it.

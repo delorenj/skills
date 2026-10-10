@@ -8,10 +8,33 @@ description: Operate the Skillex catalog, reference-only sets and packs, skill m
 - `github.com/delorenj/skills` is the canonical source for Skillex skills.
 - The skills are tracked as submodule `all-skills` inside the Skillex repository.
 
-The writable definition is `~/code/skillex/all-skills/<name>/`. Sets and packs
-select that definition; one `.agents/skills` root per scope exposes it; client
-`skills` directories alias that root. Do not copy skill payloads into packs or
-client directories. Host-owned `.system` skills remain installer-owned.
+## Core model — user-confirmed 2026-10-10
+
+- **Skill root:** a directory where an agent looks for skills, almost always
+  named `skills/`.
+- **Global skill root:** a directory an agent automatically loads skills from
+  regardless of project scope.
+- **Canonical skill root:** Skillex's SSOT discovery root: `~/.agents/skills/`
+  globally and `<project>/.agents/skills/` per project. Client roots alias it.
+- **Skill set replaces a root.** Selecting a set in the manifest replaces the
+  canonical root with a symlink to the set's skill root. Sets are mutually
+  exclusive; they are not additive bundles.
+- **Skill pack populates a root.** Selecting a pack adds its members as individual
+  skill symlinks to the existing root. Ten distinct additional members mean ten
+  additional links, not a whole-root alias. Packs are composable.
+
+**Sets select the root; packs add skills to it.** These operations are not synonyms
+and are not determined by global versus project scope.
+
+The writable definition catalog is `~/code/skillex/all-skills/<name>/`; do not
+confuse definition ownership with the canonical skill root. Sets and packs
+reference these definitions, never copied payloads. Host-owned `.system` skills
+remain installer-owned.
+
+Existing CLI/schema behavior and recalled claims that packs are exclusive or
+replace roots are implementation drift, not product authority. Preview before
+sync; stop if the plan contradicts this model. Do not invent collision,
+inheritance, or shared-set mutation policy from these basic definitions.
 
 Hermes PMs are **Skillex-only**, with a real per-profile `skills/` projection,
 not a whole-root alias to the default Hermes catalog. `skillex profile sync

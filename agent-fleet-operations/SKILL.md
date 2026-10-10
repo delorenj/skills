@@ -346,12 +346,16 @@ process control, service changes, board changes, or Bloodbank activation.
   A role file's `skills:` loadout is part of this selection, never a second
   one: flume writes it as `<desk>/.skillex-selection/.agents/skills.json`
   (`sets`/`packs`, generated from the role) and runs `skillex profile sync
-  <name> --project <desk>/.skillex-selection --skillex-only`, so the desk is the
-  global selection plus exactly that loadout. flume never writes
+  <name> --project <desk>/.skillex-selection --skillex-only`. flume never writes
   `skills.external_dirs`, `<desk>/.agents/skills` or a copied payload into a desk.
-  A pack is exclusive (one per role, never with a set). Such a desk's project is the
-  selection, so do not `profile sync` it against its repo, and read its state with
-  `skillex profile show <name>` (the receipt records the project).
+  Skillex's user-confirmed contract is **sets replace the canonical root and are
+  mutually exclusive; packs add member symlinks to an existing root and compose**.
+  Older role/CLI restrictions making packs exclusive are implementation drift,
+  not the meaning of a pack. Preview and stop on contradictory selection plans;
+  do not infer inheritance or shared-set mutation policy from old behavior.
+  Such a desk's project is the selection, so do not `profile sync` it against its
+  repo, and read its state with `skillex profile show <name>` (the receipt records
+  the project).
 - **Catalog commits resync the desks by themselves.** A strict desk's Skillex
   receipt records the `all-skills` HEAD it was synced against, so every catalog
   commit leaves all of them `sync pending` (`skillex profile show` exit 6, one

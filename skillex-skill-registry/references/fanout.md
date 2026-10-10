@@ -2,7 +2,13 @@
 
 Use Skillex as the sole writer of managed skill projections. Check the installed
 sync help, preview the explicit scope, apply it, and verify a second preview.
-Client `skills/` roots should resolve to the scope's `.agents/skills` directory.
+Client `skills/` roots should resolve to the scope's canonical `.agents/skills/`
+root (`~/.agents/skills/` globally; `<project>/.agents/skills/` locally).
+
+Set selection replaces this canonical root with a symlink to the set's skill
+root. Pack selection adds individual skill links to the existing root. Sets are
+mutually exclusive; packs compose. If the installed preview reverses those
+operations, report implementation drift and do not apply it.
 
 Source topology passing does not prove consumer discovery. Inventory nested
 imports, frontmatter names, broken links, and reserved system skills; query the
