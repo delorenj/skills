@@ -71,6 +71,19 @@ it reports `refused` (exit 3) holds foreign or unowned content and is left
 untouched: never hand-edit it, quarantine through `scripts/hermes-skillex-cutover.py`
 (preview, then `--apply`). Contract: `docs/implementation/hermes-skillex-resync.md`.
 
+## Direct import and add
+
+- `skillex import URL` copies the selected skill subtree into `all-skills/` with
+  provenance: no fork, no gitlink, no activation. GitHub `tree/<ref>/<path>` URLs
+  identify one skill, not the entire repository.
+- `skillex add URL` imports only if absent, then activates in the current project
+  (or `-p PATH`); outside a project it selects global (or explicit `-g`). A repo
+  without a manifest is still a project, not permission to change global skills.
+- Existing definitions are never silently overwritten or refreshed. Preview with
+  `--dry-run`; verify the installed version exposes these commands first.
+- Repeated adds must converge without duplicate links. Partial import/activation
+  failures report what succeeded; never claim rollback of an imported definition.
+
 ## PM authoring and activation
 
 - Create/edit the canonical `all-skills/<name>/SKILL.md`, not `$HERMES_HOME/skills`.
