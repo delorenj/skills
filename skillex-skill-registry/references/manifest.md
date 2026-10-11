@@ -3,6 +3,14 @@
 Global selection lives in `~/.agents/skills.json`; project selection lives in
 `<repo>/.agents/skills.json`. This host selects the `min-global` set globally.
 
+## Manifest shape
+
+Use optional `"set": "name"` string; omission means no selected set. Never emit
+`sets: ["name"]`, an array-of-one, an object, or null. `packs` remains an array.
+Legacy `sets` belongs only in explicit normalization/migration input. Convert a
+singleton through `skillex normalize` (preview, then `--apply`); multiple legacy
+sets require an explicit membership-preserving base decision, not picking one.
+
 ## Selection semantics
 
 The user's 2026-10-10 definitions govern both scopes:

@@ -16,9 +16,10 @@ description: Operate the Skillex catalog, reference-only sets and packs, skill m
   regardless of project scope.
 - **Canonical skill root:** Skillex's SSOT discovery root: `~/.agents/skills/`
   globally and `<project>/.agents/skills/` per project. Client roots alias it.
-- **Skill set replaces a root.** Selecting a set in the manifest replaces the
-  canonical root with a symlink to the set's skill root. Sets are mutually
-  exclusive; they are not additive bundles.
+- **Skill set replaces a root.** The manifest declares optional **`"set": "name"`
+  as a string**, never `sets`, an array, or an object (user correction 2026-10-11).
+  Omit the field for no set. Selecting it replaces the canonical root with a
+  symlink to that set's skill root. There can only be one set per manifest.
 - **Skill pack populates a root.** Selecting a pack adds its members as individual
   skill symlinks to the existing root. Ten distinct additional members mean ten
   additional links, not a whole-root alias. Packs are composable.
