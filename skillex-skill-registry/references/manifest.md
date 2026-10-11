@@ -20,10 +20,14 @@ exclusive root replacement: that is reversed behavior. Do not recommend a set
 as an additive workaround or a pack as a replacement workaround. Report the
 mismatch and do not apply a contradictory sync plan.
 
-The core definitions do not settle inheritance precedence, duplicate-name
-conflicts, or how scope-local additions interact with a shared set target. Do
-not silently mutate a shared set through its root alias; obtain the missing
-policy before applying that combination.
+The user chose scope-owned derivation for additions to shared set-backed roots:
+create/select a derived set and add pack links there without changing the base
+or other consumers. A project set replaces inherited Skillex selection while
+leaving global roots intact. Agent discovery suppression is separate; use a
+verified client adapter and never claim resolver inheritance proves isolation.
+Normalization preserves exact membership, folds complete member groups into
+packs, and refuses ambiguous legacy intent. Repeated individual global members
+should become the global-set reference, not another long list.
 
 Remove set defaults in the owning set, not by deleting a generated symlink. An
 optional capability can remain in the catalog without being globally selected.

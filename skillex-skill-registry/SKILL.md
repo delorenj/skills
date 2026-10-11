@@ -31,10 +31,23 @@ confuse definition ownership with the canonical skill root. Sets and packs
 reference these definitions, never copied payloads. Host-owned `.system` skills
 remain installer-owned.
 
-Existing CLI/schema behavior and recalled claims that packs are exclusive or
-replace roots are implementation drift, not product authority. Preview before
-sync; stop if the plan contradicts this model. Do not invent collision,
-inheritance, or shared-set mutation policy from these basic definitions.
+Older installed CLI behavior and recalled claims that packs are exclusive or
+replace roots are drift, not product authority. Preview before sync; stop if a
+plan contradicts this model. The user chose **scope-owned derivation** for pack
+additions to a shared set: derive a local selection and switch only that scope,
+never write through the shared root alias. A project set replaces inherited
+selection but client global discovery requires a separate supported adapter and
+runtime verification; `inherit_global: false` alone is not isolation.
+
+The Node correction provides `normalize`, `root adopt`, source-backed
+`set create` / `pack create`, and OpenCode `clients isolate|verify|unisolate`.
+Confirm installed help/version before use. Legacy multi-set normalization needs
+an explicit `--base-set`; old exclusive-pack roots need an explicit membership
+decision. Root family replacement requires paired `--replace-pack NAME@VERSION`
+and `--replace-prefix NAME-` plus user authority for the version change. The
+whole original root is durable recovery content, not disposable cache. Only
+Holocene is authorized for the current live pilot; fixture success is not a
+fleet rollout.
 
 Hermes PMs are **Skillex-only**, with a real per-profile `skills/` projection,
 not a whole-root alias to the default Hermes catalog. `skillex profile sync
