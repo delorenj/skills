@@ -1,7 +1,11 @@
 # Manifests
 
 Global selection lives in `~/.agents/skills.json`; project selection lives in
-`<repo>/.agents/skills.json`. This host selects the `min-global` set globally.
+`<repo>/.agents/skills.json`. This host's global selection is **composed** (no
+set): the `bmad@6.12.1-next.1` pack plus explicit members. The legacy two-set
+selection was normalized on 2026-10-13 — a whole-root set switch is refused
+while installer-owned (`.system`) and foreign content share the root, so exact
+membership preservation meant composing, not switching.
 
 ## Manifest shape
 
