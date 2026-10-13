@@ -38,7 +38,19 @@ below, and trust it over this summary when they differ.
 
 ## Commands
 
-From `~/code/client-portal/gateway`:
+`tokies` is the front door (installed from `gateway/tokies`; it follows
+`gateway/TARGET` like the scripts it wraps):
+
+| Need | Command |
+|---|---|
+| Health, image, tunnel, backups and cost in one view | `tokies status` (`--json` for scripts; exit 1 on any problem, and each problem names the next command) |
+| Logs | `tokies logs [new-api\|postgres\|redis\|caddy\|cloudflared] [-n N] [--since 10m] [-f]` |
+| Start whatever is down, without deploying a changed pin | `tokies up` |
+| Deploy a build | `tokies deploy <tag> [--build] --yes` (pins, recreates, verifies, puts the old pin back on failure or Ctrl-C, commits only `gateway/compose.yml`) |
+| Restore the nightly copy onto the VM | `tokies restore [dump] --yes` |
+
+Without `--yes`, `deploy` and `restore` print their plan and change nothing; run
+that first. The underlying scripts, from `~/code/client-portal/gateway`:
 
 | Need | Command |
 |---|---|
