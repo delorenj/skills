@@ -1,7 +1,9 @@
 # Gateway operations
 
-Run from `~/docker/stacks/ai/newapi`. Read local `AGENTS.md` first. Keep credential
-references in `.env.op`; use `op run --env-file=.env.op -- ...` when a command
+Run from `~/code/client-portal/gateway`. `~/docker/stacks/ai/newapi` is only a
+compatibility symlink, not a second source owner. Read local `AGENTS.md` first.
+Keep credential references in `.env.op`; use `op run --env-file=.env.op -- ...`
+when a command
 needs that environment. Do not materialize a plaintext `.env` or a resolved key.
 The operations scripts own their management/vault access; inspect their current
 `--help` before adapting an invocation.
@@ -64,6 +66,15 @@ safe status, make an authenticated request and inspect the oneshot result.
 After reboot, verify manager vault access and run the oneshot explicitly. Timer
 enabled state alone proves neither successful refresh nor all-account health.
 
+## Claude access-only setup tokens
+
+Catalog routes with `credential_mode: "claude_setup_token"` use a raw OAuth
+access credential, not an Anthropic API key or rotating JSON session. They have
+no refresh token and are excluded from the gateway OAuth renewal owner. Preserve
+an existing API key in its separate vault field; load the exact catalog reference
+fresh and reconcile only the affected account after replacement. Do not invent
+expiry/refresh metadata or send a setup token to the refresh endpoint.
+
 ## Scoped consumer tokens
 
 ```sh
@@ -77,7 +88,10 @@ python3 ops/gateway-tokens.py revoke <consumer-name>
 Replace angle-bracket placeholders; they are not executable examples. Use a
 stable name for the real service/profile, and include helper-model routes in its
 scope. `--models all` scopes to today's catalog, so future additions require
-updating or rotating that scope. Default expiry is 90 days; `--days -1` is an
+updating that scope. Prefer `gateway-tokens.py scope <consumer> --models ...`
+with its dry-run first for an allowlist-only change: it preserves the existing
+key, expiry, group and restrictions. Rotation is not required merely to add
+routes. Default expiry is 90 days; `--days -1` is an
 explicit non-expiring choice.
 
 Tokens belong to enabled role-1 `delo-relay`, group `aai-personal`. Credentials
@@ -123,18 +137,35 @@ and read-only management queries instead.
 
 ## Build and deploy relay changes
 
-Deployment source is the Docker repo. Overlay owners include `brand/gateway.patch`,
-`brand/gateway/`, `brand/apply-gateway.py`, `brand/build.sh` and `ops/routes.json`.
-The build archives an exact upstream tag, applies checked-in overlays and checks
-literal patch anchors. Changes in the pristine `~/code/newapi` worktree do not
-enter that image.
+Deployment source is `~/code/client-portal/gateway`. Overlay owners include
+`brand/gateway.patch`, `brand/gateway/`, `brand/apply-gateway.py`,
+`brand/prepare-source.sh`, `brand/build.sh` and `ops/routes.json`. `SOURCE.json`
+pins the exact upstream commit. Preparation exports that commit and applies
+checked-in overlays; neither the old Docker path nor edits in `~/code/newapi`
+are an independent build source.
+
+From the portal repository root:
 
 ```sh
-python3 -B -m unittest discover -s ops -p 'test_gateway_ops.py'
-./brand/build.sh v1.0.0-rc.40
-op run --env-file=.env.op -- docker compose config --quiet
-op run --env-file=.env.op -- docker compose up -d --no-deps --force-recreate new-api
+pnpm gateway:check
+IMAGE_TAG=<candidate-tag> pnpm gateway:build
+pnpm gateway:compose config --quiet
 ```
+
+After pinning the built candidate tag in `gateway/compose.yml`, recreate only
+`new-api` with `pnpm gateway:compose up -d --no-deps --force-recreate new-api`.
+Do not move the deployed tag or `:latest` during a candidate build. The canonical
+Compose wrapper resolves secrets and keeps project `newapi`; Postgres uses the
+existing external `newapi_pg_data` volume. Its absence must fail rather than
+initialize a replacement database.
+
+`gateway/TARGET` names the serving host: big-chungus (`home`) or the Lightsail
+VM `aai-gateway` (`cloud`, Docker context `aai-cloud`, `ssh aai-gateway`). The
+wrapper follows it, ships the locally built image to the VM and holds
+`deploy.lock`; a bare `docker compose` fails by design. Inspect the VM with
+`docker --context aai-cloud ...`, never `docker context use`. Scripts that exec
+into Postgres resolve the daemon through `ops/gateway_target.py`. The VM,
+backups, cutover and rollback are in `gateway/ops/CLOUD.md`.
 
 `v1.0.0-rc.40` is the pinned baseline at skill creation. For an upgrade, inspect
 current source and deliberately match the exact tag in both build and Compose.
@@ -142,38 +173,43 @@ The stack has no Compose `build:` section; `up --build` does not rebuild it.
 The branded image is local with a mutable tag, so verify the installed image ID
 after recreation. Recreate only the changed service; never use `down -v`.
 
-Run affected Go tests in an exported, patched upstream tree, preserving the
-pristine checkout. Relevant packages include `automaticai`, `middleware`,
-`relay/channel/advancedcustom`, `controller`, `model`, `router`, `service`, and
-the independent `relaykit/dto` / `relaykit/relayconvert/...` module. Python
-syntax checks must leave no cache in the source tree. Run the documented
-contrast check and supported CLI help/dry-run paths for affected changes.
+Run affected Go tests in a fresh exported, patched upstream tree.
+`relaykit` is a separate Go module: root `go test` cannot cover its converters.
+For converter repairs, run its `go test ./relayconvert/... -run TestAutomaticAI`
+and focused bridge tests, then vet/race as appropriate. `pnpm gateway:check` and
+the image's `go build` do not run these Go regressions. Add fixtures through
+`ConvertRequestByID` and the advancedcustom bridge. Relevant root packages
+include `automaticai`, `middleware`, `relay/channel/advancedcustom`,
+`relay/channel/claude`, `controller`, `model`, `router`, and `service`.
+
+The broad relaykit suite had an existing Claude cache-control golden mismatch
+on October 6, 2026. Establish the pre-change baseline and report unchanged drift;
+do not regenerate snapshots just to hide it. Controller tests took about
+195 seconds on this host, so use a suitable timeout rather than diagnosing a
+120-second tool timeout as a test failure. For shell/Python edits, use syntax
+checks that leave no cache in source and the affected CLI help path.
 
 ### Gateway patch format
 
-`brand/gateway.patch` uses `--- a/path` / `+++ b/path` headers without
-`diff --git` lines. To append a new modification:
+Regenerate changed hunks against the exact pristine file pinned by `SOURCE.json`,
+including existing overlay changes to that file. Do not append overlapping hunks
+or hand-adjust line counts. Verify the complete patch through
+`brand/prepare-source.sh` into an empty scratch directory before building;
+additive Go files are copied after patching and must not overwrite upstream files.
 
-1. Export the pristine upstream file with `git show <tag>:<path>`.
-2. Apply your change to the exported string in Python.
-3. Generate the diff with `difflib.unified_diff(..., fromfile='a/<path>',
-   tofile='b/<path>', n=3)`.
-4. Append the result to `gateway.patch` after a `# comment` separator.
-
-Hand-written `diff --git` hunks corrupt the patch because `git apply`
-misinterprets mixed formats. Verify with `python3 brand/apply-gateway.py
-<tmpdir>` against a fresh upstream export before building.
-
-Docker layer caching can reuse stale Go compilation even when the build
-directory changes. When modifying Go source in the overlay, temporarily add
-`--no-cache` to the `docker build` line in `build.sh`, then restore it.
+Docker cache reuse is content-addressed. An unchanged frontend layer is expected
+for a Go-only repair; inspect that changed Go source reaches `COPY . .` and the
+`go build` layer reruns. Do not edit `build.sh` to disable caching without evidence
+of a missing build input. Fresh source preparation, applied patch and exact image
+ID are the useful controls, not blanket `--no-cache`.
 
 ### Claude model settings
 
 Runtime Claude options live in the NewAPI options table and hot-reload:
 
+Run from the canonical gateway directory:
+
 ```python
-cd ~/docker/stacks/ai/newapi
 python3 -B - <<'PY'
 import sys; sys.path.insert(0, 'ops')
 from aai import Gateway
@@ -183,13 +219,17 @@ print(g.options().get('claude.thinking_adapter_budget_tokens_percentage'))
 PY
 ```
 
-Current production values: `claude.default_max_tokens` is
-`{"default":32768,"claude-opus-5-5":65536}` and the thinking budget is `0.8`.
-These persist across container restarts. Verify `cache_creation_tokens` then
-`cache_tokens` are non-zero after deploying relay changes that affect the
-Responses-to-Claude path.
+Runtime option snapshots age quickly: read `claude.default_max_tokens` and the
+thinking-budget setting before interpreting a cap. On October 6, 2026 the map
+was `{"default":32768,"claude-opus-5-5":65536,"claude-sonnet-5-5":65536}`.
+These persist across restarts. Existing cache creation/read ledger evidence can
+settle whether caching works without another expensive synthetic turn.
 
-A push to Docker main can invoke a broad Portainer webhook; it is not deployment
-proof. Verify the actual image, health, authenticated relay and ledger after
-the scoped recreation. Runtime reports, caches, databases, logs and backups do
-not belong in Git.
+A portal push deploys neither the gateway nor the Worker; their release paths
+are separate. A container recreation can briefly produce a Traefik edge 404 at
+home, or a JSON 503 with `Retry-After` from Caddy on the VM.
+Inspect current image/health and use bounded readiness retries before restarting
+again or blaming an API endpoint. Deployed runtime and published source are
+separate facts. Runtime reports, caches, databases, logs and backups stay out of
+Git. Follow [bounded acceptance](acceptance.md#bound-the-verification), including
+the user's stop instruction, rather than repeatedly certifying working traffic.
