@@ -40,6 +40,12 @@ when streaming. Preserve the complete assistant/tool history, including all
 call IDs and outputs. For converted Responses routes, do not rely on remote
 `previous_response_id` storage: resend the complete relevant history. Multiple
 tool calls and their reasoning history must remain in the same turn.
+Tool outputs may be strings or protocol-shaped block arrays. Resumed clients
+can insert developer instructions and assistant progress between parallel
+results, and often end the input at the final tool result without a new user
+turn. Preserve that actual shape in regression fixtures; a synthetic final user
+prompt can hide Claude's assistant-prefill failure. The gateway converter owns
+nested block translation and native tool-batch adjacency, not each client.
 
 These API styles support normal stateless function-tool round trips. They do
 not imply support for every vendor hosted tool, image/audio endpoint or
@@ -80,7 +86,7 @@ conflicts in the owning launcher. For the team plan, update the main model and
 all three helper models together. Verify native Messages streaming with the
 real CLI, rather than treating a Chat-only SDK probe as sufficient.
 
-The gateway's two subscription adaptors prepend the required Claude Agent SDK
+The gateway's Claude subscription adaptors prepend the required Claude Agent SDK
 system preamble when absent, preserve caller system blocks/cache controls/tool
 IDs, and merge required OAuth beta defaults with native client feature headers.
 Leave this behavior in the adaptor. Do not make every client spoof headers or
@@ -112,6 +118,12 @@ ultra. Preserve a consumer's explicit normalized effort such as `max`.
 `activate` requires an exact available personal OpenAI route and the correct
 consumer token; only activate after a real installed-client receipt.
 
+Refresh the generated model catalog through `codex-gateway.py install` after
+adding routes to the consumer's scope, then use `check`. Discovery/scope changes
+do not update a running Codex process's picker. Preserve global model, provider,
+effort and sibling settings; a second install should be unchanged. A missing
+catalog-metadata warning during an isolated probe is not itself inference failure.
+
 Use [prompt and session proof](prompt-proof.md). A synthetic Kimi probe cannot
 prove that the executing OpenAI parent migrated. Do not kill that parent;
 verify a fresh ordinary launch after changing the durable next-launch default.
@@ -135,3 +147,34 @@ Gateway upstream egress, provider OAuth exchange/refresh and credential control
 planes still contact their owners directly. Embeddings/reranking and unsupported
 features require their own verified gateway capability before a valid migration;
 do not point them at Chat merely to make the hostname match.
+
+## Hermes fleet agents
+
+Hermes uses a YAML config (`~/.hermes/config.yaml`) with a named provider block.
+The fleet base config defines the `automaticai` provider; profiles inherit it
+and override only `secrets.onepassword.env.AUTOMATICAI_GATEWAY_KEY` in their
+`config.delta.yaml` for per-member token tracking.
+
+Key Hermes-specific behaviors:
+
+- `hermes config set` is the only safe way to modify config — direct file edits
+  are refused by the tool. Lists are replaced wholesale, not appended.
+- `providers.<name>.models` controls which routes appear in `/model` completion
+  and what delegation can resolve. Auto routes must be listed here.
+- `model.aliases` adds shortcut names (`auto`, `auto-orch`, `auto-sub`,
+  `auto-fast`) that resolve via `/model <alias>`.
+- `delegation.model` sets the default for spawned workers. Set it to
+  `automaticai/auto/subagent` for adaptive worker routing.
+- `providers.<name>.extra_body.reasoning_effort` is merged into every request
+  because `delegation.reasoning_effort` never reaches a named provider (only
+  `custom` providers receive it).
+
+Auto router wiring procedure:
+
+1. Mint token: `python3 ops/gateway-tokens.py mint hermes --auto` (from
+   `~/code/client-portal/gateway`).
+2. Add routes: `hermes config set providers.automaticai.models '["...","automaticai/auto","automaticai/auto/orchestrator","automaticai/auto/subagent","automaticai/auto/fast"]'`
+3. Add aliases: `hermes config set model.aliases.auto 'automaticai/auto'` etc.
+4. Point key: `hermes config set secrets.onepassword.env.AUTOMATICAI_GATEWAY_KEY 'op://.../hermes'`
+5. Set delegation: `hermes config set delegation.model 'automaticai/auto/subagent'`
+6. Verify: curl `/v1/models` and `/v1/chat/completions` with auto model names.

@@ -1,6 +1,6 @@
 # Route, identity and effort contract
 
-The live source of truth is `~/docker/stacks/ai/newapi/ops/routes.json`, not this
+The live source of truth is `~/code/client-portal/gateway/ops/routes.json`, not this
 table. Extend that catalog and its acceptance checks when adding another model.
 The initial list describes the user's use cases; it is not the complete fleet.
 

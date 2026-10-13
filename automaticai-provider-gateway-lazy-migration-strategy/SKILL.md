@@ -112,8 +112,13 @@ a permanent migration.
   route, or a concrete user decision. Do not invent a model alias or reclassify
   embeddings/reranking as Chat simply to remove a vendor hostname.
 
-Current `aai/` aliases are valid. The adaptive `aai-auto` router is future work
-after upstream/OAuth hardening; it is not an available migration target.
+Current `aai/` aliases are valid. `automaticai/auto` is now live and opt-in for
+allowed personal tokens; current policy and per-client readiness belong to the
+gateway's `ops/AUTO-ROUTER.md`. User-authorized auto routing may select across
+its token-permitted subscription accounts and fall back only to proven free
+routes. It is not permission to collapse team consumers into personal or enable
+a paid fallback. Preserve explicit routes unless auto adoption is authorized,
+and verify the consumer's discovery parser and role/context selectors first.
 
 ## Completion gate
 

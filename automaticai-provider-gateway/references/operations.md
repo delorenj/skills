@@ -165,7 +165,8 @@ wrapper follows it, ships the locally built image to the VM and holds
 `deploy.lock`; a bare `docker compose` fails by design. Inspect the VM with
 `docker --context aai-cloud ...`, never `docker context use`. Scripts that exec
 into Postgres resolve the daemon through `ops/gateway_target.py`. The VM,
-backups, cutover and rollback are in `gateway/ops/CLOUD.md`.
+backups, cutover and rollback are in `gateway/ops/CLOUD.md`; outage handling,
+alerts and cost are summarized in [hosting](hosting.md).
 
 `v1.0.0-rc.40` is the pinned baseline at skill creation. For an upgrade, inspect
 current source and deliberately match the exact tag in both build and Compose.

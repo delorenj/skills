@@ -28,7 +28,7 @@ generated native hooks. Use `agent-config-fanout` for binding/dialect changes.
 Check the current session deterministically with:
 
 ```sh
-python3 -B ~/docker/stacks/ai/newapi/ops/gateway-proof.py session
+python3 -B ~/code/client-portal/gateway/ops/gateway-proof.py session
 ```
 
 Read the gateway's `ops/SESSION-ROUTING-PROOF.md` for explicit prompt checks,

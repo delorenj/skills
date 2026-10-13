@@ -2,9 +2,10 @@
 name: automaticai-provider-gateway
 description: "Operate AutomaticAI at api.automaticai.io: account-specific model
   routes, consumer tokens, dedicated OAuth grants, normalized effort, client
-  configuration, NewAPI deployment, and authenticated acceptance. Use when
-  configuring or debugging this gateway; consumer discovery and permanent
-  direct-provider remediation belong to
+  configuration, NewAPI deployment to its AWS Lightsail VM, outages, backups,
+  alerts and cost, and authenticated acceptance. Use when configuring,
+  deploying, debugging or restoring this gateway; consumer discovery and
+  permanent direct-provider remediation belong to
   automaticai-provider-gateway-lazy-migration-strategy."
 ---
 
@@ -12,19 +13,29 @@ description: "Operate AutomaticAI at api.automaticai.io: account-specific model
 
 Operate the user's unified inference provider at `api.automaticai.io`. Preserve
 the requested model, account and billing path while exposing OpenAI Chat
-Completions and Responses, plus native Claude Messages for the two Claude
-subscription routes.
+Completions and Responses, plus native Claude Messages for catalog routes that
+support it.
 
 ## Start with current source
 
-The deployment source is `~/docker/stacks/ai/newapi` in the Docker repository;
-the pristine upstream checkout is `~/code/newapi`. Read the deployment's
-`AGENTS.md`, then:
+The canonical source is `~/code/client-portal/gateway`; the former
+`~/docker/stacks/ai/newapi` is only a compatibility symlink. Read `gateway/AGENTS.md`
+and `gateway/README.md`. `SOURCE.json` pins upstream; `brand/prepare-source.sh`
+exports it from the external cache and applies the tracked fork. Do not use
+`~/code/newapi` as build authority: its checkout can be an older release. Then read:
 
 - `ops/routes.json`: authoritative route, account, upstream and credential map.
 - `ops/UNIFIED-PROVIDER.md`: operational commands and checked-in client examples.
 - `ops/ACCEPTANCE-unified-provider.md`: dated live evidence and remaining gates.
 - `ops/ROADMAP.md`: provider hardening before the future adaptive router.
+
+## Where it runs
+
+The gateway runs on the AWS Lightsail VM `aai-gateway`, not on big-chungus
+(`gateway/TARGET` says `cloud`). Deploy only through `./ops/compose.sh`, read
+the VM with `docker --context aai-cloud ...` or `ssh aai-gateway`, and never
+`docker context use`. Health, recovery, alerts, cost and backups are in
+[hosting](references/hosting.md) and the runbook `gateway/ops/CLOUD.md`.
 
 Read current files and runtime state before relying on this skill's snapshot.
 Catalog membership, discovery, account connection and proven live traffic are
@@ -35,12 +46,14 @@ proof of a successful request.
 
 1. Use `https://api.automaticai.io/v1` for OpenAI clients. Use the origin
    `https://api.automaticai.io` for Claude Code's `ANTHROPIC_BASE_URL`.
-2. Use canonical `automaticai/<account>/<model>` names. `aai/` is an equivalent
-   request prefix with identical permissions; discovery publishes canonical names.
-3. Choose the intended account explicitly: personal Claude, Intelliforia team,
-   personal Kimi, personal OpenAI, or deliberately paid OpenRouter. Never recover
-   from a disconnected, expired, rate-limited or unauthorized route by switching
-   accounts or sending subscription traffic to a paid provider.
+2. Explicit routes use canonical `automaticai/<account>/<model>` names; opt-in
+   adaptive routes use the `automaticai/auto` family described below. `aai/` is an
+   equivalent request prefix with identical permissions; discovery is canonical.
+3. For explicit routes, choose the intended account: personal Claude,
+   Intelliforia team, personal Kimi, personal OpenAI, or deliberately paid
+   OpenRouter. Never recover from a failed explicit route by silently switching
+   accounts or billing paths. User-authorized auto routes may choose within their
+   token-permitted subscription/free pool, never a hidden paid fallback.
 4. Mint a scoped gateway token per consumer and keep it in 1Password. Resolve
    references into process environment; never write or print a resolved key.
 5. Normalize effort to `medium`, `high`, `xhigh`, `max`. Claude and Astra/Sol
@@ -49,9 +62,10 @@ proof of a successful request.
 6. Give each dedicated OAuth grant exactly one refresh owner. The gateway
    renewal service owns its dedicated grants; interactive CLI grants remain
    separate. NewAPI gets access credentials only.
-7. Prove the actual authenticated request, account and ledger after a change.
-   Public status, a successful build, an enabled timer and a green webhook are
-   insufficient acceptance evidence.
+7. Use task-scoped authenticated traffic and ledger evidence after a change.
+   Existing relevant usage, including the user's working session, can satisfy
+   that evidence; do not keep generating proof after the user says it works or
+   asks to stop. Public status alone does not prove inference or billing.
 
 See [route and effort contract](references/route-contract.md) for all initial
 routes, identities, native mappings and unavailable-route behavior.
@@ -79,10 +93,10 @@ cardinality and dashboard decisions.
 
 Resolve the real consumer's endpoint, API style, model, account, token scope,
 helper models and fallback chain. Read `/v1/models` using that consumer's token
-without printing it. For OAuth accounts, use:
+without printing it. For OAuth accounts, run from
+`~/code/client-portal/gateway`:
 
 ```sh
-cd ~/docker/stacks/ai/newapi
 python3 ops/oauth-connections.py status all
 python3 ops/reconcile-routes.py --dry-run
 ```
@@ -110,8 +124,9 @@ adapt their token reference and account rather than copying credentials.
 ### Accept the change
 
 Use [acceptance and diagnosis](references/acceptance.md) and
-[prompt/session receipt proof](references/prompt-proof.md). A successful separate
-probe cannot prove the executing parent used the gateway. At minimum prove:
+[prompt/session receipt proof](references/prompt-proof.md) for the evidence
+needed by the task. A separate probe cannot prove the executing parent's
+routing. Fresh synthetic proof is unnecessary when existing evidence settles:
 
 - The installed process reads the intended source and gateway token.
 - Its selected route succeeds through the API style it actually uses.
@@ -120,23 +135,27 @@ probe cannot prove the executing parent used the gateway. At minimum prove:
   and subscription or metered charge.
 - A repeated dry-run or configuration regeneration does not undo the change.
 
-Run the broad gateway harness when modifying relay behavior or onboarding an
-account; use the affected route and real consumer for a configuration-only change.
-Save secret-free evidence in runtime storage, never in Git.
+Choose a bounded verification budget before running probes: reproduce the failing
+wire shape, test the repair offline, then one affected-route/client continuation
+and relevant ledger readback if fresh live evidence is needed. Broad account or
+fleet certification is separate from a narrow deployment fix. Consult
+[acceptance](references/acceptance.md) for when to run a broader harness and when
+to stop. Save secret-free evidence in runtime storage, never in Git.
 
 ### Per-model optimization
 
-Each upstream provider has official limits, caching semantics, and streaming
-quirks that the branded overlay and client configs must honor. Never treat
-"traffic flows" as integration-complete without checking these:
+Each upstream provider has limits, caching semantics, and streaming quirks that
+the branded overlay and client configs must honor. Check the aspects affected by
+the task; ordinary working traffic is not a claim of full integration acceptance:
 
-- **Claude prompt caching**: verify `cache_creation_tokens` then `cache_tokens`
-  are non-zero in gateway logs. The branded overlay injects `cache_control`
-  breakpoints on the last system block and penultimate message. If both are
-  zero, caching is silently broken and 140k-token requests will take 86+ s.
+- **Claude prompt caching**: look for `cache_creation_tokens` then `cache_tokens`
+  on suitable existing ledger rows. The branded overlay injects `cache_control`
+  breakpoints on the last system block and penultimate message. A tiny prompt can
+  legitimately show zero cache tokens; do not diagnose failure from that alone.
 - **Claude max_tokens**: NewAPI's `claude.default_max_tokens` option controls
   the cap when clients omit it. With thinking at 80% budget, 8192 leaves only
-  ~1.6k output tokens. Current setting: `{"default":32768,"claude-opus-5-5":65536}`.
+  ~1.6k output tokens. Read the live option map; historical defaults are not proof
+  of the current cap.
 - **Cloudflare idle timeout**: the current deployment investigation identifies
   an approximately 125 s edge read/idle timeout on quiet Claude Responses streams,
   not a universal 100 s time-to-first-byte failure. Prompt caching reduces cold
@@ -152,6 +171,11 @@ quirks that the branded overlay and client configs must honor. Never treat
 - **Responses tool mapping**: upstream `RequestFunctionDeclarations` only
   accepts `type=function`. The branded patch also accepts `type=custom` with a
   default string-input schema. `type=namespace` (MCP tools) still needs mapping.
+- **Responses tool-result conversion**: content-array outputs need block-level
+  translation (`input_text`/`output_text` to Claude `text`), not raw forwarding.
+  Test result-only continuations and interrupted parallel batches; native Claude
+  blocks and their citation/cache metadata must survive unchanged. See
+  [protocol-history lessons](references/acceptance.md#protocol-history-lessons).
 - **Effort-to-thinking budgets**: verify `xhigh` and `max` efforts actually
   reach the upstream thinking configuration. Check gateway logs for
   `automaticai_effective_effort` matching the requested value.
@@ -162,21 +186,64 @@ before wiring the route. Then verify each of the above empirically.
 
 ### Land and report
 
-Commit and push the task's source changes into each owning repository's main
-branch, including submodule pins when changed. Preserve unrelated work. Run
-`git unpushed`, resolve task-created findings, and distinguish unrelated findings
-from this task. Final readable documents also belong in the AutomaticAI vault at
-`~/code/DeLoDocs/Projects/AutomaticAI/`; verify copied bytes.
+Follow the session's version-control authorization in each owning repository;
+changing or deploying a file does not itself authorize committing or pushing it.
+Preserve unrelated work and report source publication state separately from the
+running image. Keep runtime evidence out of Git; update existing runbooks when
+requested rather than creating or copying extra documents by default.
 
 Report what now works, the route/account used, verification and any remaining
 concrete blocker. Do not describe Astra/Sol, renewal or the whole provider fleet
 as complete until their live gates pass.
 
-## Future routing epic
+## Opt-in adaptive routing
 
-The FireRouter-inspired `aai-auto` route is future work. Harden and accept the
-explicit upstream models and OAuth connections first. Initial adaptive routing
-is opt-in for personal agents, uses proven routes, preserves a selected account
-and model through a turn's tool/cache/context sequence, exposes its decision and
-settlement, and retains explicit-route escape hatches. Never migrate traffic to
-`aai-auto` before it exists and passes that gate.
+`automaticai/auto` is live for allowed personal tokens. Read the current gateway
+`ops/AUTO-ROUTER.md` for policy, acceptance and client recipes; do not use the old
+`aai-auto` spelling. Explicit account/model routes remain the escape hatch.
+Auto is a deliberate opt-in exception to explicit account selection: it chooses
+only token-permitted subscription routes, then proven OpenRouter `:free` routes;
+there is no paid fallback. A turn and its tool loop stay pinned. State and
+feedback are available through `tokies auto` and `tokies auto feedback`.
+
+For Claude Code, `/model automaticai/auto` changes one session. The durable
+launcher recipe uses main/Opus `automaticai/auto/orchestrator`, Sonnet and
+`CLAUDE_CODE_SUBAGENT_MODEL` `automaticai/auto/subagent`, Haiku
+`automaticai/auto/fast`, and `CLAUDE_CODE_MAX_CONTEXT_TOKENS=800000`. Native
+subagent markers still override an inherited orchestrator slot. Never map the
+Fable advisor to auto. Preserve the existing gateway token and credential owner.
+Before enabling auto for another consumer, verify its discovery parser accepts
+rows with `automaticai.auto = true`; do not infer client readiness from successful
+wire API probes or broaden unrelated consumers' scopes.
+
+### Auto router for Hermes fleet agents
+
+Hermes profiles inherit the auto routes through the fleet base config
+(`~/.hermes/config.yaml`). To wire a new consumer:
+
+1. **Mint a scoped token**: `python3 ops/gateway-tokens.py mint <consumer> --auto`
+   from `~/code/client-portal/gateway`. The `--auto` flag adds the four auto
+   names plus the policy's free routes. Verify with `gateway-tokens.py status <consumer>`.
+2. **Add auto routes to `providers.<name>.models`** in the consumer's Hermes
+   config so `/model` and delegation can resolve them. Use `hermes config set`
+   (never hand-edit; the tool refuses direct writes to `config.yaml`).
+3. **Add `model.aliases`** for ergonomic `/model auto`, `/model auto-orch`,
+   `/model auto-sub`, `/model auto-fast` shortcuts.
+4. **Point `secrets.onepassword.env.<KEY_ENV>`** at the minted consumer token's
+   `op://` reference. Profiles override `AUTOMATICAI_GATEWAY_KEY` in their
+   `config.delta.yaml` for per-member tracking.
+5. **Set `delegation.model: automaticai/auto/subagent`** so spawned workers
+   route adaptively instead of pinning a single model.
+6. **Verify with live probes**: `curl -H "Authorization: Bearer $key"` against
+   `/v1/models` (auto rows carry `automaticai.auto: true`) and
+   `/v1/chat/completions` with `model: automaticai/auto/fast` (should route to
+   a free tier model) and `model: automaticai/auto/orchestrator` (should route
+   to a frontier subscription model). Check the response `model` field to confirm
+   the router's target.
+
+The auto router classifies each request (role, context, tools) and picks the
+best available model. Delegated workers on `auto/subagent` start at the strong
+tier and ratchet up/down based on success/failure. Fast aux calls (titles,
+summaries) route to `auto/fast` (free tier first). Orchestrator calls route to
+`auto/orchestrator` (frontier tier). The router never falls back to metered
+billing; exhausted subscription pools fall through to free routes.

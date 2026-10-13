@@ -4,14 +4,38 @@ Read current `ops/ACCEPTANCE-unified-provider.md` and the consumer's installed
 state. Use a current scoped token; a previous short-lived acceptance token may
 have expired. Do not print its resolved value or redirect it to a file.
 
+## Bound the verification
+
+Match proof to the requested change, not every capability the gateway exposes.
+For a repair, default to one exact failing-payload reproduction, focused offline
+regressions, and one affected-route continuation or existing real-client receipt.
+Reuse evidence already collected in this session. The user's report that they
+are actively using the route is relevant evidence, not an invitation to keep
+spending their allowance on synthetic certification. If they say stop, stop
+probes and reviewers; report what is deployed and any unverified scope briefly.
+
+A full account matrix is appropriate for an explicitly requested onboarding or
+fleet acceptance exercise. If broader checks uncover unrelated model behavior,
+record it separately; do not turn a repaired deployment into an endless effort
+to make every model produce the same synthetic answer. Do not keep replaying a
+request after allowance exhaustion or a provider filter stop. Keep failures
+visible without switching accounts or weakening assertions.
+
+Before a long-stream probe, identify the regression it protects. One completed
+quiet turn with the required data gap and bounded byte gaps is enough; do not
+repeat a matrix merely because a cheaper or shorter turn completed too quickly.
+A capped `response.incomplete` can show transport survival but is not completed
+inference. Stop at the declared budget and report an inconclusive gate honestly.
+
 ## Choose the appropriate proof
 
-For a consumer configuration change, probe its selected account through its
-actual installed CLI/SDK/service. Cover streaming and tool continuation when
-that consumer uses them. Prove a spawned worker or helper path separately when
-it has its own configuration source.
+For a consumer configuration change, use its selected account through its
+actual installed CLI/SDK/service only when existing relevant traffic does not
+already settle the question. Cover streaming and tool continuation when
+that consumer uses them. Prove a spawned worker or helper path separately only
+when its distinct configuration is part of the requested change.
 
-For relay changes, an added account or broad route changes, use the live harness:
+For a requested broader relay/account acceptance run, use the live harness:
 
 ```sh
 python3 ops/verify-unified-provider.py \
@@ -25,9 +49,49 @@ in that command. `--models` limits the probe to explicit canonical routes.
 contains only non-secret metadata. Keep it in runtime storage.
 
 The harness covers both Chat and Responses, canonical/alias prefixes, terminal
-streaming with usage, and multiple function calls followed by their outputs and
-the final reply. It does not replace native Claude/Codex acceptance or the
-consumer's feature-specific test.
+streaming with usage, string and content-array tool outputs, interrupted parallel
+histories, and result-only continuation with no fabricated final user turn. It
+does not replace a feature-specific wire fixture. An existing native-client
+receipt can avoid another synthetic native CLI run.
+
+## Protocol-history lessons
+
+- Trace the converter actually selected by the managed route. A fixed
+  Responses-to-Chat path does not protect direct Responses-to-Claude conversion.
+- Responses `function_call_output.output` can be a block array. Translate
+  `input_text` and `output_text` to native Claude `text` inside `tool_result`;
+  preserve whitespace, block order, call IDs and input immutability. String-only
+  probes missed the October 6, 2026 `input_text` discriminator failure.
+- Translate OpenAI-shaped media, but deep-preserve already-native Claude blocks
+  (`text`, `image`, `document`, `search_result`, `browser_state`, `tool_reference`).
+  Do not rebuild them with a reduced DTO that drops titles, context, citations,
+  cache controls or native text/file/content sources. Media belongs inside its
+  tool result, not stringified into the text tokenizer.
+- Claude requires the complete tool-result batch in the next user message after
+  assistant tool uses. Safe text-only instruction/commentary interleaving needs
+  normalization; missing, duplicate or ambiguous results must fail, not be invented.
+- Test history ending at the last tool output. Deferring progress text to the end
+  can create an assistant prefill that Claude refuses. Preserve terminal progress
+  on the existing assistant tool-call turn before the complete result group;
+  leave explicit-final-user and Chat ordering unchanged. Do not make the fixture
+  pass by appending a user prompt the real client never sends.
+- Assert complete marshalled wire JSON through the public converter and bridge,
+  not only helper outputs or a substring containing an ID. Cover array outputs,
+  parallel batches, native metadata and no-final-user history offline first.
+
+## Interpret probe outcomes
+
+Treat HTTP status, terminal state, text compliance and ledger settlement as
+separate dimensions. Responses JSON/SSE must finish as `completed`; a 200 with
+`incomplete`/`content_filter` is not a converter-validation 400 and must not pass
+just because its text happens to match. A completed answer with no visible text
+also fails answer acceptance, without proving an account or credential defect.
+
+Make deterministic prompts explicit: for `OK`, request two uppercase letters
+without punctuation or quotes. The ambiguous `Reply exactly OK.` often returned
+`OK.` on older models. Fix that fixture ambiguity, not the strict assertion.
+Retain filter/empty-answer limitations rather than repeatedly rebuilding the
+relay to chase provider output variation.
 
 ## Read back the ledger and control plane
 
@@ -78,8 +142,12 @@ partially successful until every required account is connected.
 | SDK succeeds, CLI fails | Native protocol, helper models, CLI auth precedence, beta headers and installed settings schema |
 | Config correct, traffic still direct | Actual process environment, launcher/profile/generator precedence, stale installed service or alternate helper path |
 | Tool continuation fails | Complete assistant/reasoning/tool history and preserved call IDs; converted Responses cannot rely on upstream response storage |
+| Claude `tool_result.content` rejects `input_text` | Wrong nested wire format in the selected converter; normalize array blocks rather than repairing credentials |
+| Claude says tool results must immediately follow tool use | Parallel results were separated by commentary/instructions; preserve the whole batch and normalize safe interleaving |
+| Claude refuses assistant prefill after results | Deferred commentary became the final assistant message; test continuation ending at the actual last result, without adding a user turn |
+| HTTP 200 but no expected answer | Inspect Responses terminal status, `incomplete_details`, native stop reason and returned text separately; provider `content_filter` and punctuation are not auth failures |
 | New channel temporarily absent | Routing-cache readiness; bounded retry before diagnosing the configuration |
-| Immediately after recreation / edge 404 | Traefik readiness can lag roughly 30 seconds; bound retries and recheck health |
+| Immediately after recreation / JSON 503 with `Retry-After` | Caddy answers 503 until `new-api` is healthy (roughly 30 seconds); bound retries and recheck health |
 | Timer enabled, grant unhealthy | Real oneshot exit status, manager vault access, identity/expiry and pending-refresh marker |
 
 Transient readiness retries must be bounded. Do not retry authentication failures,
