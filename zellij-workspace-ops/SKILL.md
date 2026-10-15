@@ -30,10 +30,21 @@ three layers away from the cause. Read the Traps before you form a hypothesis.
 
 ## Operating principles
 
-- **The log is the oracle.** `/tmp/zellij-1000/zellij-log/zellij.log` answers most
-  questions in one grep and almost nothing on this machine reads it. It is how we
-  proved a plugin was loading but never triggering, and how we found 56,312 identical
-  resurrection errors. Grep it *before* theorizing.
+- **The log is the oracle.** `$TMPDIR/zellij-1000/zellij-log/zellij.log`, where
+  `$TMPDIR` is *the server's*, not yours: a server started from an interactive shell
+  inherits `~/.zshrc`'s `TMPDIR=~/.claude/tmp`, so `/tmp/zellij-1000` is stale. Find
+  the live one with `ls -l /proc/$(pgrep -f '^[^ ]*zellij --server')/fd | grep zellij.log`.
+  It answers most questions in one grep and almost nothing on this machine reads it.
+  It is how we proved a plugin was loading but never triggering, and how we found
+  56,312 identical resurrection errors. Grep it *before* theorizing.
+- **Never `pkill zellij`.** Every zellij process has comm `zellij`: a bare pkill also
+  SIGTERMs `zellij web` (systemd restarts it 3s later, which is how it reached 55
+  restarts) and deckard's in-flight CLI polls. To drop clients, match the attach
+  cmdline: `pkill -u "$USER" -f "^([^ ]*/)?zellij( --layout [^ ]+)? (a|attach)( |$)"`.
+- **Zombies under the server are clipboard helpers, not dead panes.** zellij 0.44.3
+  kills a `copy_command` that runs past 1s and never `wait()`s it, so each slow copy
+  leaves a `[bash] <defunct>` until the server exits. Harmless; the helper now bounds
+  its backends at 0.4s so it should not recur.
 - **Run `zellij-doctor.sh` first, always.** `~/.config/zellij/scripts/zellij-doctor.sh`
   is read-only and checks the eight things that have actually broken. A hanging
   `zellij action` is a symptom of the server, not of your command.

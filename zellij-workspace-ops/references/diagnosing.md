@@ -127,13 +127,14 @@ the plugin loading while the CLI is still slow. If those lines stop within ~20 s
 on the plugin path. Confirm in the zellij log:
 
 ```bash
-grep -a "Loaded plugin.*deckard_zellij" /tmp/zellij-1000/zellij-log/zellij.log | tail -1
+grep -a "Loaded plugin.*deckard_zellij" "$L" | tail -1   # $L from the recipes below
 ```
 
 ## Grep recipes for the log
 
 ```bash
-L=/tmp/zellij-1000/zellij-log/zellij.log
+# The server's TMPDIR decides where this lives (usually ~/.claude/tmp, not /tmp).
+L=$(readlink /proc/$(pgrep -f '^[^ ]*zellij --server' | head -1)/fd/* | grep -m1 'zellij-log/zellij.log')
 grep -a "Loaded plugin" "$L" | tail          # what actually loaded, and when
 grep -ac "creation time is not available" "$L"   # resurrection enumerator noise
 grep -a "\[new-tab-right\]" "$L" | tail      # a plugin's own trace
