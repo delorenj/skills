@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "delorenj-skills",
+  "description": "The delorenj skill catalog, installable in Claude Code as a single plugin.",
+  "owner": {
+    "name": "Jarrod DeLorenzo",
+    "url": "https://github.com/delorenj"
+  },
+  "plugins": [
+    {
+      "name": "delorenj-skills",
+      "source": ".",
+      "description": "The complete delorenj skill catalog. Every top-level skill directory loads under the delorenj-skills namespace.",
+      "category": "Development",
+      "tags": [
+        "skills",
+        "catalog"
+      ]
+    }
+  ]
+}
