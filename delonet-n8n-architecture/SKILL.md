@@ -1,6 +1,6 @@
 ---
 name: delonet-n8n-architecture
-description: Architecture principles and the custom-node catalog for building n8n workflows on DeLoNET/33GOD. Use when creating, reviewing, or refactoring ANY n8n workflow for the pipeline — including the canonical signed Plane webhook ingress — deciding node boundaries (atomic single-responsibility nodes vs a god-node executeCommand/localFileTrigger shell script), emitting pipeline lifecycle events to Bloodbank instead of ad-hoc ntfy, choosing community vs custom nodes, packaging custom nodes as n8n-nodes-* micro-packages, rebuilding the inbox/transcribe pipeline, or applying n8n instance conventions (PM2 :5678, raw-body HMAC, per-webhook secret selection, availableInMCP, archive-outside-watch-root, direct API PUT for tags/description). Do NOT use for whether-to-use-n8n-vs-bloodbank routing (delonet-workflow-router), the event schema/envelope contract itself (bloodbank-integration), or infra paths/containers/creds (delonet-conventions).
+description: Architecture and custom-node boundaries for n8n on DeLoNET/33GOD. Use for native workflow composition, signed Plane webhook ingress, Bloodbank publication, choosing community versus domain nodes, packaging custom nodes, or instance conventions (PM2, raw-body HMAC, MCP access and deployment). Wax is an explicit owner-daemon exception; n8n-nodes-heyma provides CLI adapters and unpublished graph authoring, never its scheduler. Wax pipeline/document/EP operations belong to wax-pipeline, event schemas to bloodbank-integration, and host infrastructure to delonet-conventions.
 ---
 
 # DeLoNET n8n Architecture
@@ -47,7 +47,7 @@ visual hub for the internals — not a place to hide a shell script inside one n
 | Emit a bloodbank event from inside an n8n workflow | [references/bloodbank-emit.md](./references/bloodbank-emit.md) |
 | Operate or debug the signed Plane → n8n → Bloodbank ingress | [references/plane-webhook-ingress.md](./references/plane-webhook-ingress.md) |
 | n8n instance facts + hard-won failure modes | [references/gotchas.md](./references/gotchas.md) |
-| Rebuild the transcribe/inbox pipeline (reference implementation) | [references/transcribe-rebuild.md](./references/transcribe-rebuild.md) |
+| How n8n relates to the Wax audio/document pipeline (the big exception) | [references/wax-boundary.md](./references/wax-boundary.md) |
 
 ## The Escalation Ladder
 
@@ -74,7 +74,17 @@ is cheaper than untangling a monolith under fire.
   installed into `~/.n8n/nodes`. Its logic runs **in-process in `execute()`** — never
   shelling to a host script; build it **inside the repo that owns its contract**,
   generated on deploy. An `Execute Command` calling a host CLI is the transitional
-  rung only. → node-catalog.
+  rung only. **Wax is the one sanctioned exception**: the `n8n-nodes-heyma` nodes
+  are thin CLI control adapters that invoke the absolute `wax` executable, because
+  the CLI is the control-surface contract — every mutation, receipt, and retry
+  stays inside Wax. → node-catalog, wax-boundary.
+- **Wax owns the audio/document pipeline; n8n authors graphs and pokes the CLI,
+  nothing more.** `waxd` owns triggers/scheduling, backup-first audio archival,
+  transcription, enrichment-pass execution, retries, and the ledger. Wax graphs
+  are authored in n8n as **unpublished** workflows, exported and compiled with
+  `wax pipeline import`; never publish/activate a Wax authoring workflow, and
+  never rebuild its stages as n8n nodes. Holocene's Wax tab is the read-only
+  surface. → wax-boundary (operation: `wax-pipeline`).
 - **n8n has no Dapr sidecar.** It runs as a PM2 host process on `:5678`; NATS is on
   the host at `127.0.0.1:4222`. Emit **NATS-direct** (via the `bb-emit` CLI) to
   `bloodbank.evt.<…>` — the bloodbank **HTTP ingress is v2/RabbitMQ and bypasses
@@ -100,12 +110,14 @@ is cheaper than untangling a monolith under fire.
   `{name, nodes, connections, settings}` envelope. → gotchas.
 - **The source recording is irreplaceable; the transcript is derivable.** Back up
   the source FIRST, verify it landed, and never delete it. This invariant survives
-  every refactor. → transcribe-rebuild.
+  every refactor — today it is enforced owner-side by Wax's archive step, not by
+  n8n topology. → wax-boundary.
 
 ## Out of Scope
 
-- **Whether a job should be n8n at all** (vs a bloodbank consumer, a cron, an
-  agent hook) → `delonet-workflow-router`.
+- **Operating or debugging Wax itself** — CLI workflows, pipelines, passes,
+  documents, deployment, incidents → `wax-pipeline` /
+  `heyma-pipeline-doctor` (the boundary itself is `references/wax-boundary.md`).
 - **The event envelope / schema / subject contract itself** (CloudEvents fields,
   naming convention, versioning) → `bloodbank-integration`.
 - **Infra paths, container/service names, credentials, `s3.delo.sh` /

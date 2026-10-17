@@ -10,6 +10,15 @@ The third link in the triage pipeline. **folder-curator** types a file, **domain
 its entity, then this fills the frontmatter — the base skeleton plus the context-aware values that only
 the driving agent's memory can supply ("why does this file exist, what is its role in the plan").
 
+## Wax ownership boundary
+
+For a Wax-bound document or transcript, use `wax-pipeline` for the execution
+contract and `create-enrichment-pass` to implement new content-derived logic.
+Do not create a second automatic metadata writer over `~/d/Inbox/Wax` or
+`~/d/Transcripts`. Explicit human metadata edits remain valid and must survive
+later no-clobber enrichment; never edit runner-owned Wax/source provenance.
+This skill remains the memory-informed metadata procedure for other artifacts.
+
 ## Operating principles
 
 - **Base first, then context.** Stamp the declared base schema (idempotent, non-clobbering), then set

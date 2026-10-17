@@ -5,12 +5,13 @@ archive steps / credentials. Each entry: **Symptom → Cause → Fix → Prevent
 
 ## Instance facts
 
-- **Service:** n8n is PM2-managed (`pm2 restart n8n` / `pm2 logs n8n`), running the
-  mise-installed node binary on port `5678`, cwd `~/.n8n`. Custom nodes live in
-  `~/.n8n/nodes`; restart to load a newly-installed node.
-- **Ingest paths:** `~/audio/inbox` (Syncthing `receiveonly`, versioned — never let
-  a local writer add files here) and `~/audio/ingest` (plain local). Both watched by
-  the transcribe workflow.
+- **Service:** n8n is PM2-managed (`mise x -- pm2 restart n8n` / `mise x -- pm2 logs n8n`),
+  running the mise-installed node binary on port `5678`, cwd `~/.n8n`. Custom nodes
+  live in `~/.n8n/nodes`; restart to load a newly-installed node.
+- **Audio intake is not an n8n surface.** `~/audio/*` is a **retired runtime
+  root** — no n8n `localFileTrigger` watches it or anything else audio-related.
+  Wax owns intake end to end (Syncthing `dropoff/` receiveonly feed, Telnyx S3
+  intake → `inbox/`, document arrivals from the bound folder) → `wax-pipeline`.
 
 ## localFileTrigger re-fires forever
 
@@ -18,7 +19,10 @@ archive steps / credentials. Each entry: **Symptom → Cause → Fix → Prevent
 - **Cause:** the archive/move target is a **subdirectory of the watched folder**, so
   writing the archived copy fires the `add` trigger again.
 - **Fix:** archive off-filesystem (S3) or to a **sibling outside the watch root**
-  (e.g. `~/audio/processed/`, next to `~/audio/inbox/`, not inside it).
+  (e.g. an `archive/` next to the watched `inbox/`, not inside it). Wax's own
+  roots are the reference shape: `stream/` → `inbox/` → `archive/` as siblings,
+  with atomic renames — but Wax is not n8n (→ wax-boundary); this gotcha is
+  about *your* file-triggered workflows.
 - **Prevention:** treat "archive destination ∉ watch root" as an invariant when
   designing any file-triggered workflow.
 
@@ -87,19 +91,23 @@ archive steps / credentials. Each entry: **Symptom → Cause → Fix → Prevent
   then restart n8n so triggers reload. Verify with the API (`active` field), not the
   CLI's optimistic message.
 - **Prevention:** treat activation as DB-write + restart; confirm via API afterward.
+  **Wax authoring workflows are the exception — never publish or activate them at
+  all.** Publishing a Wax graph does not make Wax run it (Wax runs the compiled
+  definition from `wax pipeline import`), and an active authoring workflow is how
+  n8n becomes a second scheduler. → wax-boundary.
 
 ## `pm2` from a fresh shell can't see/restart n8n
 
 - **Symptom:** `pm2 restart n8n` → rc 127 (command not found) or rc 1 / empty app
   list, even though n8n is running.
 - **Cause:** n8n is managed by the PM2 **God Daemon under `PM2_HOME=/home/delorenj/.pm2`**;
-  a non-interactive shell has `PM2_HOME` unset (points elsewhere), and the mise `pm2`
-  shim errors ("Set a global default version") because no global node is pinned.
-- **Fix:** invoke the real binary with the daemon's home:
-  `PATH=/home/delorenj/.local/share/mise/installs/node/24.6.0/bin:$PATH
-  PM2_HOME=/home/delorenj/.pm2 pm2 restart n8n`.
-- **Prevention:** in any deploy hook that restarts n8n, set `PM2_HOME` and use the
-  node-dir `pm2`, not the mise shim.
+  a non-interactive shell has `PM2_HOME` unset (points elsewhere) and may not have
+  pm2's node install on `PATH`.
+- **Fix:** `mise x -- pm2 restart n8n` — mise resolves the pinned node/pm2 and the
+  daemon's home in one go. This is the verified command (n8n's release procedure
+  uses it).
+- **Prevention:** every deploy hook or doc that restarts n8n uses `mise x -- pm2 …`,
+  never a bare `pm2`.
 
 ## Plane says HMAC is configured but the workflow rejects it
 

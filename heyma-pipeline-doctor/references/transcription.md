@@ -53,8 +53,14 @@ Every successful production run records both requested and actual device.
 
 ### 3. Test the imports in the venv that will actually be used
 
+Resolve the transcriber the way the **daemon** does — `WAX_TRANSCRIBE` pin
+first, never bare PATH (`~/.local/bin/transcribe` is a modified copy since
+2026-10, so PATH resolution roots at `~/.local` and tests the wrong venv):
+
 ```bash
-T=$(readlink -f "$(command -v transcribe)")
+P=$(systemctl --user show -p MainPID --value waxd.service)
+T=$(readlink -f "$(tr '\0' '\n' < /proc/$P/environ | sed -n 's/^WAX_TRANSCRIBE=//p' | head -1)")
+T="${T:-$HOME/HeyMa/bin/transcribe}"          # the unit's canonical fallback
 R="$(dirname "$(dirname "$T")")"
 D="$R/.venv-diarization/bin/python"
 echo "transcriber: $T"; echo "venv: $D"
@@ -63,7 +69,9 @@ PYTHONPATH="$R/components/wax/src" "$D" -c \
 ```
 
 Run it against the venv beside the **resolved** transcriber, not the one you
-expect to exist. That distinction is the whole 2026-08-12 incident.
+expect to exist. That distinction is the whole 2026-08-12 incident — and the
+reason `wax doctor` and `doctor.sh` both resolve the daemon's pin before
+trusting PATH.
 
 ### 4. Common causes, in the order they actually happen
 
@@ -73,7 +81,7 @@ expect to exist. That distinction is the whole 2026-08-12 incident.
 | no `.venv-diarization` at all | venv was deleted, lives in the other checkout, or was never built | `mise run wax:diarization:install` (pinned manifest + real CUDA smoke) |
 | imports fine but still `diarized=0` | Sortformer weights not cached and the host is offline | check `~/.cache/huggingface/hub/models--nvidia--diar_streaming_sortformer_4spk-v2` (~450 MB) |
 | `Diarization-Device` says `cpu` | `WAX_DIARIZATION_DEVICE=cpu/auto`, or old code forced CPU after loading | set strict `cuda`, reinstall the unit, restart waxd, run `wax doctor` |
-| `transcribe` resolves outside the deployed repo | the two-checkout split | pin `Environment=WAX_TRANSCRIBE=/home/delorenj/HeyMa/bin/transcribe` in `waxd.service` |
+| `transcribe` resolves outside the deployed repo | PATH found a fork/second checkout | pin `Environment=WAX_TRANSCRIBE=/home/delorenj/HeyMa/bin/transcribe` in `waxd.service` (already the shipped default; verify with `wax doctor`) |
 
 ### 5. The `WAX_DIARIZATION` trap
 
@@ -122,4 +130,6 @@ bin/wax drain                            # process the inbox now, one-shot
 ```
 
 Re-transcribing does **not** re-run enrichment for an item already parked
-`complete` — use `wax ep sweep` for that (see `enrichment.md`).
+`complete` — drive passes explicitly with `wax ep run|run-all|sweep` (see
+`enrichment.md`; failed passes also self-sweep every 900 s while the pipeline
+is enabled).

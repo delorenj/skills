@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create Enrichment Pass"
+  short_description: "Author portable Wax enrichment passes"
+  default_prompt: "Use $create-enrichment-pass to author a portable enrichment pass: declare document/audio capabilities, emit a grounded wax.ep.v1 result, and prove it against document and transcript fixtures. Runtime, compile, n8n, and Holocene questions go to wax-pipeline."

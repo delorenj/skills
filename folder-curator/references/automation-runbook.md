@@ -127,8 +127,7 @@ tool drops them).
 Per delonet-n8n-architecture's escalation ladder, the Execute-Command-CLI rung is transitional.
 The promoted node runs its logic **in-process in `execute()`** — but the engine is a non-trivial
 Python program, so reimplementing it in TypeScript would fork the source of truth and invite
-drift. Instead this uses the skill's sanctioned **service-client** pattern (the same one
-`n8n-nodes-transcribe` uses for the faster-whisper Python pipeline): the engine is exposed over
+drift. Instead this uses the skill's **service-client** pattern: the curator engine is exposed over
 HTTP by `folder-curator serve`, and the node is a thin in-process HTTP client
 (`this.helpers.httpRequest`) — it never shells out, and there is exactly ONE engine.
 

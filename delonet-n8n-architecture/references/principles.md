@@ -26,6 +26,12 @@ unchanged and still make sense? "Archive a file to `s3://recordings/…` and ver
 — yes, useful anywhere. "Transcribe audio → structured JSON" — yes. "Fold both
 into one step" — only useful here, so it is not a unit, it is a monolith.
 
+And know when decomposition is the wrong fix entirely: if a whole pipeline has
+a single natural owner, the answer is that owner — the transcribe god-node
+workflow above was ultimately **retired into Wax**, whose daemon owns archive,
+transcription, and enrichment as one guarded flow (→ wax-boundary). Split what
+n8n actually owns; hand the rest to its owner.
+
 ## 2. The bus is the completion signal
 
 Every pipeline outcome is an **event**, and events belong on bloodbank. This is
@@ -50,13 +56,12 @@ the phone instantly.
 ## 3. Schema-first events
 
 The bus is only worth trusting if envelopes are predictable. Emit **only** events
-that already exist under `bloodbank/schemas/bloodbank/<domain>/…`. For audio
-work the contract already exists and should be used verbatim:
-
-- `audio.file.received` — a new recording landed in an ingest path
-- `audio.transcription.started` — work began
-- `audio.transcription.completed` — transcript produced (carry mdPath, model, duration, lang, speaker count)
-- `audio.transcription.failed` — carry the stage + error
+that already exist under `bloodbank/schemas/bloodbank/<domain>/…`. The audio
+lifecycle contract exists (`file.received`, `transcription.start`,
+`transcription.started`, `transcription.completed`, `transcription.failed`) and
+is **owned by Wax** — Wax emits it as the pipeline owner; an n8n workflow
+reacting to audio **subscribes** rather than re-emitting it
+(→ bloodbank-emit).
 
 If the event you need does not exist, author the schema first (→
 `bloodbank-integration`), get it validated, then wire the emit. Never publish a
@@ -67,19 +72,22 @@ from noise to every consumer.
 
 A safety rule that lives inside a script is invisible and unauditable. A safety
 rule expressed as graph structure is both. The backup-first / never-delete
-guarantee for recordings should read on the canvas as:
+guarantee should read on the canvas as:
 
 ```
-[Archive → S3] --success--> [Transcribe]
+[Archive → S3] --success--> [Process]
       |
     (error)
       v
-[Stash → ~/audio/recovered] --> [Transcribe]     (both paths converge; source is never deleted by any node)
+[Stash fallback] --> [Process]     (both paths converge; no node deletes the source)
 ```
 
-Anyone opening the workflow can see the guarantee. Contrast with the old script,
-where "we never delete the source" was a comment you had to trust. Make invariants
-load-bearing structure so a future edit cannot silently violate them.
+Anyone opening the workflow can see the guarantee. Contrast with the old
+transcribe script, where "we never delete the source" was a comment you had to
+trust. Make invariants load-bearing structure so a future edit cannot silently
+violate them. (For the recording source this invariant now lives owner-side,
+inside Wax's archive step — no n8n graph re-creates or bypasses it →
+wax-boundary. The canvas pattern is for work the workflow itself owns.)
 
 ## 5. Reusable + parameterized beats bespoke — the escalation ladder
 
@@ -96,12 +104,11 @@ How reusable is this atomic action?
   reshape one payload). It is NOT fine as a hiding place for a multi-step job.
 - **Subworkflow** is the pragmatic middle: no build step, editable in the UI,
   callable via `Execute Sub-workflow`. Its weakness is a clunky input contract
-  and no credential management. `Parse File for Audio` (`Bxgua92kxXkycFB4`) is an
-  existing example. Reach here first when you want SRP *today* without a node-dev
-  cycle.
+  and no credential management. Reach here first when you want SRP *today*
+  without a node-dev cycle.
 - **Custom node** is the destination for anything reused broadly or needing
-  credentials, schema validation, or a proper UI (Bloodbank emit, MinIO/delo,
-  Transcribe, Vault). Highest ceremony, highest payoff. → node-catalog.
+  credentials, schema validation, or a proper UI (Bloodbank emit, delo MinIO,
+  Wax control). Highest ceremony, highest payoff. → node-catalog.
 
 **Promotion triggers:** a unit hits a 2nd pipeline; a unit needs a credential; a
 unit needs to validate input against a schema; you have copy-pasted the same

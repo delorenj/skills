@@ -14,6 +14,18 @@ pipeline-status:
 > `.stignore` carries `/.git` so a peer cannot re-sync one; `.stignore` is
 > per-device. Full story: the vault's own `AGENTS.md` → "Version Control & Backups".
 
+## Wax-owned subtree
+
+`Inbox/Wax/` (`~/d/Inbox/Wax`) is reserved for Wax document arrivals, not this
+watchdog's new/changed-file enrichment. `Transcripts/` is Wax output. Before any
+recursive cleanup, recovery/backfill or routing run, verify actual exclusions
+for `Inbox/Wax/**` in cleanup, watchdog and router configuration/code; a prose
+ownership declaration does not exclude anything. If exclusions are absent,
+report the competing-writer boundary and repair it as a scoped operational
+change before sweeping those paths. Do not steal/move/delete Wax arrivals or
+interpret Wax's `pipeline-status` as an instruction to the vault router.
+Use `wax-pipeline` for bindings/receipts and `heyma-pipeline-doctor` for incidents.
+
 ## Pipeline Architecture
 
 The vault runs a three-stage Inbox triage pipeline plus downstream wiki passes:

@@ -8,6 +8,47 @@ that does not learn is just documentation.
 
 ---
 
+## 2026-10-17 · doctor board's same-checkout false positive · *the check resolved PATH, not the daemon's pin*
+
+**Signature.** `doctor.sh` reported `same-checkout` FAIL ("daemon runs from
+/home/delorenj/HeyMa but transcribe resolves to /home/delorenj/.local — two
+checkouts") while `wax doctor` (the CLI) reported the transcriber probe PASS
+and the pipeline was healthy.
+
+**Cause.** `~/.local/bin/transcribe` stopped being a symlink into the repo and
+became a modified **copy** of the shim (with its own hard-coded
+`_TRANSCRIBE_DEFAULT_DIR` and an `--ephemeral` fork, 2026-10-12). The board's
+`resolved_transcribe()` ran `readlink -f "$(command -v transcribe)"` — pure
+PATH resolution — so the "transcriber root" computed as `~/.local` no matter
+what the daemon actually runs. The daemon itself was pinned all along
+(`Environment=WAX_TRANSCRIBE=/home/delorenj/HeyMa/bin/transcribe` in
+`waxd.service`) and never consults PATH. The same wrong root also poisoned
+`diarization-imports` and `diarization-cuda`, which look for the venv beside
+the resolved transcriber.
+
+**Fix.** Resolution now mirrors `wax doctor`'s `_resolve_transcriber`: the
+daemon's `WAX_TRANSCRIBE` pin (read from `/proc/<pid>/environ`) first, then
+the canonical repo shim, then PATH — with the root derived explicitly from the
+resolved shim (`<shim>/../..`). A pin genuinely outside the repo still fails:
+the check keeps its teeth. Regression coverage:
+`scripts/tests/test_transcriber_resolution.sh` (fixtures only; never touches
+the real daemon).
+
+**Lesson.** *A health check that resolves a path differently from the thing it
+checks reports fiction.* The 2026-08-12 incident was the code drifting from
+the check; this one was the check drifting from the code. Both directions
+produce the same false confidence.
+
+**Checks that now catch it:** `same-checkout` (fixed resolution order),
+`diarization-imports`, `diarization-cuda`.
+
+**Also recorded:** the doctor board checks the **audio** pipeline only. It has
+no visibility into document pipelines (bindings, receipts, scan cadence) or
+pipeline compilation — those live in `wax catalog --json` / `wax documents
+list`. A green board is not end-to-end proof.
+
+---
+
 ## 2026-09-06 · configured recording hotkey did nothing · *dispatcher absent behind a live target*
 
 **Signature.** `Ctrl+\` did nothing even though `custom3` had a non-empty

@@ -440,15 +440,41 @@ PY
 }
 
 # ── transcription dependencies ───────────────────────────────────────────────
-resolved_transcribe() { readlink -f "$(command -v transcribe 2>/dev/null || echo /nonexistent)"; }
+daemon_env_value() { # daemon_env_value NAME — one value from the live daemon's environ
+  [ -n "$MAIN_PID" ] && [ -r "/proc/$MAIN_PID/environ" ] || return 1
+  tr '\0' '\n' < "/proc/$MAIN_PID/environ" 2>/dev/null | sed -n "s/^$1=//p" | head -1
+}
+# The entry point the DAEMON would actually run, resolved the way
+# transcribe_adapter resolves it (and the way `wax doctor` probes it): the
+# daemon's WAX_TRANSCRIBE pin first, then this checkout's canonical shim, then
+# PATH. PATH-only resolution is a proven false positive: ~/.local/bin/transcribe
+# became a modified COPY of the shim (2026-10-17), so readlink found no repo
+# inside it and the board reported "two checkouts" against a correctly pinned
+# daemon (see the incident log). The daemon never consults PATH when pinned.
+resolve_transcriber() {
+  local pin
+  pin="$(daemon_env_value WAX_TRANSCRIBE)"
+  [ -n "$pin" ] && { printf '%s\n' "${pin/#\~/$HOME}"; return 0; }
+  [ -x "$REPO/bin/transcribe" ] && { printf '%s\n' "$REPO/bin/transcribe"; return 0; }
+  command -v transcribe 2>/dev/null
+}
+resolved_transcribe() {
+  local t
+  t="$(resolve_transcriber)"
+  [ -n "$t" ] || return 1
+  readlink -f "$t"
+}
 chk_same_checkout() {
   local w t; w="$(dirname "$(dirname "$(readlink -f "$REPO/bin/waxd")")")"
-  t="$(resolved_transcribe)"; [ -e "$t" ] || { echo "no 'transcribe' on PATH"; return 1; }
+  t="$(resolved_transcribe)"
+  [ -n "$t" ] && [ -e "$t" ] || {
+    echo "no transcriber: no WAX_TRANSCRIBE pin in the daemon, no $REPO/bin/transcribe, none on PATH. Pin Environment=WAX_TRANSCRIBE=$REPO/bin/transcribe in waxd.service."
+    return 1; }
   t="$(dirname "$(dirname "$t")")"
   [ "$w" = "$t" ] && return 0
   # This split is what let a `git reset --hard` in one tree silently disable
   # diarization for the tree everyone was editing, for seven days.
-  echo "daemon runs from $w but transcribe resolves to $t — two checkouts. Pin WAX_TRANSCRIBE in waxd.service."
+  echo "daemon runs from $w but the resolved transcriber roots at $t — the WAX_TRANSCRIBE pin (or, unpinned, PATH) names a different checkout. Pin Environment=WAX_TRANSCRIBE=$REPO/bin/transcribe in waxd.service and restart."
   return 1
 }
 chk_diarization_imports() {

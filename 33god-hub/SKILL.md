@@ -33,7 +33,7 @@ changelog, skill routing, and backfill coordination.
 | Compact MCP tool gateway | Pipeline MCP Hub |
 | Topology/event visualization | Candybar |
 | Metrics, logs and operator observability | Monitoring stack + Prometheus/Loki/Grafana |
-| Voice/transcription/TTS interface | HeyMa |
+| Audio and document enrichment pipelines; voice/transcription interface | HeyMa / Wax (`wax-pipeline`); TTS via Vox |
 
 ## Platform skills
 
@@ -46,6 +46,9 @@ matching one rather than re-deriving its decisions here.
 | Adding or renaming a Plane label, choosing between a label and a state, wiring automation that writes to a board, scaffolding or reconciling a project board | `board-taxonomy` |
 | Landing a change forward across the component repos | `merge-forward` |
 | Publishing or composing skill packs | `skillex-skill-registry` |
+| Wax audio/document provenance, CLI discovery, folder bindings, n8n EP graph authoring and the read-only Holocene Wax tab | [wax-pipeline](../wax-pipeline/SKILL.md) |
+| Wax recording, diarization, archive or execution incident | `heyma-pipeline-doctor` |
+| Implementing a reusable text/frontmatter enrichment pass | [create-enrichment-pass](../create-enrichment-pass/SKILL.md) |
 | Designing or changing metrics, logs, traces, dashboards or cross-system observability | `monitoring-stack` |
 | Simplifying repository ignores or reconciling already-tracked paths against the effective global ignore | `gitignore-maintenance` |
 

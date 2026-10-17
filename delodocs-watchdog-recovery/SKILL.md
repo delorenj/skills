@@ -15,6 +15,16 @@ Use this when the vault automation looks superficially healthy but the Inbox is 
 
 This skill is specifically for the recovery path after root auth/model problems are fixed.
 
+## Exclude Wax-owned work
+
+This recovery is not for `Inbox/Wax/**` or Wax transcript output. Check the
+watchdog/router/cleanup's real exclusions before a recursive `--scan-existing`
+run: the dedicated Wax inbox belongs to `waxd`, with new-path-only arrival
+receipts, not this watchdog's new/changed-note state. If exclusions are missing,
+report/resolve that ownership conflict before bulk recovery. Route Wax bindings,
+explicit runs and exhausted receipts to `wax-pipeline`; never reset Wax work by
+editing this watchdog's state file.
+
 ## Trigger signals
 
 Reach for this skill when any of these are true:

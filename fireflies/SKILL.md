@@ -5,6 +5,10 @@ description: Fireflies.ai transcription API behavior, GraphQL schema, webhook pa
 
 # Fireflies.ai API Reference
 
+HeyMa/Wax does not use Fireflies. For its audio/document pipeline use
+`wax-pipeline` or `heyma-pipeline-doctor`; do not restore a Fireflies upload or
+webhook leg to repair Wax. This reference is only for actual Fireflies API consumers.
+
 ## API Endpoint
 
 `https://api.fireflies.ai/graphql` (GraphQL only, no REST)

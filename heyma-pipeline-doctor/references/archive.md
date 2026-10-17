@@ -62,19 +62,21 @@ A ledger row claiming a verified backup that S3 no longer agrees with means the
 object was deleted, truncated, or overwritten — exactly the class of failure the
 verify loop exists to prevent.
 
-## Known gaps — do not mistake these for faults you introduced
+## Historical gaps — both fixed; know them so you don't re-diagnose them
 
-- **Verification is size-only in places.** WAX-DESIGN.md claimed
-  "mc cp + ETag verify ×3"; the code compared remote size. Real ETag comparison
-  only works for single-part uploads — a multipart ETag contains `-` and is not a
-  plain MD5, which is why it was originally dropped. Check what the code does now
-  before trusting either the doc or this file.
-- **Transcript linkage was gated on the title-slug pass.** `link_transcript` only
-  ran when an enrichment pass returned a slug, so an LLM outage silently disabled
-  the audio↔transcript link and the `Transcription=Complete` tag. Since
-  WAX-DESIGN.md makes an absent tag mean "assume no transcript", that gap is worse
-  than cosmetic — it corrupts disaster recovery. Linkage should be gated on
-  *a transcript exists for a backed-up item*, nothing else.
+- **Verification was once size-only in places.** The verify loop now records
+  *which method* proved an object (`verify_remote()`): size always gates, and
+  a single-part ETag is additionally compared against a local MD5 (a multipart
+  ETag is not a plain MD5, which is why it was originally dropped). A ledger
+  row claiming `verified` with no method no longer exists. "A 262 KB stub
+  once passed for a 16.5-hour recording" is the history that built this.
+- **Transcript linkage was once gated on the title-slug pass.** `link_transcript`
+  only ran when an enrichment pass returned a slug, so an LLM outage silently
+  disabled the audio↔transcript link and the `Transcription=Complete` tag.
+  Today `link_audio` in a pass result is accepted-and-ignored: the worker
+  refreshes the S3-side link after **every** run regardless of passes, so an
+  LLM outage can no longer disable linkage or the object tags. If a sidecar
+  lacks a transcript projection, suspect the archive path, not the passes.
 
 ## Durability — worth stating plainly
 

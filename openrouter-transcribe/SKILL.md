@@ -9,6 +9,10 @@ metadata: {"clawdbot":{"emoji":"🎙️","requires":{"bins":["curl","ffmpeg","ba
 
 Transcribe audio files using OpenRouter's chat completions API with `input_audio` content type. Works with any audio-capable model.
 
+For a recording managed by HeyMa/Wax, use `wax-pipeline` instead: its owner
+archives/verifies source audio, records provenance and runs enrichment. This
+standalone stdout helper is not a replacement for that pipeline or its ledger.
+
 ## Quick start
 
 ```bash

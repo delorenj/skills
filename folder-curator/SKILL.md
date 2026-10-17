@@ -42,6 +42,17 @@ flowchart TD
 
 ---
 
+## Wax-owned artifacts
+
+Before curating or applying EPs, check whether Wax owns the path via `wax catalog
+--json` / `wax pipeline bindings --json` (see `wax-pipeline`). In particular,
+`~/d/Inbox/Wax` is a Wax document binding and `~/d/Transcripts` is its audio
+pipeline's output. Do not point curator HTTP/n8n workflows or `_vault/scripts/run_ep.py`
+at those roots as another automatic owner, and do not move files out from under
+an active Wax run. Use Wax CLI document operations for Wax-bound enrichment;
+portable EP implementation belongs to `create-enrichment-pass`. Spatial routing
+outside these owned roots remains Folder Curator's job.
+
 ## 2. CLI Reference
 
 The installed CLI executable is `folder-curator` (on `PATH` via `~/.local/bin/folder-curator`).

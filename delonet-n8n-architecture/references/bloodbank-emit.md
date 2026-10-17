@@ -6,8 +6,11 @@ lives in `bloodbank-integration` — do not duplicate or diverge from it here.
 
 ## Transport: which path from n8n?
 
-This section is for events **originated by workflow execution**, such as
-`audio.transcription.completed`. External Plane ingress is a different boundary:
+This section is for events **originated by workflow execution** — outcomes of
+work the workflow itself owns. One whole domain is off-limits here: the **Wax
+audio lifecycle is owned by Wax**, which emits its own `bloodbank.audio.*`
+events as the pipeline owner; see "Wax audio events" below before wiring
+anything audio. External Plane ingress is a different boundary:
 the signed request enters the active `Plane → Bloodbank` workflow, the custom
 node verifies the raw-body HMAC and normalizes provider data, then publishes the
 canonical event NATS-direct. See `plane-webhook-ingress.md`; do not route Plane
@@ -22,7 +25,7 @@ bloodbank HTTP ingress for pipeline events.**
   and every JetStream consumer actually see. On the host this is a dependency-free
   stdlib-TCP publish; use the **`bb-emit` CLI** (`~/.local/bin/bb-emit`), which reads
   the `data` JSON on stdin and derives the envelope, subject, `ordering_key`, and a
-  deterministic `correlationid` from `data.transcription_id`. From n8n: an
+  `correlationid` from the data. From n8n: an
   `Execute Command` node piping the base64-decoded `data` into
   `bb-emit --type bloodbank.<domain>.<entity>.<action>`. bb-emit **rejects** a
   5-token `bloodbank.v1.*` type and exits 1 — it is not rewritten for you, and
@@ -58,16 +61,22 @@ is bound. The `.v1` that survives is the **schema revision** in `schemaref`
 (`bloodbank.<domain>.<entity>.<action>.v<n>`) — a different axis. See
 bloodbank `docs/event-naming.md` §3.1 and §13.
 
-## The audio events already exist — use them verbatim
+## Wax audio events — consume, never synthesize
 
-Defined under `bloodbank/schemas/bloodbank/audio/`:
+The audio lifecycle schemas (`bloodbank/schemas/bloodbank/audio/`:
 `file.received`, `transcription.start`, `transcription.started`,
-`transcription.completed`, `transcription.failed`. Emit these; do not invent new
-audio events without adding the schema first.
+`transcription.completed`, `transcription.failed`) are **emitted by Wax**, the
+pipeline owner, not by n8n. A workflow cannot truthfully report capture,
+archival, transcription, or pass state it does not own — hand-building an
+`audio.*` envelope from workflow data fabricates the record. A workflow that
+needs to react to the audio lifecycle (toast on completion, file a ticket per
+`intake.detected`, …) **subscribes** with a Bloodbank Trigger node on the
+matching subject. Schema changes or additions go through `bloodbank-integration`;
+operating the emitting pipeline is `wax-pipeline` / HeyMa's Wax docs.
 
 ## Envelope shape (illustrative — schema is authoritative)
 
-CloudEvents 1.0 + the 33GOD extension fields. For `audio.transcription.completed`:
+CloudEvents 1.0 + the 33GOD extension fields, for any event your workflow owns:
 
 `kind`, `actor` and `ordering_key` are not optional garnish — `assert_contract`
 lists them in `REQUIRED_EVENT_FIELDS`, and `actor` needs a non-empty `type` and
@@ -80,49 +89,42 @@ forget it.
 ```json
 {
   "specversion": "1.0",
-  "type": "bloodbank.audio.transcription.completed",
-  "source": "n8n/inbox-transcribe",
-  "subject": "bloodbank.evt.audio.transcription.completed",
+  "type": "bloodbank.<domain>.<entity>.<action>",
+  "source": "n8n/<workflow-slug>",
+  "subject": "bloodbank.evt.<domain>.<entity>.<action>",
   "id": "{{ $execution.id }}",
   "time": "{{ $now.toISO() }}",
   "datacontenttype": "application/json",
   "producer": "n8n",
-  "service": "inbox-transcribe",
-  "domain": "audio",
-  "schemaref": "bloodbank.audio.transcription.completed.v1",
-  "correlationid": "{{ $json.sourcePath }}",
+  "service": "<workflow-slug>",
+  "domain": "<domain>",
+  "schemaref": "bloodbank.<domain>.<entity>.<action>.v<n>",
+  "correlationid": "<one stable id for the whole lifecycle>",
   "kind": "event",
   "actor": {
     "type": "service",
-    "agent_id": "bloodbank.service.inbox-transcribe",
+    "agent_id": "bloodbank.service.<workflow-slug>",
     "cli": null,
     "provider": null,
     "model": null
   },
-  "ordering_key": "transcription:{{ $json.sourcePath }}",
-  "data": {
-    "sourcePath": "{{ $json.sourcePath }}",
-    "s3Uri": "{{ $json.s3Uri }}",
-    "mdPath": "{{ $json.mdPath }}",
-    "model": "{{ $json.model }}",
-    "durationSec": "{{ $json.duration }}",
-    "language": "{{ $json.lang }}",
-    "speakers": "{{ $json.speakers }}"
-  }
+  "ordering_key": "<entity>:<stable key>",
+  "data": { "…": "fields from the event's schema file, exactly" }
 }
 ```
 
 Build `data` to match the schema's `data` object exactly — pull the real field
-names from `transcription.completed.json`, don't trust this sketch. Use one
-stable `correlationid` (the source path or a run id) across `started` → `completed`
+names from the event's schema JSON, don't trust this sketch. Use one
+stable `correlationid` (a source path or a run id) across `started` → `completed`
 /`failed` so consumers can stitch the lifecycle together.
 
-## Emit at the lifecycle boundaries
+## Emit at the boundaries of work the workflow owns
 
-- `audio.transcription.started` — after the file is parsed, before/around archive.
-- `audio.transcription.completed` — after the transcript is written and delivered.
-- `audio.transcription.failed` — on the transcribe node's error output; include the
-  failing stage and message. Wire this from the error branch, not a catch-all.
+Emit when the workflow itself completes or fails a unit of work it owns —
+`started` when work begins, `completed` when its artifact is durably written,
+`failed` from the error branch (not a catch-all) with the failing stage and
+message. The same boundaries inside another system (Wax audio, Plane ingress)
+are that system's to emit — subscribe instead of synthesizing.
 
 ## Verify it actually landed
 
