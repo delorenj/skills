@@ -57,6 +57,10 @@ So: steps 1-3 below (find the real logo, persona gate, convert) are still this s
 Holocene PUT over a direct `setMyProfilePhoto`; it does the upload, verification and receipt in one call and keeps
 Holocene in sync immediately instead of on the next pass. Status per agent: `GET /api/modules/avatars`.
 
+A receipt written by Holocene (`source: "holocene settings ..."`, `content_hash` = sha256 of the uploaded JPEG)
+records what the bot wears, but it never satisfies this skill's no-op rule below: that rule needs a hash of a fresh
+SVG conversion, which a Holocene upload does not have. After a Holocene upload, re-running this skill re-uploads.
+
 ## Workflow
 
 ### 1. Resolve the project and its branding
