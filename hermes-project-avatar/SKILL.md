@@ -1,7 +1,7 @@
 ---
 name: hermes-project-avatar
 description: Set a Hermes agent's Telegram avatar from the associated project's current branding. Use when asked to give a bot its project logo/avatar, verify what the project's real logo is, or create a design task when no logo exists.
-version: 1.1.0
+version: 1.2.0
 author: Jarad DeLorenzo
 license: MIT
 platforms: [linux]
@@ -40,6 +40,22 @@ copies.
 5. **Bulk changes are out of scope.** This skill sets the avatar of the
    RUNNING agent's own bot only. Fleet-wide sweeps, new bots, or reactivating
    disabled/dead bots require explicit operator authority (agent-fleet-operations).
+
+## Holocene is the universal setter
+
+Every agent has ONE avatar, owned by the Holocene API and mirrored both ways with its Telegram bot:
+
+- **Set or replace it:** https://holocene.delo.sh/settings (upload, crop, save), or
+  `curl -X PUT -H 'Content-Type: image/jpeg' --data-binary @avatar.jpg http://127.0.0.1:4000/api/modules/avatars/<agent-id>`
+  (a square JPEG, ideally 1024px). Holocene stores it, pushes it to the bot with the profile's own token, reads it
+  back and writes this skill's receipt.
+- **Changed on Telegram (e.g. by this skill's upload step):** Holocene's 10-minute sync pulls it in. Last writer wins.
+- **No avatar yet:** the sync takes the bot's current photo.
+- The Agent Pad and the hub canvas read Holocene's copy, so every surface follows.
+
+So: steps 1-3 below (find the real logo, persona gate, convert) are still this skill's job. For step 4, prefer the
+Holocene PUT over a direct `setMyProfilePhoto`; it does the upload, verification and receipt in one call and keeps
+Holocene in sync immediately instead of on the next pass. Status per agent: `GET /api/modules/avatars`.
 
 ## Workflow
 
