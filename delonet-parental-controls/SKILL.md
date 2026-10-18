@@ -54,19 +54,29 @@ Use [`~/docker/scripts/chase-tv.sh`](file:///home/delorenj/docker/scripts/chase-
 
 - **Container**: `adguard` running on `big-chungus` (`192.168.1.12:53` / `100.66.29.76:53`).
 - **Config & Work**: `/home/delorenj/docker/stacks/utils/adguard/` (`conf/AdGuardHome.yaml`).
-- **Admin API**: `http://172.19.0.51:6767` (internal container port).
-  - Auth: `admin` / `tailscale-adguard-2024` (see `setup-adguard-tailscale.sh`).
+- **Admin API**: `http://<adguard container IP>:6767` (the web UI listens on 6767 inside the
+  container; the host publish `127.0.0.1:6767` maps to 3000 and resets). Get the IP with
+  `docker inspect adguard -f '{{.NetworkSettings.Networks.proxy.IPAddress}}'`.
+  - Auth: `delorenj` / `op://DeLoSecrets/aabcppkr55dukjnbg7brfbcmge/password`, or `admin` /
+    `op://DeLoSecrets/aabcppkr55dukjnbg7brfbcmge/admin account/password`.
+  - A few failed logins lock the source IP out for ~15 minutes. Locked out from the host?
+    Run the call from a throwaway container on the `proxy` network (new source IP).
+  - `set_rules` reloads asynchronously: `check_host` right after it answers from the OLD
+    rules. Sleep a few seconds before verifying.
 - **Blocked Services**: Supports granular category blocking (`youtube`, `roblox`, `tiktok`, `twitch`, etc.).
 
 ### Managing Client Bindings via API
 To update or verify a client in AdGuard:
 
 ```bash
+AG="http://$(docker inspect adguard -f '{{.NetworkSettings.Networks.proxy.IPAddress}}'):6767/control"
+AUTH="delorenj:$(op read op://DeLoSecrets/aabcppkr55dukjnbg7brfbcmge/password)"
+
 # Query clients:
-curl -s -u admin:tailscale-adguard-2024 http://172.19.0.51:6767/control/clients | jq .
+curl -s -u "$AUTH" "$AG/clients" | jq .
 
 # Update client:
-curl -s -u admin:tailscale-adguard-2024 -X POST http://172.19.0.51:6767/control/clients/update \
+curl -s -u "$AUTH" -X POST "$AG/clients/update" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Chase'\''s Android TV",
@@ -110,3 +120,9 @@ curl -s -u admin:tailscale-adguard-2024 -X POST http://172.19.0.51:6767/control/
    - `mommys-iphone`
    - `big-chungus` (`192.168.1.12`, `100.66.29.76`, `127.0.0.1`)
    Global block rules (e.g. `||youtube.com^`) will block children and unmapped devices without breaking parent access as long as the `@@||*^$client=...` rules remain in place without being overridden by `$important`.
+
+4. **Not every `user_rules` entry is parental**:
+   `||*^$client=192.168.1.3,dnstype=AAAA,dnsrewrite=NOERROR` (with its `! tv-vpn-gateway`
+   comment) keeps the living-room Fire TV on IPv4 so it cannot leave around its VPN tunnel
+   via the router's 6to4 IPv6. It belongs to `~/docker/scripts/tv-vpn-gateway/`. Keep it when
+   rewriting the rule list.
