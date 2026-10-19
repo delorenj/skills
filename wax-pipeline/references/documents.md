@@ -19,6 +19,21 @@ The released binding is `~/d/Inbox/Wax`, resolving on this host to
 become a second file-watch/enrichment trigger. Catalog is the safe read API;
 operator listings/status may include more detail and must not be proxied raw.
 
+## PDFs (intake pass, HEYMA-11)
+
+A binding only enriches `.md`/`.markdown`, but before each post-seed scan
+`wax/pdf_intake.py` converts every PDF that arrived after the seed with
+`pdf2md`, writing `<stem>.md` beside it (`<stem>-<sha8>[-n].md` if taken; never
+overwrites). That note is an ordinary arrival in the same scan. Each PDF
+content converts once per binding: conversions and failures live in
+`var/pdf-intake/<binding>.json`, so a deleted or filed note does not come back.
+A scanned or blank PDF writes no note and gives up after 3 attempts (an ERROR in
+the waxd journal). The PDF itself is left alone: the vault Inbox cleanup holds it
+(`--hold-pdfs-in Wax`) until a note in `Inbox/Wax` carries its
+`source_pdf_sha256`, or for 30 min after it arrived (by ctime), then archives it to MinIO
+`delodocs-attachments/inbox/YYYY/MM/<sha16>-<name>`. Turn the pass off with
+`WAX_DOCUMENT_PDF_INTAKE=0`. One scan converts for at most 60 s and defers the rest.
+
 ## Bind deliberately
 
 1. Pick one explicit Markdown input folder and compatible `document` passes.
