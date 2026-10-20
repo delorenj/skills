@@ -26,7 +26,7 @@ SECTION_ARTIFACT_VERSION = 2
 RUN_MANIFEST_VERSION = 1
 DAILY_REPORT_VERSION = 1
 
-SECTION_STATUSES = frozenset({"complete", "partial", "stale", "failed"})
+SECTION_STATUSES = frozenset({"complete", "partial", "stale", "failed", "empty"})
 MANIFEST_STATUSES = frozenset(
     {"complete", "partial", "missing", "invalid", "stale", "failed"}
 )
