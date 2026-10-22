@@ -2,7 +2,7 @@
  "type": "function",
  "function": {
   "name": "car_set_model",
-  "description": "Change the model the car desk thinks with for this tile (persisted; the agent's own Hermes model is not touched). deepseek-flash: DeepSeek V4.1 Flash, the fastest; deepseek-pro: DeepSeek V4 Pro, slower and smarter; free: the gateway's free router; auto: the subscriptions autorouter (automaticai/auto/fast, never Anthropic); default: back to the default ladder.",
+  "description": "Change the model the car desk thinks with for this tile (persisted; the agent's own Hermes model is not touched). deepseek-flash: DeepSeek V4.1 Flash, the fastest; deepseek-pro: DeepSeek V4 Pro, slower and smarter; free: the gateway's free router; auto: the subscriptions autorouter (automaticai/auto/fast, never Anthropic; this is already the default); default: back to the default route.",
   "parameters": {
    "type": "object",
    "properties": {

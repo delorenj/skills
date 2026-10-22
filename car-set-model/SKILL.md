@@ -25,15 +25,15 @@ model a delegated brief runs on are not touched.
 One versioned table, `services/inbox-watcher/car_desk_aliases.json` in the holocene repo, shared by the watcher, its
 `memo:model` verb and this script:
 
-| alias | routes put in front of the default ladder | phrases |
+| alias | routes put in front of the default route | phrases |
 | --- | --- | --- |
-| `deepseek-flash` | Hyper `deepseek-v4.1-flash-1017` (4 s), DeepSeek API `deepseek-flash` (5 s) | deepseek flash, flash |
-| `deepseek-pro` | Hyper `deepseek-v4-pro-0813` (6 s), DeepSeek API `deepseek-v4-pro` (9 s), budget 16 s | deepseek pro, pro |
-| `free` | gateway `automaticai/free` on the holocene-converse token (8 s) | free, free model |
-| `auto` | gateway `automaticai/auto/fast` on the holocene-converse token (7 s) | auto, autorouter |
-| `default` | none: the unit's ladder (r1 Hyper flash, r2 DeepSeek flash, r3 auto/fast) | default model |
+| `deepseek-flash` | Hyper `deepseek-v4.1-flash-1017` (4 s), DeepSeek API `deepseek-flash` (5 s), budget 21 s | deepseek flash, flash |
+| `deepseek-pro` | Hyper `deepseek-v4-pro-0813` (6 s), DeepSeek API `deepseek-v4-pro` (12 s), budget 30 s | deepseek pro, pro |
+| `free` | gateway `automaticai/free` on the holocene-converse token (8 s), budget 20 s | free, free model |
+| `auto` | gateway `automaticai/auto/fast` on the holocene-converse token (12 s), the same as the default | auto, autorouter |
+| `default` | none: the unit's default, one route `automaticai/auto/fast` (12 s; the gateway's auto chain is its fallback) | default model |
 
-The rest of the default ladder still backs the alias up (the same upstream is never tried twice). Never Anthropic: the
+The default route still backs the alias up (the same upstream is never tried twice). Never Anthropic: the
 watcher refuses any Claude route, bare `automaticai/auto`, `/orchestrator`, `/subagent` and `openrouter/auto`, and allows
 `automaticai/auto/fast` and `automaticai/free` only on the holocene-converse token, whose gateway scope holds no
 Anthropic route (re-checked with `GET /models`; an answer from a forbidden model is thrown away).
