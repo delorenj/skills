@@ -157,3 +157,40 @@ only the step it describes.
   --arg 'params={"threadType":"channel"}'` (the argument is `params`, not `parameters`).
 - The live Teams connector offers only `groupchat` and `channel` for `threadType`; there is no `chat`.
 - `list_flows` takes `top` <= 50.
+
+## Expression and trigger gotchas (verified live 2026-10-22, INT-405)
+
+- `createArray()` with NO arguments throws InvalidTemplate ("expects a comma separated list of
+  parameters"). Write an empty array as `json('[]')`. `coalesce(x, createArray())` only works
+  while `x` is non-null, so it hides until the day the field is missing.
+- `substring(s, 0, n)` throws on an empty string and when `n` passes the end. Guard it:
+  `if(empty(s), '', substring(s, 0, min(length(s), n)))`.
+- Referencing `outputs('X')` of a failed action returns null (no error), so `coalesce(outputs('X'), '')`
+  is a safe way to let one risky step fail alone. Put the risky expression (`json(...)` of a
+  string) in its own Compose with `runAfter` for Succeeded, Failed and TimedOut.
+- Inside a `Select`/`Query`, `item()` is the select's own item; reach the loop's item with
+  `items('For_each_name')`.
+- A Graph change notification from the Teams channel trigger has `messageId`, `replyToMessageId`
+  and `linkToMessage`; for a ROOT post `replyToMessageId` equals `messageId`. "Get message details"
+  also returns `replyToId` equal to the id for a root. A reply is a message whose root id differs
+  from its own id. A card posted by a webhook workflow has `from.application` ("Workflows"), no
+  subject, empty `plainTextContent`, and the card JSON as a STRING in `attachments[0].content`.
+- "When a Teams webhook request is received" is `{"type":"Request","kind":"TeamsWebhook",
+  "inputs":{"schema":...,"triggerAuthenticationType":"All"}}`. FlowAgent's `validate_flow`/`create_flow`
+  refuse the kind. Validate a copy with `kind: Http` (ignore the premium-trigger rule it raises), then
+  create or PATCH through the Flow REST API (`POST environments/<env>/flows`, body
+  `{"properties":{"displayName","definition","connectionReferences","state":"Stopped"}}`). The URL:
+  `POST environments/<env>/flows/<id>/triggers/manual/listCallbackUrl`; it is a credential. An
+  n8n HTTP node can keep `sig` as a Query Auth credential and the rest of the URL in the node.
+- "Get an @mention token for a user" returns `{atMention}`; join the tokens and put them in the
+  message HTML. "Reply with a message in a channel" (`ReplyWithMessageToConversation`): `poster`
+  `User`, `location` `Channel`, `body/parentMessageId`, `body/recipient/groupId`,
+  `body/recipient/channelId`, `body/messageBody` (html).
+- Test an expression without touching anything: create a throwaway flow with a `Button` trigger,
+  one `Compose` per expression, `run_flow wait=true`, then `get_run_action_content`. Inside a
+  `Foreach` the recorded content is not served; append to an array variable and read it from a
+  Compose after the loop. `resubmit_run` re-runs a past trigger payload against the CURRENT
+  definition, a cheap regression test for a relay (its action content is not recorded).
+- `ListTeamMembers` and most actions are not callable through `invoke_operation` (dynamic
+  resolvers only). Team members: `pa rest GET 'https://graph.microsoft.com/v1.0/groups/<teamId>/members?$select=id,displayName,mail&$top=100'`
+  and follow `@odata.nextLink`; a private channel's members need `ChannelMember.Read.All` (403 here).
