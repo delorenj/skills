@@ -1,0 +1,757 @@
+#!/usr/bin/env python3
+"""pa - drive Microsoft's FlowAgent (Power Automate) engine from any agent CLI.
+
+FlowAgent is the MCP server inside Microsoft's official `power-automate` plugin
+(github.com/microsoft/power-platform-skills, plugins/power-automate). That plugin
+only wires it into Claude Code and GitHub Copilot CLI. This wrapper speaks MCP over
+stdio to the same bundled engine (`server/mcp.mjs`), so any agent with a shell can
+use every FlowAgent tool, and any agent with MCP support can register `pa serve`.
+
+Standard library only. Tokens are never printed: the engine and `pa rest` get them
+from the Azure CLI (`az account get-access-token`) and keep them in memory.
+
+Run `pa --help` or see ../SKILL.md.
+"""
+
+from __future__ import annotations
+
+import argparse
+import glob
+import json
+import os
+import re
+import selectors
+import shutil
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+HOME = Path.home()
+PROFILE_DEFAULT = HOME / ".config" / "power-automate" / "profile.env"
+PROFILE_KEYS = {
+    "PA_TENANT_ID",
+    "PA_LOGIN_HINT",
+    "PA_DEFAULT_ENVIRONMENT",
+    "PA_CLOUD",
+    "PA_CLIENT_ID",
+    "FLOWAGENT_MCP",
+    "PA_ENGINE_REF",
+}
+ENGINE_CACHE = Path(os.environ.get("PA_ENGINE_CACHE", HOME / ".agents" / ".cache" / "power-platform-skills"))
+ENGINE_REPO = "https://github.com/microsoft/power-platform-skills.git"
+ENGINE_SUBPATH = Path("plugins") / "power-automate"
+FLOW_RESOURCE = "https://service.flow.microsoft.com/"
+FLOW_API = "https://api.flow.microsoft.com/providers/Microsoft.ProcessSimple/"
+FLOW_API_VERSION = "2016-11-01"
+PAC_CLIENT_ID = "9cee029c-6210-4654-90bb-17e6e9d36617"  # FlowAgent's Connectivity client (PAC CLI's public client)
+PPAPI_RESOURCE = "https://api.powerplatform.com"
+PROTOCOL_VERSION = "2025-06-18"
+
+
+def eprint(*a: object) -> None:
+    print(*a, file=sys.stderr, flush=True)
+
+
+# --------------------------------------------------------------------------- profile
+
+
+def load_profile() -> Path:
+    """Read KEY=VALUE lines (no shell evaluation) into os.environ, never overriding."""
+    path = Path(os.environ.get("PA_PROFILE", PROFILE_DEFAULT)).expanduser()
+    if not path.is_file():
+        return path
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip().removeprefix("export ").strip()
+        value = value.strip().strip('"').strip("'")
+        if key in PROFILE_KEYS and value and key not in os.environ:
+            os.environ[key] = value
+    return path
+
+
+def engine_env() -> dict[str, str]:
+    env = dict(os.environ)
+    # Opt out of the plugin's and engine's remote usage telemetry unless the caller chose otherwise.
+    env.setdefault("POWER_PLATFORM_SKILLS_TELEMETRY_POWER_AUTOMATE_OPTOUT", "1")
+    env.setdefault("FLOWAGENT_TELEMETRY", "0")
+    env.setdefault("FLOWAGENT_AGENT", os.environ.get("PA_AGENT_NAME", "pa-skill"))
+    tenant = env.get("PA_TENANT_ID")
+    if tenant and not env.get("PA_DEFAULT_ENVIRONMENT"):
+        env["PA_DEFAULT_ENVIRONMENT"] = f"Default-{tenant}"
+    local_bin = str(HOME / ".local" / "bin")
+    if local_bin not in env.get("PATH", "").split(os.pathsep):
+        env["PATH"] = env.get("PATH", "") + os.pathsep + local_bin
+    return env
+
+
+# --------------------------------------------------------------------------- engine
+
+
+def _version_key(path: str) -> tuple:
+    m = re.search(r"/power-automate/([0-9][^/]*)/server/mcp\.mjs$", path)
+    if not m:
+        return (0,)
+    return tuple(int(x) if x.isdigit() else 0 for x in re.split(r"[.\-+]", m.group(1)))
+
+
+def engine_candidates() -> list[tuple[str, Path]]:
+    out: list[tuple[str, Path]] = []
+    explicit = os.environ.get("FLOWAGENT_MCP")
+    if explicit:
+        out.append(("FLOWAGENT_MCP", Path(explicit).expanduser()))
+    claude = sorted(
+        glob.glob(str(HOME / ".claude" / "plugins" / "cache" / "*" / "power-automate" / "*" / "server" / "mcp.mjs")),
+        key=_version_key,
+        reverse=True,
+    )
+    out += [("claude-plugin", Path(p)) for p in claude]
+    copilot = glob.glob(str(HOME / ".copilot" / "installed-plugins" / "**" / "power-automate" / "**" / "server" / "mcp.mjs"), recursive=True)
+    out += [("copilot-plugin", Path(p)) for p in sorted(copilot, key=_version_key, reverse=True)]
+    out.append(("pa-cache", ENGINE_CACHE / ENGINE_SUBPATH / "server" / "mcp.mjs"))
+    return out
+
+
+def find_engine(required: bool = True) -> tuple[str, Path] | None:
+    for source, path in engine_candidates():
+        if path.is_file():
+            return source, path
+    if required:
+        eprint("pa: FlowAgent engine not found. Run `pa engine install` (sparse clone of microsoft/power-platform-skills),")
+        eprint("    or install the Claude Code plugin: claude plugin marketplace add microsoft/power-platform-skills &&")
+        eprint("    claude plugin install power-automate@power-platform-skills, or set FLOWAGENT_MCP=/path/to/server/mcp.mjs")
+        sys.exit(3)
+    return None
+
+
+def engine_version(mcp: Path) -> str:
+    manifest = mcp.parent.parent / ".claude-plugin" / "plugin.json"
+    try:
+        return json.loads(manifest.read_text(encoding="utf-8")).get("version", "unknown")
+    except (OSError, ValueError):
+        return "unknown"
+
+
+class EngineError(RuntimeError):
+    pass
+
+
+class Engine:
+    """Minimal MCP stdio client for one FlowAgent process (one session)."""
+
+    def __init__(self, mcp: Path, quiet: bool = False, timeout: float = 300.0):
+        if not shutil.which("node"):
+            raise EngineError("node is not on PATH (FlowAgent needs Node.js 18+)")
+        self.timeout = timeout
+        self.quiet = quiet
+        self.proc = subprocess.Popen(
+            ["node", str(mcp)],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL if quiet else None,
+            env=engine_env(),
+        )
+        self.sel = selectors.DefaultSelector()
+        self.sel.register(self.proc.stdout, selectors.EVENT_READ)
+        self.buf = b""
+        self.next_id = 0
+        init = self.request(
+            "initialize",
+            {
+                "protocolVersion": PROTOCOL_VERSION,
+                "capabilities": {},
+                "clientInfo": {"name": "pa-skill", "version": "1"},
+            },
+        )
+        self.server_info = init.get("serverInfo", {})
+        self.notify("notifications/initialized")
+
+    def _write(self, obj: dict) -> None:
+        assert self.proc.stdin is not None
+        self.proc.stdin.write((json.dumps(obj) + "\n").encode())
+        self.proc.stdin.flush()
+
+    def notify(self, method: str, params: dict | None = None) -> None:
+        msg: dict = {"jsonrpc": "2.0", "method": method}
+        if params is not None:
+            msg["params"] = params
+        self._write(msg)
+
+    def _read_message(self, deadline: float) -> dict:
+        while True:
+            if b"\n" in self.buf:
+                line, self.buf = self.buf.split(b"\n", 1)
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    return json.loads(line)
+                except ValueError:
+                    continue  # stray non-protocol output
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise EngineError(f"timed out after {self.timeout:.0f}s waiting for the engine")
+            if not self.sel.select(timeout=min(remaining, 1.0)):
+                if self.proc.poll() is not None:
+                    raise EngineError(f"engine exited with code {self.proc.returncode}")
+                continue
+            chunk = os.read(self.proc.stdout.fileno(), 65536)  # type: ignore[union-attr]
+            if not chunk:
+                raise EngineError(f"engine closed stdout (exit code {self.proc.poll()})")
+            self.buf += chunk
+
+    def request(self, method: str, params: dict | None = None) -> dict:
+        self.next_id += 1
+        rid = self.next_id
+        msg: dict = {"jsonrpc": "2.0", "id": rid, "method": method}
+        if params is not None:
+            msg["params"] = params
+        self._write(msg)
+        deadline = time.monotonic() + self.timeout
+        while True:
+            m = self._read_message(deadline)
+            if m.get("id") == rid and ("result" in m or "error" in m):
+                if "error" in m:
+                    err = m["error"]
+                    raise EngineError(f"{method}: {err.get('code')} {err.get('message')}")
+                return m["result"]
+            if "method" in m and "id" in m:  # server -> client request
+                self._answer_server_request(m)
+            elif m.get("method") == "notifications/message" and not self.quiet:
+                p = m.get("params", {})
+                eprint(f"[engine {p.get('level', 'info')}] {json.dumps(p.get('data'))[:500]}")
+
+    def _answer_server_request(self, m: dict) -> None:
+        method = m.get("method")
+        if method == "ping":
+            self._write({"jsonrpc": "2.0", "id": m["id"], "result": {}})
+        elif method == "roots/list":
+            self._write({"jsonrpc": "2.0", "id": m["id"], "result": {"roots": []}})
+        elif method == "elicitation/create":
+            # No human in the loop here: decline, so the engine falls back or errors explicitly.
+            self._write({"jsonrpc": "2.0", "id": m["id"], "result": {"action": "decline"}})
+        else:
+            self._write({"jsonrpc": "2.0", "id": m["id"], "error": {"code": -32601, "message": f"pa does not support {method}"}})
+
+    def tools(self) -> list[dict]:
+        out: list[dict] = []
+        cursor = None
+        while True:
+            res = self.request("tools/list", {"cursor": cursor} if cursor else {})
+            out += res.get("tools", [])
+            cursor = res.get("nextCursor")
+            if not cursor:
+                return out
+
+    def call(self, name: str, args: dict) -> dict:
+        return self.request("tools/call", {"name": name, "arguments": args})
+
+    def close(self) -> None:
+        try:
+            if self.proc.stdin:
+                self.proc.stdin.close()
+            self.proc.wait(timeout=5)
+        except (OSError, subprocess.TimeoutExpired):
+            self.proc.kill()
+
+
+def render_result(res: dict, raw: bool = False) -> str:
+    if raw:
+        return json.dumps(res, indent=2)
+    if res.get("structuredContent") is not None:
+        return json.dumps(res["structuredContent"], indent=2)
+    parts = []
+    for item in res.get("content", []):
+        if item.get("type") == "text":
+            text = item.get("text", "")
+            try:
+                parts.append(json.dumps(json.loads(text), indent=2))
+            except ValueError:
+                parts.append(text)
+        else:
+            parts.append(json.dumps(item, indent=2))
+    return "\n".join(parts)
+
+
+# --------------------------------------------------------------------------- args
+
+
+def parse_json_arg(value: str | None) -> dict:
+    if value is None or value == "":
+        return {}
+    if value == "-":
+        text = sys.stdin.read()
+    elif value.startswith("@"):
+        text = Path(value[1:]).expanduser().read_text(encoding="utf-8")
+    else:
+        text = value
+    data = json.loads(text)
+    if not isinstance(data, dict):
+        raise SystemExit("pa: tool arguments must be a JSON object")
+    return data
+
+
+def apply_kv(args: dict, pairs: list[str] | None) -> dict:
+    for pair in pairs or []:
+        key, sep, value = pair.partition("=")
+        if not sep:
+            raise SystemExit(f"pa: --arg expects key=value, got {pair!r}")
+        if value.startswith("@"):
+            value = Path(value[1:]).expanduser().read_text(encoding="utf-8")
+        try:
+            args[key] = json.loads(value)
+        except ValueError:
+            args[key] = value
+    return args
+
+
+def run_tool(ns: argparse.Namespace, name: str, args: dict) -> int:
+    eng = Engine(find_engine()[1], quiet=ns.quiet, timeout=ns.timeout)
+    try:
+        res = eng.call(name, args)
+    finally:
+        eng.close()
+    print(render_result(res, raw=getattr(ns, "raw", False)))
+    return 1 if res.get("isError") else 0
+
+
+# --------------------------------------------------------------------------- az helpers
+
+
+def az_path() -> str | None:
+    return shutil.which("az") or (str(HOME / ".local" / "bin" / "az") if (HOME / ".local" / "bin" / "az").exists() else None)
+
+
+def az(*args: str, check: bool = False) -> subprocess.CompletedProcess:
+    exe = az_path()
+    if not exe:
+        raise SystemExit("pa: Azure CLI (az) not found. Install it: uv tool install azure-cli (or see references/auth.md)")
+    env = dict(os.environ)
+    env.setdefault("AZURE_CORE_LOGIN_EXPERIENCE_V2", "off")  # no interactive subscription picker
+    env.setdefault("AZURE_CORE_ONLY_SHOW_ERRORS", "true")
+    return subprocess.run([exe, *args], capture_output=True, text=True, env=env, check=check)
+
+
+def az_token(resource: str) -> str:
+    cp = az("account", "get-access-token", "--resource", resource, "--query", "accessToken", "-o", "tsv")
+    if cp.returncode != 0 or not cp.stdout.strip():
+        eprint("pa: could not get a token from the Azure CLI for", resource)
+        eprint((cp.stderr or "").strip().splitlines()[0] if cp.stderr else "")
+        eprint("    Sign in once with `pa login` (device code; a human completes it on any device).")
+        raise SystemExit(2)
+    return cp.stdout.strip()
+
+
+# --------------------------------------------------------------------------- commands
+
+
+def cmd_engine(ns: argparse.Namespace) -> int:
+    action = ns.action or "show"
+    if action == "show":
+        found = find_engine(required=False)
+        cands = engine_candidates()
+        if not found:
+            print(json.dumps({"found": False, "searched": [str(p) for _, p in cands]}, indent=2))
+            return 3
+        src, path = found
+        print(json.dumps({"found": True, "source": src, "path": str(path), "version": engine_version(path)}, indent=2))
+        return 0
+    if not shutil.which("git"):
+        raise SystemExit("pa: git is required for `pa engine install|update`")
+    ref = ns.ref or os.environ.get("PA_ENGINE_REF") or "main"
+    repo = ENGINE_CACHE
+    if not (repo / ".git").is_dir():
+        if action == "update":
+            eprint("pa: no cached engine yet; installing")
+        repo.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["git", "clone", "--filter=blob:none", "--no-checkout", "--depth", "50", ENGINE_REPO, str(repo)], check=True)
+        subprocess.run(["git", "-C", str(repo), "sparse-checkout", "set", "--no-cone", f"/{ENGINE_SUBPATH.as_posix()}/"], check=True)
+    subprocess.run(["git", "-C", str(repo), "fetch", "--depth", "50", "origin", ref], check=True)
+    subprocess.run(["git", "-C", str(repo), "checkout", "--detach", "FETCH_HEAD"], check=True)
+    sha = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+    mcp = repo / ENGINE_SUBPATH / "server" / "mcp.mjs"
+    print(json.dumps({"installed": mcp.is_file(), "path": str(mcp), "commit": sha, "version": engine_version(mcp)}, indent=2))
+    return 0 if mcp.is_file() else 1
+
+
+def cmd_doctor(ns: argparse.Namespace) -> int:
+    report: dict = {"profile": str(ns.profile_path), "profile_exists": ns.profile_path.is_file()}
+    node = shutil.which("node")
+    report["node"] = subprocess.run(["node", "--version"], capture_output=True, text=True).stdout.strip() if node else None
+    report["az"] = az_path()
+    report["tenant_expected"] = os.environ.get("PA_TENANT_ID")
+    report["default_environment"] = engine_env().get("PA_DEFAULT_ENVIRONMENT")
+    ok = bool(node) and bool(report["az"])
+    if report["az"]:
+        cp = az("account", "show", "--query", "{user:user.name, tenant:tenantId}", "-o", "json")
+        if cp.returncode == 0:
+            acct = json.loads(cp.stdout)
+            report["az_account"] = acct
+            if report["tenant_expected"] and acct.get("tenant") != report["tenant_expected"]:
+                report["warning"] = "az is signed in to a different tenant than PA_TENANT_ID"
+                ok = False
+            tok = az("account", "get-access-token", "--resource", FLOW_RESOURCE, "--query", "expiresOn", "-o", "tsv")
+            report["flow_token_expires"] = tok.stdout.strip() if tok.returncode == 0 else None
+            if tok.returncode != 0:
+                report["flow_token_error"] = (tok.stderr or "").strip().splitlines()[:1]
+                ok = False
+        else:
+            report["az_account"] = None
+            report["next_step"] = "pa login   (device code; complete it on any device with the passkey)"
+            ok = False
+    found = find_engine(required=False)
+    report["engine"] = {"source": found[0], "path": str(found[1]), "version": engine_version(found[1])} if found else None
+    ok = ok and bool(found)
+    cache_dir = Path(os.environ.get("FLOWAGENT_MSAL_CACHE_DIR", Path(os.environ.get("XDG_CACHE_HOME", HOME / ".cache")) / "flowagent" / "msal-cache"))
+    report["connectivity_cache"] = sorted(p.name for p in cache_dir.glob("*.json")) if cache_dir.is_dir() else []
+    print(json.dumps(report, indent=2))
+    if ns.full and found and report.get("az_account"):
+        print("--- engine doctor ---")
+        return run_tool(ns, "doctor", {})
+    return 0 if ok else 1
+
+
+CONNECTIVITY_LOGIN = r"""
+import json, os, pathlib, re, sys
+import msal
+tenant = os.environ["PA_SEED_TENANT"]
+client = os.environ["PA_SEED_CLIENT"]
+scope = os.environ["PA_SEED_RESOURCE"].rstrip("/") + "/.default"
+cache_dir = pathlib.Path(os.environ["PA_SEED_CACHE_DIR"])
+identity = re.sub(r"[^a-zA-Z0-9._-]", "_", tenant)[:64] or "common"
+path = cache_dir / (identity + ".json")
+cache = msal.SerializableTokenCache()
+if path.exists() and path.read_text().strip():
+    cache.deserialize(path.read_text())
+try:
+    app = msal.PublicClientApplication(client, authority="https://login.microsoftonline.com/" + tenant, token_cache=cache)
+except ValueError as exc:
+    sys.exit("cannot use tenant " + tenant + ": " + str(exc)[:170])
+hint = os.environ.get("PA_LOGIN_HINT") or None
+accounts = app.get_accounts(username=hint) if hint else app.get_accounts()
+result = app.acquire_token_silent([scope], account=accounts[0]) if accounts else None
+if not (result and "access_token" in result):
+    flow = app.initiate_device_flow(scopes=[scope])
+    if "user_code" not in flow:
+        sys.exit("device flow refused: " + str(flow.get("error")) + " " + str(flow.get("error_description", ""))[:300])
+    print(flow["message"], flush=True)
+    result = app.acquire_token_by_device_flow(flow)
+if "access_token" not in result:
+    sys.exit("sign-in failed: " + str(result.get("error")) + " " + str(result.get("error_description", ""))[:300])
+cache_dir.mkdir(parents=True, exist_ok=True)
+tmp = path.with_suffix(".json.tmp")
+fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+with os.fdopen(fd, "w") as fh:
+    fh.write(cache.serialize())
+os.replace(tmp, path)
+claims = result.get("id_token_claims") or {}
+print(json.dumps({"connectivity": "signed-in", "user": claims.get("preferred_username"), "cache": str(path)}))
+"""
+
+
+def cmd_login(ns: argparse.Namespace) -> int:
+    tenant = ns.tenant or os.environ.get("PA_TENANT_ID")
+    if ns.connectivity:
+        acct = az("account", "show", "--query", "tenantId", "-o", "tsv")
+        az_tenant = acct.stdout.strip() if acct.returncode == 0 else ""
+        seed_tenant = az_tenant or tenant
+        if not seed_tenant:
+            raise SystemExit("pa: no tenant; pass --tenant or set PA_TENANT_ID (and run `pa login` first)")
+        cache_dir = os.environ.get("FLOWAGENT_MSAL_CACHE_DIR") or str(Path(os.environ.get("XDG_CACHE_HOME", HOME / ".cache")) / "flowagent" / "msal-cache")
+        env = dict(os.environ, PA_SEED_TENANT=seed_tenant, PA_SEED_CLIENT=os.environ.get("PA_CLIENT_ID", PAC_CLIENT_ID),
+                   PA_SEED_RESOURCE=os.environ.get("PA_PPAPI_RESOURCE", PPAPI_RESOURCE), PA_SEED_CACHE_DIR=cache_dir)
+        uv = shutil.which("uv")
+        if uv:
+            cmd = [uv, "run", "--quiet", "--no-project", "--with", "msal", "python3", "-I", "-c", CONNECTIVITY_LOGIN]
+        else:
+            cmd = [sys.executable, "-I", "-c", CONNECTIVITY_LOGIN]  # needs `pip install msal`
+        return subprocess.run(cmd, env=env).returncode
+    exe = az_path()
+    if not exe:
+        raise SystemExit("pa: Azure CLI (az) not found. Install it: uv tool install azure-cli")
+    cmd = [exe, "login", "--use-device-code", "--allow-no-subscriptions", "--output", "none"]
+    if tenant:
+        cmd += ["--tenant", tenant]
+    eprint("pa: starting a device-code sign-in. Open the URL below on ANY device (phone, Mac), enter the code,")
+    eprint("    and approve with the passkey. The code expires after about 15 minutes.")
+    env = dict(os.environ, AZURE_CORE_LOGIN_EXPERIENCE_V2="off")
+    rc = subprocess.run(cmd, env=env).returncode
+    if rc == 0:
+        cp = az("account", "show", "--query", "{user:user.name, tenant:tenantId}", "-o", "json")
+        print(cp.stdout.strip())
+    return rc
+
+
+def cmd_tools(ns: argparse.Namespace) -> int:
+    eng = Engine(find_engine()[1], quiet=ns.quiet, timeout=ns.timeout)
+    try:
+        tools = eng.tools()
+    finally:
+        eng.close()
+    if ns.name:
+        match = [t for t in tools if t["name"] == ns.name]
+        if not match:
+            eprint(f"pa: no tool named {ns.name!r}")
+            return 1
+        print(json.dumps(match[0], indent=2))
+        return 0
+    if ns.json:
+        print(json.dumps(tools, indent=2))
+        return 0
+    for t in tools:
+        first = (t.get("description") or "").strip().splitlines()[0] if t.get("description") else ""
+        print(f"{t['name']:<28} {first[:110]}")
+    return 0
+
+
+def cmd_call(ns: argparse.Namespace) -> int:
+    args = apply_kv(parse_json_arg(ns.args), ns.arg)
+    if ns.env and "env" not in args:
+        args["env"] = ns.env
+    return run_tool(ns, ns.tool, args)
+
+
+def cmd_batch(ns: argparse.Namespace) -> int:
+    src = sys.stdin if ns.file in (None, "-") else open(Path(ns.file).expanduser(), encoding="utf-8")
+    steps = [json.loads(line) for line in src if line.strip() and not line.lstrip().startswith("#")]
+    eng = Engine(find_engine()[1], quiet=ns.quiet, timeout=ns.timeout)
+    rc = 0
+    try:
+        for step in steps:
+            res = eng.call(step["tool"], step.get("args", {}))
+            out = {"tool": step["tool"], "isError": bool(res.get("isError"))}
+            try:
+                out["result"] = json.loads(render_result(res))
+            except ValueError:
+                out["result"] = render_result(res)
+            print(json.dumps(out), flush=True)
+            if res.get("isError"):
+                rc = 1
+                if not ns.keep_going:
+                    break
+    finally:
+        eng.close()
+    return rc
+
+
+def cmd_envs(ns: argparse.Namespace) -> int:
+    return run_tool(ns, "list_environments", {"query": ns.query} if ns.query else {})
+
+
+def cmd_flows(ns: argparse.Namespace) -> int:
+    args: dict = {}
+    if ns.env:
+        args["env"] = ns.env
+    if ns.name:
+        args["name"] = ns.name
+    if ns.top:
+        args["top"] = ns.top
+    return run_tool(ns, "list_flows", args)
+
+
+def cmd_get(ns: argparse.Namespace) -> int:
+    args: dict = {"flow": ns.flow}
+    if ns.env:
+        args["env"] = ns.env
+    if ns.path:
+        args["path"] = ns.path
+    return run_tool(ns, "get_flow", args)
+
+
+def cmd_export(ns: argparse.Namespace) -> int:
+    args: dict = {"flow": ns.flow}
+    if ns.env:
+        args["env"] = ns.env
+    eng = Engine(find_engine()[1], quiet=ns.quiet, timeout=ns.timeout)
+    try:
+        res = eng.call("get_flow", args)
+    finally:
+        eng.close()
+    if res.get("isError"):
+        print(render_result(res))
+        return 1
+    data = json.loads(render_result(res))
+    props = data.get("properties", data)
+    doc = {
+        "id": data.get("name") or ns.flow,
+        "displayName": props.get("displayName"),
+        "state": props.get("state"),
+        "definition": props.get("definition"),
+        "connectionReferences": props.get("connectionReferences"),
+    }
+    text = json.dumps(doc, indent=2) + "\n"
+    if ns.output:
+        Path(ns.output).expanduser().write_text(text, encoding="utf-8")
+        eprint(f"pa: wrote {ns.output}")
+    else:
+        sys.stdout.write(text)
+    return 0
+
+
+def _resource_for(url: str, explicit: str | None) -> str:
+    if explicit:
+        return explicit
+    host = urllib.parse.urlparse(url).hostname or ""
+    if host.endswith("flow.microsoft.com"):
+        return FLOW_RESOURCE
+    if host.endswith(".dynamics.com"):
+        return f"https://{host}"
+    if host == "graph.microsoft.com":
+        return "https://graph.microsoft.com"
+    if host.endswith("bap.microsoft.com") or host.endswith("powerapps.com"):
+        return "https://service.powerapps.com/"
+    raise SystemExit(f"pa: cannot infer the token resource for {host}; pass --resource")
+
+
+def cmd_rest(ns: argparse.Namespace) -> int:
+    target = ns.path
+    if not target.startswith("https://"):
+        target = FLOW_API + target.lstrip("/")
+        if "api-version=" not in target:
+            target += ("&" if "?" in target else "?") + f"api-version={ns.api_version}"
+    target = target.replace(" ", "%20")  # OData filters are written with spaces
+    resource = _resource_for(target, ns.resource)
+    body = None
+    if ns.data is not None:
+        body = json.dumps(parse_json_arg(ns.data)).encode()
+    req = urllib.request.Request(target, data=body, method=ns.method.upper())
+    req.add_header("Authorization", "Bearer " + az_token(resource))
+    req.add_header("Accept", "application/json")
+    if body is not None:
+        req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=ns.timeout) as resp:
+            status, payload = resp.status, resp.read()
+    except urllib.error.HTTPError as exc:
+        status, payload = exc.code, exc.read()
+    except urllib.error.URLError as exc:
+        eprint(f"pa: request failed: {type(exc.reason).__name__}")
+        return 1
+    eprint(f"HTTP {status}")
+    if payload:
+        try:
+            print(json.dumps(json.loads(payload), indent=2))
+        except ValueError:
+            print(payload.decode(errors="replace"))
+    return 0 if 200 <= status < 300 else 1
+
+
+def cmd_serve(ns: argparse.Namespace) -> int:
+    _, mcp = find_engine()
+    os.execvpe("node", ["node", str(mcp)], engine_env())
+    return 0  # unreachable
+
+
+def cmd_mcp_config(ns: argparse.Namespace) -> int:
+    me = str(Path(__file__).resolve())
+    client = ns.client
+    if client == "claude":
+        print(f"claude mcp add --scope user flowagent -- {me} serve")
+    elif client == "codex":
+        print(f'[mcp_servers.flowagent]\ncommand = "{me}"\nargs = ["serve"]\nstartup_timeout_sec = 30')
+    elif client == "gemini":
+        print(json.dumps({"mcpServers": {"flowagent": {"command": me, "args": ["serve"]}}}, indent=2))
+    elif client == "opencode":
+        print(json.dumps({"mcp": {"flowagent": {"type": "local", "command": [me, "serve"], "enabled": True}}}, indent=2))
+    elif client == "copilot":
+        print(json.dumps({"mcpServers": {"flowagent": {"type": "local", "command": me, "args": ["serve"], "tools": ["*"]}}}, indent=2))
+    else:
+        print(json.dumps({"command": me, "args": ["serve"]}, indent=2))
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    profile_path = load_profile()
+    ap = argparse.ArgumentParser(prog="pa", description="Drive Microsoft's FlowAgent Power Automate engine from any agent CLI.")
+    ap.add_argument("--quiet", "-q", action="store_true", help="hide engine stderr")
+    ap.add_argument("--timeout", type=float, default=300.0, help="seconds per engine request (default 300)")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    p = sub.add_parser("doctor", help="check node, az, sign-in, token, engine (never prints tokens)")
+    p.add_argument("--full", action="store_true", help="also run the engine's own doctor tool")
+    p.set_defaults(fn=cmd_doctor)
+
+    p = sub.add_parser("login", help="one-time device-code sign-in (a human approves on any device)")
+    p.add_argument("--tenant", help="tenant id (default PA_TENANT_ID)")
+    p.add_argument("--connectivity", action="store_true", help="seed FlowAgent's separate connection-management sign-in")
+    p.set_defaults(fn=cmd_login)
+
+    p = sub.add_parser("engine", help="show, install or update the FlowAgent engine")
+    p.add_argument("action", nargs="?", choices=["show", "install", "update"])
+    p.add_argument("--ref", help="git ref of microsoft/power-platform-skills (default main or PA_ENGINE_REF)")
+    p.set_defaults(fn=cmd_engine)
+
+    p = sub.add_parser("tools", help="list engine tools, or show one tool's schema")
+    p.add_argument("name", nargs="?")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(fn=cmd_tools)
+
+    p = sub.add_parser("call", help="call one engine tool: pa call TOOL ['{json}'|@file|-] [--arg k=v ...]")
+    p.add_argument("tool")
+    p.add_argument("args", nargs="?")
+    p.add_argument("--arg", action="append", help="key=value (value parsed as JSON when it parses; @file reads a file)")
+    p.add_argument("--env", help="environment id, added as args.env when absent")
+    p.add_argument("--raw", action="store_true", help="print the whole MCP result envelope")
+    p.set_defaults(fn=cmd_call)
+
+    p = sub.add_parser("batch", help='run JSON lines {"tool":..,"args":{..}} in ONE engine session')
+    p.add_argument("file", nargs="?")
+    p.add_argument("--keep-going", action="store_true")
+    p.set_defaults(fn=cmd_batch)
+
+    p = sub.add_parser("envs", help="list environments")
+    p.add_argument("query", nargs="?")
+    p.set_defaults(fn=cmd_envs)
+
+    p = sub.add_parser("flows", help="list cloud flows")
+    p.add_argument("--env")
+    p.add_argument("--name")
+    p.add_argument("--top", type=int)
+    p.set_defaults(fn=cmd_flows)
+
+    p = sub.add_parser("get", help="get one flow (definition, connection refs, metadata)")
+    p.add_argument("flow")
+    p.add_argument("--env")
+    p.add_argument("--path", help='e.g. "properties.definition.actions"')
+    p.set_defaults(fn=cmd_get)
+
+    p = sub.add_parser("export", help="write a flow's definition + connection refs as reviewable JSON")
+    p.add_argument("flow")
+    p.add_argument("--env")
+    p.add_argument("-o", "--output")
+    p.set_defaults(fn=cmd_export)
+
+    p = sub.add_parser("rest", help="raw Flow/Dataverse/Graph REST call with an az token (fallback when the engine is absent)")
+    p.add_argument("method")
+    p.add_argument("path", help="path under the Flow API (e.g. environments) or an absolute https URL")
+    p.add_argument("--data", help="JSON body, @file or -")
+    p.add_argument("--resource", help="token audience (inferred for flow, dynamics, graph, bap hosts)")
+    p.add_argument("--api-version", default=FLOW_API_VERSION)
+    p.set_defaults(fn=cmd_rest)
+
+    p = sub.add_parser("serve", help="run the engine as a stdio MCP server (register this with any MCP client)")
+    p.set_defaults(fn=cmd_serve)
+
+    p = sub.add_parser("mcp-config", help="print an MCP registration snippet for an agent CLI")
+    p.add_argument("client", nargs="?", default="json", choices=["claude", "codex", "gemini", "opencode", "copilot", "json"])
+    p.set_defaults(fn=cmd_mcp_config)
+
+    ns = ap.parse_args(argv)
+    ns.profile_path = profile_path
+    try:
+        return ns.fn(ns)
+    except EngineError as exc:
+        eprint(f"pa: {exc}")
+        return 2
+    except KeyboardInterrupt:
+        return 130
+
+
+if __name__ == "__main__":
+    sys.exit(main())

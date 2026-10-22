@@ -1,0 +1,56 @@
+{
+  "$comment": "Teams Workflows 'post to a channel when a webhook request is received' (forum-style). The TRIGGER is deliberately a placeholder: the Teams-webhook trigger (operation TeamsIncomingWebhookTrigger, standard licence) is not the premium 'When an HTTP request is received' trigger, and FlowAgent's validator only knows the generic Request kinds, so copy the trigger block verbatim from a working Teams-webhook flow (`pa get <flow> --path properties.definition.triggers`). The action half is the shape Microsoft's template uses: one card per attachment. The Flow bot cannot post to a PRIVATE channel; use poster User there.",
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "$authentication": {
+        "defaultValue": {},
+        "type": "SecureObject"
+      },
+      "$connections": {
+        "defaultValue": {},
+        "type": "Object"
+      }
+    },
+    "triggers": {
+      "manual": "<COPY the trigger block verbatim from a working Teams-webhook flow>"
+    },
+    "actions": {
+      "Send_each_adaptive_card": {
+        "type": "Foreach",
+        "runAfter": {},
+        "foreach": "@triggerOutputs()?['body']?['attachments']",
+        "actions": {
+          "Post_card_in_channel": {
+            "type": "OpenApiConnection",
+            "runAfter": {},
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                "operationId": "PostCardToConversation",
+                "connectionName": "shared_teams"
+              },
+              "parameters": {
+                "poster": "Flow bot",
+                "location": "Channel",
+                "body/recipient/groupId": "<TEAM_GROUP_ID>",
+                "body/recipient/channelId": "<CHANNEL_ID>",
+                "body/messageBody": "@item()?['content']"
+              }
+            }
+          }
+        }
+      }
+    },
+    "outputs": {}
+  },
+  "connectionReferences": {
+    "shared_teams": {
+      "connectionName": "<TEAMS_CONNECTION_NAME>",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_teams",
+      "tier": "NotSpecified"
+    }
+  }
+}

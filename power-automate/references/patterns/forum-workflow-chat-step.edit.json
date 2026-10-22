@@ -1,0 +1,16 @@
+{
+  "$comment": "edit_flow arguments for the forum workflow's SECOND step (Post message in a chat or channel, poster User): point it at a group chat and post the payload's chatText. Parameter names contain '/', so MERGE into the parameters object rather than `set` on a slash path. Fill <FLOW_ID>, <STEP_2_ACTION_NAME> (read it with `pa get <FLOW_ID> --path properties.definition.actions`) and <PULSE_CHECK_CHAT_ID>. Run once with dryRun true, then again with dryRun false and the returned previewToken.",
+  "flow": "<FLOW_ID>",
+  "dryRun": true,
+  "operations": [
+    {
+      "op": "merge",
+      "path": "actions/<STEP_2_ACTION_NAME>/inputs/parameters",
+      "value": {
+        "location": "Group chat",
+        "body/recipient": "<PULSE_CHECK_CHAT_ID>",
+        "body/messageBody": "@{coalesce(triggerBody()?['chatText'], concat('New update in Intelliforia Forum: ', triggerBody()?['attachments'][0]?['content']?['body'][0]?['text']))}"
+      }
+    }
+  ]
+}

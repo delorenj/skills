@@ -1,0 +1,106 @@
+{
+  "$comment": "Teams chats (named group/meeting chats + every 1:1 DM) -> one email per message -> n8n. Standard connectors only. Replace every <...> placeholder; confirm GetMessageDetails parameter names with `pa call get_operation_details --arg connector=shared_teams --arg operation=GetMessageDetails` before creating.",
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "$authentication": { "defaultValue": {}, "type": "SecureObject" },
+      "$connections": { "defaultValue": {}, "type": "Object" }
+    },
+    "triggers": {
+      "When_a_new_chat_message_is_added": {
+        "type": "OpenApiConnectionWebhook",
+        "splitOn": "@triggerOutputs()?['body/value']",
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+            "operationId": "WebhookChatMessageTrigger",
+            "connectionName": "shared_teams"
+          },
+          "parameters": {}
+        }
+      }
+    },
+    "actions": {
+      "Is_a_watched_chat": {
+        "type": "If",
+        "runAfter": {},
+        "expression": {
+          "or": [
+            { "equals": ["@triggerBody()?['conversationId']", "<MEETING_CHAT_ID_1>"] },
+            { "equals": ["@triggerBody()?['conversationId']", "<MEETING_CHAT_ID_2>"] },
+            { "endsWith": ["@triggerBody()?['conversationId']", "@unq.gbl.spaces"] }
+          ]
+        },
+        "actions": {
+          "Get_message_details": {
+            "type": "OpenApiConnection",
+            "runAfter": {},
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                "operationId": "GetMessageDetails",
+                "connectionName": "shared_teams"
+              },
+              "parameters": {
+                "messageId": "@triggerBody()?['messageId']",
+                "threadType": "chat",
+                "body/recipient": "@triggerBody()?['conversationId']"
+              }
+            }
+          },
+          "Compose_event": {
+            "type": "Compose",
+            "runAfter": { "Get_message_details": ["Succeeded"] },
+            "inputs": {
+              "source": "teams.chat",
+              "chatKind": "@{if(endsWith(triggerBody()?['conversationId'], '@unq.gbl.spaces'), 'dm', 'group')}",
+              "conversationId": "@triggerBody()?['conversationId']",
+              "messageId": "@triggerBody()?['messageId']",
+              "link": "@triggerBody()?['linkToMessage']",
+              "fromName": "@body('Get_message_details')?['from']?['user']?['displayName']",
+              "fromId": "@body('Get_message_details')?['from']?['user']?['id']",
+              "createdDateTime": "@body('Get_message_details')?['createdDateTime']",
+              "replyToId": "@body('Get_message_details')?['replyToId']",
+              "contentType": "@body('Get_message_details')?['body']?['contentType']",
+              "content": "@body('Get_message_details')?['body']?['content']"
+            }
+          },
+          "Send_to_intake": {
+            "type": "OpenApiConnection",
+            "runAfter": { "Compose_event": ["Succeeded"] },
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                "operationId": "SendEmailV2",
+                "connectionName": "shared_office365"
+              },
+              "parameters": {
+                "emailMessage/To": "<INTAKE_ADDRESS>",
+                "emailMessage/Subject": "[pa-event] teams.chat @{triggerBody()?['messageId']}",
+                "emailMessage/Body": "<p>PA-EVENT-B64:@{base64(string(outputs('Compose_event')))}:END</p>",
+                "emailMessage/Importance": "Normal"
+              }
+            }
+          }
+        },
+        "else": { "actions": {} }
+      }
+    },
+    "outputs": {}
+  },
+  "connectionReferences": {
+    "shared_teams": {
+      "connectionName": "<TEAMS_CONNECTION_NAME>",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_teams",
+      "tier": "NotSpecified"
+    },
+    "shared_office365": {
+      "connectionName": "<OUTLOOK_CONNECTION_NAME>",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
+      "tier": "NotSpecified"
+    }
+  }
+}
