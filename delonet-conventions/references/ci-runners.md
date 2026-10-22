@@ -25,11 +25,27 @@ Check visibility first: `gh repo view <owner/repo> --json visibility`.
 | delonet-hmob-r1 | repo `delorenj/heyma-obsidian` | big-chungus, `~/actions-runner/hmob1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-heyma-obsidian.delonet-hmob-r1.service` |
 | delonet-deck-r1 | repo `delorenj/deckard` (private) | big-chungus, `~/actions-runner/deck1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-deckard.delonet-deck-r1.service` |
 | delonet-dsid-r1 | repo `delorenj/docsidian` (private) | big-chungus, `~/actions-runner/dsid1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-docsidian.delonet-dsid-r1.service` |
+| delonet-chsc-r1 | repo `delorenj/ChoreScore` (private) | big-chungus, `~/actions-runner/chsc1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-ChoreScore.delonet-chsc-r1.service` |
+| delonet-dcom-r1 | repo `delorenj/delonet-company` (private) | big-chungus, `~/actions-runner/dcom1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-delonet-company.delonet-dcom-r1.service` |
+| delonet-slbn-r1 | repo `delorenj/slowburns` (private) | big-chungus, `~/actions-runner/slbn1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-slowburns.delonet-slbn-r1.service` |
+| delonet-svgm-r1 | repo `delorenj/svgme` (private) | big-chungus, `~/actions-runner/svgm1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-svgme.delonet-svgm-r1.service` |
+| delonet-dlco-r1 | repo `delorenj/DeLoContainers` (private) | big-chungus, `~/actions-runner/dlco1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-DeLoContainers.delonet-dlco-r1.service` |
+| delonet-zshz-r1 | repo `delorenj/zshyzsh` (private) | big-chungus, `~/actions-runner/zshz1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-zshyzsh.delonet-zshz-r1.service` |
+| delonet-hjan-r1 | repo `delorenj/HairJangler` (private) | big-chungus, `~/actions-runner/hjan1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-HairJangler.delonet-hjan-r1.service` |
+| delonet-cack-r1 | repo `delorenj/cack` (private) | big-chungus, `~/actions-runner/cack1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-cack.delonet-cack-r1.service` |
+| delonet-dubc-r1 | repo `delorenj/dub-cue` (private) | big-chungus, `~/actions-runner/dubc1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-dub-cue.delonet-dubc-r1.service` |
+| delonet-trin-r1 | repo `delorenj/trinote` (private) | big-chungus, `~/actions-runner/trin1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-trinote.delonet-trin-r1.service` |
+| delonet-ivoa-r1 | repo `delorenj/intelliforia-voice-agent` (private) | big-chungus, `~/actions-runner/ivoa1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-intelliforia-voice-agent.delonet-ivoa-r1.service` |
 | big-chungus-earshot | repo `delorenj/earshot` | big-chungus, `~/actions-runner/earshot1` (started through `runsvc-op.sh`) | `self-hosted, Linux, X64, earshot, delonet` | `actions.runner.delorenj-earshot.big-chungus-earshot.service` |
 | big-chungus-gruvato, big-chungus (pile-of-dumb-things) | repos `delorenj/gruvato`, `delorenj/pile-of-dumb-things` | big-chungus, `~/actions-runner/gruvato1` (others not inventoried here) | see `gh api repos/<repo>/actions/runners` | `actions.runner.delorenj-gruvato.big-chungus-gruvato.service` |
 | (none) | macOS | -- | -- | planned; iOS builds wait on it |
 
 `delorenj/pjangler` (public) runs all CI on free GitHub-hosted runners since PJAN-164, 2026-10-01; its repo runner delonet-pjan-r1 is retired.
+
+Private repos deliberately left on hosted labels (2026-10-22 sweep):
+- `delorenj/codex-desktop-linux`: hourly/daily cron workflows that `sudo apt-get install` and install Nix on the runner, plus `container:` matrix jobs. Not safe on this workstation; disable the workflows or move the repo off the schedule instead of giving it a runner.
+- `delorenj/intelliForia-desktop`: one `macos-latest` Tauri release job; waits on the macOS runner.
+- `delorenj/tower-of-lost-things`, `green-in-between`, `gruvato`: already on self-hosted labels (macOS jobs use their own mommymac runners).
 
 Workflows target Linux with `runs-on: [self-hosted, Linux, delonet]`.
 
@@ -57,6 +73,7 @@ Gotchas on this host (found bringing up deckard, 2026-10-22):
   `~/.cargo/bin` and `rustup` is a broken shim. A Rust repo's runner needs
   `PATH=$HOME/.cargo/bin:...` in its `.env` (see `~/actions-runner/deck1/.env`),
   then `sudo ./svc.sh stop && sudo ./svc.sh start`.
+- svgme's runner has `~/.cargo/bin` first in its `.env` PATH (same Rust shim problem).
 - mise refuses an untrusted `mise.toml`: set `MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}` in the workflow env.
 - Docker's default address pools on big-chungus are fully subnetted, so `docker network create` fails. A
   `services:`/`container:` block cannot start; use a plain `docker run -p` step and remove it in an `if: always()` step. Moving the repo into an org that already
