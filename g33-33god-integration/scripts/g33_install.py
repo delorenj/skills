@@ -1,0 +1,938 @@
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["PyYAML>=6.0"]
+# ///
+"""g33 safe consumable installer for BMAD projects.
+
+Installs the 33GOD Integration (g33) module ALONGSIDE an existing BMAD install:
+- merges `_bmad/config.yaml` (YAML authoring layer) surgically (g33 section only)
+- merges g33 rows into the ACTIVE help surface `_bmad/_config/bmad-help.csv`
+  (falling back to legacy `_bmad/module-help.csv` when that is the installed
+  surface), anti-zombie, other modules' rows preserved
+- registers `[modules.g33]` in `_bmad/custom/config.toml` (team TOML layer the
+  REAL upstream runtime resolver merges over base config) — only when the
+  upstream resolver is present; additive merge preserves operator keys/arrays
+- creates sparse team overrides in `_bmad/custom/` for every BMAD skill that
+  (a) exists in the module's registry of planning/build/review surfaces and
+  (b) is actually installed in the target project's skill root — using only
+  customize.toml-supported keys (activation_steps_prepend/append,
+  persistent_facts)
+
+All conflicts are detected BEFORE any mutation; a rejected conflict leaves zero
+mutations and exits nonzero. Operator edits are preserved on rerun; --force
+re-emits managed keys while PRESERVING operator-added keys (additive, not
+wholesale replace). --dry-run writes nothing. --answers consumes a JSON file
+validated against the module.yaml variable table.
+
+Supported layouts (documented): this module targets the BMAD 6.12.1-next.1
+runtime layout (`_bmad/config.toml` + `_bmad/custom/config.toml` +
+`_bmad/scripts/resolve_config.py` + `_bmad/_config/bmad-help.csv`). The
+BMAD 6.12.0 pinned installer is YAML-manifest-only and has no TOML runtime
+integration; on that layout g33 reports TOML registration explicitly
+`unsupported` (inactive) and never claims an integrated active state.
+PJAN-166 (YAML→TOML migration) is out of scope.
+
+Exit codes: 0 = success (including preserved/skip outcomes and dry-run),
+1 = validation/usage error, 2 = conflict (rejected before mutation) or
+runtime error.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import shutil
+import stat
+import sys
+import tomllib
+import uuid
+from pathlib import Path
+from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import g33lib as G  # noqa: E402
+
+try:
+    import yaml
+except ImportError:
+    yaml = None
+
+
+def _yaml_loader():
+    if yaml is None:
+        raise ValueError("PyYAML>=6.0 is required for structural YAML validation; "
+                         "install module requirements with your Python environment owner "
+                         "or run the installer with uv run (script dependency metadata)")
+    class UniqueSafeLoader(yaml.SafeLoader):
+        def construct_mapping(self, node, deep=False):
+            self.flatten_mapping(node)
+            seen = set()
+            for key_node, _ in node.value:
+                key = self.construct_object(key_node, deep=deep)
+                try:
+                    duplicate = key in seen
+                    seen.add(key)
+                except TypeError as err:
+                    raise ValueError("unsupported non-scalar YAML mapping key") from err
+                if duplicate:
+                    raise ValueError(f"duplicate YAML mapping key {key!r} at line {key_node.start_mark.line + 1}")
+            return super().construct_mapping(node, deep=deep)
+    return UniqueSafeLoader
+
+MODULE_ROOT = Path(__file__).resolve().parent.parent
+
+CORE_KEYS = ("document_output_language", "output_folder", "project_name")
+CORE_DEFAULTS = {
+    "document_output_language": "English",
+    "output_folder": "{project-root}/_bmad-output",
+}
+
+OVERRIDE_TEMPLATE = """# g33 team override for {skill} (supported customize.toml keys only).
+# Sparse: scalars would replace defaults; arrays append in order.
+
+[workflow]
+
+activation_steps_prepend = [
+  "{prepend}",
+]
+
+activation_steps_append = {append}
+
+persistent_facts = [
+  "{fact}",
+]
+"""
+
+# Planning-family surfaces: emitted ONLY when the skill is actually installed
+# in the target project's activation root (sparse overrides, no dead files).
+PLANNING_SKILLS = ("bmad-prd", "bmad-spec", "bmad-architecture")
+BUILD_SKILL = "bmad-build"
+REVIEW_SKILL = "bmad-code-review"
+
+
+def sha256_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _override_content(skill: str) -> str:
+    if skill == BUILD_SKILL:
+        return OVERRIDE_TEMPLATE.format(
+            skill=skill,
+            prepend=(
+                "Consult the g33 33GOD Integration module: run its preflight "
+                "and ecosystem-route before planning the build."),
+            append="[]",
+            fact=(
+                "33GOD: run g33 preflight before build; route via g33 "
+                "ecosystem-route; see modules.g33 in _bmad/custom/config.toml."),
+        )
+    if skill == REVIEW_SKILL:
+        return OVERRIDE_TEMPLATE.format(
+            skill=skill,
+            prepend=(
+                "Consult the g33 evidence-to-handoff separation "
+                "(implemented/tested/installed/deployed/outstanding) when "
+                "reviewing claims."),
+            append="[]",
+            fact=(
+                "33GOD: reviewer must not be the implementer; check evidence "
+                "paths in the handoff, see modules.g33 in "
+                "_bmad/custom/config.toml."),
+        )
+    return OVERRIDE_TEMPLATE.format(
+        skill=skill,
+        prepend=(
+            "Consult the g33 ecosystem owner map (assets/ecosystem-map.toml) "
+            "before producing {kind} artifacts; route ownership via g33 "
+            "ecosystem-route.").format(kind={
+                "bmad-prd": "PRD", "bmad-spec": "spec",
+                "bmad-architecture": "architecture"}.get(skill, skill)),
+        append="[]",
+        fact=(
+            "33GOD: {kind} artifacts belong to the owning BMAD workflow; the "
+            "g33 module map (modules.g33 in _bmad/custom/config.toml) records "
+            "the ecosystem routing and doctrine pointer.").format(
+                kind={"bmad-prd": "PRD", "bmad-spec": "spec",
+                      "bmad-architecture": "architecture"}.get(skill, skill)),
+    )
+
+
+def _installed_skill_dirs(project_root: Path) -> dict[str, Path]:
+    """Find skill dirs actually present in the project activation roots."""
+    found: dict[str, Path] = {}
+    for rel in (".agents/skills", "skills", "_bmad/skills"):
+        root = project_root / rel
+        if not root.is_dir():
+            continue
+        for skill in (BUILD_SKILL, REVIEW_SKILL, *PLANNING_SKILLS):
+            cand = root / skill
+            if cand.is_dir() and skill not in found:
+                found[skill] = cand
+    return found
+
+
+def load_answers(path: Path | None, module: dict[str, Any]) -> dict[str, Any]:
+    """Load and validate a --answers JSON file against the module variable
+    table (module.yaml prompt/default keys). Unknown keys are rejected."""
+    if path is None:
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as err:
+        raise ValueError(f"cannot read answers file {path}: {err}") from err
+    if not isinstance(data, dict):
+        raise ValueError("answers file must contain a JSON object")
+    known: set[str] = set()
+    for key, spec in module.items():
+        if isinstance(spec, dict):
+            known.add(key)
+    unknown = sorted(set(data) - known)
+    if unknown:
+        raise ValueError(
+            f"answers file contains unknown module variables: {unknown} "
+            f"(supported: {sorted(known)})")
+    invalid = [key for key, value in data.items() if not isinstance(value, str)]
+    if invalid:
+        raise ValueError(f"module answers must be strings: {sorted(invalid)}")
+    return data
+
+
+def _parse_existing_yaml(text: str) -> dict[str, Any]:
+    """Real safe YAML validation; ambiguous duplicate mappings are refused."""
+    loader = _yaml_loader()
+    try:
+        data = yaml.load(text, Loader=loader)
+    except yaml.YAMLError as err:
+        mark = getattr(err, "problem_mark", None)
+        location = f" at line {mark.line + 1}, column {mark.column + 1}" if mark else ""
+        raise ValueError(f"{getattr(err, 'problem', None) or type(err).__name__}{location}") from err
+    if data is None:
+        return {}
+    if not isinstance(data, dict):
+        raise ValueError("YAML config must contain a top-level mapping")
+    return data
+
+
+def _merge_yaml_config(text: str, module: dict[str, Any], answers: dict[str, Any], force: bool) -> tuple[str, bool]:
+    """Edit only actual g33 root scalar spans; retain foreign hierarchy/comments."""
+    data = _parse_existing_yaml(text)
+    body = G.build_module_yaml_section(module, answers)
+    if G.MODULE_CODE not in data:
+        newline = "\r\n" if "\r\n" in text else "\n"
+        separator = "" if not text or text.endswith(newline * 2) else newline if text.endswith(newline) else newline * 2
+        result = text + separator + "g33:" + newline + newline.join(body) + newline
+        return result, result != text
+    document = yaml.compose(text, Loader=_yaml_loader())
+    section = next(value for key, value in document.value if key.value == G.MODULE_CODE)
+    if not isinstance(section, yaml.MappingNode) or section.flow_style:
+        raise ValueError("g33 section must be an editable block mapping")
+    managed = {"name": module["name"], "description": module["description"],
+               "version": str(module.get("module_version", G.MODULE_VERSION)), **answers}
+    edits = []
+    existing = set()
+    indent = section.value[0][0].start_mark.column if section.value else 2
+    for key, value in section.value:
+        existing.add(key.value)
+        if force and key.value in managed:
+            if not isinstance(value, yaml.ScalarNode):
+                raise ValueError(f"managed root key g33.{key.value} is not a scalar; refusing loss of operator content")
+            replacement = G.render_yaml_scalar(managed[key.value])
+            # Node spans exclude inline comments. Scalar-only substitution retains
+            # the exact key spelling, indentation, trailing comment and hierarchy.
+            edits.append((value.start_mark.index, value.end_mark.index, replacement))
+    missing = [key for key in managed if key not in existing]
+    if missing:
+        # Insert AFTER the complete section, never inside an operator child table.
+        end = section.end_mark.index
+        additions = "".join(" " * indent + f"{key}: {G.render_yaml_scalar(managed[key])}\n" for key in missing)
+        if end and text[end - 1] != "\n":
+            additions = "\n" + additions
+        edits.append((end, end, additions))
+    result = text
+    for start, stop, replacement in sorted(edits, reverse=True):
+        result = result[:start] + replacement + result[stop:]
+    return result, result != text
+
+
+def _yaml_namespace_ownership(text: str, data: dict[str, Any]) -> dict[str, Any]:
+    """Parsed namespace identity plus a direct-body comment ownership marker.
+
+    Equivalent scalar key spellings share identity. Alias/merge-inherited
+    namespaces and flow values are not editable owned block sections. Markers
+    must be whole comments at the mapping's member indentation, outside scalar
+    token spans, within this namespace's own body.
+    """
+    if G.MODULE_CODE not in data:
+        return {"status": "absent", "managed": False}
+    document = yaml.compose(text, Loader=_yaml_loader())
+    sections = [(key, value) for key, value in document.value
+                if isinstance(key, yaml.ScalarNode)
+                and key.tag == "tag:yaml.org,2002:str" and key.value == G.MODULE_CODE]
+    if len(sections) != 1:
+        return {"status": "foreign", "managed": False,
+                "detail": "foreign g33 namespace is inherited/indirect; an owned direct block mapping is required"}
+    key, section = sections[0]
+    if (not isinstance(section, yaml.MappingNode) or section.flow_style
+            or section.start_mark.index < key.end_mark.index):
+        return {"status": "foreign", "managed": False,
+                "detail": f"foreign/unsupported g33 namespace at line {key.start_mark.line + 1}; direct managed block mapping required"}
+    tokens = list(yaml.scan(text, Loader=_yaml_loader()))
+    scalar_spans = [(token.start_mark.index, token.end_mark.index)
+                    for token in tokens if isinstance(token, yaml.ScalarToken)]
+    # A node's start mark may point at a header anchor, rather than the actual
+    # member indentation. The scanner's own block start identifies that level.
+    member_start = next(token for token in tokens
+                        if isinstance(token, yaml.BlockMappingStartToken)
+                        and section.start_mark.index <= token.start_mark.index < section.end_mark.index)
+    indent = member_start.start_mark.column
+    position = 0
+    for line in text.splitlines(keepends=True):
+        if (key.end_mark.index <= position < section.end_mark.index
+                and re.fullmatch(r" {" + str(indent) + r"}# managed by g33 installer(?:;[^\r\n]*)?\r?\n?", line)
+                and not any(start <= position + indent < stop for start, stop in scalar_spans)):
+            return {"status": "managed", "managed": True,
+                    "key_line": key.start_mark.line + 1}
+        position += len(line)
+    return {"status": "foreign", "managed": False,
+            "detail": f"foreign pre-existing g33 namespace at line {key.start_mark.line + 1}: no direct section-scoped managed comment"}
+
+
+def _toml_table_body(text: str, header: str) -> str | None:
+    return G.toml_table_body(text, header)
+
+
+def _write_boundary(root: Path, target: Path) -> str | None:
+    """Refuse every symlink below the real root, including dangling leaves.
+
+    An explicitly supplied project-root symlink is a supported alias for its
+    real directory. No write descendant may be a symlink, even one pointing
+    back inside that directory. Reference-only skill reads are unaffected.
+    """
+    try:
+        relative = target.relative_to(root)
+    except ValueError:
+        return f"write target outside real project root {root}"
+    current = root
+    for index, part in enumerate(relative.parts):
+        current /= part
+        try:
+            info = current.lstat()
+        except FileNotFoundError:
+            continue
+        if stat.S_ISLNK(info.st_mode):
+            return f"symlink write component {current} -> {os.readlink(current)} (refused)"
+        if index < len(relative.parts) - 1 and not stat.S_ISDIR(info.st_mode):
+            return f"write ancestor is not a directory: {current}"
+    if not target.resolve().is_relative_to(root):
+        return f"resolved write target escapes real project root {root}: {target.resolve()}"
+    return None
+
+
+def _table_code(body: str | None) -> str | None:
+    if body is None:
+        return None
+    m = re.search(r'^\s*code\s*=\s*"([^"]*)"', body, re.MULTILINE)
+    return m.group(1) if m else None
+
+
+def plan_install(
+    project_root: Path,
+    force: bool,
+    answers_path: Path | None = None,
+) -> dict[str, Any]:
+    """Compute the full action plan (preflight everything, mutate nothing)."""
+    module = G.load_module_yaml(MODULE_ROOT / "assets" / "module.yaml")
+    project_root = project_root.resolve()
+    answers: dict[str, Any] = {}
+    for var in ("ecosystem_root", "g33_output_folder"):
+        spec = module.get(var)
+        if isinstance(spec, dict) and "default" in spec:
+            answers[var] = spec["default"]
+    # --answers consumes + validates (overrides defaults)
+    try:
+        answers.update(load_answers(answers_path, module))
+    except ValueError as err:
+        return {
+            "status": "error", "error": str(err),
+            "actions": [], "conflicts": [], "preserved": [], "warnings": [],
+        }
+
+    bmad = project_root / "_bmad"
+    resolver = bmad / "scripts" / "resolve_config.py"
+    resolver_present = resolver.is_file()
+
+    actions: list[dict[str, Any]] = []
+    conflicts: list[dict[str, str]] = []
+    preserved: list[dict[str, str]] = []
+    warnings: list[str] = []
+
+    # Containment is checked before opening any target, and includes every
+    # potential override leaf even when its activation directory is absent.
+    targets = [bmad / "config.yaml", bmad / "custom/config.toml",
+               bmad / G.HELP_CSV_ACTIVE, bmad / G.HELP_CSV_LEGACY,
+               *[bmad / "custom" / f"{skill}.toml" for skill in
+                 (BUILD_SKILL, REVIEW_SKILL, *PLANNING_SKILLS)]]
+    for target in targets:
+        reason = _write_boundary(project_root, target)
+        if reason:
+            conflicts.append({"path": str(target), "detail": reason,
+                              "remedy": "use regular contained project paths; no write-through symlinks"})
+    if conflicts:
+        return {"status": "conflict", "actions": [], "conflicts": conflicts,
+                "preserved": [], "warnings": []}
+
+    if not bmad.is_dir():
+        return {
+            "status": "error",
+            "error": f"not a BMAD project: {bmad} not found",
+            "actions": [], "conflicts": [], "preserved": [], "warnings": warnings,
+        }
+
+    # ---------- prerequisite preflight: zero writes on any failure below
+    # 1. malformed YAML target
+    cfg_path = bmad / "config.yaml"
+    if cfg_path.exists():
+        with cfg_path.open("r", encoding="utf-8", newline="") as stream:
+            cfg_text = stream.read()
+    else:
+        cfg_text = ""
+    try:
+        yaml_data = _parse_existing_yaml(cfg_text)
+    except ValueError as err:
+        yaml_data = {}
+        conflicts.append({
+                "path": str(cfg_path),
+                "detail": f"malformed YAML authoring config: {err}",
+                "remedy": "fix the YAML or remove the g33 section; installer "
+                          "refuses to mutate an unparseable target",
+            })
+    # Parsed g33 identity is independent of equivalent key spelling.
+    # Duplicate identities already fail structural loading before ownership.
+    yaml_namespace = _yaml_namespace_ownership(cfg_text, yaml_data)
+    if yaml_namespace["status"] == "foreign":
+        conflicts.append({"path": str(cfg_path), "detail": yaml_namespace["detail"],
+                          "remedy": "preserve foreign content; rename/remove the foreign namespace rather than taking ownership"})
+
+    # 4. malformed custom/config.toml (tomllib — the real resolver's parser)
+    custom_cfg = bmad / "custom" / "config.toml"
+    custom_text = custom_cfg.read_text(encoding="utf-8") if custom_cfg.exists() else ""
+    if custom_text:
+        try:
+            custom_data = tomllib.loads(custom_text)
+        except tomllib.TOMLDecodeError as err:
+            conflicts.append({
+                "path": str(custom_cfg),
+                "detail": f"pre-broken custom/config.toml: {err}",
+                "remedy": "fix the TOML first; the runtime resolver "
+                          "(resolve_config.py) cannot load it",
+            })
+        else:
+            namespaces = custom_data.get("modules", {})
+            g33_table = namespaces.get(G.MODULE_CODE) if isinstance(namespaces, dict) else None
+            existing_code = g33_table.get("code") if isinstance(g33_table, dict) else None
+            if g33_table is not None and (not isinstance(g33_table, dict) or existing_code != G.MODULE_CODE):
+                conflicts.append({
+                    "path": str(custom_cfg),
+                    "detail": f"foreign [modules.g33] table (code="
+                              f"{existing_code!r})",
+                    "remedy": "owned by another module; rename or remove it",
+                })
+
+    # 5. incompatible layout: base config.toml present but unparseable
+    base_cfg = bmad / "config.toml"
+    if base_cfg.exists():
+        try:
+            tomllib.loads(base_cfg.read_text(encoding="utf-8"))
+        except (tomllib.TOMLDecodeError, OSError) as err:
+            conflicts.append({
+                "path": str(base_cfg),
+                "detail": f"malformed base _bmad/config.toml: {err}",
+                "remedy": "repair the base runtime config before installing",
+            })
+
+    for skill in (BUILD_SKILL, REVIEW_SKILL, *PLANNING_SKILLS):
+        override = bmad / "custom" / f"{skill}.toml"
+        if override.exists():
+            try:
+                data = tomllib.loads(override.read_text(encoding="utf-8"))
+                workflow = data.get("workflow", {})
+                if not isinstance(workflow, dict):
+                    raise ValueError("workflow must be a table")
+                for key in ("activation_steps_prepend", "activation_steps_append", "persistent_facts"):
+                    if key in workflow and (not isinstance(workflow[key], list)
+                                            or not all(isinstance(v, str) for v in workflow[key])):
+                        raise ValueError(f"workflow.{key} must be an array of strings")
+            except (OSError, ValueError) as err:
+                conflicts.append({"path": str(override), "detail": f"malformed skill override: {err}",
+                                  "remedy": "repair the operator override before installation"})
+
+    if conflicts:
+        return {
+            "status": "conflict",
+            "module": module.get("code", G.MODULE_CODE),
+            "version": str(module.get("module_version", G.MODULE_VERSION)),
+            "actions": [],
+            "conflicts": conflicts,
+            "preserved": [],
+            "warnings": warnings,
+        }
+
+    if not resolver_present:
+        warnings.append(
+            "absent upstream baseline: _bmad/scripts/resolve_config.py missing; "
+            "TOML registration is UNSUPPORTED/INACTIVE on this layout "
+            "(YAML-only registration is not an integrated active state; "
+            "BMAD 6.12.0 pinned installer is YAML-manifest-only — "
+            "PJAN-166 migration is out of scope)"
+        )
+
+    # ---------- config.yaml (YAML authoring layer)
+    body = G.build_module_yaml_section(module, answers)
+    core_additions: dict[str, str] = {}
+    for key, default in CORE_DEFAULTS.items():
+        if key not in yaml_data:
+            core_additions[key] = default
+    try:
+        new_cfg, cfg_changed = _merge_yaml_config(cfg_text, module, answers, force)
+    except ValueError as err:
+        return {"status": "conflict", "actions": [], "conflicts": [
+            {"path": str(cfg_path), "detail": f"unsupported authoring edit: {err}", "remedy": "preserve operator content and use an editable g33 scalar mapping"}],
+            "preserved": [], "warnings": warnings}
+    if cfg_changed or core_additions:
+        final_cfg = new_cfg
+        if core_additions:
+            newline = "\r\n" if "\r\n" in final_cfg else "\n"
+            prefix_lines = [f"{k}: {G.render_yaml_scalar(v)}" + newline for k, v in core_additions.items()]
+            existing_lines = final_cfg.splitlines(keepends=True)
+            insert_at = 0
+            for idx, line in enumerate(existing_lines):
+                if line.strip() and not line.startswith((" ", "#")):
+                    insert_at = idx
+                    break
+            else:
+                insert_at = len(existing_lines)
+            existing_lines[insert_at:insert_at] = prefix_lines
+            final_cfg = "".join(existing_lines)
+        detail = "section g33 rewritten" if cfg_changed else "section g33 unchanged"
+        if core_additions:
+            detail += f"; core keys added (absent): {sorted(core_additions)}"
+        try:
+            final_yaml = _parse_existing_yaml(final_cfg)
+            # Every answer is a string in both authoring/runtime formats.
+            for key, value in answers.items():
+                expected = value if force or key not in yaml_data.get(G.MODULE_CODE, {}) else yaml_data[G.MODULE_CODE][key]
+                if final_yaml[G.MODULE_CODE].get(key) != expected:
+                    raise ValueError(f"planned g33.{key} differs from intended preserved/managed value")
+        except ValueError as err:
+            return {"status": "conflict", "actions": [], "conflicts": [
+                {"path": str(cfg_path), "detail": f"invalid planned YAML: {err}", "remedy": "repair authoring configuration before installation"}],
+                "preserved": [], "warnings": warnings}
+        actions.append({
+            "path": str(cfg_path), "action": "write",
+            "detail": detail,
+            "new_sha256": sha256_text(final_cfg),
+            "_new_content": final_cfg,
+        })
+    else:
+        actions.append({"path": str(cfg_path), "action": "already-present",
+                        "detail": "g33 section current; no core keys to add"})
+
+    # ---------- help CSV: ACTIVE surface _bmad/_config/bmad-help.csv first
+    active_help = bmad / G.HELP_CSV_ACTIVE
+    legacy_help = bmad / G.HELP_CSV_LEGACY
+    # Layout rules (documented): when the resolver-based runtime is present
+    # (6.12.1-next layout) the ACTIVE surface is _bmad/_config/bmad-help.csv —
+    # used even if only the legacy module-help.csv exists (rows migrate).
+    # Without the runtime resolver (6.12.0 YAML-only layout), the legacy file
+    # is the only surface that exists; we merge in place rather than invent
+    # a dead _config tree.
+    if resolver_present:
+        help_target = active_help
+    elif legacy_help.exists():
+        help_target = legacy_help
+    else:
+        help_target = legacy_help  # YAML-only layout canonical name
+    csv_text = help_target.read_text(encoding="utf-8") if help_target.exists() else ""
+    new_csv, appended = G.merge_help_csv(csv_text, MODULE_ROOT / "assets" / "module-help.csv")
+    if new_csv != csv_text:
+        actions.append({
+            "path": str(help_target), "action": "write",
+            "detail": f"merged {len(appended)} g33 row(s) into active help "
+                      f"surface {help_target.relative_to(project_root)} "
+                      "(anti-zombie)",
+            "new_sha256": sha256_text(new_csv),
+            "_new_content": new_csv,
+        })
+    else:
+        actions.append({"path": str(help_target), "action": "already-present",
+                        "detail": "g33 rows current"})
+
+    # ---------- custom/config.toml [modules.g33] (TOML runtime registration)
+    if resolver_present:
+        rows = G.build_module_toml_rows(module, answers)
+        existing_body = _toml_table_body(custom_text, G.TOML_TABLE_HEADER)
+        if existing_body is None:
+            merged_rows = rows
+        elif force:
+            # additive merge: managed keys re-emitted, operator unknown
+            # keys/arrays preserved (F5: --force must not drop operator keys)
+            merged_rows = G.merge_toml_tables(rows, existing_body)
+        else:
+            # non-force: operator edits win entirely for now — managed keys
+            # are re-emitted ONLY when absent; operator values are kept
+            merged_rows = G.merge_toml_tables_preserving_operator(
+                rows, existing_body)
+        new_toml, toml_changed = G.replace_toml_table(
+            custom_text, G.TOML_TABLE_HEADER, merged_rows)
+        if not toml_changed:
+            actions.append({"path": str(custom_cfg), "action": "already-present",
+                            "detail": "[modules.g33] current"})
+        else:
+            note = ("register [modules.g33] in team TOML layer"
+                    + (" (additive merge: operator keys preserved)"
+                       if existing_body is not None else ""))
+            actions.append({
+                "path": str(custom_cfg), "action": "write",
+                "detail": note,
+                "new_sha256": sha256_text(new_toml),
+                "_new_content": new_toml,
+            })
+            # validate output before declaring success
+            try:
+                tomllib.loads(new_toml)
+            except tomllib.TOMLDecodeError as err:  # pragma: no cover
+                return {
+                    "status": "error",
+                    "error": f"planned TOML output would not parse: {err}",
+                    "actions": [], "conflicts": [], "preserved": preserved,
+                    "warnings": warnings,
+                }
+    else:
+        preserved.append({
+            "path": str(custom_cfg),
+            "reason": "skipped: upstream resolver absent (TOML registration "
+                      "unsupported/inactive on this layout)",
+        })
+
+    # ---------- per-skill team overrides (sparse: installed surfaces only)
+    if resolver_present:
+        installed = _installed_skill_dirs(project_root)
+        emitted = []
+        for skill in (BUILD_SKILL, REVIEW_SKILL, *PLANNING_SKILLS):
+            if skill not in installed:
+                continue
+            p = bmad / "custom" / f"{skill}.toml"
+            content = _override_content(skill)
+            emitted.append(skill)
+            if not p.exists():
+                actions.append({
+                    "path": str(p), "action": "create",
+                    "detail": f"team override for installed skill {skill} "
+                              "(supported customize.toml keys)",
+                    "new_sha256": sha256_text(content),
+                    "_new_content": content,
+                })
+            elif p.read_text(encoding="utf-8") == content:
+                actions.append({"path": str(p), "action": "already-present",
+                                "detail": "byte-identical"})
+            else:
+                # additive merge for operator-edited override: preserve their
+                # added array entries and unknown keys; re-emit managed ones
+                merged = _merge_override_file(p.read_text(encoding="utf-8"), skill)
+                if not force:
+                    preserved.append({
+                        "path": str(p),
+                        "reason": "operator-edited override preserved (use --force to merge managed entries)",
+                    })
+                elif merged == p.read_text(encoding="utf-8"):
+                    actions.append({"path": str(p), "action": "already-present",
+                                    "detail": "managed override current"})
+                elif force:
+                    actions.append({
+                        "path": str(p), "action": "overwrite",
+                        "detail": "--force: managed override re-emitted "
+                                  "(operator entries preserved via merge)",
+                        "new_sha256": sha256_text(merged),
+                        "_new_content": merged,
+                    })
+        if not emitted:
+            warnings.append(
+                "no BMAD skill surfaces found in the project activation roots "
+                "checked (.agents/skills, skills, _bmad/skills); no per-skill "
+                "overrides emitted")
+    else:
+        preserved.append({
+            "path": str(bmad / "custom" / f"{BUILD_SKILL}.toml"),
+            "reason": "skipped: upstream resolver absent (TOML registration "
+                      "unsupported/inactive on this layout)",
+        })
+
+    for action in actions:
+        if action.get("action") in ("write", "create", "overwrite"):
+            target = Path(action["path"])
+            action["_expected_before"] = (hashlib.sha256(target.read_bytes()).hexdigest()
+                                          if target.exists() else None)
+    return {
+        "status": "ok",
+        "module": module.get("code", G.MODULE_CODE),
+        "version": str(module.get("module_version", G.MODULE_VERSION)),
+        "answers": answers,
+        "actions": actions,
+        "conflicts": conflicts,
+        "preserved": preserved,
+        "warnings": warnings,
+        "toml_active": resolver_present,
+        "yaml_namespace": yaml_namespace,
+        # The bridge verifies real resolved arrays against these owner-generated
+        # requirements, sharing exactly the mappings emitted by the installer.
+        "required_customizations": {
+            skill: tomllib.loads(_override_content(skill))["workflow"]
+            for skill in (BUILD_SKILL, REVIEW_SKILL, *PLANNING_SKILLS)
+        },
+        "_project_root": str(project_root),
+    }
+
+
+def _merge_override_file(current: str, skill: str) -> str:
+    """Union each supported array independently, preserving all other bytes."""
+    managed = _override_content(skill)
+    current_data = tomllib.loads(current).get("workflow", {})
+    managed_data = tomllib.loads(managed)["workflow"]
+    rows = []
+    for key, defaults in managed_data.items():
+        values = list(defaults)
+        for value in current_data.get(key, []):
+            if value not in values:
+                values.append(value)
+        rows.append(f"{key} = {G.render_toml_value(values)}")
+    body = G.toml_table_body(current, "[workflow]")
+    merged = G.merge_toml_tables(rows, body)
+    new_text, _ = G.replace_toml_table(current, "[workflow]", merged)
+    tomllib.loads(new_text)
+    return new_text
+
+
+class AtomicApplyError(RuntimeError):
+    def __init__(self, cause: Exception, rollback_errors: list[str]):
+        self.rollback_errors = rollback_errors
+        super().__init__(f"apply failed: {cause}; rollback " +
+                         ("FAILED: " + "; ".join(rollback_errors) if rollback_errors else "complete"))
+
+
+def _open_parent(root_fd: int, relative: Path, created: list) -> int:
+    """Walk/create directories via descriptors; never follow a symlink."""
+    fd = os.dup(root_fd)
+    try:
+        for component in relative.parts[:-1]:
+            try:
+                next_fd = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            except FileNotFoundError:
+                os.mkdir(component, dir_fd=fd)
+                created.append((os.dup(fd), component))
+                next_fd = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            os.close(fd)
+            fd = next_fd
+        return fd
+    except BaseException:
+        os.close(fd)
+        raise
+
+
+def _stage_bytes(fd: int, data: bytes, mode: int) -> str:
+    name = ".g33-stage-" + uuid.uuid4().hex
+    handle = os.open(name, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, mode, dir_fd=fd)
+    try:
+        with os.fdopen(handle, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fchmod(stream.fileno(), mode)
+            os.fsync(stream.fileno())
+    except BaseException:
+        os.unlink(name, dir_fd=fd)
+        raise
+    return name
+
+
+def execute_plan(plan: dict[str, Any], dry_run: bool) -> list[dict[str, Any]]:
+    writes = [a for a in plan.get("actions", []) if a.get("action") in ("write", "create", "overwrite")]
+    performed = [{"path": a["path"], "action": a["action"], "detail": a.get("detail", ""),
+                  **({"new_sha256": a["new_sha256"]} if not dry_run else {})} for a in writes]
+    if dry_run or not writes:
+        return performed
+    root = Path(plan["_project_root"]).resolve()
+    # Validate the WHOLE transaction before any directory creation.
+    for action in writes:
+        reason = _write_boundary(root, Path(action["path"]))
+        if reason:
+            raise AtomicApplyError(ValueError(reason), [])
+    root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    staged = []
+    created = []
+    published = []
+    try:
+        # Stage every output before publishing the first one. Snapshot original
+        # bytes in memory, preserving original modes and avoiding backup files.
+        for action in writes:
+            target = Path(action["path"])
+            reason = _write_boundary(root, target)
+            if reason:
+                raise ValueError(reason)
+            fd = _open_parent(root_fd, target.relative_to(root), created)
+            item = {"target": target, "fd": fd, "temp": None, "original": None, "mode": 0o644}
+            staged.append(item)
+            try:
+                handle = os.open(target.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=fd)
+            except FileNotFoundError:
+                pass
+            else:
+                with os.fdopen(handle, "rb") as stream:
+                    info = os.fstat(stream.fileno())
+                    if not stat.S_ISREG(info.st_mode):
+                        raise ValueError(f"non-regular write target: {target}")
+                    item["original"] = stream.read()
+                    item["mode"] = stat.S_IMODE(info.st_mode)
+            before = hashlib.sha256(item["original"]).hexdigest() if item["original"] is not None else None
+            if before != action.get("_expected_before"):
+                raise ValueError(f"write target changed after planning: {target}")
+            item["temp"] = _stage_bytes(fd, action["_new_content"].encode("utf-8"), item["mode"])
+        for item in staged:
+            reason = _write_boundary(root, item["target"])
+            if reason:
+                raise ValueError(reason)
+            os.replace(item["temp"], item["target"].name, src_dir_fd=item["fd"], dst_dir_fd=item["fd"])
+            item["temp"] = None
+            published.append(item)
+        return performed
+    except BaseException as err:
+        rollback_errors = []
+        for item in reversed(published):
+            try:
+                if item["original"] is None:
+                    os.unlink(item["target"].name, dir_fd=item["fd"])
+                else:
+                    restore = _stage_bytes(item["fd"], item["original"], item["mode"])
+                    try:
+                        os.replace(restore, item["target"].name, src_dir_fd=item["fd"], dst_dir_fd=item["fd"])
+                    finally:
+                        try:
+                            os.unlink(restore, dir_fd=item["fd"])
+                        except FileNotFoundError:
+                            pass
+            except OSError as recovery:
+                rollback_errors.append(f"{item['target']}: {recovery}")
+        # Temp outputs must be removed before removing newly-created directories.
+        for item in staged:
+            if item["temp"]:
+                try:
+                    os.unlink(item["temp"], dir_fd=item["fd"])
+                    item["temp"] = None
+                except OSError as recovery:
+                    rollback_errors.append(f"staged file {item['target']}: {recovery}")
+        for fd, name in reversed(created):
+            try:
+                os.rmdir(name, dir_fd=fd)
+            except OSError as recovery:
+                rollback_errors.append(f"created directory {name}: {recovery}")
+        raise AtomicApplyError(err, rollback_errors) from err
+    finally:
+        for item in staged:
+            if item["temp"]:
+                try:
+                    os.unlink(item["temp"], dir_fd=item["fd"])
+                except FileNotFoundError:
+                    pass
+            os.close(item["fd"])
+        for fd, _ in created:
+            os.close(fd)
+        os.close(root_fd)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Install the g33 33GOD Integration BMAD expansion module "
+            "(safe, idempotent, dry-run capable)."
+        )
+    )
+    parser.add_argument("--project-root", required=True,
+                        help="Absolute project root containing _bmad/")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Preview only — no writes")
+    parser.add_argument("--json", action="store_true",
+                        help="Machine-readable output (default)")
+    parser.add_argument("--answers",
+                        help="JSON answers file (keys validated against "
+                             "module.yaml variables)")
+    parser.add_argument("--force", action="store_true",
+                        help="Re-emit managed g33 content (operator keys "
+                             "still preserved via additive merge)")
+    args = parser.parse_args(argv)
+
+    project_root = Path(args.project_root).resolve()
+    if not project_root.is_dir():
+        G.emit_json({"status": "error",
+                     "error": f"project root not found: {project_root}"})
+        return 1
+
+    answers_path = Path(args.answers).resolve() if args.answers else None
+    if answers_path is not None and not answers_path.is_file():
+        G.emit_json({"status": "error",
+                     "error": f"answers file not found: {answers_path}"})
+        return 1
+
+    try:
+        plan = plan_install(project_root, force=args.force, answers_path=answers_path)
+    except (OSError, ValueError) as err:
+        G.emit_json({"status": "conflict", "actions": [], "conflicts": [
+            {"path": str(project_root), "detail": f"unreadable or invalid prerequisite: {err}"}],
+            "preserved": [], "warnings": []})
+        return 2
+    if plan.get("status") == "error":
+        G.emit_json(plan)
+        return 1
+    if plan.get("status") == "conflict":
+        G.emit_json(plan)
+        return 2
+
+    try:
+        performed = execute_plan(plan, dry_run=args.dry_run)
+    except AtomicApplyError as err:
+        G.emit_json({"status": "error", "error": str(err), "performed": [],
+                     "rollback": {"status": "failed" if err.rollback_errors else "complete",
+                                  "errors": err.rollback_errors}, "conflicts": []})
+        return 2
+
+    result = {
+        "status": "ok",
+        "module": plan["module"],
+        "name": G.MODULE_NAME,
+        "version": plan["version"],
+        "dry_run": args.dry_run,
+        "answers": plan.get("answers", {}),
+        "toml_active": plan.get("toml_active", False),
+        "yaml_namespace": plan.get("yaml_namespace", {}),
+        "required_customizations": plan.get("required_customizations", {}),
+        "activation": "active" if plan.get("toml_active") else "inactive",
+        "actions": [
+            {k: v for k, v in a.items() if not k.startswith("_")}
+            for a in plan["actions"]
+        ],
+        "performed": performed,
+        "conflicts": plan["conflicts"],
+        "preserved": plan["preserved"],
+        "warnings": plan["warnings"],
+        "exit_hint": (
+            "dry-run only; re-run without --dry-run to apply"
+            if args.dry_run else "applied"
+        ),
+    }
+    G.emit_json(result)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
