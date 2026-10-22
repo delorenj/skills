@@ -31,8 +31,11 @@ flume roster  (alias: flume org)   the org chart, and every disagreement between
 flume record                       which build each employee actually runs, against the configured pin
 flume review [--agent <id>]        performance review across all nine observation domains
 flume handbook validate            authorities, classes, service model, retired modes
-flume audit [repo] [--rules ids]   the eight employee invariants a repository is subject to
+flume audit [repo] [--rules ids]   the employee invariants a repository is subject to
 flume remediate <finding> [repo]   correct one finding
+flume channel list [--employee e]  every employee x platform: status, delta enabled, ref names, live gateway state, active Telegram bot count
+flume channel offline <employee> [--platform p] [--reason ".."] [--apply]   park a channel on purpose (preview unless --apply)
+flume channel online <employee> [--platform p] [--credential-ref op://..] [--apply]   bring it back / rotate to a new bot (getMe-verified)
 ```
 
 `roster`, `record`, `review` and `handbook validate` are strictly read-only, take
@@ -262,7 +265,7 @@ process control, service changes, board changes, or Bloodbank activation.
 - Never duplicate fleet `mcp_servers` into a delta; the base owns them. A delta
   that redeclares a base LIST replaces it rather than extending it, which is what
   `hermes.delta-list-override` exists to catch.
-- **`flume audit` enforces all of this.** The employee rules (not exhaustive: `flume audit --json`
+- **`flume audit` enforces all of this.** The employee rules (`flume audit --json`
   lists every one) and what each one actually reads:
 
   | rule | scope | reads |
@@ -272,7 +275,12 @@ process control, service changes, board changes, or Bloodbank activation.
   | `systemd.sentinel` | host | gateway unit installed and matching each role's declared `service_state` |
   | `hermes.runtime-singleton` | project | real desk dir, shared links, Skillex projection (a role that declares `skills:` is read against its own selection project: manifest matches the declaration, strict marker, no pending `skillex profile show` change, no legacy `<desk>/.agents/skills`), generated `config.yaml` + present `config.delta.yaml` + pinned memory bank |
   | `hermes.role-declaration` | project | `roles/<role>.md` deployment keys: `skills` resolves in the live Skillex catalog and is one expressible selection, `chain` routes exist in the gateway catalog, `department` and `reports_to` exist, no reporting cycle |
-  | `hermes.fleet-config` | host | fleet base: `tts.provider: vox`, a `hooks:` block with all four events calling the canonical publisher, `memory.provider` set, `memory` absent from `agent.disabled_toolsets` |
+  | `hermes.fleet-config` | host | fleet base: `tts.provider: vox`, a `hooks:` block with all four events calling the canonical publisher `~/.agents/hooks/bb-hook --cli hermes --native <event>` (bloodbank `hooks.master.json`; `publish.py` is a legacy forwarder), `memory.provider` set, `memory` absent from `agent.disabled_toolsets` |
+  | `hermes.bloodbank-toolsets` | host | base `platform_toolsets.bloodbank` carries delegation, terminal, file, skills and `timeouts.tools.{sequential_call,concurrent_batch}` is ≥ 900 s (or 0); every routable PM's generated config does too; no routable non-PM employee has delegation, terminal or file |
+  | `hermes.gateway-routing` | host | ALL inference routes through the AutomaticAI gateway, in the base and every member's generated config (members that only inherit a broken base are folded into one count): `model.provider` is `automaticai`/`custom:automaticai` with an `automaticai/<account>/<model>` `model.default` and no non-gateway `model.base_url`; every auxiliary task (vision, web_extract, compression, skills_hub, approval, mcp, title_generation, memory_query_rewrite, tts_audio_tags, triage_specifier, kanban_decomposer, profile_describer, goal_judge, curator, monitor, background_review, moa_reference, moa_aggregator, kanban_estimator) is either pinned to the gateway or follows the main model (absent, `auto` or `main`) -- the owner's design, compliant only when `model.provider` is on the gateway AND `auxiliary.free_only: true` AND `auxiliary.discovery: false` (fork key, default true; without it a failed call falls through OpenRouter/Nous/direct-key discovery, which is how helpers reached direct Gemini, z.ai and Kimi), and the finding names the missing key; `auxiliary.discovery: false` is required even when every task is pinned (a pinned task re-walks discovery when its fallback hits a stale credential); every `auxiliary.<task>.fallback_chain` entry is a gateway route; `auxiliary.free_only: true` (no hidden paid OpenRouter lane); every enabled MoA preset's references and aggregator are gateway routes, read after Hermes' `load_config` deep-merges config.yaml over its built-in `moa.presets.default` (an absent `moa` block, a presets map without `default`, or the legacy flat shape all leave that stock openrouter/openai-codex preset enabled; only `moa.presets.default.enabled: false` or gateway slots in it turn it off; a slot with no provider is filled from the stock slot); of the auxiliary tasks only `title_generation` honors `enabled: false`; `fallback_providers`/`fallback_model` stay on the gateway; `providers.automaticai` with `key_env` and an explicit `extra_body.reasoning_effort`, `delegation.provider: automaticai` with a canonical route, no `delegation.base_url`/`api_key`, the key variable mapped to an `op://` reference |
+  | `hermes.dotenv-no-op-refs` | host | neither `~/.hermes/.env` nor any profile `.env` that is its own file holds a literal `op://` value (names only are reported). Hermes reloads `.env` with `override=True` on every import while the 1Password source applies once, so the literal reference is sent as the key (401). `flume remediate hermes.dotenv-no-op-refs` deletes the lines already mapped to the identical reference in that config's `secrets.onepassword.env`; unmapped or conflicting ones need the operator to map them first |
+  | `hermes.wake-word-session` | host | an enabled `wake_word` in the base or any member config sets `start_new_session: false`; otherwise every wake (false triggers too) calls `new_session(silent=True)`, which resets the model to `model.default` and silently undoes a `/model` switch |
+  | `hermes.skillex-resync` | host | with at least one Skillex-only desk present, `skillex-hermes-resync.timer` and `.path` are each installed, enabled and active (a path unit that tripped its trigger limit is `failed` and has stopped watching the catalog), `~/.local/state/skillex/hermes-resync.last.json` (schema 1) records a run that finished within 2 h, and that run left no desk `refused` or `error`. The finding names `~/code/skillex/scripts/install-hermes-resync.sh install` for the units and the cutover for a refused desk. It passes quietly when no strict desk exists and is not auto-fixable (host install state: `flume remediate hermes.skillex-resync` is blocked with the same instructions) |
   | `hermes.delta-list-override` | host | no delta replaces a fleet-base list |
   | `hermes.profile-wiring` | host | launcher and unit `HERMES_HOME` point at the named desk; no dead `HERMES_OAUTH_FILE` |
   | `hermes.registry-parity` | host | registry ↔ `role.yaml` ↔ `.project.json` agree; `bloodbank` block present; no legacy `consumer_unit`/`checkpoint_timer` |
@@ -309,6 +317,25 @@ process control, service changes, board changes, or Bloodbank activation.
   scripts predate 0208c9e, re-parse role.yaml. The same migration flips an
   unmarked legacy `reconcile.enabled: false` to the operational default `true`
   (inert since the heartbeat retired, but it is a role.yaml diff you own).
+- **Parking a bot is `flume channel offline`, not a hand edit.** Telegram caps how many bots
+  are active, so tokens rotate; a rejected or rotated-out bot is OFFLINE, not broken. `flume
+  channel offline <employee> --reason "..." --apply` keeps the `op://` reference in the delta,
+  pins `platforms.telegram.enabled: false`, renders that ONE profile (registry flock, then the
+  profile config lock; never an absorb) and records `telegram.provisioning_status: offline` with
+  `offline_since`/`offline_reason` in the registry. The handbook lists `offline` among the
+  deferred statuses, so `flume org`/`roster` show `[telegram offline]` and `flume review` reads
+  it as parked, never a failure. Bring it back with `flume channel online <employee> --apply`
+  (re-verifies the existing reference), or rotate: `--credential-ref op://<vault>/<item-uuid>/<field>`
+  resolves the new token with `op` at apply time only, asks Telegram `getMe`, refuses a revoked
+  token or a bot another profile owns, and records `bot_username`/`bot_id`. A gateway config
+  re-scan only STARTS a newly enabled platform; it never stops a running one and skips a bot
+  sitting in the reconnect queue. So the command cycles just that profile through the gateway's
+  control socket (`unserve-profile` then `serve-profile` on `~/.hermes/gateway.sock`), falling
+  back to `systemctl --user reload hermes-gateway` (all profiles drain) when the socket does not
+  answer; `--no-reload` writes and says the gateway was not told. `flume channel list` shows
+  the live state and the active Telegram bot count. `infra-doctor` derives its channel
+  expectations from the same registry status and delta pin: OFFLINE is informational, an online
+  bot that is fatal with `telegram_auth_error` fails and names rotate-or-park.
 - A disabled PM gateway is usually a dead bot, not a dead project. Test the
   vaulted token with getMe, feeding the URL on stdin
   (`printf 'url = "https://api.telegram.org/bot%s/getMe"\n' "$tok" | curl -s --config -`),
@@ -346,16 +373,12 @@ process control, service changes, board changes, or Bloodbank activation.
   A role file's `skills:` loadout is part of this selection, never a second
   one: flume writes it as `<desk>/.skillex-selection/.agents/skills.json`
   (`sets`/`packs`, generated from the role) and runs `skillex profile sync
-  <name> --project <desk>/.skillex-selection --skillex-only`. flume never writes
+  <name> --project <desk>/.skillex-selection --skillex-only`, so the desk is the
+  global selection plus exactly that loadout. flume never writes
   `skills.external_dirs`, `<desk>/.agents/skills` or a copied payload into a desk.
-  Skillex's user-confirmed contract is **sets replace the canonical root and are
-  mutually exclusive; packs add member symlinks to an existing root and compose**.
-  Older role/CLI restrictions making packs exclusive are implementation drift,
-  not the meaning of a pack. Preview and stop on contradictory selection plans;
-  do not infer inheritance or shared-set mutation policy from old behavior.
-  Such a desk's project is the selection, so do not `profile sync` it against its
-  repo, and read its state with `skillex profile show <name>` (the receipt records
-  the project).
+  A pack is exclusive (one per role, never with a set). Such a desk's project is the
+  selection, so do not `profile sync` it against its repo, and read its state with
+  `skillex profile show <name>` (the receipt records the project).
 - **Catalog commits resync the desks by themselves.** A strict desk's Skillex
   receipt records the `all-skills` HEAD it was synced against, so every catalog
   commit leaves all of them `sync pending` (`skillex profile show` exit 6, one
@@ -377,6 +400,9 @@ process control, service changes, board changes, or Bloodbank activation.
   which quarantines the content under `~/.hermes/.skill-quarantine/<profile>/<stamp>/`,
   then run the resync again (`mise run hermes:resync` in the Skillex repo). Contract:
   `~/code/skillex/docs/implementation/hermes-skillex-resync.md`.
+  `flume audit --rules hermes.skillex-resync` is the guard on all of this: it fails
+  when strict desks exist and the units are missing, disabled or failed, the last
+  run is older than 2 h, or that run left a desk `refused` or `error`.
 - `flume roster` / `record` / `review` / `audit` are aggregate claims. Verify their
   result against `.project.json`, the registry row, real profile files, and exact
   systemd enabled/active/restart state before declaring success.
@@ -403,12 +429,170 @@ process control, service changes, board changes, or Bloodbank activation.
   `dataschema` / `schemaref` (§13 of `bloodbank/docs/event-naming.md`).
 - Bloodbank hook install is owned by Bloodbank's fan-out
   (`~/code/33GOD/bloodbank/services/agent-hooks/sync.py --install`). Generated
-  Hermes configs should call
-  `~/.agents/hooks/bloodbank/publish.py --client hermes --hook <event>`, not a
-  Hermes-local publisher.
+  Hermes configs should call the hook-hub client
+  `~/.agents/hooks/bb-hook --cli hermes --native <event>` (the legacy
+  `bloodbank/publish.py` only forwards to the hub), not a Hermes-local publisher.
 - Before a live command proof, audit the current target's Bloodbank registry
   eligibility. Never enable a target merely to make a smoke test pass; command
   dispatch invokes a real agent and requires explicit operational authority.
+
+## What a PM can do on an unattended Bloodbank turn
+
+Every command sent to a PM over Bloodbank (grooming, delegation, anything) runs
+as a turn on the `bloodbank` platform. The toolsets that turn gets come from
+`platform_toolsets.bloodbank` in the **target desk's generated `config.yaml`**
+(the gateway scopes each turn to the target profile, not to
+`fleet-bloodbank-gateway`).
+
+- **No list means no native tools, and nothing errors.** The bloodbank plugin
+  registers no toolset and PM desks do not enable it, so Hermes falls back to a
+  nonexistent `hermes-bloodbank` composite: MCP tools only. Grooming still works
+  (Plane MCP), so the fleet looked healthy while no PM could `delegate_task`,
+  read a file or run a command. Found on FLUME-25 (2026-09-29), fixed under
+  FLUME-26. Verify with Hermes' own resolver, not by reading YAML: run
+  `hermes_cli.tools_config._get_platform_tools(cfg, "bloodbank")` under the
+  target `HERMES_HOME`.
+- **Canonical list (fleet base, `~/.hermes/config.yaml`):** `delegation, skills,
+  todo, session_search, terminal, file, web`. Deliberately absent: `clarify` (no
+  human is present), `cronjob`, `kanban`, `code_execution`, `browser`.
+  `hermes.bloodbank-toolsets` asserts it.
+- **The tool deadline must outlast a delegation.** Hermes cuts every tool call at
+  `timeouts.tools.sequential_call` / `concurrent_batch` (stock **420 s**, `0`
+  disables, no per-tool key). A PM blocks inside `delegate_task` until its worker
+  returns, so a real worker outlasts 420 s: the call errors with `timed out after
+  420.0s`, **the worker keeps running detached**, and the PM, finding it still
+  alive, claims the ticket In Progress and ends its turn. `invocation.completed`
+  then fires while the work continues and nothing is left holding the lease. The
+  fleet base sets both to `1800` (= `agent.gateway_timeout`). It is generic, not
+  per tool, so it applies to every platform. A trivial worker finishes under 420 s
+  and hides the bug: prove dispatch with a worker that takes longer than seven
+  minutes.
+- **Delegation is synchronous here.** The adapter declares
+  `supports_async_delivery = False`, so `delegate_task` runs inline: the PM's
+  turn blocks until the worker returns and `invocation.completed` fires when the
+  work is done. A worker gets the PM turn's toolsets minus `delegation`,
+  `clarify`, `memory`, `send_message`, `cronjob` and `kanban`, so `terminal` and
+  `file` are on the PM's list **for its workers**. A worker can never exceed the
+  PM turn's own power.
+- **Routable non-PM employees stay restricted.** A reporter, legal assistant or
+  director that is routable over Bloodbank has always had no native tools. Pin
+  that in its `config.delta.yaml` with
+  `x-pjangler-merge: list_patches: platform_toolsets.bloodbank: remove: [...]`.
+  Do **not** write `platform_toolsets.bloodbank: []` in a delta: it works, but it
+  is exactly the list override `hermes.delta-list-override` reports.
+- **Rolling it out.** Edit the base, then `hermes-profile-config.py render
+  --profile <name>` per desk. Never `render --all` while legacy desks without a
+  `config.delta.yaml` exist (`check` lists them). If you script the loop in zsh,
+  iterate with `while IFS= read -r p`, not `for p in $VAR`: zsh does not
+  word-split, the whole list becomes one argument, and a `grep` on the error text
+  can look like success. Verify with `hermes-profile-config.py check`, not with
+  the renderer's own output line.
+- **Sessions are per ticket, so a config change reaches a ticket only when its
+  session rotates.** A ticket's grooming and delegation turns share one session
+  (`agent:<pm>:bloodbank:dm:bloodbank:<thread>`), and it keeps the tool schema it
+  was created with until `session_reset` (04:00 local or 24 h idle). A ticket
+  groomed before the fix cannot delegate after it, and looks exactly like the
+  bug. Prove a fix on a **fresh ticket**.
+- **Proving dispatch end to end.** File a ticket whose worker task has an answer
+  you compute yourself (e.g. `sha256sum` of a file and `wc -l` of another, read
+  only), move it to Todo, and read the PM's session from
+  `~/.hermes/profiles/fleet-bloodbank-gateway/state.db` (`sessions.title`,
+  `messages.tool_name`): expect a `delegate_task` call, a worker result matching
+  your numbers, a clean checkout, and a comment on the ticket. An `invocation.completed`
+  event alone proves nothing about the work.
+- **Known gaps.** Nothing structural stops a delegation turn from claiming a
+  ticket In Progress without a worker (the prompt's rule is prose only).
+  `max_inflight: 4` is a fleet-wide cap and a worker holds a slot for its whole
+  run. `agent.gateway_timeout: 1800` caps one turn at 30 minutes, so a delegation
+  that needs longer is cut regardless of the tool deadline.
+- **Workers go through the AutomaticAI gateway, not a direct provider.** Policy: all
+  agent inference uses `api.automaticai.io` (skills `automaticai-provider-gateway`
+  and `automaticai-provider-gateway-lazy-migration-strategy`). Workers used to run on
+  `deepseek/deepseek-v4-flash` via paid OpenRouter (median 41 s per call, max 319 s:
+  a reconcile-sized task took ~36 min and outlived its PM's turn). The fleet base now
+  has a **named provider**, `providers.automaticai` (`api: https://api.automaticai.io/v1`,
+  `key_env: AUTOMATICAI_GATEWAY_KEY`, `extra_body: {reasoning_effort: high}`), and
+  `delegation.provider: automaticai`, `delegation.model: automaticai/personal/kimi-2.8`
+  with `base_url` and `api_key` left EMPTY. The same task takes ~4 min.
+  `hermes.gateway-routing` asserts all of it -- and, since 2026-09-30, every OTHER
+  inference path too: the main `model`, every `auxiliary.<task>` (absent = `auto`,
+  compliant behind a gateway main with `auxiliary.free_only: true` and
+  `auxiliary.discovery: false`), enabled MoA presets and the fallback chain.
+  Why it is built this way, and what each
+  wrong turn does:
+  - **Named provider + `key_env`, never `base_url` + `${VAR}`.** `key_env` resolves
+    through Hermes' per-turn, per-profile secret scope, so under the multiplexed
+    Bloodbank gateway each desk's OWN key is used. A `${VAR}` in a config value reads
+    plain `os.environ`, which never holds a desk's own key there, and stays a literal
+    `${...}` string when unset. And with `delegation.base_url` set and no `api_key`,
+    Hermes has the child **inherit the PARENT's key**: a desk's direct Kimi key would
+    be sent to the gateway.
+  - **Effort must ride on the provider.** Hermes sends `reasoning_effort` only when
+    the child's provider is literally `custom`, but a delegated child is handed the
+    configured NAME, so `delegation.reasoning_effort` never reaches the gateway and the
+    route default applies (`kimi-2.8` = `max`, which spent a whole 600-token budget
+    thinking). `extra_body` on the provider entry is merged into every request and does
+    arrive. It applies to any agent using that provider.
+  - **One token per fleet member, with a fleet fallback.** The base maps
+    `secrets.onepassword.env.AUTOMATICAI_GATEWAY_KEY` to the FLEET token
+    (`hermes-fleet-workers`). A member overrides that one line in its
+    `config.delta.yaml` with its own `op://.../hermes-<profile>` for per-member tracking;
+    a desk without one inherits the fleet token. `scripts/gateway-member-tokens.py`
+    mints the tokens and writes those lines (`--apply --render`; dry run by default; it
+    verifies its own delta edits and never restarts anything).
+  - **Restart to pick up a new key.** Secrets are applied at process start (`1Password:
+    applied N secrets` in `logs/gateway.systemd.log`; `/proc/<pid>/environ` will not
+    show it). The fleet Bloodbank gateway hydrates each target profile's secrets once
+    per process, so a token changed in a delta needs that gateway restarted, as does
+    the desk's own Telegram/Slack gateway.
+  - **The gateway's login is the bottleneck for minting tokens.** `gateway-tokens.py`
+    logs in as `delo-relay` on every call and never logs out, which hits three limits:
+    a fixed-window login limiter (429, roughly 20 per 20 minutes, so 26 mints span two
+    or three windows: the script waits them out), a cap of **50 active sessions** (409
+    `AUTH_SESSION_LIMIT`; sessions live 30 days and each call leaks one), and a token
+    name limit (`aai:<consumer>:<19 digits>` over 50 characters is refused with "gateway
+    refused operation", so a consumer name may not exceed 26 characters; the script
+    shortens long profile names with a hash). When the cap is hit, revoke the idle leaked
+    sessions with exactly what the application writes: `update user_sessions set
+    status='revoked', revoked_at=<now>, revoked_reason='gateway_ops_leaked_session'` for
+    `delo-relay`, active and idle for ten minutes or more, in one transaction (the API only
+    lets a user revoke their own sessions, and the admin paths reset passwords or demote).
+    API-key traffic does not depend on login sessions and is unaffected. Do it after a
+    mint batch, not during one.
+  - **Prove it from the gateway ledger, not the config:**
+    `docker exec newapi-postgres psql -U newapi -d newapi`, table `logs`,
+    `token_name like 'aai:hermes-<profile>:%'`; `other::json` carries
+    `automaticai_account`, `upstream_model_name`, `automaticai_requested_effort` and
+    `automaticai_effort_defaulted`. Expect `kimi-personal`, `kimi-for-coding`, `high`,
+    `defaulted=false`, quota 0 (subscription), and the member's own consumer name.
+  - **The primary model and the fallback chain go through the gateway too (2026-09-30).**
+    One ordered list: `model:` is entry 1 (`provider: automaticai`), `fallback_providers`
+    the rest. The owner's order: `sol-6.1`, `claude-sonnet-5.5` (personal, pending
+    DELO-8), `glm-5.3`, `claude-sonnet-5.5` (Intelliforia, pending DELO-8), `kimi-2.8`
+    LAST. Live today: `sol-6.1`, `glm-5.3`, `kimi-2.8`. Facts that shaped it:
+    - **Kimi's weekly limit exhausts all three Kimi routes at once** (HTTP 403, one
+      `kimi-personal` account; recurring since 09-09) and every PM primary was direct
+      Kimi, so every Bloodbank turn failed. Until then the fleet had NO working
+      fallback (`openai-codex` was `relogin_required`, no OpenRouter key reached the
+      gateway process), which is why it never fired.
+    - **Hermes calls a 403 "non-retryable" but still tries the fallback.** Proved live:
+      primary `kimi-2.8` 403, then `Fallback activated: kimi-2.8 -> glm-5.3` in
+      `agent.log`, and both rows in the gateway ledger under the desk's own consumer.
+      To prove a change, force one desk's primary onto a route that is 403 right now.
+    - **Under the multiplexed Bloodbank gateway the chain comes from the GATEWAY
+      PROCESS's own `config.yaml`** (`gateway/run.py` `_refresh_fallback_model` reads the
+      process-level `_hermes_home`), not from the target desk's. After a base chain change
+      re-render `fleet-bloodbank-gateway`; a per-desk chain override only reaches that
+      desk's OWN gateway, not Bloodbank turns. The primary `model:` IS read per target desk.
+    - **Effort differs by path.** Provider `extra_body.reasoning_effort` is not sent on
+      the fallback path (ledger `automaticai_effort_defaulted=true`: the route default
+      applies, `glm-5.3` = max), and `agent.reasoning_effort: max` in the base applies to
+      every main agent, so a PM on `sol-6.1` thinks at max.
+    - **Every route must exist in the gateway catalog** (`ops/routes.json`); an unknown name
+      answers 400 and, in a fallback, stays silent until the fallback is needed.
+  Still direct: `auxiliary.*` tasks, MoA, and any desk whose delta pins its own primary
+  (`james-brennan-pm`: `openai-codex`). Measure worker speed as `assistant`-to-`assistant` gaps in the worker's session
+  (`sessions.parent_session_id` = the PM's session) before promising a task will finish.
 
 ## Named agents (posts vs. people)
 
