@@ -24,6 +24,7 @@ Check visibility first: `gh repo view <owner/repo> --json visibility`.
 | delonet-px-r1 | repo `delorenj/pilot` | big-chungus, `~/actions-runner/px1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-pilot.delonet-px-r1.service` |
 | delonet-hmob-r1 | repo `delorenj/heyma-obsidian` | big-chungus, `~/actions-runner/hmob1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-heyma-obsidian.delonet-hmob-r1.service` |
 | delonet-deck-r1 | repo `delorenj/deckard` (private) | big-chungus, `~/actions-runner/deck1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-deckard.delonet-deck-r1.service` |
+| delonet-deck-r2 | repo `delorenj/deckard` (private) | big-chungus, `~/actions-runner/deck2` (`.env` copied from deck1 for the cargo PATH) | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-deckard.delonet-deck-r2.service` |
 | delonet-dsid-r1 | repo `delorenj/docsidian` (private) | big-chungus, `~/actions-runner/dsid1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-docsidian.delonet-dsid-r1.service` |
 | delonet-chsc-r1 | repo `delorenj/ChoreScore` (private) | big-chungus, `~/actions-runner/chsc1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-ChoreScore.delonet-chsc-r1.service` |
 | delonet-dcom-r1 | repo `delorenj/delonet-company` (private) | big-chungus, `~/actions-runner/dcom1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-delonet-company.delonet-dcom-r1.service` |
