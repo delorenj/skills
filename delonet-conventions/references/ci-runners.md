@@ -50,7 +50,16 @@ sudo ./svc.sh install delorenj && sudo ./svc.sh start
 gh api repos/<owner>/<repo>/actions/runners --jq '.runners[] | [.name,.status] | @tsv'
 ```
 
-Then add a row to the inventory above. Moving the repo into an org that already
+Then add a row to the inventory above.
+
+Gotchas on this host (found bringing up deckard, 2026-10-22):
+- The service captures the installing shell's PATH, where mise shims precede
+  `~/.cargo/bin` and `rustup` is a broken shim. A Rust repo's runner needs
+  `PATH=$HOME/.cargo/bin:...` in its `.env` (see `~/actions-runner/deck1/.env`),
+  then `sudo ./svc.sh stop && sudo ./svc.sh start`.
+- mise refuses an untrusted `mise.toml`: set `MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}` in the workflow env.
+- Docker's default address pools on big-chungus are fully subnetted, so `docker network create` fails. A
+  `services:`/`container:` block cannot start; use a plain `docker run -p` step and remove it in an `if: always()` step. Moving the repo into an org that already
 has runners also works, but that is the user's call.
 
 ## macOS (planned)
