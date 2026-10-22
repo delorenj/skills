@@ -38,7 +38,8 @@ voxxy voice info peter                    # persona + effective (voxxy | frontma
 ```
 
 API: `PUT https://vox.delo.sh/voices/{name}/persona` with JSON `{"persona": "<slug>" | "none" | null}`
-(API-key auth like every mutating endpoint). 404 unknown voice, 422 bad slug (`^[A-Za-z0-9][A-Za-z0-9_.-]*$`).
+(API-key auth like every mutating endpoint). 404 unknown voice, 422 bad slug (`^[A-Za-z0-9][A-Za-z0-9_.-]*$`);
+`none` is case-normalized to the literal `none`.
 `GET /voices` and the MCP `list_voices_tool` return `persona`. Re-uploading a voice clip keeps its persona.
 The server stores only the slug; it never reads persona files, so a slug with no file just resolves to nothing
 (the CLI warns when setting a slug that is not bundled).
@@ -51,12 +52,16 @@ The server stores only the slug; it never reads persona files, so a slug with no
 1. profile `tts.persona.file`
 2. profile `tts.persona.name`
 3. **voxxy voice record** (`GET {base}/voices/{voice}`) - only when `auto_from_voice` is true (default), a voice is set,
-   and the provider is `vox` or unspecified. `none` stops here with no persona.
+   and the provider is `vox` or unspecified. `none` stops here with no persona. For provider `vox` the voice is
+   `$VOX_VOICE` when set (the TTS provider's own per-process pin), else the configured `tts.voice`.
 4. persona-file frontmatter `voices: [peter]` (bundled: peter -> peter-griffin, carlin -> george-carlin, brule -> steve-brule)
 
-Any voxxy lookup failure (network, 404, bad JSON, bad slug) logs once and falls through to 4. A voxxy slug whose
+Any voxxy lookup failure (network, 404, bad JSON, bad slug, or no answer within the 3s hard deadline) logs once and
+falls through to 4. A voxxy slug whose
 file is missing yields no persona (logged once), not a fallback. Results are cached in memory 60s per (base, voice),
-so a change reaches a running gateway within about a minute with no restart.
+so a change reaches a running gateway within about a minute with no restart - provided the gateway process has loaded
+the plugin code that knows about the voxxy record (commit 46f5da6 or later). A gateway started before that only uses
+frontmatter and needs one batched `hermes-gateway-restart` to pick the new code up.
 
 ## Enable it for a Hermes profile
 
@@ -65,7 +70,9 @@ so a change reaches a running gateway within about a minute with no restart.
 2. Enable + configure via the profile's `config.delta.yaml` (config.yaml is generated from base + delta; see
    `agent-fleet-operations` / `flume`):
    ```yaml
-   plugins: {enabled: [voice-persona]}   # or list_patches.plugins.enabled add: [voice-persona]
+   x-pjangler-merge:
+     list_patches:
+       plugins.enabled: {add: [tts/vox, voice-persona]}
    tts:
      persona:
        enabled: true        # master switch, default false = no-op
