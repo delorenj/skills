@@ -24,9 +24,10 @@ function reply(status, summary, details = [], evidence = []) {
   return { schemaVersion: API_VERSION, status, summary, details: [...details, PRESERVATION], evidence };
 }
 function isObject(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }
-function runPython(python, args) {
+function runPython(python, args, cwd) {
   return new Promise((done) => {
     const child = spawn(python, ["-B", ...args], {
+      ...(cwd ? { cwd } : {}),
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1", PYTHONSAFEPATH: "" },
     });
@@ -139,6 +140,12 @@ async function observeState(projectRoot, moduleRoot, options, python) {
     `managed config.yaml g33 section present`, `help rows present in ${relative(projectRoot, help)}`];
   const customizationResolver = join(bmad, "scripts/resolve_customization.py");
   if (!existsSync(customizationResolver)) return reply("unavailable", "real customization resolver absent: installed override merge cannot be verified", [], evidence);
+  // Pre-6.12 BMAD resolvers take no --project-root and find the root from the
+  // skill's REAL path, so a catalog-linked skill resolves in the wrong project.
+  const resolverHelp = await runPython(python, [customizationResolver, "--help"], projectRoot);
+  if (!resolverHelp.stdout.includes("--project-root")) {
+    return reply("unavailable", "BMAD customization resolver predates --project-root (BMAD < 6.12): installed override merge cannot be verified; upgrade BMAD", [], evidence);
+  }
   let observed = 0;
   for (const name of SKILLS) {
     const skill = SKILL_SURFACES.map((rel) => join(projectRoot, rel, name))
@@ -149,7 +156,7 @@ async function observeState(projectRoot, moduleRoot, options, python) {
     const required = audit.payload.required_customizations?.[name];
     if (!isObject(required) || !Object.keys(required).length) return reply("error", `owner-required customization mapping missing for ${name}`, [], evidence);
     const merged = await runPython(python, [customizationResolver, "--skill", skill,
-      "--project-root", projectRoot, ...Object.keys(required).flatMap((key) => ["--key", `workflow.${key}`])]);
+      "--project-root", projectRoot, ...Object.keys(required).flatMap((key) => ["--key", `workflow.${key}`])], projectRoot);
     let data;
     try { data = JSON.parse(merged.stdout); } catch { /* handled below */ }
     if (merged.code !== 0 || !isObject(data)) return reply("error", `real customization resolver failed for ${name}`, [merged.stderr.trim() || `resolver exit ${merged.code}`], evidence);
