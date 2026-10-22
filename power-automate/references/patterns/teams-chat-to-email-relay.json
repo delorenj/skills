@@ -29,7 +29,7 @@
           "or": [
             { "equals": ["@triggerBody()?['conversationId']", "<MEETING_CHAT_ID_1>"] },
             { "equals": ["@triggerBody()?['conversationId']", "<MEETING_CHAT_ID_2>"] },
-            { "endsWith": ["@triggerBody()?['conversationId']", "@unq.gbl.spaces"] }
+            { "endsWith": ["@triggerBody()?['conversationId']", "@@unq.gbl.spaces"] }
           ]
         },
         "actions": {

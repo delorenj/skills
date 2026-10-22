@@ -32,6 +32,10 @@ validator and templates.
 6. Every `runAfter` must name an existing action. No `@odata.bind` parameter suffixes.
 7. Connection references use `"source": "Embedded"`. `Invoker` fails with
    `InvokerConnectionOverrideFailed` when the flow is run by API.
+8. Any JSON string that starts with `@` is parsed as an expression. A literal that starts with
+   `@` (for example the 1:1 chat suffix `@unq.gbl.spaces` as a condition operand) must be written
+   `@@unq.gbl.spaces`, or kept inside an expression as `'@unq.gbl.spaces'`. `validate_flow`
+   does not catch this; the save fails with a template error.
 
 ```json
 "connectionReferences": {
