@@ -766,6 +766,35 @@ def project_root_override(target: Path) -> Path:  # helper kept for symmetry
 
 # ==================== Fixture activation via Skillex (reference-only pack)
 
+def node_skillex() -> str | None:
+    """The canonical Node Skillex CLI, never the first `skillex` on PATH.
+
+    Inside the skillex checkout `uv run` puts the legacy Python CLI
+    (.venv/bin/skillex, no --registry-root) ahead of the Node one, so pick by
+    capability. SKILLEX_BIN overrides.
+    """
+    override = os.environ.get("SKILLEX_BIN", "").strip()
+    candidates = [override] if override else [
+        str(Path(entry) / "skillex") for entry in os.environ.get("PATH", "").split(os.pathsep) if entry]
+    for candidate in candidates:
+        if not os.access(candidate, os.X_OK):
+            continue
+        probe = subprocess.run([candidate, "--help"], capture_output=True, text=True, check=False)
+        if probe.returncode == 0 and "--registry-root" in probe.stdout:
+            return candidate
+    return None
+
+
+def outside_source_tree(tmp_path: Path) -> Path:
+    """A scratch dir with no .git ancestor: Skillex refuses activation receipts
+    under a source repository (E_RECEIPT_UNSAFE_PATH), and TMPDIR may sit in one."""
+    for base in (tmp_path, Path(tempfile.gettempdir()), Path("/tmp"), Path("/var/tmp")):
+        base = base.resolve()
+        if base.is_dir() and not any((parent / ".git").exists() for parent in (base, *base.parents)):
+            return Path(tempfile.mkdtemp(prefix="g33-activation-", dir=base))
+    pytest.skip("no scratch directory outside a git work tree for Skillex receipts")
+
+
 def test_reference_only_fixture_activation(tmp_path):
     """Module activation through Skillex CLI in an isolated fixture.
 
@@ -774,9 +803,17 @@ def test_reference_only_fixture_activation(tmp_path):
     observes the activated symlink via `skillex status` — read-only on the
     live repo except the fixture directory itself.
     """
-    skillex_bin = shutil.which("skillex")
+    skillex_bin = node_skillex()
     if skillex_bin is None:
-        pytest.skip("skillex CLI not on PATH")
+        pytest.skip("Node skillex CLI (with --registry-root) not on PATH; set SKILLEX_BIN")
+    scratch = outside_source_tree(tmp_path)
+    try:
+        _activate_fixture(skillex_bin, scratch)
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def _activate_fixture(skillex_bin: str, tmp_path: Path) -> None:
     isolated_home = tmp_path / "activation-home"
     isolated_home.mkdir()
     activation_env = {
