@@ -12,7 +12,8 @@ semver across every entry; writes push that version into all entries.
 | `csproj` | `*.csproj` | first `<Version>…</Version>` | `sed` first match | `X.Y.Z` |
 | `gradle` | `build.gradle(.kts)` | first `version = "…"` / `version '…'` | `sed` first match | `X.Y.Z` |
 | `plain` | `VERSION`, `version.txt` | first line | overwrite whole file | `X.Y.Z` |
-| `gittag` | the repo itself (path `.`) | highest `v*` tag | `git tag -a vX.Y.Z` | `vX.Y.Z` |
+| `gittag` | the repo itself (path `.`) | highest `<prefix>*` tag (default `v`) | `git tag -a <prefix>X.Y.Z` | `<prefix>X.Y.Z` |
+| `obsidian` | an Obsidian plugin's `manifest.json` | `jq .version` | `jq`, plus `versions.json` gains `X.Y.Z -> minAppVersion` | `X.Y.Z` |
 
 ## Why anchored patterns matter
 
@@ -35,3 +36,21 @@ file is absent, so `check`/`sync` never crash on a partially-present monorepo.
 exists (so re-running a sync is safe). Tags are local until pushed — bumping does not
 `git push --tags`. If a release flow needs the tag remote, push it explicitly after the bump,
 or wrap the bump task with a follow-on push step.
+
+**Tag prefix.** An optional third column sets the prefix: `gittag . app-v` reads the newest
+`app-v*` tag and bumps by creating `app-vX.Y.Z`. Use it when a repo's release tags are not bare
+`v*` (one tag namespace per app in a monorepo, or a hub that tags `navi-v0.2.17`). `current`
+still prints `vX.Y.Z`.
+
+## readonly
+
+A manifest line `readonly <reason>` declares that something else owns the version — a release
+pipeline that computes and pushes the tag. `version`, `version:check` and `files` keep working;
+`version:bump*`, `set` and `sync` exit nonzero and print `<reason>`, so a habitual
+`mise run version:bump` can't mint a tag the pipeline never made. Example (Navi, whose mobile
+deploy hub pushes `navi-v*`):
+
+```
+readonly Navi's version is the deploy hub's navi-v* tag. Ship with `mise run deploy`.
+gittag . navi-v
+```

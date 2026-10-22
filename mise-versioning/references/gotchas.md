@@ -11,6 +11,10 @@ property like `<VersionPrefix>`, a JS file exporting a string).
 **Fix:** run `.mise/scripts/versioning.sh files` to see what's tracked. Add the missing file to
 the manifest with the right type, or — if no built-in type matches its layout — add a `plain`
 `VERSION` file as the canonical source and let the others drift-check against it.
+**Prefixed tags:** a repo tagged `app-v1.2.3` (not `v1.2.3`) reads `v0.0.0` from a bare
+`gittag .` line — give it the prefix: `gittag . app-v`. If a pipeline, not you, owns those tags,
+add `readonly <reason>` too (see file-types.md). And remember tags are local: a clone that
+never fetched the newest release tag reports the previous version until `git fetch --tags`.
 **Why it matters:** `current` and every bump derive from the manifest only; an untracked file is
 invisible and will silently fall out of parity.
 

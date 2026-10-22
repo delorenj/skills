@@ -89,7 +89,8 @@ a stray un-bumped file can never silently lower the version.
 
 ## Supported file types
 
-`json` · `toml` · `cargo` · `csproj` · `gradle` · `plain` · `gittag`. Read/write rules, the
+`json` · `toml` · `cargo` · `csproj` · `gradle` · `plain` · `gittag` (optional tag prefix) ·
+`obsidian`, plus a `readonly <reason>` line for repos whose version a release pipeline owns. Read/write rules, the
 column-0 anchoring that protects dependency pins, and how to add a new type are in
 [references/file-types.md](./references/file-types.md).
 
