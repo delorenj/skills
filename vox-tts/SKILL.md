@@ -15,6 +15,8 @@ metadata:
 
 A self-hosted TTS service at **<https://vox.delo.sh>** wrapping VoxCPM2 with a postgres-backed voice profile store and support for multiple engines. Deployed at `~/code/voxxy` (core: `compose.yml`, GPU engines: `compose.engines.yml` — both engine containers must be up or clones degrade silently, see below).
 
+> Persona voices (make a voice talk like a character, `voxxy persona`, `voxxy speak --persona`): see [vox-voice-persona](../vox-voice-persona/SKILL.md).
+
 ## Quick reference
 
 | Action                                                          | How                                                                         |
