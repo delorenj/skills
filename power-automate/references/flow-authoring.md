@@ -73,13 +73,13 @@ From Microsoft's connector reference and FlowAgent's built-in templates. Confirm
 | Connector | Operation | operationId | Kind |
 | --- | --- | --- | --- |
 | Teams | When a new chat message is added (any chat the owner is in) | `WebhookChatMessageTrigger` | webhook trigger; outputs `value[]` of `conversationId`, `messageId`, `linkToMessage` |
-| Teams | When a new message is added to a chat or channel | `WebhookNewMessageTrigger` | webhook trigger; `threadType` + dynamic `requestBody` |
+| Teams | When a new message is added to a chat or channel | `WebhookNewMessageTrigger` | webhook trigger; `threadType` (`groupchat`\|`channel`) + dynamic `requestBody`: channel = `requestBody/groupId` + `requestBody/channels` (array, 1-10 ids) |
 | Teams | When a new channel message is added (root posts only, 3-minute poll) | `OnNewChannelMessage` | polling trigger |
 | Teams | When I'm @mentioned / When keywords are mentioned | `WebhookAtMentionTrigger` / `WebhookKeywordTrigger` | webhook triggers |
 | Teams | When a Teams webhook request is received | `TeamsIncomingWebhookTrigger` | standard-licence webhook trigger; answers 202 when queued |
 | Teams | Post message in a chat or channel | `PostMessageToConversation` | `poster` (`Flow bot`/`User`), `location` (`Channel`, `Group chat`, `Chat with Flow bot`), `body/recipient`, `body/messageBody` |
 | Teams | Post card in a chat or channel | `PostCardToConversation` | channel target `body/recipient/groupId` + `body/recipient/channelId`, card in `body/messageBody` |
-| Teams | Get message details | `GetMessageDetails` | `messageId`, `threadType`, recipient |
+| Teams | Get message details | `GetMessageDetails` | `messageId`, `threadType` (`groupchat` for ANY chat id incl. 1:1 and meeting chats, or `channel`), `body/recipient` (chat id) or `body/recipient/groupId` + `body/recipient/channelId` |
 | Outlook | Send an email (V2) | `SendEmailV2` | `emailMessage/To`, `emailMessage/Subject`, `emailMessage/Body` |
 | Outlook | When a new email arrives (V3) | `OnNewEmailV3` | polling trigger |
 
@@ -146,3 +146,14 @@ connection in as a person (posting "as User") happens when the connection is cre
 not in the definition. When a repository documents a specific workflow (IntelliForia's forum
 workflow: `docs/guides/teams-team-channel.md` in that repo), read that guide first and change
 only the step it describes.
+
+## Dynamic-schema parameters (verified live 2026-10-22)
+
+- A parameter whose schema is dynamic (`body`, `requestBody`) only accepts path keys
+  (`body/recipient/...`) when every parent it depends on is a LITERAL. `threadType` as an
+  expression makes the save fail with "missing required property 'body'".
+- Never guess the inner keys. Resolve them: `pa call invoke_operation --arg connector=shared_teams
+  --arg connection=<teams conn> --arg operation=<XxxInputSchema|GetWebhookTriggerRequestSchema>
+  --arg 'params={"threadType":"channel"}'` (the argument is `params`, not `parameters`).
+- The live Teams connector offers only `groupchat` and `channel` for `threadType`; there is no `chat`.
+- `list_flows` takes `top` <= 50.

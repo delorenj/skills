@@ -18,8 +18,8 @@
           },
           "parameters": {
             "threadType": "channel",
-            "requestBody/<RESOLVE_GROUP_KEY>": "<TEAM_GROUP_ID>",
-            "requestBody/<RESOLVE_CHANNEL_KEY>": "<CHANNEL_ID>"
+            "requestBody/groupId": "<TEAM_GROUP_ID>",
+            "requestBody/channels": ["<CHANNEL_ID>"]
           }
         }
       }
