@@ -22,6 +22,7 @@ Check visibility first: `gh repo view <owner/repo> --json visibility`.
 | delonet-gib-r1 | repo `delorenj/green-in-between` | big-chungus, `~/actions-runner/gib1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-green-in-between.delonet-gib-r1.service` |
 | delonet-holo-r1 | repo `delorenj/holocene` | big-chungus, `~/actions-runner/holo1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-holocene.delonet-holo-r1.service` |
 | delonet-px-r1 | repo `delorenj/pilot` | big-chungus, `~/actions-runner/px1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-pilot.delonet-px-r1.service` |
+| delonet-hmob-r1 | repo `delorenj/heyma-obsidian` | big-chungus, `~/actions-runner/hmob1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-heyma-obsidian.delonet-hmob-r1.service` |
 | big-chungus-earshot | repo `delorenj/earshot` | big-chungus, `~/actions-runner/earshot1` (started through `runsvc-op.sh`) | `self-hosted, Linux, X64, earshot, delonet` | `actions.runner.delorenj-earshot.big-chungus-earshot.service` |
 | (none) | macOS | -- | -- | planned; iOS builds wait on it |
 
