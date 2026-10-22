@@ -1,0 +1,19 @@
+{
+ "type": "function",
+ "function": {
+  "name": "car_set_voice",
+  "description": "Change the voice the car desk speaks this tile's replies in (car only, persisted). Voices: brule, carlin (George Carlin), damian, david, dumply, marge (Marge Simpson), morgan (Morgan Freeman), morty, peter (Peter Griffin), rick (Rick Sanchez), walken (Christopher Walken), walken2 ('walken two'). 'default' goes back to the default voice.",
+  "parameters": {
+   "type": "object",
+   "properties": {
+    "voice": {
+     "type": "string",
+     "maxLength": 64,
+     "description": "A vox voice name or display name (walken, walken2, 'Morgan Freeman'), or 'default'."
+    }
+   },
+   "required": ["voice"],
+   "additionalProperties": false
+  }
+ }
+}
