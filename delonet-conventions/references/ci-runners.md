@@ -14,7 +14,7 @@ The rule is **no PAID runners**; the budget is $0 (operator, 2026-10-01).
 
 Check visibility first: `gh repo view <owner/repo> --json visibility`.
 
-## Inventory (verified 2026-10-01)
+## Inventory (verified 2026-10-22)
 
 | runner | scope | host | labels | service |
 | --- | --- | --- | --- | --- |
@@ -23,7 +23,10 @@ Check visibility first: `gh repo view <owner/repo> --json visibility`.
 | delonet-holo-r1 | repo `delorenj/holocene` | big-chungus, `~/actions-runner/holo1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-holocene.delonet-holo-r1.service` |
 | delonet-px-r1 | repo `delorenj/pilot` | big-chungus, `~/actions-runner/px1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-pilot.delonet-px-r1.service` |
 | delonet-hmob-r1 | repo `delorenj/heyma-obsidian` | big-chungus, `~/actions-runner/hmob1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-heyma-obsidian.delonet-hmob-r1.service` |
+| delonet-deck-r1 | repo `delorenj/deckard` (private) | big-chungus, `~/actions-runner/deck1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-deckard.delonet-deck-r1.service` |
+| delonet-dsid-r1 | repo `delorenj/docsidian` (private) | big-chungus, `~/actions-runner/dsid1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-docsidian.delonet-dsid-r1.service` |
 | big-chungus-earshot | repo `delorenj/earshot` | big-chungus, `~/actions-runner/earshot1` (started through `runsvc-op.sh`) | `self-hosted, Linux, X64, earshot, delonet` | `actions.runner.delorenj-earshot.big-chungus-earshot.service` |
+| big-chungus-gruvato, big-chungus (pile-of-dumb-things) | repos `delorenj/gruvato`, `delorenj/pile-of-dumb-things` | big-chungus, `~/actions-runner/gruvato1` (others not inventoried here) | see `gh api repos/<repo>/actions/runners` | `actions.runner.delorenj-gruvato.big-chungus-gruvato.service` |
 | (none) | macOS | -- | -- | planned; iOS builds wait on it |
 
 `delorenj/pjangler` (public) runs all CI on free GitHub-hosted runners since PJAN-164, 2026-10-01; its repo runner delonet-pjan-r1 is retired.
