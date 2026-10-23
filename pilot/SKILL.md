@@ -1,8 +1,9 @@
 ---
 name: pilot
 description: >-
-  Drive Plane boards from the command line with `px` (alias of `pilot`), the 33GOD Plane CLI. Use
-  whenever a task reads or writes tickets on a Plane board from a repo: listing what's in scope,
+  Drive Plane and Trello boards from the command line with `px` (alias of `pilot`), the 33GOD
+  board CLI. Use whenever a task reads or writes tickets on a Plane or Trello board from a repo
+  (IntelliForia's INT board is Trello; the same commands and --json work there): listing what's in scope,
   creating a todo or backlog item, claiming, releasing, closing, cancelling or commenting on a
   ticket, moving it to a named lane, capturing a board's schema (states, labels, modules, feature
   toggles) and replaying it onto a fresh board in seconds, or checking which board and mode the
@@ -17,11 +18,13 @@ description: >-
 pipeline-status: new
 ---
 
-# pilot (`px`): the Plane CLI for agents
+# pilot (`px`): the Plane and Trello CLI for agents
 
-`px` is a zero-dependency Node CLI that wraps the Plane API. It exists so an
-agent can read and write a repo's ticket board without knowing the board's
-UUID, where the credential lives, or how Plane's REST surface is shaped.
+`px` is a zero-dependency Node CLI that wraps the Plane and Trello APIs. It
+exists so an agent can read and write a repo's ticket board without knowing the
+board's id, where the credential lives, or how the provider's REST surface is
+shaped. `.project.json` `ticket_provider.type` picks the provider; a Trello
+repo runs the same commands with the same `--json` (see "Trello boards").
 
 **Run it with `--json`.** Every command emits one JSON document on stdout, and
 in `--json` mode nothing else is written there, not even for a bad flag.
@@ -54,9 +57,9 @@ px idea list                                                                    
 px idea flush                                                                            # deliver ideas still queued locally (~/.local/state/pilot/ideas)
 px schema export [-f FILE]                                                               # dump the board's schema as JSON
 px schema import [-f FILE]                                                               # apply a schema (no -f: your configured default); managed boards: --dry-run only
-px identity verify --employee ID --key-ref op://... --user-id UUID [--board UUID|IDENT]  # prove a key is exactly that employee's native Plane user and a member of the board; secret-free result
+px identity verify --employee ID --key-ref op://... --user-id UUID [--board UUID|IDENT]  # prove a key is exactly that employee's native Plane user and a member of the board; secret-free result (Plane boards)
 px board list                                                                            # boards in the workspace
-px whoami                                                                                # show the resolved binding and the board's mode
+px whoami                                                                                # show the resolved binding, the board's provider and mode
 ```
 
 On a Krebs-managed board the verbs above take the Krebs flags and an -f payload instead of -m, --state, --dry-run, -d, -l, --parent and --priority; px <command> --help there lists them.
@@ -64,7 +67,7 @@ On a Krebs-managed board the verbs above take the Krebs flags and an -f payload 
 **Legacy boards only (no Krebs execution block: every board today)**
 
 ```bash
-px identity comment <ref> -m MSG --idempotency-key KEY --employee ID --key-ref op://... --user-id UUID  # verify, then post one marked comment as that employee; reconciles by marker before any retry
+px identity comment <ref> -m MSG --idempotency-key KEY --employee ID --key-ref op://... --user-id UUID  # verify, then post one marked comment as that employee; reconciles by marker before any retry (Plane boards)
 px todo create "<title>"                                                                                # add to immediate scope (Todo)
 px backlog create "<title>"                                                                             # add to the backlog
 px move <ref> <state> [-m MSG]                                                                          # set a ticket's state by name; nothing else changes
@@ -111,6 +114,34 @@ Every board is legacy today: Krebs is installed but no board is enrolled.
 A command that does not run on the current board fails with a message that
 names the legacy equivalent or says there is none, e.g. `px task handoff` on a
 legacy board points at `px move <ref> <next lane> -m MSG`.
+
+## Trello boards
+
+When `ticket_provider.type` is `trello` (IntelliForia), px drives the Trello
+board with the same verbs and `--json` keys (`sequence_id` is the card number:
+`INT-421` is card 421; `state` is the list id). What differs:
+
+- **Lanes come from the repo's `.momo/config.json` lane map** (Momo's file;
+  px only reads it). Lists map to bands: backlog, unstarted, started,
+  in_review (reported as group `started`), completed, cancelled.
+- **Strict lanes.** `claim` lands on "In Progress" and `close` on the one
+  completed list by name. `release` and `todo create` need the band's
+  `write_targets` entry in that map; on INT none is named yet, so they refuse
+  and say so: pass `--state Priority` (or `--state Assigned`), never expect px
+  to pick.
+- **Drift refuses.** If a list the map names was renamed in Trello, commands
+  touching that band fail with `code: lane_map_drift`. Fix the map, not px.
+- **cancel** on a board with no Cancelled list archives the card and labels it
+  `cancelled`; `task list` still counts it, and `move`/`claim`/`release`/`close`
+  revive it. A card someone archived by hand is refused for writes.
+- `--priority` becomes a label (`High priority` / `priority:high`), `--parent`
+  a `Parent: <title>` link on the new card, and `px show` also takes a card id
+  or a `trello.com/c/` link.
+- `px show INT-421` works from any repo (through the pjangler registry), and
+  `px show PX-17` works from IntelliForia. `px idea` still files on PX.
+- Plane only: `px identity`, Krebs commands, modules. On a real board run only
+  reads; the Trello scratch board for live writes is pilot's
+  `test/board-trello` (`mise run px:test:trello -- <args>`).
 
 ## Working a ticket
 
@@ -188,7 +219,10 @@ every agent in a repo resolves to the same board.
 command targets the wrong board.
 
 Credentials come from `PLANE_API_KEY`, or an `op://` reference read through
-the 1Password CLI at the moment of use. A raw key is never written to disk.
+the 1Password CLI at the moment of use. On a Trello board they are
+`TRELLO_API_KEY` and `TRELLO_TOKEN` (values or `op://` references), never
+`PLANE_*`, and px never reads `TRELLO_BOARD_ID`. A raw key is never written to
+disk, and `px whoami` never prints one.
 
 ## The idea box: read this part
 
