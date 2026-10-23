@@ -64,6 +64,14 @@ px whoami                                                                       
 
 On a Krebs-managed board the verbs above take the Krebs flags and an -f payload instead of -m, --state, --dry-run, -d, -l, --parent and --priority; px <command> --help there lists them.
 
+**Documents (no board binding; runs from anywhere)**
+
+```bash
+px harvest <document.md> [-o FILE]                 # pull the action items a markdown document states or clearly implies into a provider-agnostic artifact, as standalone sentences with their evidence, grouped by project
+px harvest publish <actionitems.json> [--dry-run]  # file a harvest's board groups as tickets on each project's own board; idempotent; held items only with --include-held, the general group only with --general-to
+px harvest schema [--list | --activate FILE]       # open the active harvest schema in $EDITOR (backed up before it is overwritten, never deleted); --list shows every schema, * marks the active one
+```
+
 **Legacy boards only (no Krebs execution block: every board today)**
 
 ```bash
