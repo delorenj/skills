@@ -44,7 +44,7 @@ seems to, `px --help` is right: file the discrepancy with `px idea`.
 px todo list                                                                             # what's in immediate scope (the unstarted lanes)
 px backlog list                                                                          # what's queued for later (the Backlog lane)
 px task list [--group GROUP]                                                             # every issue on the board, with its state
-px show <ref>                                                                            # print one ticket: lane, labels, people, description, sub-issues, comments
+px show <ref>                                                                            # print one ticket: lane, labels, people, description, checklists, sub-issues, comments
 px task get <ref>                                                                        # one ticket as data: on a legacy board what px show prints; managed: the Krebs snapshot
 px task create "<title>" [--state NAME]                                                  # create a ticket; no --state: Backlog (managed: Krebs create, lands in Backlog)
 px claim <ref>                                                                           # take a ticket: In Progress, assigned to you, labelled agent:working
@@ -126,9 +126,15 @@ board with the same verbs and `--json` keys (`sequence_id` is the card number:
   in_review (reported as group `started`), completed, cancelled.
 - **Strict lanes.** `claim` lands on "In Progress" and `close` on the one
   completed list by name. `release` and `todo create` need the band's
-  `write_targets` entry in that map; on INT none is named yet, so they refuse
-  and say so: pass `--state Priority` (or `--state Assigned`), never expect px
-  to pick.
+  `write_targets` entry in that map. INT's names `unstarted: Priority`
+  (landing with PX-17), so there they land on Priority as they land on Todo on
+  Plane. Where a map names none, they refuse and say so: pass `--state`, never
+  expect px to pick.
+- **`px show` prints a card's checklists.** INT keeps acceptance criteria in
+  Trello checklists, often nowhere in the description: read them before working
+  the card (`checklists` in `--json`, `- [ ]`/`- [x]` lines after the
+  description). On Plane the key is `[]`; a task list there is in the
+  description.
 - **Drift refuses.** If a list the map names was renamed in Trello, commands
   touching that band fail with `code: lane_map_drift`. Fix the map, not px.
 - **cancel** on a board with no Cancelled list archives the card and labels it
@@ -148,7 +154,7 @@ board with the same verbs and `--json` keys (`sequence_id` is the card number:
 On a legacy board (every board today):
 
 ```bash
-px show PX-3                          # read it first: lane, labels, description, sub-issues, comments
+px show PX-3                          # read it first: lane, labels, description, checklists, sub-issues, comments
 px claim PX-3                         # In Progress, assigned to the key's user, agent:working
 px comment PX-3 -m "found the cause"  # a note, no move
 px move PX-3 "E2E Testing & QA" -m "ready for QA"   # any other lane, strictly by name
