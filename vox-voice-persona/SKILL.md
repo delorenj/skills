@@ -84,7 +84,9 @@ frontmatter and needs one batched `hermes-gateway-restart` to pick the new code 
    ```
    With only `enabled: true` and `tts.provider: vox`, `tts.vox.voice: peter`, the agent speaks as Peter via the
    voxxy record. Live examples: peter-griffin (peter), infra-pm (brule), context-director + milkshake-pm (carlin).
-3. Optional - pin a fast non-reasoning model for the pass (the default `auto` route is a slow reasoning model, ~20s):
+3. Model for the pass: the fleet base (`~/.hermes/config.yaml`) pins it to glm-5.3-flash since 2026-10-24 (~5s;
+   the `auto` main route is a reasoning model, ~20s, and blew the 40s deadline). Change it there and run
+   `hermes-profile-config.py render`, or override per desk in `config.delta.yaml`:
    ```yaml
    auxiliary:
      tts_persona:
