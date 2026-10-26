@@ -711,6 +711,23 @@ class FleetHealthTest(unittest.TestCase):
         self.assertTrue(
             any("scheduler=external (candybar-managed" in line for line in artifact["detail"])
         )
+        self.assertEqual(0, artifact["metrics"]["cron_jobs_enabled"])
+        self.assertFalse(
+            any("last_status='ok'" in line and "nightly-thing" in line for line in artifact["detail"]),
+            "a migrated job's stale Hermes last_status is not its run result",
+        )
+
+    def test_external_hermes_job_with_enabled_true_is_not_counted_as_ticker_owned(self) -> None:
+        self.fleet.write_registry()
+        self.fleet.add_profile(
+            "alpha-pm", [job(enabled=True, scheduler="external", next_run_at="2020-01-01T00:00:00Z")]
+        )
+        artifact = self.artifact(self.run_collect(self.fleet.section()))
+        self.assertEqual(0, artifact["metrics"]["cron_jobs_enabled"])
+        self.assertEqual(0, artifact["metrics"]["jobs_with_past_next_run"])
+        self.assertTrue(
+            any("scheduler=external (candybar-managed" in line for line in artifact["detail"])
+        )
 
     def write_config(self) -> Path:
         """A real schema v2 config whose fleet-health section points at the fixture."""

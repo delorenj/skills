@@ -469,7 +469,7 @@ def _read_job(
     missing = [name for name in skills if not _resolve_skill(skills_dir, name)]
     next_run = _parse_dt(job.get("next_run_at"))
     last_run = _parse_dt(job.get("last_run_at"))
-    enabled = job.get("enabled") is True
+    enabled = job.get("enabled") is True and job.get("scheduler") != "external"
     last_status = _clip(job.get("last_status"), 32)
     last_error = job.get("last_error")
     error_present = isinstance(last_error, str) and bool(last_error.strip())
@@ -593,7 +593,7 @@ def _read_profiles(
                 job = _read_job(raw_job, profile, resolved, entry / "skills", now)
                 jobs.append(job)
                 record["jobs_total"] += 1
-                record["jobs_enabled"] += 1 if job.get("enabled") else 0
+                record["jobs_enabled"] += 1 if job.get("enabled") and job.get("scheduler") != "external" else 0
         profiles.append(record)
     return profiles, jobs, ""
 
@@ -710,6 +710,16 @@ def _render(observed: dict[str, Any], metrics: dict[str, Any], limit: int) -> li
             lines.append(f"  profile {profile['profile']}: " + "; ".join(notes))
 
     for job in observed["jobs"]:
+        if job["scheduler"] == "external":
+            # Do not present the Hermes ledger's stale next_run_at/last_status
+            # as the source of truth for a job whose schedule now belongs to
+            # candybar. Its run facts appear in the candybar block below.
+            lines.append(
+                f"  job {job['profile']}/{job['name'] or job['job_id']}: "
+                "scheduler=external (candybar-managed; schedule and run facts "
+                "in the candybar registry)"
+            )
+            continue
         claim = job["last_status"] or "never run"
         note = (
             f"  job {job['profile']}/{job['name'] or job['job_id']}: "
@@ -723,8 +733,6 @@ def _render(observed: dict[str, Any], metrics: dict[str, Any], limit: int) -> li
             note += "; next run is in the past"
         if job["last_error_present"]:
             note += f"; last_error recorded ({job['last_error_chars']} chars, not copied here)"
-        if job["scheduler"] == "external":
-            note += "; scheduler=external (candybar-managed, migrated off the Hermes ticker)"
         lines.append(note)
 
     if "candybars" in observed:
@@ -859,7 +867,9 @@ def _collect(section_cfg: dict[str, Any], report_date: str) -> SectionResult:
         ),
         "duplicate_cron_dirs": sum(1 for profile in profiles if profile["cron_dir_shared_with"]),
         "cron_jobs_total": len(jobs),
-        "cron_jobs_enabled": sum(1 for job in jobs if job["enabled"]),
+        "cron_jobs_enabled": sum(
+            1 for job in jobs if job["enabled"] and job["scheduler"] != "external"
+        ),
         "cron_jobs_unreadable": sum(1 for job in jobs if job["verification"] == "unreadable"),
         "jobs_with_missing_skill": sum(1 for job in jobs if job["missing_skills"]),
         "jobs_claiming_ok_unverified": sum(
