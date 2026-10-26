@@ -3,7 +3,10 @@
 `assets/systemd/activity-report@.service` and `.timer` are copied verbatim to
 `~/.config/systemd/user/`; the project's time and zone go in
 `activity-report@<slug>.timer.d/schedule.conf`, which resets OnCalendar and
-sets it again. `install-timer` is the only place that enables anything.
+sets it again. `install-timer` is the only place that enables anything —
+unless the project sets `activity_report.schedule.scheduler: "candybar"`,
+in which case the units and drop-in are written but the timer is never
+enabled: candybar owns the schedule (candybar migration wave 7.14).
 """
 from __future__ import annotations
 
@@ -36,6 +39,16 @@ def service_name(slug: str) -> str:
 
 def dropin_path(slug: str, user_dir: str | None = None) -> str:
     return os.path.join(user_dir or systemd_user_dir(), f"{timer_name(slug)}.d", "schedule.conf")
+
+
+SCHEDULERS = ("systemd", "candybar")
+
+
+def scheduler_of(project) -> str:
+    """Who fires the job. Default systemd; 'candybar' means install-timer writes
+    the units and drop-in but never enables the timer (a re-install must not
+    resurrect a timer the candybar migration retired)."""
+    return ((project.config or {}).get("schedule") or {}).get("scheduler", "systemd")
 
 
 def render_dropin(project) -> str:
@@ -110,15 +123,22 @@ def install_timer_cmd(args) -> int:
     reload = _systemctl("daemon-reload")
     if reload.returncode != 0:
         raise ConfigError(f"systemctl --user daemon-reload failed: {reload.stderr.strip()}")
-    enable = _systemctl("enable", "--now", timer)
-    if enable.returncode != 0:
-        raise ConfigError(f"systemctl --user enable --now {timer} failed: {enable.stderr.strip()}")
+    scheduler = scheduler_of(project)
+    if scheduler == "candybar":
+        enabled_line = None
+        listing = _systemctl("list-timers", timer, "--no-pager", "--all")
+    else:
+        enable = _systemctl("enable", "--now", timer)
+        if enable.returncode != 0:
+            raise ConfigError(f"systemctl --user enable --now {timer} failed: {enable.stderr.strip()}")
+        enabled_line = f"enabled {timer}"
+        listing = _systemctl("list-timers", timer, "--no-pager", "--all")
     linger = _linger_enabled()
-    listing = _systemctl("list-timers", timer, "--no-pager", "--all")
 
     result = {
         "timer": timer, "units_written": changed, "dropin": dropin, "dropin_written": dropin_changed,
         "schedule": render_dropin(project).strip().splitlines()[-1].split("=", 1)[1],
+        "scheduler": scheduler,
         "linger": linger, "list_timers": listing.stdout,
     }
     if getattr(args, "json", False):
@@ -127,7 +147,10 @@ def install_timer_cmd(args) -> int:
     for unit in changed:
         print(f"installed {os.path.join(user_dir, unit)}")
     print(f"{'wrote' if dropin_changed else 'unchanged'} {dropin} ({result['schedule']})")
-    print(f"enabled {timer}")
+    if enabled_line:
+        print(enabled_line)
+    else:
+        print(f"NOT enabled {timer}: scheduler=candybar — candybar owns the schedule")
     if linger is False:
         print("note: lingering is off for this user, so the timer sleeps when you log out; "
               "run `sudo loginctl enable-linger $USER` once")

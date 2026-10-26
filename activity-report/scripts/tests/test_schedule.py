@@ -14,8 +14,11 @@ from ar import schedule  # noqa: E402
 from ar.common import ConfigError  # noqa: E402
 
 
-def project(at="03:30", tz="America/New_York", slug="james-brennan"):
-    return types.SimpleNamespace(slug=slug, tz=tz, config={"schedule": {"at": at}})
+def project(at="03:30", tz="America/New_York", slug="james-brennan", scheduler=None):
+    schedule_cfg = {"at": at}
+    if scheduler is not None:
+        schedule_cfg["scheduler"] = scheduler
+    return types.SimpleNamespace(slug=slug, tz=tz, config={"schedule": schedule_cfg})
 
 
 class Dropin(unittest.TestCase):
@@ -58,7 +61,7 @@ class Templates(unittest.TestCase):
 
 
 class InstallTimer(unittest.TestCase):
-    def run_install(self, home, cfg, shim=True):
+    def run_install(self, home, cfg, shim=True, proj=None):
         if shim:
             os.makedirs(os.path.join(home, ".local", "bin"), exist_ok=True)
             with open(os.path.join(home, ".local", "bin", "activity-report"), "w", encoding="utf-8") as fh:
@@ -72,7 +75,7 @@ class InstallTimer(unittest.TestCase):
         with mock.patch.dict(os.environ, {"HOME": home, "XDG_CONFIG_HOME": cfg}), \
                 mock.patch.object(schedule, "_systemctl", side_effect=fake_systemctl), \
                 mock.patch.object(schedule, "_linger_enabled", return_value=True), \
-                mock.patch("ar.config.load_project", return_value=project()), \
+                mock.patch("ar.config.load_project", return_value=proj or project()), \
                 contextlib.redirect_stdout(buf):
             rc = schedule.install_timer_cmd(types.SimpleNamespace(project="james-brennan", json=False))
         return rc, calls, buf.getvalue()
@@ -89,6 +92,18 @@ class InstallTimer(unittest.TestCase):
             self.assertEqual(calls[1], ("enable", "--now", "activity-report@james-brennan.timer"))
             self.assertEqual(calls[2][:2], ("list-timers", "activity-report@james-brennan.timer"))
             self.assertIn("enabled activity-report@james-brennan.timer", out)
+
+    def test_candybar_scheduler_writes_units_but_never_enables(self):
+        with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as cfg:
+            rc, calls, out = self.run_install(home, cfg, proj=project(scheduler="candybar"))
+            self.assertEqual(rc, 0)
+            user_dir = os.path.join(cfg, "systemd", "user")
+            self.assertTrue(os.path.exists(os.path.join(user_dir, "activity-report@.service")))
+            with open(os.path.join(user_dir, "activity-report@james-brennan.timer.d", "schedule.conf"), encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), "[Timer]\nOnCalendar=\nOnCalendar=*-*-* 03:30:00 America/New_York\n")
+            self.assertNotIn(("enable", "--now", "activity-report@james-brennan.timer"), calls)
+            self.assertIn("NOT enabled activity-report@james-brennan.timer", out)
+            self.assertIn("candybar", out)
 
     def test_requires_shim(self):
         with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as cfg:

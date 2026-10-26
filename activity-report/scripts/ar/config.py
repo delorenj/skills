@@ -169,6 +169,11 @@ def validate_config(config: dict) -> None:
     at = (config.get("schedule") or {}).get("at")
     if not isinstance(at, str) or not _TIME_RE.match(at):
         raise ConfigError(f"{CONFIG_KEY}.schedule.at must be HH:MM (24 h), got {at!r}")
+    scheduler = (config.get("schedule") or {}).get("scheduler", "systemd")
+    if scheduler not in ("systemd", "candybar"):
+        raise ConfigError(
+            f"{CONFIG_KEY}.schedule.scheduler must be 'systemd' or 'candybar', got {scheduler!r}"
+        )
     for path in config.get("extra_repo_paths") or []:
         if not isinstance(path, str) or not os.path.isabs(path):
             raise ConfigError(f"{CONFIG_KEY}.extra_repo_paths entries must be absolute paths, got {path!r}")

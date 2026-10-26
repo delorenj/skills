@@ -140,7 +140,10 @@ how each block renders: `references/portal-grammar.md`.
 4. `activity-report install-timer --project <slug>` (or
    `scripts/install-timer.sh`): the nightly systemd user timer at
    `schedule.at` in the project zone. `timer-status` shows the last run and the
-   next one. `references/scheduling.md` has the cutover order.
+   next one. `references/scheduling.md` has the cutover order. A project whose
+   timer has migrated to candybar sets `schedule.scheduler: "candybar"`:
+   `install-timer` then writes the units and drop-in but never enables the
+   timer, so a re-install cannot resurrect the retired schedule.
 
 ## Where to look
 
