@@ -635,6 +635,9 @@ class FleetHealthTest(unittest.TestCase):
         detail = artifact["detail"]
         self.assertTrue(any(line.startswith("candybar: 2 registered") for line in detail))
         self.assertTrue(
+            any("dev-journal-nightly" in line and "last run succeeded" in line for line in detail)
+        )
+        self.assertTrue(
             any("sync-daily-reports-to-s3" in line and "last run failed" in line for line in detail)
         )
         self.assertFalse(

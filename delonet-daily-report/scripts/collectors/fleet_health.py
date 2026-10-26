@@ -750,13 +750,17 @@ def _render(observed: dict[str, Any], metrics: dict[str, Any], limit: int) -> li
                     f"last run failed ({candybar['last_trigger'] or '?'} "
                     f"{candybar['last_finished_at'] or '?'})"
                 )
-            if not candybar["last_result"]:
-                flags.append("no invocation recorded yet")
-            if flags:
-                lines.append(
-                    f"  candybar {candybar['name'] or '?'}: {', '.join(flags)} "
-                    f"('{candybar['schedule'] or '?'}' {candybar['timezone'] or 'UTC'})"
+            elif candybar["last_result"] == "success":
+                flags.append(
+                    f"last run succeeded ({candybar['last_trigger'] or '?'} "
+                    f"{candybar['last_finished_at'] or '?'})"
                 )
+            else:
+                flags.append("no invocation recorded yet")
+            lines.append(
+                f"  candybar {candybar['name'] or '?'}: {', '.join(flags)} "
+                f"('{candybar['schedule'] or '?'}' {candybar['timezone'] or 'UTC'})"
+            )
 
     if len(lines) > limit:
         kept = lines[:limit]
