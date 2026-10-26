@@ -41,6 +41,8 @@ import argparse
 import datetime as dt
 import json
 import sys
+import urllib.error
+import urllib.request
 import uuid
 from pathlib import Path
 from typing import Any
@@ -58,6 +60,14 @@ DEFAULT_TICKER_STALE_SECONDS = 900
 DEFAULT_COMMAND_TIMEOUT = 20
 DEFAULT_MAX_DETAIL_LINES = 200
 DEFAULT_MAX_AGE_HOURS = 24
+
+#: Where the candybar control plane answers on the host (Epic 7: migrated
+#: cron jobs are registered there, so a report that only read systemd timers
+#: and Hermes jobs.json would go blind to them). Set the section option
+#: ``candybar_api_url`` to "" to drop the source entirely.
+DEFAULT_CANDYBAR_API_URL = "http://127.0.0.1:8700"
+DEFAULT_HTTP_TIMEOUT = 5
+CANDYBAR_SOURCE_ID = "candybar-api"
 
 #: Longest string copied out of any source file. Values from disk are clipped so
 #: an oversized field cannot dominate the artifact.
@@ -132,13 +142,23 @@ FLEET_FIELDS = frozenset(
         "last_error_chars",
         "skills",
         "missing_skills",
+        "scheduler",
         "verification",
         "output_files",
         "output_latest_at",
+        # candybars (the candybar registry, read over its HTTP API)
+        "candybars",
+        "timezone",
+        "noise",
+        "last_result",
+        "last_finished_at",
+        "last_trigger",
     }
 )
 
-#: The four sources this section needs. ``complete`` requires all four.
+#: The four sources this section always needs. ``complete`` requires all of
+#: them; the candybar API is a fifth source whenever ``candybar_api_url`` is
+#: set (the default), and the same honesty rule applies to it.
 SOURCE_IDS = ("agents-registry", "systemd-units", "systemd-timers", "hermes-profiles")
 
 
@@ -287,6 +307,73 @@ def _read_timers(prefix: str, timeout: int) -> tuple[dict[str, dict[str, Any]], 
     return timers, ""
 
 
+def _http_json(url: str, timeout: int) -> Any:
+    """One GET that parses as JSON. Any failure raises ConfigError (a reason)."""
+    request = urllib.request.Request(url, headers={"Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            body = response.read(1_000_000)
+    except (OSError, urllib.error.URLError) as exc:
+        raise ConfigError(f"GET {url}: {exc}") from exc
+    try:
+        return json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ConfigError(f"GET {url}: unparseable JSON ({type(exc).__name__})") from exc
+
+
+def _read_candybars(base_url: str, timeout: int) -> tuple[list[dict[str, Any]], str]:
+    """The candybar registry over its HTTP API: one record per registered job.
+
+    Migrated cron jobs left systemd timers and Hermes jobs.json behind, so
+    this is the only place the report still sees them. Each record carries the
+    latest invocation's self-contained result fields; the API is the
+    scheduler's own record-keeping, so a ``fail`` there is a fact about the
+    run, and ``enabled`` is a fact about the registry -- neither is a claim by
+    the job.
+    """
+    base = base_url.rstrip("/")
+    try:
+        payload = _http_json(f"{base}/candybars", timeout)
+    except ConfigError as exc:
+        return [], str(exc)
+    if not isinstance(payload, list):
+        return [], "GET /candybars returned a non-array JSON document"
+    candybars: list[dict[str, Any]] = []
+    for row in payload:
+        if not isinstance(row, dict):
+            return [], "GET /candybars returned a non-object entry"
+        candybar_id = _clip(row.get("id"), 64)
+        record = {
+            "name": _clip(row.get("name"), 64),
+            "schedule": _clip(row.get("schedule"), 64),
+            "timezone": _clip(row.get("timezone"), 64),
+            "enabled": row.get("enabled") is True,
+            "noise": row.get("noise") is True,
+            "last_result": "",
+            "last_finished_at": None,
+            "last_trigger": "",
+        }
+        if candybar_id:
+            try:
+                latest = _http_json(
+                    f"{base}/candybars/{candybar_id}/invocations?limit=1", timeout
+                )
+            except ConfigError as exc:
+                return [], str(exc)
+            invocations = (
+                latest.get("invocations") if isinstance(latest, dict) else None
+            )
+            if not isinstance(invocations, list):
+                return [], f"GET invocations for {record['name'] or candybar_id}: no array"
+            if invocations and isinstance(invocations[0], dict):
+                first = invocations[0]
+                record["last_result"] = _clip(first.get("result"), 32)
+                record["last_finished_at"] = _clip(first.get("finishedAt"), 40) or None
+                record["last_trigger"] = _clip(first.get("trigger"), 32)
+        candybars.append(record)
+    return candybars, ""
+
+
 def _resolve_skill(skills_dir: Path, name: str) -> bool:
     """True only when ``name`` resolves to a real skill (a readable SKILL.md).
 
@@ -362,6 +449,7 @@ def _empty_job(profile: str) -> dict[str, Any]:
         "last_error_chars": 0,
         "skills": [],
         "missing_skills": [],
+        "scheduler": "",
         "verification": "not-claimed",
         "output_files": 0,
         "output_latest_at": None,
@@ -416,6 +504,7 @@ def _read_job(
         "last_error_chars": len(last_error) if error_present else 0,
         "skills": skills,
         "missing_skills": missing,
+        "scheduler": _clip(job.get("scheduler"), 32),
         "verification": verification,
         "output_files": output_files,
         "output_latest_at": output_latest,
@@ -634,7 +723,32 @@ def _render(observed: dict[str, Any], metrics: dict[str, Any], limit: int) -> li
             note += "; next run is in the past"
         if job["last_error_present"]:
             note += f"; last_error recorded ({job['last_error_chars']} chars, not copied here)"
+        if job["scheduler"] == "external":
+            note += "; scheduler=external (candybar-managed, migrated off the Hermes ticker)"
         lines.append(note)
+
+    if "candybars" in observed:
+        lines.append(
+            f"candybar: {metrics['candybars_total']} registered "
+            f"({metrics['candybars_enabled']} enabled), "
+            f"{metrics['candybars_last_run_failed']} last-run failure(s)"
+        )
+        for candybar in observed["candybars"]:
+            flags = []
+            if not candybar["enabled"]:
+                flags.append("disabled")
+            if candybar["last_result"] == "fail":
+                flags.append(
+                    f"last run failed ({candybar['last_trigger'] or '?'} "
+                    f"{candybar['last_finished_at'] or '?'})"
+                )
+            if not candybar["last_result"]:
+                flags.append("no invocation recorded yet")
+            if flags:
+                lines.append(
+                    f"  candybar {candybar['name'] or '?'}: {', '.join(flags)} "
+                    f"('{candybar['schedule'] or '?'}' {candybar['timezone'] or 'UTC'})"
+                )
 
     if len(lines) > limit:
         kept = lines[:limit]
@@ -659,10 +773,15 @@ def _collect(section_cfg: dict[str, Any], report_date: str) -> SectionResult:
     limit = _int_option(
         options, "max_detail_lines", DEFAULT_MAX_DETAIL_LINES, low=10, high=2_000
     )
+    candybar_url = _clip(str(_option(options, "candybar_api_url", DEFAULT_CANDYBAR_API_URL)), 200)
+    http_timeout = _int_option(
+        options, "candybar_http_timeout_seconds", DEFAULT_HTTP_TIMEOUT, low=1, high=60
+    )
 
     now = _now()
     caveats: list[str] = []
     failures: dict[str, str] = {}
+    source_ids = SOURCE_IDS + ((CANDYBAR_SOURCE_ID,) if candybar_url else ())
 
     agents, reason = _read_registry(registry_path)
     if reason:
@@ -679,6 +798,12 @@ def _collect(section_cfg: dict[str, Any], report_date: str) -> SectionResult:
     profiles, jobs, reason = _read_profiles(profiles_dir, skills_dir, now, stale_seconds)
     if reason:
         failures["hermes-profiles"] = reason
+
+    candybars: list[dict[str, Any]] | None = None
+    if candybar_url:
+        candybars, reason = _read_candybars(candybar_url, http_timeout)
+        if reason:
+            failures[CANDYBAR_SOURCE_ID] = reason
 
     unit_states = {unit["unit"]: unit["active_state"] for unit in units}
     units_known = {unit["unit"] for unit in units if unit["load_state"] != "not-found"}
@@ -744,10 +869,16 @@ def _collect(section_cfg: dict[str, Any], report_date: str) -> SectionResult:
             1 for job in jobs if job["verification"] == "contradicted"
         ),
         "jobs_with_past_next_run": sum(1 for job in jobs if job["next_run_in_past"]),
-        "sources_read": len(SOURCE_IDS) - len(failures),
+        "sources_read": len(source_ids) - len(failures),
         "sources_failed": len(failures),
         "report_date": report_date,
     }
+    if candybars is not None:
+        metrics["candybars_total"] = len(candybars)
+        metrics["candybars_enabled"] = sum(1 for cb in candybars if cb["enabled"])
+        metrics["candybars_last_run_failed"] = sum(
+            1 for cb in candybars if cb["last_result"] == "fail"
+        )
 
     # Structural field allowlist: assembled records are filtered again on the way
     # out, so a raw jobs.json field (a prompt, a base_url) cannot ride along.
@@ -756,13 +887,14 @@ def _collect(section_cfg: dict[str, Any], report_date: str) -> SectionResult:
             "observed_at": _iso(now),
             "sources": [
                 {"source": source, "ok": source not in failures, "reason": failures.get(source, "")}
-                for source in SOURCE_IDS
+                for source in source_ids
             ],
             "agents": agent_records,
             "units": units,
             "timers": timers,
             "profiles": profiles,
             "jobs": jobs,
+            **({"candybars": candybars} if candybars is not None else {}),
         },
         FLEET_FIELDS,
         opaque_keys=frozenset(),
@@ -788,7 +920,7 @@ def _collect(section_cfg: dict[str, Any], report_date: str) -> SectionResult:
             "an observable fact contradicts it"
         )
 
-    if len(failures) == len(SOURCE_IDS):
+    if len(failures) == len(source_ids):
         return SectionResult(
             id=SECTION_ID,
             status="failed",
@@ -811,6 +943,12 @@ def _collect(section_cfg: dict[str, Any], report_date: str) -> SectionResult:
         f"{metrics['gateway_units_inactive'] + metrics['gateway_units_unknown']} gateway unit(s) "
         f"not running."
     )
+    if candybars is not None:
+        summary += (
+            f" Candybar: {metrics['candybars_total']} registered "
+            f"({metrics['candybars_enabled']} enabled, "
+            f"{metrics['candybars_last_run_failed']} last-run failed)."
+        )
 
     partial_reasons: list[str] = []
     if failures:

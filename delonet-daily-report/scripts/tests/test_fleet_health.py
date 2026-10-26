@@ -68,6 +68,28 @@ def fake_systemctl(units: Any = None, timers: Any = None, *, fail: str = ""):
     return call
 
 
+def fake_candybar_api(candybars: Any = None, invocations: Any = None, *, fail: str = ""):
+    """Stand in for ``_http_json``; never touches the network.
+
+    ``candybars`` is the GET /candybars payload; ``invocations`` maps a
+    candybar id to its latest-invocations payload.
+    """
+    candybars = [] if candybars is None else candybars
+    invocations = {} if invocations is None else invocations
+
+    def call(url: str, timeout: int = 0):
+        if fail:
+            raise ConfigError(fail)
+        if url.endswith("/candybars"):
+            return candybars
+        for candybar_id, payload in invocations.items():
+            if f"/candybars/{candybar_id}/" in url:
+                return payload
+        return {"invocations": []}
+
+    return call
+
+
 class FleetFixture:
     """A throwaway ~/.hermes tree. Nothing here touches the real fleet."""
 
@@ -139,6 +161,9 @@ class FleetFixture:
             "registry_path": str(self.registry),
             "profiles_dir": str(self.profiles),
             "skills_dir": str(self.skills),
+            # Tests opt into the candybar source explicitly (with a stubbed
+            # _http_json); nothing here may touch the network by default.
+            "candybar_api_url": "",
         }
         merged.update(options)
         return {
@@ -179,7 +204,17 @@ class FleetHealthTest(unittest.TestCase):
         self.fleet = FleetFixture(Path(self.temporary.name) / "hermes")
 
     def run_collect(self, section: dict[str, Any], **kwargs: Any):
-        with mock.patch.object(fleet_health, "run_command", fake_systemctl(**kwargs)):
+        candybar_kwargs = {
+            key: kwargs.pop(key)
+            for key in ("candybars", "invocations")
+            if key in kwargs
+        }
+        if "candybar_fail" in kwargs:
+            candybar_kwargs["fail"] = kwargs.pop("candybar_fail")
+        with (
+            mock.patch.object(fleet_health, "run_command", fake_systemctl(**kwargs)),
+            mock.patch.object(fleet_health, "_http_json", fake_candybar_api(**candybar_kwargs)),
+        ):
             return fleet_health.collect(section, "2026-08-17", None)
 
     def artifact(self, result) -> dict[str, Any]:
@@ -200,6 +235,7 @@ class FleetHealthTest(unittest.TestCase):
         metrics = artifact["metrics"]
         self.assertEqual(4, metrics["sources_read"])
         self.assertEqual(0, metrics["sources_failed"])
+        self.assertNotIn("candybars_total", metrics)
         self.assertEqual(1, metrics["agents_registered"])
         self.assertEqual(1, metrics["timers_total"])
         self.assertEqual(1, metrics["timers_active"])
@@ -536,6 +572,145 @@ class FleetHealthTest(unittest.TestCase):
         section["id"] = "renamed-fleet"
         result = self.run_collect(section)
         self.assertEqual("renamed-fleet", result.id)
+
+    # --- candybar source (Epic 7: migrated jobs live in the registry) ------ #
+
+    def test_candybars_are_read_from_the_api_not_from_timers_or_jobs_json(self) -> None:
+        self.fleet.write_registry()
+        self.fleet.add_skill("good-skill")
+        self.fleet.add_profile("alpha-pm", [job()])
+        candybars = [
+            {
+                "id": "cb-1",
+                "name": "dev-journal-nightly",
+                "schedule": "0 6 * * *",
+                "timezone": "America/New_York",
+                "enabled": True,
+                "noise": False,
+                "prompt": "MUST-NOT-LEAK",
+            },
+            {
+                "id": "cb-2",
+                "name": "sync-daily-reports-to-s3",
+                "schedule": "30 6 * * *",
+                "timezone": "America/New_York",
+                "enabled": True,
+                "noise": False,
+            },
+        ]
+        invocations = {
+            "cb-1": {
+                "invocations": [
+                    {
+                        "result": "success",
+                        "trigger": "scheduled",
+                        "finishedAt": "2026-08-18T10:07:00Z",
+                    }
+                ]
+            },
+            "cb-2": {
+                "invocations": [
+                    {
+                        "result": "fail",
+                        "trigger": "scheduled",
+                        "finishedAt": "2026-08-18T10:31:00Z",
+                    }
+                ]
+            },
+        }
+        artifact = self.artifact(
+            self.run_collect(
+                self.fleet.section(candybar_api_url="http://candybar.test"),
+                candybars=candybars,
+                invocations=invocations,
+            )
+        )
+
+        self.assertEqual("complete", artifact["status"])
+        metrics = artifact["metrics"]
+        self.assertEqual(5, metrics["sources_read"])
+        self.assertEqual(2, metrics["candybars_total"])
+        self.assertEqual(2, metrics["candybars_enabled"])
+        self.assertEqual(1, metrics["candybars_last_run_failed"])
+        detail = artifact["detail"]
+        self.assertTrue(any(line.startswith("candybar: 2 registered") for line in detail))
+        self.assertTrue(
+            any("sync-daily-reports-to-s3" in line and "last run failed" in line for line in detail)
+        )
+        self.assertFalse(
+            any("dev-journal-nightly" in line and "failed" in line for line in detail)
+        )
+        # The allowlist must strip fields the API never promised (a stray
+        # prompt must not reach the artifact).
+        self.assertNotIn("MUST-NOT-LEAK", json.dumps(artifact))
+
+    def test_a_candybar_api_outage_degrades_to_partial_with_a_caveat(self) -> None:
+        self.fleet.write_registry()
+        self.fleet.add_skill("good-skill")
+        self.fleet.add_profile("alpha-pm", [job()])
+        artifact = self.artifact(
+            self.run_collect(
+                self.fleet.section(candybar_api_url="http://candybar.test"),
+                candybar_fail="GET http://candybar.test/candybars: connection refused",
+            )
+        )
+
+        self.assertEqual("partial", artifact["status"])
+        self.assertIn("candybar-api", artifact["reason"])
+        self.assertEqual(4, artifact["metrics"]["sources_read"])
+        self.assertTrue(
+            any("candybar-api unavailable" in item for item in artifact["caveats"])
+        )
+
+    def test_a_non_array_candybar_response_is_a_source_failure_not_a_crash(self) -> None:
+        self.fleet.write_registry()
+        self.fleet.add_profile("alpha-pm", [])
+        artifact = self.artifact(
+            self.run_collect(
+                self.fleet.section(candybar_api_url="http://candybar.test"),
+                candybars={"unexpected": "mapping"},
+            )
+        )
+
+        self.assertEqual("partial", artifact["status"])
+        self.assertIn("candybar-api", artifact["reason"])
+
+    def test_a_disabled_candybar_is_listed(self) -> None:
+        self.fleet.write_registry()
+        self.fleet.add_profile("alpha-pm", [])
+        candybars = [
+            {
+                "id": "cb-9",
+                "name": "rolled-back-job",
+                "schedule": "0 6 * * *",
+                "timezone": "UTC",
+                "enabled": False,
+                "noise": False,
+            }
+        ]
+        artifact = self.artifact(
+            self.run_collect(
+                self.fleet.section(candybar_api_url="http://candybar.test"),
+                candybars=candybars,
+            )
+        )
+        self.assertEqual(0, artifact["metrics"]["candybars_enabled"])
+        self.assertTrue(
+            any("rolled-back-job" in line and "disabled" in line for line in artifact["detail"])
+        )
+
+    def test_an_externally_scheduled_hermes_job_is_rendered_as_candybar_managed(self) -> None:
+        self.fleet.write_registry()
+        self.fleet.add_skill("good-skill")
+        self.fleet.add_profile(
+            "alpha-pm",
+            [job(enabled=False, state="paused", scheduler="external")],
+        )
+        artifact = self.artifact(self.run_collect(self.fleet.section()))
+
+        self.assertTrue(
+            any("scheduler=external (candybar-managed" in line for line in artifact["detail"])
+        )
 
     def write_config(self) -> Path:
         """A real schema v2 config whose fleet-health section points at the fixture."""
