@@ -68,6 +68,13 @@ Verified against the vendor app's current source map on 2026-09-27:
   `customer.id`, `location.id`, `total.value` and `invoice_status_id: sent` to
   match. Keep the created invoice id and an unknown receipt when the send or
   read-back cannot be proved; never create a replacement invoice to retry mail.
+- **Back to draft after a send** (proved 2026-10-27 on Miami Beach test invoice
+  9671, customer 17098): `PUT invoices/{id}/status` with `{"status": "draft"}`
+  (PLURAL `invoices`) answers 200 with `data.invoice_status_id: "draft"`, and the
+  singular read-back agrees. The invoice's log keeps both lines ("Send email by
+  ..." then "Change status from sent to draft by ..."). This is the "send as
+  draft" mechanism Jim asked for: email it, then return it to draft. List a
+  customer's invoices with `GET invoices?customer_id={private id}&limit=50&offset=0`.
 
 ## Existing billing contacts
 
