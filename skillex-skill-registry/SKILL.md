@@ -8,7 +8,18 @@ description: Operate the Skillex catalog, reference-only sets and packs, skill m
 - `github.com/delorenj/skills` is the canonical source for Skillex skills.
 - The skills are tracked as submodule `all-skills` inside the Skillex repository.
 
-## Core model — user-confirmed 2026-10-10
+## Global availability — user-confirmed 2026-10-27
+
+Global skills are available to EVERY employee, regardless of role, profile,
+project or specialist set. Effective skills are the deduplicated union of the
+shared global selection and the employee/project-specific selection. A set may
+replace its scope-owned root or loadout; it must not suppress global skills.
+Do not interpret `inherit_global: false` in an internal role-selection manifest
+as authority to remove the global layer, or call a larger union a leak. Verify
+both layers through the owning adapter. Strict ownership excludes foreign skill
+payloads and unrelated discovery roots, not the approved global selection.
+
+## Scope-owned root model — user-confirmed 2026-10-10
 
 - **Skill root:** a directory where an agent looks for skills, almost always
   named `skills/`.
@@ -36,9 +47,9 @@ Older installed CLI behavior and recalled claims that packs are exclusive or
 replace roots are drift, not product authority. Preview before sync; stop if a
 plan contradicts this model. The user chose **scope-owned derivation** for pack
 additions to a shared set: derive a local selection and switch only that scope,
-never write through the shared root alias. A project set replaces inherited
-selection but client global discovery requires a separate supported adapter and
-runtime verification; `inherit_global: false` alone is not isolation.
+never write through the shared root alias. A project set replaces its own
+scoped selection only; global discovery remains available to every employee.
+Use supported adapters and runtime verification to prove global + scoped union.
 
 The Node correction provides `normalize`, `root adopt`, source-backed
 `set create` / `pack create`, and OpenCode `clients isolate|verify|unisolate`.

@@ -6,6 +6,17 @@ description: |
 
 # Hermes Workforce Operations
 
+## Global skills are universal (operator clarification, 2026-10-27)
+
+Every employee receives the shared global skills, irrespective of role or a
+specialist set. The effective loadout is global selection UNION role/project
+selection, deduplicated by canonical name. Role sets replace the role-owned
+selection only. Strict Skillex ownership and empty arbitrary external discovery
+roots do not mean excluding globals; project global skills through the owning
+adapter. Never report inherited global members as a leak merely because the
+active count exceeds the role set. Earlier exclusive-loadout guidance and
+FLUME-68's original expectation are superseded by this clarification.
+
 Route here for anything that touches a deployed Hermes agent, the agent template,
 or the runtime provisioning contract — not the project that happens to employ one.
 
