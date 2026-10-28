@@ -270,6 +270,8 @@ If Tier A + B are not enough, the remaining lever is Carrie's account (~31 GiB, 
 
 ## Gotchas
 
+- **Rebooting it remotely strands it until someone logs in at the console** (2026-10-28). There is no sudo, so the only remote restart is `osascript -e 'tell application "loginwindow" to «event aevtrrst»'`. Two traps: (1) any app that won't quit (FL Studio, Ghostty, ego lite, Gruvato, Ollama, KimiCU) vetoes the restart, but by then the apps that did quit include **Tailscale.app, so the Mac falls off the tailnet** (`hub-mac` dead; reach it on the LAN at `delorenj@192.168.1.23` with `-o HostKeyAlias=carries-macbook-air.burro-salmon.ts.net`). Quit or `kill` the blockers first, then send the event. (2) After the reboot, FileVault keeps the account locked until a console login: sshd answers but **rejects the ssh key**, and the runners, Tailscale and the deploy hub stay down. Applying the staged macOS update also needs a console admin. Never reboot this Mac unless someone can log in at it.
+
 - **`du` sees one Mac, `df` sees one container.** All APFS volumes share one free pool (16 GiB before the 2026-10-28 run, 71 after). Deleting from Data frees it for everyone. "System Data" in Settings is the sum of the unattributed part plus caches: it is not a folder.
 - **Sparse files lie in the other direction:** `Docker.raw` is 494 GB by `ls -l`, 1.6 GiB real. Use `du`, not `ls`, for sizes.
 - **Disk images are not extra disk:** `disk4`/`disk5` (18.6 GB) is the simulator runtime mounted from a 7.5 GiB file under `/System/Library/AssetsV2`. `du -x` on `/private/var` also walks into the mounted cryptex (`/private/var/run/com.apple.security.cryptexd/mnt/...`, 17 GiB) and into `/private/var/vm` (the VM volume): subtract both or the totals overshoot by ~28 GiB.
