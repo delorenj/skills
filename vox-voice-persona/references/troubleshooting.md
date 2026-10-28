@@ -6,7 +6,7 @@ Hermes logs: `~/.hermes/logs/agent.log` (and `~/.hermes/profiles/<p>/logs/`). Gr
 | --- | --- |
 | `voice-persona: <id> rewrite accepted (N -> M chars, prompt voice-persona/3)` | working |
 | `rejected ... rewrite (<reason>, prompt ...); speaking original text` | validator said no: empty, > `max_ratio`, < `min_ratio`, or digits dropped. Try `voxxy persona rewrite ... --json` to see the reason; tune persona rules or ratios |
-| `rewrite exceeded Ns; speaking original text` | LLM too slow. Pin `auxiliary.tts_persona` to `automaticai/personal/glm-5.3-flash`, or raise `tts.persona.timeout_seconds` (core bound: `tts.transform_timeout_seconds` 45) |
+| `rewrite exceeded Ns; speaking original text` | LLM too slow. Point `auxiliary.tts_persona` at `automaticai/auto/fast` (never a named model), or raise `tts.persona.timeout_seconds` (core bound: `tts.transform_timeout_seconds` 45) |
 | `rewrite failed (...)` | auxiliary client error (provider/key/model); check `auxiliary.tts_persona` |
 | agent never rewrites | `plugins.enabled` lacks `voice-persona`, symlink missing in `<profile>/plugins`, `tts.persona.enabled` not true, gateway not restarted since enabling, or streaming TTS path (bypasses personas) |
 | rewrites in the wrong voice | resolution order: profile `file`/`name` beat the voxxy record; check `voxxy voice persona VOICE` for the effective source |

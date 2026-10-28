@@ -27,7 +27,7 @@ Example (real output):
 $ voxxy persona rewrite peter-griffin "The build finished in 42 seconds and all 118 tests passed." --json
 { "original": "...", "rewrite": "Holy crap, the build finished in 42 seconds and all 118 tests passed. Freakin' sweet!",
   "accepted": true, "reason": null, "persona": "peter-griffin",
-  "model": "automaticai/personal/glm-5.3-flash", "prompt_version": "voice-persona/3", "elapsed_s": 5.956 }
+  "model": "automaticai/auto/fast", "prompt_version": "voice-persona/3", "elapsed_s": 5.956 }
 $ voxxy voice persona peter
 voice:     peter
 persona:   peter-griffin (voxxy record)
@@ -38,5 +38,5 @@ Effective source values: `voxxy`, `frontmatter`, `none` (explicit), `unknown` (p
 
 Config keys (`~/.config/voxxy/config.toml`, written only when non-default): `persona_base_url`, `persona_model`,
 `persona_api_key_ref`, and for `persona generate` / `voice clone` `clone_base_url`, `clone_model`, `clone_api_key_ref`
-(each unset clone key inherits the persona one; env `VOXXY_CLONE_BASE_URL|MODEL|API_KEY|TIMEOUT` beats config; `op://` refs only). Token minting for the key: `python3 ops/gateway-tokens.py mint <consumer> --models <route>` in
+(an unset clone URL/key inherits the persona one, the clone model defaults to `automaticai/auto`; env `VOXXY_CLONE_BASE_URL|MODEL|API_KEY|TIMEOUT` beats config; `op://` refs only). Token minting for the key: `python3 ops/gateway-tokens.py mint <consumer> --models all --auto` (auto family; never scope a consumer to one named route) in
 `~/code/client-portal/gateway` (see `automaticai-provider-gateway`); store only the `op://<vault>/<item-uuid>/<field>` reference.

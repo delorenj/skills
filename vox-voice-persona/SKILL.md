@@ -92,14 +92,16 @@ frontmatter and needs one batched `hermes-gateway-restart` to pick the new code 
    ```
    With only `enabled: true` and `tts.provider: vox`, `tts.vox.voice: peter`, the agent speaks as Peter via the
    voxxy record. Live examples: peter-griffin (peter), infra-pm (brule), context-director + milkshake-pm (carlin).
-3. Model for the pass: the fleet base (`~/.hermes/config.yaml`) pins it to glm-5.3-flash since 2026-10-24 (~5s;
-   the `auto` main route is a reasoning model, ~20s, and blew the 40s deadline). Change it there and run
+3. Model for the pass: the fleet base (`~/.hermes/config.yaml`) points it at the router's fast tier
+   `automaticai/auto/fast` (2026-10-28, ~5s). Never a named model: the old glm-5.3-flash pin exhausted its
+   weekly quota and every desk silently spoke plain text; the router walks past an exhausted route. (Hermes'
+   own `auto` = the reasoning main route, ~20s, which blew the 40s deadline.) Change it there and run
    `hermes-profile-config.py render`, or override per desk in `config.delta.yaml`:
    ```yaml
    auxiliary:
      tts_persona:
        provider: automaticai
-       model: automaticai/personal/glm-5.3-flash
+       model: automaticai/auto/fast
        timeout: 40
    ```
 4. Apply: **never** restart the gateway with raw systemctl/`hermes gateway restart`. Use
@@ -135,10 +137,12 @@ and run `voxxy persona rewrite --voice <voice> "..."` on a status message with n
 
 CLI LLM settings (independent of Hermes): env `VOXXY_PERSONA_BASE_URL` > `~/.config/voxxy/config.toml`
 `persona_base_url` > `https://api.automaticai.io/v1`; model `VOXXY_PERSONA_MODEL` > `persona_model` >
-`automaticai/personal/glm-5.3-flash`; key `VOXXY_PERSONA_API_KEY` > `persona_api_key_ref` (an `op://` reference
+`automaticai/auto/fast` (router alias; never pin a named model); key `VOXXY_PERSONA_API_KEY` > `persona_api_key_ref` (an `op://` reference
 resolved with `op read` at call time; a raw key there is refused); `VOXXY_PERSONA_TIMEOUT` (default 40s).
-The CLI uses a dedicated gateway consumer token `voxxy-cli-persona`, scoped to the glm-5.3-flash route.
-`persona generate` and `voice clone` use the **clone** LLM settings, which fall back to the persona ones: env
+The CLI uses a dedicated gateway consumer token `voxxy-cli-persona`, scoped to the auto family plus the static
+catalog (`gateway-tokens.py scope voxxy-cli-persona --models all --auto`) so the router can use subscription routes.
+`persona generate` and `voice clone` use the **clone** LLM settings (model default `automaticai/auto`, never
+inherited from the persona's fast tier); URL and key fall back to the persona ones: env
 `VOXXY_CLONE_BASE_URL` / `VOXXY_CLONE_MODEL` / `VOXXY_CLONE_API_KEY` / `VOXXY_CLONE_TIMEOUT` (default 120s), then
 `clone_base_url` / `clone_model` / `clone_api_key_ref` in config.toml, then the `VOXXY_PERSONA_*` / `persona_*` values.
 Use them to run the rare, quality-over-latency generation at a stronger model than the per-utterance rewrite.
