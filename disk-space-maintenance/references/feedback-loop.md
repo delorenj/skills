@@ -48,7 +48,12 @@ next run ends up re-discovering the same 100 GB.
    (`git add disk-space-maintenance`), never `git add -A`. Push, then commit the
    submodule pointer bump in `~/code/skillex` (only that path) and push. Commit
    and push any repo that received cleanup automation (`~/code/infra`, an app
-   repo that got a retention fix, and so on).
+   repo that got a retention fix, and so on). skillex's lefthook pre-commit
+   aborts with "Couldn't stash partially staged files" whenever `all-skills`
+   also carries other agents' uncommitted work. Its only pre-commit jobs are
+   ruff on staged `*.py`, so for a pointer-only commit use
+   `LEFTHOOK=0 git commit -m ... -- all-skills`. That skips lefthook alone; the
+   global guard hooks and pre-push still run.
 
 ## Done means
 
