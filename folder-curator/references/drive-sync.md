@@ -107,10 +107,10 @@ local mtimes, but running `reindex` there too is a harmless idempotent safeguard
 ## 4. Scheduling
 
 systemd **user** timers, modeled on the existing `sync-automaticai.service`/`.timer`
-(hourly). The vault sync (`sync-vault-to-drive`, every 2h) migrated to candybar on
-2026-10-26 (wave 7.9): its crontab line is gone and the stale `sync-vault.timer`
-was deleted, so do not model new jobs on either — new work schedules through
-candybar or a systemd **user** timer. Inbound wants a tighter cadence than outbound.
+(hourly). The vault sync (`sync-vault-to-drive`, every 2h) was retired for good on
+2026-10-28 (candybar decommission; the script, its `~/.local/bin` link, the crontab
+line and the stale `sync-vault.timer` are all gone), so do not model new jobs on it
+or install it — new work schedules through candybar or a systemd **user** timer. Inbound wants a tighter cadence than outbound.
 
 ```ini
 # ~/.config/systemd/user/sync-jim-dropbox.service      (inbound)
