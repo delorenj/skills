@@ -27,7 +27,10 @@ Roles: `transcriptions_owner` (migrations), `transcriptions_app` (waxd + CLI),
   `var/wax.db` `transcript_snapshots`, then project best-effort behind a 300 s
   breaker. They never raise.
 - waxd thread `wax-transcriptions` (15 s): drain, reconcile the vault every
-  600 s, embed when no item holds the GPU.
+  600 s, embed when no item holds the GPU. The moment an item starts it
+  unloads the embedder (Ollama `keep_alive: 0`; default keep-alive 2m): a
+  resident 5.3 GB model starves whisper's 5,000 MB VRAM floor and pushes
+  transcription to CPU (design G.7).
 - Config: environment first, then the INSTALLED waxd unit's `Environment=`
   lines (`WAX_TRANSCRIPTS_DSN`, `*_PASSWORD_OP`, `WAX_TRANSCRIPTS_OWNER_*`,
   `WAX_EMBED_*`). `WAX_TRANSCRIPTS=0` is the rollback switch.
