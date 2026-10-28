@@ -42,6 +42,7 @@ for uv; a missing bare binary is not a missing installation.
 | Compose, import or recompile a graph; maintain n8n nodes | [Pipelines and n8n](references/pipelines-and-n8n.md) |
 | Change an EP, capability, result envelope or version | [EP maintenance](references/enrichment-passes.md); implementation → `create-enrichment-pass` |
 | Holocene read API, fresh/degraded state, deploy checks | [Control surface](references/control-surface.md) |
+| Transcript versions/history, semantic search, store lag, provisioning | [Transcriptions store](references/transcriptions-store.md) |
 | Dated deployed scenarios and editor links | `~/HeyMa/components/wax/docs/CONTROL-SURFACE.md` |
 | Recording lost, diarization failed, daemon wedged | `heyma-pipeline-doctor` |
 
@@ -66,6 +67,11 @@ for uv; a missing bare binary is not a missing installation.
 - **Never publish Wax authoring workflows in n8n.** Export → `wax pipeline import`
   adopts the graph. Wax owns automatic trigger/retry execution. Ordinary n8n
   workflows may consume Wax events; they must not become another pipeline owner.
+- **The transcriptions store is derived and fail-open.** Every applied pass is
+  a version in Postgres `transcriptions`, but capture only queues a SQLite
+  snapshot; an outage is `transcripts lagging|error`, never a failed pass. Fix
+  lag with `wax transcripts sync`, not by re-running passes. History there is
+  append-only: never point a test or a scratch ledger at the real DSN.
 - **Show the boundary honestly.** `exported_snapshot` means the imported export,
   not a comparison against the current n8n draft. Registry drift is separate.
   Holocene consumes `wax catalog --json`, not raw SQLite, YAML, pass environment,

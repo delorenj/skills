@@ -15,6 +15,7 @@ to the verified HeyMa checkout (`~/HeyMa` on this host).
 | n8n `components/n8n-nodes-heyma/` | Static graph editor + CLI control adapters, not a second scheduler |
 | Holocene `/wax` | Read-only catalog/projection, not storage or execution authority |
 | Bloodbank → Candystore | Durable shared facts; Wax ledger remains local execution/recovery authority |
+| Postgres `transcriptions` (schema `tx`) | Versioned history + hybrid search of every vault transcript; a derived projection fed by Wax, never an execution authority. See [Transcriptions store](transcriptions-store.md) |
 
 ## Audio shape
 
@@ -87,3 +88,5 @@ that a text note is an audio transcription.
   graphs, safe discovery and receipts.
 - `components/wax/docs/{WAX-DESIGN,ENRICHMENT-PASSES,CONTROL-SURFACE}.md`:
   source-owned design and current operator interface.
+- `src/wax/transcriptions/` + `docs/TRANSCRIPTIONS-STORE.md`: the versioned
+  transcript store (capture hooks, projector, embed, search, reconcile, health).
