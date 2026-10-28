@@ -87,8 +87,10 @@ python3 ops/gateway-tokens.py revoke <consumer-name>
 
 Replace angle-bracket placeholders; they are not executable examples. Use a
 stable name for the real service/profile, and include helper-model routes in its
-scope. `--models all` scopes to today's catalog, so future additions require
-updating that scope. Prefer `gateway-tokens.py scope <consumer> --models ...`
+scope. `--models all` scopes to today's catalog minus every Anthropic route
+(Claude/Fable), so future additions require updating that scope; a consumer that
+needs Claude adds `--anthropic`. `rotate` without `--models` keeps the consumer's
+current scope; `scope` requires `--models`. Prefer `gateway-tokens.py scope <consumer> --models ...`
 with its dry-run first for an allowlist-only change: it preserves the existing
 key, expiry, group and restrictions. Rotation is not required merely to add
 routes. Default expiry is 90 days; `--days -1` is an
