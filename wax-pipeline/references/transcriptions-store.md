@@ -51,7 +51,8 @@ mise: `wax:transcripts:sync|search|migrate`, `wax:test:pg`.
 
 `wax status` prints `transcripts <state> (queued N, embed pending M)`:
 `disabled` (no DSN or `WAX_TRANSCRIPTS=0`), `ok`, `lagging` (queue older than
-600 s, or the last tick could not connect), `error` (queue older than
+600 s, the last tick could not connect, no or a stale waxd tick, or waxd still
+ticking `disabled` because the unit changed after it started: restart waxd), `error` (queue older than
 `WAX_TRANSCRIPTS_LAG_FAIL_S`, embed backlog older than 6 h, or a model digest
 mismatch; `wax status` exits 2). `wax doctor` has seven `transcripts *` probes:
 store reachable + schema current, projection drained, parity, invariants,
