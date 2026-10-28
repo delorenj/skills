@@ -56,9 +56,17 @@ ticking `disabled` because the unit changed after it started: restart waxd), `er
 `WAX_TRANSCRIPTS_LAG_FAIL_S`, embed backlog older than 6 h, or a model digest
 mismatch; `wax status` exits 2). `wax doctor` has seven `transcripts *` probes:
 store reachable + schema current, projection drained, parity, invariants,
-embeddings current, embedder digest, ANN plan uses the HNSW index.
+embeddings current, embedder digest, and the vector index (FAIL only when the
+canonical ANN plan cannot use `chunk_vector_current_hnsw`; the detail also says
+whether `tx.search`, at its own `ef_search = 200`, plans HNSW or an exact scan,
+which is what it does at today's ~7.3k chunks and is correct).
 
-A placeholder `op://DeLoSecrets/REPLACE_WITH_*_ITEM_UUID/password` in the unit
+Live since 2026-10-28 on big-chungus: DeLoSecrets items Owner
+`xgnmsebepsybgd627rtudh2iuq`, App `dncjuqof2przgk6me6ct6f2xma`, RO
+`jdt6hd7awwzxd376agaszc7z3u` (outside readers use RO). Numbers and evidence:
+design section G.6.
+
+On a fresh install, a placeholder `op://DeLoSecrets/REPLACE_WITH_*_ITEM_UUID/password` in the unit
 means provisioning has not run: `deploy/provision-transcriptions` (dry run by
 default, `--apply` to create items, roles, database and extensions and fill the
 placeholders), then commit the unit, `deploy/install-systemd-user`,
