@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
-# Clone a voice: upload raw audio to POST /voices, verify, and synthesize a
-# confirmation message in the new voice.
+# RAW-API FALLBACK. Prefer the CLI:
+#   voxxy voice clone "<who>"              (from a description)
+#   voxxy voice add FILE --auto -n <slug>  (from a recording; clean cut + transcript)
+# This script uploads the audio as given (no clean cut; the server keeps the first 30 s) and only
+# sets prompt_text if you pass it. Use it where the voxxy CLI is not installed.
 #
-# This script is the lower-level building block. The interactive agent workflow
-# (present passage → receive Telegram voice message → upload → verify) is
-# documented in SKILL.md under "Interactive voice cloning workflow".
+# Uploads to POST /voices, verifies, synthesizes a confirmation in the new voice and FAILS if the
+# engine that answered was not a real clone (elevenlabs ignores reference audio).
 #
 # Usage:
-#   clone_voice.sh <name> <display_name> <audio_path> [tags]
+#   clone_voice.sh <name> <display_name> <audio_path> [tags] [prompt_text]
+#   prompt_text: the exact words spoken in the clip (the biggest quality lever)
 #
 # Example:
 #   clone_voice.sh jarad "Jarad" ~/downloads/voice_message.ogg clone,male
 #
 # What it does:
 #   1. Slugifies the name (lowercase, hyphenated)
-#   2. Uploads raw audio to POST /voices (no STT — raw file only)
+#   2. Uploads the audio to POST /voices (with prompt_text when given)
 #   3. Verifies with GET /voices/<name>
 #   4. Synthesizes a confirmation message using POST /synthesize-url
 #   5. Prints the confirmation audio URL to stdout
@@ -24,7 +27,8 @@ set -euo pipefail
 VOX_URL="${VOX_URL:-https://vox.delo.sh}"
 
 if [[ $# -lt 3 ]]; then
-    echo "usage: $0 <name> <display_name> <audio_path> [tags]" >&2
+    echo "usage: $0 <name> <display_name> <audio_path> [tags] [prompt_text]" >&2
+    echo "prefer: voxxy voice add <audio_path> --auto -n <name>" >&2
     echo "example: $0 jarad \"Jarad\" ~/voice_message.ogg clone,male" >&2
     exit 1
 fi
@@ -33,6 +37,7 @@ raw_name="$1"
 display="$2"
 audio="$3"
 tags="${4:-}"
+prompt_text="${5:-}"
 
 # Slugify: lowercase, spaces → hyphens, strip non-alphanumeric (keep hyphens)
 name="$(echo "${raw_name}" | tr '[:upper:]' '[:lower:]' | sed 's/ /-/g; s/[^a-z0-9-]//g; s/--*/-/g; s/^-//; s/-$//')"
@@ -49,12 +54,13 @@ fi
 
 echo "→ Uploading voice '${name}' (display: '${display}') from ${audio}..."
 
-# Step 1: Upload raw audio to POST /voices (no STT — raw file only)
+# Step 1: Upload to POST /voices
 upload_result="$(
     curl -fsS -X POST "${VOX_URL}/voices" \
         -F "name=${name}" \
         -F "display_name=${display}" \
         ${tags:+-F "tags=${tags}"} \
+        ${prompt_text:+-F "prompt_text=${prompt_text}"} \
         -F "audio=@${audio}"
 )"
 
@@ -79,7 +85,14 @@ synth_result="$(
 
 audio_url="$(echo "${synth_result}" | python3 -c "import json,sys; print(json.load(sys.stdin)['audio_url'])")"
 
-echo "✓ Confirmation synthesized:"
+engine="$(echo "${synth_result}" | python3 -c "import json,sys; print(json.load(sys.stdin).get('engine','?'))")"
+if [[ "$engine" != "voxcpm" && "$engine" != "vibevoice" ]]; then
+    echo "NOT A CLONE: synthesis was served by engine '${engine}', which ignores the reference audio." >&2
+    echo "Check 'voxxy daemon status' and stop ollama models holding VRAM, then retry." >&2
+    exit 4
+fi
+
+echo "✓ Confirmation synthesized (engine: ${engine}):"
 echo "${synth_result}" | python3 -m json.tool
 echo ""
 echo "🎧 Confirmation audio URL: ${audio_url}"

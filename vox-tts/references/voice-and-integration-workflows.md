@@ -29,6 +29,10 @@ Pass `voice: "<name>"` to use a saved profile. Repeatable, consistent across ses
 
 Use this when: a named character/persona needs to persist across calls, or the user explicitly supplied a reference sample.
 
+**Create the voice with the CLI, not by hand:** `heavy voxxy voice clone "<who>"` for a person or character, `voxxy voice add FILE --auto` for a
+recording. Both set `prompt_text` (the exact transcript of the reference clip), the biggest quality lever. See
+[voice-workflows](voice-workflows.md) and [reference-clip-quality](reference-clip-quality.md).
+
 **To clone a user's own voice interactively** (user says "clone my voice as…"), see the [Interactive voice cloning workflow](#interactive-voice-cloning-workflow) below — it walks through presenting a reading passage, receiving a Telegram voice message, and uploading the raw audio.
 
 **Rule of thumb:** try description first unless the user names a voice or provides audio. Descriptions cost nothing to iterate.
@@ -37,18 +41,24 @@ Use this when: a named character/persona needs to persist across calls, or the u
 
 ### Add a new voice
 
-Use `scripts/add_voice.sh` for a single command that uploads and registers the profile. The service auto-trims to 30s mono on ingest.
+Use the CLI. It cuts a clean 10-15 s clip, transcribes it and uploads both (`prompt_text`):
 
 ```bash
-scripts/add_voice.sh <name> "<Display Name>" <path/to/audio.ext> [tag1,tag2]
+voxxy voice add FILE --auto -n <slug> -d "<Display Name>" -t tag1,tag2
+voxxy voice add FILE --start 12.6 --end 26.1 -n <slug>        # you choose the window
+voxxy voice add clip.wav -n <slug> --prompt-text "exact words spoken in the clip"
 ```
 
-Accepts wav, ogg, mp3, flac, m4a. For the raw HTTP form:
+Accepts wav, ogg, mp3, flac, m4a. Full procedure: [voice-workflows](voice-workflows.md) B.
+
+Raw-API fallback (no CLI available; no cutting, no transcript, so lower quality). `scripts/add_voice.sh` wraps it and takes an optional
+`prompt_text`:
 
 ```bash
+scripts/add_voice.sh <name> "<Display Name>" <path/to/audio.ext> [tag1,tag2] [prompt_text]
 curl -X POST https://vox.delo.sh/voices \
-  -F name=<slug> -F display_name="<Display>" \
-  -F tags="<tag1>,<tag2>" \
+  -F name=<slug> -F display_name="<Display>" -F tags="<tag1>,<tag2>" \
+  -F prompt_text="<exact transcript of the clip>" \
   -F audio=@/path/to/audio.ogg
 ```
 
@@ -79,35 +89,26 @@ Example agent message:
 >
 > *"The quick brown fox jumps over the lazy dog. She sold sea shells by the sea shore, and the wind whispered through the tall green trees."*
 
-#### Step 3 — Receive the recording (DO NOT run STT)
+#### Step 3 — Receive the recording
 
-When the user sends a Telegram voice message, the agent receives the **raw audio file path** (typically an `.ogg` file). 
+When the user sends a Telegram voice message, the agent receives the **raw audio file path** (typically an `.ogg` file). Keep the original file; the CLI decodes it itself.
 
-**Critical: do NOT transcribe the audio.** Do not run STT, whisper, or any speech-to-text on the recording. You need the raw audio file path to upload directly to the Voxxy service. The `POST /voices` endpoint handles format conversion (ogg, wav, mp3, flac, m4a) and auto-trims to 30 s mono.
+(Older versions of this skill said never to run STT. That is wrong now: the exact transcript of the uploaded clip,
+sent as `prompt_text`, is what makes the clone sound like the speaker. Transcribe the **clip**, not to replace the audio. `voice add --auto` does it for you.)
 
 #### Step 4 — Upload the raw audio
 
-Upload the raw audio file to `POST /voices` using `scripts/clone_voice.sh` or the raw HTTP form:
-
-**Using the script (recommended — also verifies and synthesizes confirmation):**
+Upload with the CLI (cuts, transcribes and sets `prompt_text`):
 
 ```bash
-scripts/clone_voice.sh <name> "<Display Name>" <path/to/audio.ogg> [tags]
+voxxy voice add /path/to/voice_message.ogg --auto -n <slug> -d "<Display Name>" --no-prompt
 ```
 
-The script:
-1. Slugifies the name
-2. Uploads raw audio to `POST /voices`
-3. Verifies with `GET /voices/<name>`
-4. Synthesizes a confirmation message via `POST /synthesize-url`
-5. Prints the confirmation audio URL
-
-**Using raw HTTP (upload only):**
+**Raw-API fallback** (only when the CLI is not installed; no cut, no transcript). `scripts/clone_voice.sh` uploads, verifies,
+synthesizes a confirmation and fails loudly if the engine was not a real clone. Pass the transcript as the fifth argument:
 
 ```bash
-curl -X POST https://vox.delo.sh/voices \
-  -F name=<slug> -F display_name="<Display>" \
-  -F audio=@/path/to/voice_message.ogg
+scripts/clone_voice.sh <name> "<Display Name>" <path/to/audio.ogg> [tags] [prompt_text]
 ```
 
 #### Step 5 — Verify and confirm
@@ -143,11 +144,11 @@ Agent: present passage from references/voice_cloning_passages.md
   ↓
 User: sends Telegram voice message (raw .ogg file)
   ↓
-Agent: get raw audio file path (DO NOT run STT)
+Agent: get raw audio file path
   ↓
-Agent: scripts/clone_voice.sh jarad "Jarad" /path/to/voice_message.ogg
+Agent: voxxy voice add /path/to/voice_message.ogg --auto -n jarad --no-prompt
   ↓
-Service: POST /voices → auto-trim 30s mono, store as jarad.wav
+Service: POST /voices → stores the clean clip as jarad.wav with prompt_text
   ↓
 Agent: GET /voices/jarad → verify registered
   ↓
@@ -160,11 +161,11 @@ User: "sounds great!" or "try again with a different passage"
 
 #### Pitfalls
 
-- **Never run STT on the recording.** The whole point is to upload the raw audio. STT discards the timbre information the model needs.
+- **Always set `prompt_text`** (exact transcript of the uploaded clip). It is worth about +0.1 ecapa over the same clip without it.
 - **Name must be slugified** before upload. The service stores voices by slug; spaces and uppercase cause lookup failures.
 - **If the clone sounds off**, re-record with a different passage from `references/voice_cloning_passages.md`. Different passages emphasize different phoneme distributions.
 - **Background noise is the #1 quality killer.** Encourage the user to record in a quiet room.
-- **The service auto-trims to 30 s.** Don't worry about the recording being too long — but aim for 5–15 s of actual speech.
+- **The service keeps the first 30 s of an upload, which is not a clean cut.** Let `--auto` / `--start --end` choose a 10-15 s whole-sentence window instead. Aim for 10-15 s of actual speech.
 
 ### Synthesize speech (inline bytes)
 

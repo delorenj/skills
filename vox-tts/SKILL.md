@@ -4,8 +4,9 @@ description: Generate speech using the self-hosted voxxy (vox) TTS service at ht
   Use when the user asks to speak, say, narrate, synthesize speech, clone a voice,
   create a voice, add or register a voice, pipe TTS, or control voice qualities by
   description (e.g. "a young woman with a cheerful voice"). Handles HTTP API usage,
-  voice profile management, description-based voice design, cloning, MCP registration,
-  and integration patterns for new platforms.
+  voice profile management, description-based voice design, cloning a voice from a
+  description ("clone the dog from Family Guy") or a recording, upgrading an existing
+  voice's reference clip, MCP registration, and integration patterns for new platforms.
 metadata:
   pipeline-status:
   - new
@@ -27,14 +28,40 @@ A self-hosted TTS service at **<https://vox.delo.sh>** wrapping VoxCPM2 with a p
 | **MCP tool: delivery URL (OGG/Opus, Telegram-ready)**           | `speak_url(text, voice?)`                                                   |
 | MCP tool: list voices                                           | `list_voices_tool()`                                                        |
 | List voices (HTTP)                                              | `GET /voices`                                                               |
-| Add a voice                                                     | `POST /voices` (multipart: name, display_name, audio)                       |
-| **Interactive voice cloning** (user says "clone my voice as…")  | See [Interactive voice cloning workflow](#interactive-voice-cloning-workflow) below |
+| **Create a voice from a description** ("clone the dog from Family Guy") | `heavy voxxy voice clone "<who>"`: [Workflow A](references/voice-workflows.md#a-clone-a-new-voice-from-a-description) |
+| **Add a voice from a local recording**                          | `voxxy voice add FILE --auto -n <slug>` (clean cut + transcript): [Workflow B](references/voice-workflows.md#b-add-a-voice-from-a-local-file) |
+| Add a voice when you already have the exact transcript          | `voxxy voice add clip.wav -n <slug> --prompt-text "exact words"`            |
+| See which windows of a recording are clean (uploads nothing)    | `heavy voxxy voice candidates FILE --top 5`                                 |
+| **Upgrade an existing voice** (re-cut + transcript + A/B score) | [Workflow C](references/voice-workflows.md#c-upgrade-an-existing-voice); all voices: [D](references/voice-workflows.md#d-batch-upgrade-every-voice) |
+| Add a voice (raw HTTP, fallback only)                           | `POST /voices` (multipart: name, display_name, tags, prompt_text, audio)    |
+| **User records their own voice** ("clone my voice as…")         | See [Interactive voice cloning workflow](references/voice-and-integration-workflows.md#interactive-voice-cloning-workflow) |
 | **Upgrade an engine (VoxCPM / VibeVoice)**                      | See [Engine upgrade workflow](#engine-upgrade-workflow) below               |
 | Speak from a Hermes agent                                       | Native `tts.provider: vox` (fleet base); the fleet does NOT load the vox MCP |
 | Speak from a shell / any agent with a terminal                  | `voxxy speak "text"` (see `voxxy speak --help`)                            |
 | Register with an MCP client that has no native vox path         | MCP server at `https://vox.delo.sh/mcp/` (trailing slash required)          |
 | Node-RED                                                        | `node-red-contrib-vox` at `~/docker/stacks/utils/vox/node-red-contrib-vox/` |
 | Health + engine status                                          | `GET /healthz`                                                              |
+
+## Making a voice: the one rule that matters
+
+**Every voice needs a `prompt_text`: the exact transcript of its reference clip.** It switches voxcpm from
+plain cloning into continuation ("Ultimate Cloning") mode and is the single biggest quality lever. Measured on
+`arnold`, ECAPA speaker similarity against the source speaker (higher is better, differences under 0.03 are noise):
+
+| Reference clip                                              | ecapa |
+| ----------------------------------------------------------- | ----- |
+| old upload: first 15 s, starts on a cut-off word, no transcript | 0.59 |
+| clean sentence-boundary cut, no transcript                  | 0.72  |
+| the same cut **with** `prompt_text`                         | 0.82-0.85 |
+
+A 12-15 s clip scores the same as a 22 s one at lower latency. `voxxy voice clone` and `voxxy voice add --auto`
+do the whole recipe (transcribe with whisper, cut whole sentences at pauses, gate out other speakers and music,
+re-encode, upload with the transcript). Never hand-trim and upload without a transcript, and never stream-copy a cut.
+Method, ffmpeg recipe and the A/B scoring procedure: [reference-clip-quality](references/reference-clip-quality.md).
+`voxxy voice list --json` shows `prompt_text`; a voice where it is null is a candidate for Workflow C.
+
+Two traps that make a "clone" quietly wrong: **ElevenLabs fallback** answers 200 in a stranger's voice (check
+`X-Vox-Engine` / the `engine` field is `voxcpm` or `vibevoice`), and **ollama holding VRAM** OOMs the engine.
 
 **Trailing slash on `/mcp/` is mandatory.** Without it, FastAPI 307-redirects and HTTPX drops the POST body.
 
@@ -73,13 +100,17 @@ Per-voice ElevenLabs mapping lives in the `voices.elevenlabs_voice_id` column. N
 
 The one that does replace the voice outright is **ElevenLabs fallback**: if both GPU engines are down and `ELEVENLABS_API_KEY` is set, vox answers `200` in a stranger's voice, logging `vox: voice clone BYPASSED`, and delivers it anyway. **Check the `engine` field on every clone synthesis** — `vibevoice` or `voxcpm` is the clone, `elevenlabs` is not your voice.
 
-**The reference budget is 10 seconds, not 30.** Two different caps stack, and only the second one matters. `POST /voices` trims ingest to `VOX_REF_AUDIO_MAX_SECONDS` = 30s (`compose.yml:16`, applied at `app/main.py:578-584`, keeping the **first** 30s). But the vibevoice container sets the same variable to **10** (`compose.engines.yml:69`), and `engines/vibevoice/engine/synth.py:183,208` reloads the reference with `duration=10.0`. Its `/healthz` says so directly: `"max_ref_seconds": 10.0`. So seconds 10–30 of any reference clip are stored, backed up, and never seen by the model. Write clone passages for **8–10 clean seconds** and put the best, most neutral speech first — everything after is dead weight.
+**The reference budget is 10 seconds, not 30.** Two different caps stack, and only the second one matters. `POST /voices` trims ingest to `VOX_REF_AUDIO_MAX_SECONDS` = 30s (`compose.yml:16`, applied at `app/main.py:578-584`, keeping the **first** 30s). But the vibevoice container sets the same variable to **10** (`compose.engines.yml:69`), and `engines/vibevoice/engine/synth.py:183,208` reloads the reference with `duration=10.0`. Its `/healthz` says so directly: `"max_ref_seconds": 10.0`. So seconds 10–30 of any reference clip are stored, backed up, and never seen by the model. Write clone passages for **8–10 clean seconds** and put the best, most neutral speech first — everything after is dead weight. (The voxcpm sweet spot is 10-15 s; a clip in that range serves both engines.)
 
 ## Detailed procedures
 
-Read [voice and integration workflows](references/voice-and-integration-workflows.md) for the relevant
-implementation or diagnosis. Voice cloning and external delivery require the
-user to request those actions.
+- [voice-workflows](references/voice-workflows.md): step-by-step A (clone from a description), B (add from a file),
+  C (upgrade one voice), D (batch upgrade). Saved Claude Code workflows: `~/code/voxxy/.claude/workflows/voxxy-voice-clone.js`
+  and `voxxy-voice-upgrade.js`.
+- [reference-clip-quality](references/reference-clip-quality.md): why `prompt_text` matters, how a clean clip is cut,
+  and how to A/B score voices with `scripts/score_voice_candidates.py`.
+- [voice and integration workflows](references/voice-and-integration-workflows.md): voice design, the user-records-their-own-voice
+  flow, delivery to Telegram / MCP / Node-RED. Voice cloning and external delivery require the user to request those actions.
 
 ## Defaults cheat sheet
 

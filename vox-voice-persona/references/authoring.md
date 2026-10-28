@@ -16,7 +16,19 @@ description: one line
 
 Only `name`, `voices`, `temperature`, `description` are read; other keys are documentation.
 
-Steps for a new character:
+Fastest path: let the CLI write the first draft, then edit it.
+
+```bash
+voxxy persona generate brian-griffin -c "Brian Griffin from Family Guy" --voice brian --dry-run   # read it
+voxxy persona generate brian-griffin -c "Brian Griffin from Family Guy" --voice brian             # write + associate
+```
+
+It web-searches the character, follows the structure above, validates through the plugin loader, refuses to
+overwrite without `--force`, and with `--voice` sets `voices: [brian]` and associates the voice if it exists on the server.
+`voxxy voice clone "<who>"` runs the same generator as its last step. Always read a generated persona: check the
+rules forbid dropping facts, the tics are budgeted (not one per sentence), and the examples keep every number.
+
+Steps for a new character (by hand):
 
 1. `cp personas/peter-griffin.md personas/<new-id>.md`; rewrite bible, tics, catchphrase budget, profanity level (prose).
 2. Rules must say numbers, names, paths, commands, warnings and action items are never dropped or altered; keep the tone

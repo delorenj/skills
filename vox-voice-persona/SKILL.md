@@ -1,6 +1,6 @@
 ---
 name: vox-voice-persona
-description: Explain and operate the Hermes Voice Personality ("voice-persona") plugin for voxxy, and how a persona is associated with a voice at the voxxy level. Use when the user asks to make a voice talk like a character, "give peter/carlin/brule a personality", associate a persona with a voice, set or clear a voice's persona, write or edit a persona file, enable persona TTS enrichment for a Hermes agent/profile, dry-run an in-character rewrite, use `voxxy persona`, `voxxy voice persona`, or `voxxy speak --persona`, or debug "why does my agent not talk in character" / rejected rewrites / persona timeouts.
+description: Explain and operate the Hermes Voice Personality ("voice-persona") plugin for voxxy, and how a persona is associated with a voice at the voxxy level. Use when the user asks to make a voice talk like a character, "give peter/carlin/brule a personality", associate a persona with a voice, set or clear a voice's persona, write or edit a persona file, enable persona TTS enrichment for a Hermes agent/profile, dry-run an in-character rewrite, use `voxxy persona`, `voxxy voice persona`, or `voxxy speak --persona`, generate a persona for a character automatically (`voxxy persona generate`, or as the last step of `voxxy voice clone`), or debug "why does my agent not talk in character" / rejected rewrites / persona timeouts.
 metadata:
   pipeline-status:
   - new
@@ -15,6 +15,14 @@ call, whole response at once, fail-open: on any problem the original text is spo
 - Plugin + bundled personas: `~/code/voxxy/plugins/voice-persona/` (`README.md`, `__init__.py`, `personas/*.md`)
 - Voice -> persona association lives on the voxxy server (`voices.persona`, `https://vox.delo.sh`)
 - CLI: `voxxy persona ...`, `voxxy voice persona ...`, `voxxy speak --persona ...` (needs the `voxxy` CLI; see [vox-tts](../vox-tts/SKILL.md))
+
+## Where personas come from
+
+- **Automatically at clone time.** `voxxy voice clone "<who>"` ends by authoring `personas/<slug>.md` for the resolved
+  character, validating it through the plugin's own loader and associating it with the new voice. An existing persona file is
+  reused, never overwritten, unless `--force-persona`. `--no-persona` skips. See [vox-tts](../vox-tts/SKILL.md) workflow A.
+- **On demand:** `voxxy persona generate <id> -c "<who>" [--voice V]` (below).
+- **By hand:** copy a bundled file and edit it ([authoring](references/authoring.md)).
 
 ## Where it sits
 
@@ -104,6 +112,8 @@ frontmatter and needs one batched `hermes-gateway-restart` to pick the new code 
 voxxy persona list [--json]                 # bundled personas, temperature, which voices map (voxxy | frontmatter)
 voxxy persona show ID [--raw]               # render the persona file
 voxxy persona path                          # ~/code/voxxy/plugins/voice-persona/personas
+voxxy persona generate ID -c "Brian Griffin from Family Guy" [--voice brian] [--dry-run] [--force]
+                                            # LLM-author personas/<ID>.md; --voice also sets frontmatter voices: and associates it
 voxxy persona rewrite ID "text"             # dry run, no audio; text may come from stdin
 voxxy persona rewrite --voice peter "Build 17 passed."   # use the voice's effective persona
 voxxy persona rewrite peter-griffin "..." --json         # {original, rewrite, accepted, reason, persona, model, prompt_version, elapsed_s}
@@ -116,11 +126,22 @@ Works with all speak modes (`--out`, `--raw`, `--sink`, `--via` rewrites locally
 Fail-open: a failed rewrite speaks the original and prints a dim warning on stderr. `persona rewrite` exits 1 with the
 reason when validation rejects; 4 for an unknown id or a voice with no persona.
 
+`persona generate` web-searches the character for facts, then writes the file in the bundled personas' structure
+(frontmatter, character bible, "Rules for rewriting" that forbid dropping numbers, names, paths, commands, warnings and
+action items, 2-3 before/after examples; accent by word choice, never phonetic spelling). The result is parsed by the
+plugin's loader before it is written, the frontmatter is re-rendered by the CLI so the model cannot break the parser,
+and an existing file is never overwritten without `--force`. `--dry-run` prints it and writes nothing. Read the result
+and run `voxxy persona rewrite --voice <voice> "..."` on a status message with numbers before relying on it.
+
 CLI LLM settings (independent of Hermes): env `VOXXY_PERSONA_BASE_URL` > `~/.config/voxxy/config.toml`
 `persona_base_url` > `https://api.automaticai.io/v1`; model `VOXXY_PERSONA_MODEL` > `persona_model` >
 `automaticai/personal/glm-5.3-flash`; key `VOXXY_PERSONA_API_KEY` > `persona_api_key_ref` (an `op://` reference
 resolved with `op read` at call time; a raw key there is refused); `VOXXY_PERSONA_TIMEOUT` (default 40s).
 The CLI uses a dedicated gateway consumer token `voxxy-cli-persona`, scoped to the glm-5.3-flash route.
+`persona generate` and `voice clone` use the **clone** LLM settings, which fall back to the persona ones: env
+`VOXXY_CLONE_BASE_URL` / `VOXXY_CLONE_MODEL` / `VOXXY_CLONE_API_KEY` / `VOXXY_CLONE_TIMEOUT` (default 120s), then
+`clone_base_url` / `clone_model` / `clone_api_key_ref` in config.toml, then the `VOXXY_PERSONA_*` / `persona_*` values.
+Use them to run the rare, quality-over-latency generation at a stronger model than the per-utterance rewrite.
 
 More: [CLI reference](references/cli.md), [authoring a persona](references/authoring.md),
 [troubleshooting](references/troubleshooting.md).
