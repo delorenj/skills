@@ -1,6 +1,6 @@
 ---
 name: server-maintenance
-description: Diagnose and clean up the big-chungus home server. Finds what is killing processes or containers, attributes crash loops, kill loops, healthcheck storms, OOM, swap pressure, and docker bloat, then fixes and prunes safely. Use when the user says "what is killing my server", "server is slow", "server locked up", "server is dying", "high load", "what's eating CPU", "what's eating memory", "spring cleaning", "maintenance sweep", "cleanup the server", "docker cleanup", "too many containers", "disk full", "prune docker", or asks why a unit/container keeps restarting, who restarted X, or why load spiked. Built around scripts/sweep.sh (one-shot evidence report), references/server-map.md (system baselines), and references/forensics-playbook.md (attribution patterns); uses srvls, systemd, journalctl, docker, Prometheus, hindsight. Do NOT use for debugging one project's application code, provisioning new services or stacks (use delonet-conventions), or Cloudflare/network routing issues.
+description: Diagnose and clean up the big-chungus home server. Finds what is killing processes or containers, attributes crash loops, kill loops, healthcheck storms, OOM, swap pressure, and docker bloat, then fixes and prunes safely. Use when the user says "what is killing my server", "server is slow", "server locked up", "server is dying", "high load", "what's eating CPU", "what's eating memory", "spring cleaning", "maintenance sweep", "cleanup the server", "docker cleanup", "too many containers", or asks why a unit/container keeps restarting, who restarted X, or why load spiked. Built around scripts/sweep.sh (one-shot evidence report), references/server-map.md (system baselines), and references/forensics-playbook.md (attribution patterns); uses srvls, systemd, journalctl, docker, Prometheus, hindsight. Do NOT use for disk space — low disk, disk full, pruning images or caches to free space (use disk-space-maintenance). Do NOT use for debugging one project's application code, provisioning new services or stacks (use delonet-conventions), or Cloudflare/network routing issues.
 ---
 
 # Server Maintenance
@@ -52,6 +52,8 @@ One fix at a time. Verify each before touching the next:
 Retired automation goes to the attic dirs (see map), never deleted. Never resurrect anything on the PERMANENTLY RETIRED list in [references/server-map.md](./references/server-map.md), "Attic convention" section.
 
 ## Phase 4: Prune (only if explicitly asked, or part of a spring-cleaning request)
+
+Freeing disk space is the `disk-space-maintenance` skill (survey, A/B/C tiers, bounding accumulators, big-chungus profile). This phase only covers decommissioning containers and stacks found during a sweep.
 
 SAFE set, no permission needed: `docker builder prune -f` and dangling-image prune (`docker image prune -f`).
 
