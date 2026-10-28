@@ -10,8 +10,8 @@ G lists where the build followed reality over the plan). Code:
 Postgres `transcriptions`, schema `tx`, on the host cluster (`localhost:5432`,
 never `postgres.delo.sh` or a LAN IP). One identity per vault note (documents
 excluded; Hermes STT and legacy notes included), one append-only version per
-transcription, applied pass (completed or skipped), backfill and detected vault
-edit. Failed runs are `tx.pass_run` rows only. Every version restores
+transcription, completed pass, backfill and detected vault edit. Skipped and
+failed runs are `tx.pass_run` (pass history) rows only. Every version restores
 byte-for-byte. Search (`tx.search`) reads only the head tables, so a hit is
 always the latest version. Embeddings: local Ollama `qwen3-embedding:8b`,
 pinned by digest, `halfvec(2048)`; frontmatter-only passes cost zero chunk
