@@ -67,11 +67,12 @@ ssh <alias> 'bash -s' < "$SKILL_DIR/scripts/survey.sh" > /tmp/<m>-survey.md   # 
 
 `SKILL_DIR` is the directory this skill was loaded from (on big-chungus:
 `~/.agents/skills/disk-space-maintenance`). Add `-- --quick` (remote) or `--quick`
-(local) to skip the slow full-home walks. The report covers filesystems,
+(local) to skip the slow full-home walks; when the profile was verified within
+the last day, quick is enough. The report covers filesystems,
 snapshots, the top of `$HOME`, known caches, docker, files over 1G, what was
-written in the last 48h, logs over 50M, deleted-but-open files and the cleanup
-automation already installed. Don't redo these with ad-hoc commands; drill into
-what the report points at.
+written in the last 48h, logs over 50M, runaway logs and restart loops,
+deleted-but-open files and the cleanup automation already installed. Don't
+redo these with ad-hoc commands; drill into what the report points at.
 
 On big-chungus, also read the free-space trend (Prometheus on `localhost:9472`)
 before blaming anything: "full again" is often a growth rate, not a pile.
@@ -87,10 +88,14 @@ instead of quietly ignoring it. The OS playbooks list the usual suspects:
 ### 3. Reclaim tier A
 
 Biggest first, one category at a time, measuring free space before and after each.
-Respect the preconditions in the profile (quit the app, no CI job running, no
-build in progress). Stop and reclassify anything that turns out to be in use or
-holds the only copy of something. Run long or CPU-heavy work through `heavy`
-where it exists (big-chungus).
+Respect the preconditions in the profile (no CI job running, no build in
+progress), and **re-check them immediately before each `rm`**: jobs start
+mid-run. A step blocked by a busy check moves to the end of the run and is
+retried, not dropped. A cache whose app is running on a live desktop is skipped
+and recorded; don't quit the user's apps. Stop and reclassify anything that turns
+out to be in use, holds the only copy of something, or that the profile got
+wrong. A profile's "A" is a 30-minute-old opinion, and the run decides. Run long
+or CPU-heavy work through `heavy` where it exists (big-chungus).
 
 ### 4. Decide tier B
 
@@ -103,8 +108,12 @@ decision for.
 
 For each thing that regrows, install the bound closest to its source:
 
+0. if the writer is broken or obsolete (a crash loop, a client of a retired
+   service), retire it reversibly: unload it and move its unit or plist to an
+   attic dir with a restore note;
 1. the app's own retention setting (log size/keep count, execution pruning,
-   session cleanup period);
+   session cleanup period), or a prune at the start of each run in the tool
+   that writes per-run dirs (a small repo change: commit it there);
 2. log rotation (logrotate or newsyslog, using copytruncate for files held open);
 3. age rules (systemd-tmpfiles on Linux; a launchd agent on macOS);
 4. a scheduled prune script (systemd timer or launchd agent) as the fallback.

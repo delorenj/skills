@@ -135,9 +135,40 @@ else
     "$H/actions-runner/_work" "$H/.local/state" "$H/snap" \
     /var/log /var/log/journal /var/cache/apt /var/lib/snapd/snaps /var/lib/docker /var/lib/containerd /tmp \
     2>/dev/null | print_sizes 102400
-  # Per-runner work dirs when several runners live side by side
-  ls -d "$H"/actions-runner*/_work "$H"/actions-runner/*/_work 2>/dev/null | while read -r p; do size_list "$p"; done | print_sizes 524288
 fi
+# Per-runner work dirs when several runners live side by side (macOS too: the
+# Mac build host runs five, and only the shared one sits at ~/actions-runner/_work)
+ls -d "$H"/actions-runner*/_work "$H"/actions-runner/*/_work 2>/dev/null | while read -r p; do size_list "$p"; done | print_sizes 524288
+
+# ---------------------------------------------------------------------------
+# Cheap enough for --quick, and the two biggest surprises on carries-macbook-air:
+# a launchd crash loop had written 1.9 GiB of logs, a reconnect loop 0.8 GiB.
+section "Runaway logs and state (>=100M under the usual log/state dirs) and restart loops"
+tmo 60 find "$H/Library/Logs" "$H"/.[!.]*/logs "$H/.local/state" "$H/.pm2/logs" -maxdepth 3 -type f -size +204800 2>/dev/null \
+  | while read -r f; do printf '%s\t%s\n' "$(du -sk "$f" 2>/dev/null | cut -f1)" "$f"; done | sort -rn | head -15 | print_sizes 102400
+if [ "$OS" = "Darwin" ]; then
+  # runs = launches since the agent was loaded. Thousands under KeepAlive (no
+  # StartInterval) is a crash loop; a StartInterval agent racks up runs legitimately.
+  for f in "$H"/Library/LaunchAgents/*.plist; do
+    [ -f "$f" ] || continue
+    l=$(basename "$f" .plist)
+    info=$(launchctl print "gui/$(id -u)/$l" 2>/dev/null)
+    r=$(printf '%s\n' "$info" | awk '$1=="runs" && $2=="=" {print $3; exit}')
+    [ -n "$r" ] && [ "$r" -ge 100 ] 2>/dev/null || continue
+    ex=$(printf '%s\n' "$info" | awk -F'= ' '/last exit code =/ {print $2; exit}')
+    iv=$(plutil -extract StartInterval raw "$f" 2>/dev/null)
+    kind="LOOP? KeepAlive/no schedule"; [ -n "$iv" ] && kind="periodic every ${iv}s"
+    printf -- '- %7s runs  %s  [%s, last exit %s]  stderr: %s\n' "$r" "$l" "$kind" "${ex:-?}" "$(plutil -extract StandardErrorPath raw "$f" 2>/dev/null || echo none)"
+  done | sort -t' ' -k2 -rn
+else
+  for scope in --user --system; do
+    systemctl $scope list-units --type=service --all --no-legend --plain 2>/dev/null | awk '{print $1}' | while read -r u; do
+      n=$(systemctl $scope show -p NRestarts --value "$u" 2>/dev/null)
+      [ "${n:-0}" -ge 20 ] 2>/dev/null && printf -- '- %7s restarts  %s (%s)\n' "$n" "$u" "${scope#--}"
+    done
+  done
+fi
+echo "(no lines above = no runaway logs or state and no agent/service with 100+ launches / 20+ restarts)"
 
 # ---------------------------------------------------------------------------
 section "Docker"
@@ -203,5 +234,28 @@ else
   systemctl list-timers --all --no-pager 2>/dev/null | grep -iE 'prune|clean|logrotate|tmpfiles|fstrim' | awk '{print "- system timer: " $(NF-1)}'
   crontab -l 2>/dev/null | grep -iE 'prune|clean|sweep|rotate|rm ' | sed 's/^/- cron: /'
 fi
+echo
+# A cron/cleanup `rm` whose target runs through a symlink is a loaded gun: while
+# the link dangles it deletes nothing, and the day someone repoints the link it
+# empties the real folder (carries-macbook-air: `rm -rf ~/gd/screenshots/*` every
+# 2 min, ~/gd dangling, real synced Drive "screenshots" folders one rename away).
+( set -f
+  crontab -l 2>/dev/null | grep -v '^[[:space:]]*#' | grep -E '(^|[;&| ])rm ' | while IFS= read -r line; do
+    for tok in $line; do
+      case "$tok" in /*|'~'*) ;; *) continue ;; esac
+      p=$(printf '%s' "$tok" | sed "s#^~#$HOME#"); p=${p%%[*?]*}; p=${p%/}
+      cur=""; rest=${p#/}
+      while [ -n "$rest" ]; do
+        part=${rest%%/*}; [ "$part" = "$rest" ] && rest="" || rest=${rest#*/}
+        cur="$cur/$part"
+        case "$cur" in /tmp|/var|/etc) continue ;; esac   # macOS system symlinks into /private
+        if [ -L "$cur" ]; then
+          state="resolves"; [ -e "$cur" ] || state="DANGLING"
+          echo "- WARNING cron rm target passes through symlink $cur -> $(readlink "$cur") ($state): if repointed, this job deletes under the new target"
+          break
+        fi
+      done
+    done
+  done )
 echo
 echo "_End of survey. Compare against the machine profile before acting._"

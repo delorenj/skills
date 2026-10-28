@@ -1,7 +1,12 @@
 # macOS playbook (generic)
 
 Machine-specific paths and decisions live in the machine profile. Commands are
-tier A unless marked **B**. Quit the owning app before deleting its caches.
+tier A unless marked **B**. The owning app must not be running when its caches
+go. On a live desktop session (someone at the console, or agents driving a
+browser), skip the caches of apps that are running and record the skip. Do not
+quit them over ssh. Resolve a cache's owner by bundle id, not by its name:
+`mdfind "kMDItemCFBundleIdentifier == 'com.openai.codex'"` is ChatGPT.app, not a
+"Codex" app.
 
 ## Find it
 
@@ -12,7 +17,20 @@ diskutil info / | grep -iE 'purgeable|free space'
 tmutil listlocalsnapshots /
 du -sh ~/.[!.]* ~/* 2>/dev/null | sort -rh | head -30
 du -sh ~/Library/* ~/Library/{Caches,Application\ Support,Containers,Group\ Containers}/* 2>/dev/null | sort -rh | head -40
+# runaway logs and the crash loops that write them (thousands of runs + KeepAlive = loop)
+find ~/Library/Logs ~/.[!.]*/logs -maxdepth 3 -type f -size +204800 2>/dev/null     # >100 MB (512-byte blocks)
+for f in ~/Library/LaunchAgents/*.plist; do l=$(basename "$f" .plist); echo "$(launchctl print gui/$(id -u)/$l 2>/dev/null | awk '/^\truns =/{print $3}') $l"; done | sort -rn | head
 ```
+
+- **Measure deltas in bytes:** `diskutil info / | sed -n 's/.*Container Free Space:.*(\([0-9]*\) Bytes).*/\1/p'`.
+  `df -h` rounds to whole GiB and hides most single-step yields.
+- **Over ssh the login shell is often zsh:** unmatched globs abort the line and
+  `=` gets expanded. Send command blocks as `ssh host 'bash -s' <<'EOF' ... EOF`
+  instead of quoted one-liners.
+- **Busy checks:** never `pgrep -f` on macOS. It matches the process
+  environment too, so `pgrep -f cargo` hits every process whose `PATH` holds
+  `~/.cargo/bin`. Use `pgrep -x <name>` (process name) or
+  `ps -axo command | grep '[n]ame'` (arguments only).
 
 - `du` over ssh cannot read TCC-protected dirs (Mail, Messages, Photos,
   Safari, some Containers) unless the ssh daemon has Full Disk Access; missing
@@ -29,7 +47,7 @@ Settings lumps these into System Data; check each:
 | Item | Where | Reclaim |
 |---|---|---|
 | Simulator runtimes | `/Library/Developer/CoreSimulator/{Images,Cryptex,Volumes}` (mounted as their own APFS disks) | `xcrun simctl runtime list`, then `xcrun simctl runtime delete <id>` for unused ones (**B** if the build needs that iOS version) |
-| Simulator devices | `~/Library/Developer/CoreSimulator/Devices` | `xcrun simctl delete unavailable`; `xcrun simctl erase all` is **B** |
+| Simulator devices | `~/Library/Developer/CoreSimulator/Devices` | `xcrun simctl delete unavailable`; `xcrun simctl erase <udid>` / `erase all` is **B** (wipes the apps and state inside) |
 | Local snapshots | APFS | `com.apple.TimeMachine.*`: `sudo tmutil thinlocalsnapshots / 999999999999 4`. `com.apple.os.update-*` belong to the OS updater: leave them; they go after the update completes or a reboot |
 | Swap and sleep image | VM volume | reboot after the memory hog is gone |
 | Other users | `/Users/<other>` | never touch; tell the owner |
@@ -56,9 +74,11 @@ Settings lumps these into System Data; check each:
 | Claude desktop | `~/Library/Application Support/Claude/vm_bundles` | **B**: VM image for its sandbox; it is re-downloaded if removed | — |
 | iOS backups | `~/Library/Application Support/MobileSync/Backup` | **B** | — |
 | Messages / Mail / Photos | `~/Library/Messages/Attachments`, `~/Library/Mail`, `~/Pictures/*.photoslibrary` | **B** or **C**, never from a script | — |
-| Installers | `~/Downloads/*.{dmg,pkg,zip}`, updater caches | A when the app is already installed; otherwise **B** | — |
-| Trash | `~/.Trash` | empty | Finder "Remove items from the Trash after 30 days" |
-| CI runner | `~/actions-runner/_work`, `_diag` | only between jobs (`ps` for `Runner.Worker`) | prune `_diag` and old `_work` dirs on a schedule |
+| Installers | `~/Downloads/*.{dmg,pkg,zip}`, updater caches | A when the app is verifiably installed (`ls -d /Applications/<App>.app`, `command -v`); otherwise **B** | — |
+| Duplicate app copies | `~/Desktop/<App> 2.app` etc. | A after `diff -rq`, keep one. Finder duplicates are APFS clones, so expect little back | — |
+| Trash | `~/.Trash` | A only for items trashed >30 days ago, and installer junk. The trash date is the item's **ctime** (`stat -f '%Sc'`); mtime keeps the original date and `mdls kMDItemDateAdded` is often `(null)`. Fresh items are **B** | Finder "Remove items from the Trash after 30 days" (`FXRemoveOldTrashItems`). It deletes later what the owner trashed now, so ask first |
+| CI runner | `~/actions-runner/_work`, `_diag` | only between jobs (`pgrep -x Runner.Worker`), re-checked right before each `rm` | prune `_diag` and idle `_work` entries on a schedule |
+| Crash-loop logs | `~/Library/Logs/*`, `~/.<tool>/logs/*`, a plist's `StandardErrorPath` | `: > file` (never `rm` a log a process holds) | retire the looping agent (below); truncate logs >100M in a weekly agent |
 
 ## Bounding on macOS
 
@@ -67,9 +87,19 @@ No systemd here. The equivalents:
 - **launchd user agent** in `~/Library/LaunchAgents/<label>.plist` with
   `StartCalendarInterval`, running a script that lives in a git repo. Load with
   `launchctl bootstrap gui/$(id -u) <plist>` (or `launchctl load` on older
-  releases); check with `launchctl print gui/$(id -u)/<label>`. Over ssh there
-  is no GUI session: bootstrap into `gui/<uid>` only works while that user is
-  logged in at the console; otherwise use `user/<uid>`.
+  releases); check with `launchctl print gui/$(id -u)/<label>`. Over ssh,
+  bootstrapping into `gui/<uid>` works while that user is logged in at the
+  console (`stat -f %Su /dev/console`; verified on macOS 26). Otherwise use
+  `user/<uid>`. `bootout` followed immediately by `bootstrap` can fail with
+  "5: Input/output error", so retry for a few seconds. Prove a calendar agent
+  fires with `launchctl kickstart -p gui/<uid>/<label>` and read its log. `runs`
+  resets to 0 on every re-bootstrap. Worked example with an installer:
+  `~/code/infra/hosts/carries-macbook-air/` (`disk-maintenance.sh`, plist, `install.sh`).
+- **Retiring a looping or obsolete agent:** `launchctl bootout gui/<uid>/<label>`
+  and move the plist to `~/Library/LaunchAgents.attic/` with a README of restore
+  commands. `bootout` alone lasts only until the next login when the plist has
+  `RunAtLoad`. Old scripts that call Intel Homebrew paths (`/usr/local/bin/*`)
+  fail on Apple Silicon, and under `KeepAlive` that becomes a crash loop.
 - **newsyslog** (`/etc/newsyslog.d/*.conf`, needs sudo) for log rotation, or
   rotate in the same launchd script for user logs.
 - Finder's 30-day trash auto-empty.

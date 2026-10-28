@@ -43,9 +43,12 @@ next run ends up re-discovering the same 100 GB.
    future-you would ask ("Why does the Mac's ~/.cache regrow 10 GB a week?").
 
 5. **Land it.** The skill lives in the `skills` repo
-   (`~/code/skillex/all-skills`, a submodule of skillex). Commit and push there,
-   then commit the submodule pointer bump in `~/code/skillex` and push. Commit
-   and push any repo that received cleanup automation (`~/code/infra` and so on).
+   (`~/code/skillex/all-skills`, a submodule of skillex). Other agents usually
+   have unrelated work in progress there: commit **by path**
+   (`git add disk-space-maintenance`), never `git add -A`. Push, then commit the
+   submodule pointer bump in `~/code/skillex` (only that path) and push. Commit
+   and push any repo that received cleanup automation (`~/code/infra`, an app
+   repo that got a retention fix, and so on).
 
 ## Done means
 
@@ -53,7 +56,9 @@ next run ends up re-discovering the same 100 GB.
 - The run log has today's line with before and after.
 - Every accumulator found in this run has a row with a bound or a stated reason
   why it has none.
-- `git status` is clean in every repo you touched, and the commits are pushed.
+- Every path you changed is committed and pushed, in every repo you touched.
+  Other agents' WIP in a shared repo stays theirs: "clean" means your paths,
+  not the whole tree.
 
 ## Drift checks worth doing at the start of a run
 

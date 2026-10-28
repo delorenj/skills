@@ -36,20 +36,25 @@ If the disk is so full that `apt`/`docker` themselves fail, start with step 1 an
 
 ```bash
 df -h /System/Volumes/Data; tmutil listlocalsnapshots /
-# 1. Xcode build products and simulator junk (quit Xcode first)
+# 0. Runaway logs: truncate in place (the writer keeps its fd). Then stop the loop that wrote them (macos.md, "Retiring")
+find ~/Library/Logs ~/.[!.]*/logs -maxdepth 3 -type f -size +204800 2>/dev/null    # >100 MB; then : > <file>
+# 1. Xcode build products and simulator junk (Xcode not running)
 rm -rf ~/Library/Developer/Xcode/DerivedData/*
 xcrun simctl delete unavailable
 xcrun simctl runtime delete --notUsedSinceDays 30 2>/dev/null   # runtimes not used recently (Xcode 15+)
-# 2. User caches (apps rebuild them; quit the big apps first)
-du -sh ~/Library/Caches/* | sort -rh | head      # then rm -rf the biggest app cache dirs
-# 3. Package managers
+# 2. Per-run build dirs and CI runner workspaces older than a week (pgrep -x Runner.Worker must be empty)
+# 3. User caches (apps rebuild them; skip apps that are running)
+du -sh ~/Library/Caches/* | sort -rh | head      # then rm -rf the biggest caches of apps NOT running
+# 4. Package managers
 /opt/homebrew/bin/brew cleanup -s --prune=all 2>/dev/null
 pnpm store prune 2>/dev/null; npm cache clean --force 2>/dev/null; uv cache prune 2>/dev/null
-# 4. Time Machine local snapshots (needs sudo; os.update snapshots are system-managed: leave them)
+# 5. Time Machine local snapshots (needs sudo; os.update snapshots are system-managed: leave them)
 sudo tmutil thinlocalsnapshots / 999999999999 4
-# 5. Trash
-rm -rf ~/.Trash/*      # only the current user's, and only if they already threw it away
+# 6. Trash: only installer junk and items trashed >30 days ago (ctime = trash date). Fresh trash is the owner's call
 ```
+
+On carries-macbook-air, steps 0 and 2 alone bought 20 GiB (crash-loop logs 2.7,
+tower run dirs 10.7, runner `_work` 6.5) without touching anything anyone was using.
 
 When "System Data" is huge in Settings and none of this moves it, the space is
 usually simulator runtimes (`/Library/Developer/CoreSimulator`), local snapshots,

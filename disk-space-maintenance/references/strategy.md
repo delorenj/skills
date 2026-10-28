@@ -19,7 +19,20 @@ Rules that keep the tiers honest:
   `mise prune` removed python versions that pipx/uv tools and `~/.local/bin`
   shebangs depended on).
 - **In-use beats idle.** A file held open (`lsof`), a target dir a service runs
-  from, a cache a daemon holds a lock on: skip it or stop its owner first.
+  from, a cache a daemon holds a lock on: skip it or stop its owner first. On a
+  live desktop session an app that is running is in use: skip its cache and
+  record the skip; don't quit someone's apps over ssh.
+- **Preconditions go stale in minutes.** Check "no CI job / no build running"
+  immediately before each `rm`, not once at the start (a runner picked up a
+  job five minutes into the carries-macbook-air run). Defer blocked steps to the
+  end of the run and retry them; don't drop them.
+- **Fresh trash is not junk.** Only items trashed more than ~30 days ago are A;
+  anything the owner threw away this week is still their decision.
+- **A cleaner aimed at an unverified path is a hazard.** `rm -rf ~/link/dir/*`
+  on a dangling symlink is a no-op until someone repoints the link, then it wipes
+  the real target (a 2-minute cron did exactly this shape against a synced Google
+  Drive folder). Before you "fix" a dangling path, find every job that deletes
+  under it.
 
 ## Measurement traps
 
@@ -48,7 +61,11 @@ Typical accumulators, roughly in order of how often they bite:
 
 1. **Logs without rotation**: app logs under `$HOME`, systemd `StandardOutput=append:`
    files (systemd cannot cap them), pm2, per-run logs nobody deletes, syslog with
-   weekly rotation on a chatty host, journald without `SystemMaxUse`.
+   weekly rotation on a chatty host, journald without `SystemMaxUse`. Worst case:
+   a **crash-looping service** (launchd `KeepAlive`, systemd `Restart=always`)
+   whose stdout/stderr go to a file. One that restarted every 10 s with `set -x`
+   wrote 1.9 GiB in a month. Restart counts give it away (`launchctl print ... runs`,
+   `systemctl show -p NRestarts`).
 2. **Package and tool caches**: uv, pip, npm, pnpm, bun, cargo, go, gradle, maven,
    CocoaPods, Homebrew, mise or asdf versions, HuggingFace models.
 3. **Build output**: Rust `target/`, `node_modules`, `.venv`, Xcode DerivedData,
@@ -68,8 +85,14 @@ Typical accumulators, roughly in order of how often they bite:
 
 Order of preference, closest to the source first:
 
+0. **Stop a writer that does nothing useful.** A crash loop or a client of a
+   retired service is fixed by retiring it reversibly: unload it, move its unit
+   or plist into an attic dir with a restore note, then truncate its log.
+   Rotating a crash loop's log treats the symptom.
 1. The writer's own knob: log size and keep count, retention days, `auto_prune`,
-   `cleanupPeriodDays`, `EXECUTIONS_DATA_PRUNE`, docker `log-opts`.
+   `cleanupPeriodDays`, `EXECUTIONS_DATA_PRUNE`, docker `log-opts`. For per-run
+   build dirs, prune at the start of the next run in the tool that creates them
+   (age limit plus "keep newest N", so resume/rollback still works).
 2. Rotation: logrotate (Linux, with its own state file for user-level configs)
    or newsyslog (macOS). Use `copytruncate` when the writer holds the file open
    with O_APPEND.
