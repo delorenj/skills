@@ -76,6 +76,13 @@ Verified against the vendor app's current source map on 2026-09-27:
   draft" mechanism Jim asked for: email it, then return it to draft. List a
   customer's invoices with `GET invoices?customer_id={private id}&limit=50&offset=0`.
 
+- **An invoice's PDF** (proved 2026-10-28, read-only, a draft stays a draft):
+  `POST https://export.gorilladesk.com/invoices/pdf`, form-encoded `token=<login
+  token>&ids=<private invoice id>`, answers `application/pdf` (~530 KB) for a
+  live invoice, draft or sent. A deleted invoice answers 406 "Invoice not found";
+  `invoice/pdf/preview` on the same host is the template preview (a sample
+  invoice), never a real one. `PrivateCrmWriter.invoice_pdf` is the caller.
+
 ## Existing billing contacts
 
 Resolve a named billing instruction from
