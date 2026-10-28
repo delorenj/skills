@@ -34,6 +34,48 @@ Rules that keep the tiers honest:
   Drive folder). Before you "fix" a dangling path, find every job that deletes
   under it.
 
+## Acting on tier-B answers
+
+Once the owner has answered, three patterns keep the execution safe.
+
+**Archive, verify, then delete (media and anything with no other copy).**
+1. Pull to the machine that has the room, keeping relative names:
+   `rsync -a --partial --files-from=<list> -e "ssh -o BatchMode=yes" host:/Users/x/ dest/`
+   (a list file copes with spaces in names; run it in the background, a
+   multi-GB pull over tailscale takes tens of minutes).
+2. Hash **every file on both sides** (`shasum -a 256` / `sha256sum`), diff the two
+   manifests by path, and delete only the items whose every file matches. One
+   mismatch means that item stays. Symlinks are skipped by `sha256sum` on a
+   regular-files list; check them with `find -type l`.
+3. Duplicates: prove "identical" by checksum, not by name, then archive once.
+4. Delete on the source with the measure-before/after wrapper, and re-list the
+   destination afterwards.
+
+**Live data location check (before deleting any "personal folder").** A folder
+the owner calls loose may be an app's working directory. Archive it, leave it
+in place and report it when any of these is true:
+- a **sync tool** manages it (a `.stfolder` marker does not prove it: read the
+  tool's config, `~/Library/Application Support/Syncthing/config.xml` or
+  `~/.config/syncthing`, for `<folder path=...>`, `type=` and `ignoreDelete`).
+  A `sendreceive` folder with `ignoreDelete=false` propagates the deletion to
+  every peer, so an "archive and delete locally" is really "delete everywhere";
+  a stale `.stfolder` in a folder the config no longer lists is harmless;
+- the installed app's **default data location** is that folder (Splice's
+  `~/Splice` with its `.splice` marker) or its prefs (`defaults read`,
+  `plutil -p`, app `reg.xml`/`*Prefs.json`) name it;
+- another folder symlinks into it (`find ~/Documents ~/Library -maxdepth 3 -type l`).
+Finder sidebars and "last open dialog" bookmarks are not configuration.
+
+**Admin-only leftovers: hand off, never escalate.** An agent without sudo
+removes everything it has write permission for (a `[ -w ]` walk over the tree
+tells you before you delete: an app bundle whose directories are all root-owned
+cannot be partly removed, and a half-deleted bundle is worse than none), then
+writes one commented, idempotent, copy-pasteable script with the sizes, commits
+it in the infra repo and reports the path. Do not try `sudo`, `osascript` admin
+prompts or Finder trashing to get around it. Content dirs that are group-writable
+can be emptied even when the dir itself (and the app that owns it) cannot be
+removed: say which shells are left in the script.
+
 ## Measurement traps
 
 | Trap | What happens | Do instead |

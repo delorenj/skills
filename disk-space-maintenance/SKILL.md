@@ -103,6 +103,10 @@ Ask the owner once, with a compact table (path, size, what it is, your
 recommendation). Use AskUserQuestion when the session is interactive. Delete only
 the rows they approve. Don't re-ask about rows the profile already records a
 decision for.
+When acting on the answers, follow [Acting on tier-B answers](references/strategy.md):
+archive, then verify, then delete; check for a live data location (sync tool or
+app default) before deleting a personal folder; hand root-only removals to the
+owner as a script instead of escalating.
 
 ### 5. Bound the accumulators
 

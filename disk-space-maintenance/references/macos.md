@@ -110,3 +110,31 @@ No systemd here. The equivalents:
   rotate in the same launchd script for user logs.
 - Finder's 30-day trash auto-empty.
 - `periodic` daily scripts (sudo) for system-level jobs.
+
+## Removing installed apps and their libraries (needs the owner)
+
+- `/Applications` is `root:admin 775`, but a Mac App Store or pkg-installed bundle
+  inside it is `root:wheel 755` all the way down, so `rm -rf` cannot remove it
+  (and `mv` to the Trash needs the same write access). Test first:
+  `find <app> -type d | while read d; do [ -w "$d" ] || echo "$d"; done`. A bundle
+  with every dir unwritable goes to the admin handoff script; one with every dir
+  writable (a drag-installed app, `Studio 2.0`) can be `rm -rf`ed.
+- Their libraries are often group-`admin` writable even when the app is not:
+  `/Library/Application Support/{GarageBand,Logic}`, `/Library/Audio/Apple Loops`,
+  `/Library/Audio/Impulse Responses`, and world-writable third-party content such as
+  `/Library/Arturia/*`. Empty them with `find <dir> -mindepth 1 -maxdepth 1 -exec rm -rf {} +`;
+  the dir itself needs root. GarageBand's content packs live under
+  `Application Support/Logic` too, and are orphaned when Logic is not installed.
+- Plug-in bundles in `/Library/Audio/Plug-Ins/*`, `/Library/Preferences`, `LaunchAgents`,
+  `LaunchDaemons` and `PrivilegedHelperTools` are root-only: `launchctl bootout` the
+  helper, then `rm`, in the handoff script. `pkgutil --pkgs | grep -i <vendor>` lists the receipts
+  (`pkgutil --forget` is optional tidy-up).
+- `avdmanager`/`sdkmanager` exist only with the Android cmdline-tools; when they are
+  not installed, deleting `~/.android/avd/<name>.{avd,ini}` and
+  `~/Library/Android/sdk/system-images/<api>` by hand is what they would do.
+- Cowork VM busy check: Claude.app open is not "VM running". Look for a
+  `com.apple.Virtualization.VirtualMachine` process and `lsof` on `vm_bundles/*/rootfs.img`.
+- macOS ships `openrsync` (rsync 2.6.9 protocol): a modern local `rsync` pulling from it must
+  not pass `--info=...` (the server rejects it); `-a --partial --files-from=` works.
+  Hash on the Mac with `find ... -print0 | xargs -0 shasum -a 256` run in the background; it
+  competes with the transfer for the same disk, so start it early.

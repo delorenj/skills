@@ -25,7 +25,7 @@
 
 ## Baseline
 
-- **Now (2026-10-28, after the tier-A run):** 460 GiB container, 347 GiB used on Data, **71.3 GiB free (83%)**. Before: 402 GiB used, 15.2 GiB free (97%), 0.2 GiB above the hub's gate.
+- **Now (2026-10-28, after the tier-B run):** 460 GiB container, **131.1 GiB free (72%)**. Tier A took it from 15.2 to 71.3 GiB (402 → 347 GiB used on Data), tier B from 71.1 to 131.1 (+60.0). The owner's admin script (`remove-apps-needs-admin.sh`) adds ~7 GiB when run.
 - **Measure in bytes, from the container:** `diskutil info / | sed -n 's/.*Container Free Space:.*(\([0-9]*\) Bytes).*/\1/p'`. `df -h` rounds to whole GiB, which hides most per-step deltas.
 - **mobile-deploy-hub refuses to run below 15 GiB free** (`tools/ci/devices.json`: `mac.min_free_gib: 15`). At 16 GiB this Mac is one archive away from blocking every iOS deploy for gib, gruvato, navi, tower and james-brennan. That is the practical definition of emergency here.
 - **Healthy:** >= 60 GiB free (13%). **Tight:** < 40 GiB. **Emergency:** < 20 GiB. At < 15 GiB deploys hard-stop, macOS cannot stage updates (needs ~15 GiB), and swap cannot grow past its 8 GiB.
@@ -39,6 +39,7 @@
 - **Runner identity and binaries:** everything in `~/actions-runner/` and `~/actions-runner/<name>/` except `_work/*` and `_diag/*`. `.runner`, `.credentials*`, `bin/`, `externals/`, `*.sh`, and `~/Library/LaunchAgents/actions.runner.*.plist` deleted means re-registering the runner with GitHub. Never `launchctl bootout` a runner while a job is active.
 - **Signing material:** `~/Library/Keychains`, `~/Library/Developer/Xcode/UserData/Provisioning Profiles`, `~/Library/MobileDevice/Provisioning Profiles` (the hub enforces `profile_min_days: 30`), `~/.android/debug.keystore`, `~/.android/adbkey*`.
 - **Live app data:** `~/Library/Application Support/sh.delo.gruvato` (4.5 GiB, the live Gruvato library; `gruvato-backups/` are its backups), Chrome profiles (`Application Support/Google/Chrome/{Default,Profile *}`, logged-in), ego lite profiles (`Application Support/Citro Labs/ego lite/Profile *`, authenticated agent sessions), Google Drive `DriveFS` (may hold unsynced files), `~/Library/Messages` (chat.db), Photos library.
+- **Syncthing folders** (`~/Library/Application Support/Syncthing/config.xml`, `brew` service `syncthing`): `~/quickdrop` (`sendreceive`, deletions propagate to 4 peers), `~/code/DeLoDocs` (`sendreceive`), `~/FUCKING_SCREENSHOTS` (`sendonly`), `~/Music/Gruvato Watch` (`receiveonly`), and the VoiceMemos `Recordings` dir (`sendonly`, id `audio`). Never delete from them without checking peers. **`~/Splice`** is Splice's default sample library (apps installed): leave it.
 - **Personal recordings:** `~/Library/Group Containers/group.com.apple.VoiceMemos.shared` (5.8 GiB, 472 recordings). Class C: offer to export, never suggest deleting.
 - **Toolchains that look like caches:**
   - `~/.local/share/mise/installs` AND `~/.local/share/mise/http-tarballs` (3.7 GiB): `installs/flutter/3.38.1` is a **symlink into `http-tarballs/56f2fa5f...`**, so deleting the "cache" deletes Flutter. **Never `mise prune`** (it removes interpreters tools depend on).
@@ -77,22 +78,22 @@ Home breakdown (class A = rebuildable, delete without asking; B = owner decision
 | `~/Library/Caches/mobile-deploy-hub` | 3.1 | C | handoff 2.0, handoff-cache 0.9, outbox 0.2. Hub-managed |
 | `~/Library/Caches/Citro Labs/ego lite` | 2.1 | B | browser cache of the agent browser; cache only, but sits beside live profiles |
 | `~/Library/Caches/CocoaPods` | 0.8 → 0 | A | removed 2026-10-28 |
-| `~/Library/Application Support/Claude/vm_bundles` | 10.1 | B | `claudevm.bundle`, the Claude Cowork VM (rootfs etc.), in use while Claude.app runs. Re-downloads ~10 GiB on next Cowork use |
+| `~/Library/Application Support/Claude/vm_bundles` | 10.1 → 0 | B (decided) | Cowork VM deleted 2026-10-28 on the owner's yes (VM not running). Re-downloads ~10 GiB on next Cowork use |
 | `~/Library/Application Support/Google/Chrome/OptGuideOnDeviceModel` | 4.0 | A (app quit) | Chrome's on-device Gemini Nano model; re-downloads only if the feature is used. Skipped 2026-10-28: Chrome was running (live desktop, logged-in profiles) |
 | `~/Library/Application Support/Google/Chrome` profiles | 3.3 | C | logged-in browser profiles |
 | `~/Library/Application Support/Google/DriveFS` | 1.6 | C | Drive sync cache, may hold unsynced files |
 | `~/Library/Application Support/Neo/component_crx_cache` | 2.7 → 0 | A | extension component cache of `/Applications/Neo.app` (a Chromium browser). Removed 2026-10-28 with Neo not running |
-| `~/Library/Application Support/Neo/LocalLLM` | 2.6 | B | on-device model |
+| `~/Library/Application Support/Neo/LocalLLM` | 2.6 → 0 | B (decided) | on-device model, deleted 2026-10-28 on the owner's yes |
 | `~/Library/Application Support/sh.delo.gruvato` | 4.5 | C | live Gruvato data |
 | `~/Library/Application Support/Citro Labs/ego lite` | 3.5 | C | authenticated agent browser profiles |
 | `~/Library/Application Support/com.docker.install/in_progress` | 2.1 → 0 | A | half-finished Docker Desktop install from Sep 4; Docker is not installed. Removed 2026-10-28 |
-| `~/Library/Containers/com.docker.docker/Data/vms/0/data/Docker.raw` | 1.6 | B | sparse VM disk of the uninstalled Docker. `ls` says 460 GiB apparent, 1.6 GiB real. Any volumes inside are lost with it |
-| `~/Library/Developer/Xcode/iOS DeviceSupport/iPad14,5 27.0 (24A437)` | 6.4 | B | symbols for the one device the hub deploys to. Regenerates on next connect (~10 min, iPad plugged in and trusted) |
+| `~/Library/Containers/com.docker.docker/Data/vms/0/data/Docker.raw` | 1.6 → 0 | B (decided) | sparse VM disk of the uninstalled Docker, deleted 2026-10-28 (with `com.docker.install`, now gone) |
+| `~/Library/Developer/Xcode/iOS DeviceSupport/iPad14,5 27.0 (24A437)` | 6.4 → 0 | B (decided) | deleted 2026-10-28 on the owner's yes. Regenerates on next iPad connect (~10 min, plugged in and trusted); it will be 6.4 GiB again then |
 | `~/Library/Developer/Xcode/DerivedData` | 2.4 → 0 | A | removed 2026-10-28 (Xcode not running); the weekly agent drops project dirs untouched for 14d |
-| `~/Library/Developer/Xcode/CodingAssistant` | 1.4 | B | Xcode predictive-completion model assets |
+| `~/Library/Developer/Xcode/CodingAssistant` | 1.4 → 0 | B (decided) | deleted 2026-10-28 |
 | `~/Library/Developer/CoreSimulator/Devices/12178C22-...` | 3.6 | B | iPhone 18 Pro simulator data. The other 10 devices are 17 MB each. All Shutdown, none "unavailable". `simctl erase` wipes the apps and state inside the simulator, so it is B (as in `macos.md`), not A. Only `simctl delete unavailable` is A |
-| `~/Library/Android/sdk/system-images` | 2.9 | B | Android emulator images; the hub installs Android builds to a real S26 (`devices.json`), not an emulator |
-| `~/.android/avd` (`Pixel_10_Pro.avd`) | 4.6 | B | the only AVD |
+| `~/Library/Android/sdk/system-images` | 2.9 → 0 | B (decided) | `android-37.0` deleted 2026-10-28; the hub installs Android builds to a real S26 (`devices.json`), not an emulator |
+| `~/.android/avd` (`Pixel_10_Pro.avd`) | 4.6 → 0 | B (decided) | the only AVD, deleted 2026-10-28 (total with the image: 7.52 real) |
 | `~/.gradle/caches` | 4.1 → 0 | A | removed 2026-10-28 with no Gradle daemon/JVM running (real 4.17). Re-downloads on next Gradle build. `~/.gradle/wrapper/dists` 0.4 left |
 | `~/.rustup/toolchains` | 5.5 → 4.3 | mixed | `stable` = rustc 1.95.0 (default, 2.2), `1.98.0` (2.1, pinned by gib `server/` and `native/` `rust-toolchain.toml`). The duplicate `1.95.0` (same rustc as stable, nothing pinned it) was uninstalled 2026-10-28 (real 1.31) |
 | `~/.local/share/mise/installs` | 4.5 | C | node 1.5, python 0.6, dart 0.6, heroku 0.5... |
@@ -107,10 +108,10 @@ Home breakdown (class A = rebuildable, delete without asking; B = owner decision
 | `~/.local/bin/agy.*.old` | 0.2 → 0 | A | old binary, removed 2026-10-28 |
 | `~/code/gruvato/src-tauri/target` | 4.5 → 0 | A | `cargo clean` 2026-10-28 (reported 4.7 GiB, real 4.19). The repo itself is clean and pushed |
 | `~/code` rest | 9.2 | C/B | green-in-between 2.0 (`native` 1.5), tokamak 1.3, intelliforia-mobile 1.1, DeLoDocs 1.0, ... dirty trees listed in Never touch |
-| `~/gruvato-backups` | 10.9 | B | 7 timestamped copies of `sh.delo.gruvato` (1.4 GiB each, 2026-10-13..15) plus an app. Pre-migration safety copies from the 6.1 to 6.7 work |
-| `~/gruvato-67` | 5.5 → 1.6 | B | `repo/` (scratch clone at detached `8fbcccf`, clean, in `origin/main`) removed 2026-10-28 together with `~/gruvato-checks` (real 4.78). Left: `data/`, `data2/`, `render-b-*`, scripts and logs, 1.6: B |
+| `~/gruvato-backups` | 10.9 → 3.2 | B (decided) | owner: keep the newest two. Left `2026-10-15/sh.delo.gruvato-012517` (1.9) and `2026-10-14/sh.delo.gruvato-200026` (1.4). Real yield 7.72 |
+| `~/gruvato-67` | 5.5 → 0 | A/B (decided) | `repo/` scratch clone and `~/gruvato-checks` removed in tier A (real 4.78); the `data/`, `data2/`, `render-b-*`, scripts remainder (1.34 real) removed in tier B on the owner's yes |
 | `~/gruvato-checks` | 1.7 → 0 | A | same detached `8fbcccf`, clean; removed 2026-10-28 |
-| `~/gruvato-spike` | 1.0 | B | Sep 30 separator experiment outputs + `.venv`. Not a git repo |
+| `~/gruvato-spike` | 1.0 → 0 | B (decided) | deleted 2026-10-28 (real 0.42) |
 | `~/actions-runner/<r>/_work` | 7.9 → 0.25 | A | `gruvato` 4.0, `gib` 1.3, `navi` 1.2, `james-brennan` 1.2, shared `_work/tower-of-lost-things` 0.24. Emptied 2026-10-28 with no `Runner.Worker` running (real 6.46). Regrows per job (gruvato's Rust `target` is the bulk); the weekly agent removes entries idle 7d |
 | `~/actions-runner` rest (`externals` x5, `bin` x5, `_diag`) | 2.5 → 2.0 | C | runner binaries. `_diag` logs >7d (0.23, 557 files) are pruned by the weekly agent |
 | `~/Library/Logs/cleanup_screenshots_error.log` + `.log` | 1.9 → 0 | A | crash-loop logs, truncated 2026-10-28 and their writer retired: see accumulators |
@@ -122,12 +123,13 @@ Home breakdown (class A = rebuildable, delete without asking; B = owner decision
 | `~/Desktop` | 1.4 → 0.4 | A / B | removed 2026-10-28: two of three identical `Godot*.app` copies (kept `Godot.app`), `Claude.dmg`, `Godot_v4.7.2...zip`, `Hermes-Setup.dmg` (apps installed). Screenshots and documents: B. Holds a `*.private-key.pem` (secret, not disk) |
 | `~/.Trash` | 0.8 | B | everything in it was trashed 2026-10-27 (ctime), the day before the run: an owner decision, not junk. Only the `Audacity_Installer_via_MuseHub.pkg` installer was removed |
 | `~/size_tree.json` | 0.3 → 0 | A | a stray `gdu`/du tree dump from Apr 30, removed |
-| `~/thegrinch.mkv` | 2.9 | B | loose video, Nov 2025 |
-| `~/AI Dev Onboarding-...Meeting Recording.mp4`, `~/2025-06-04 11-03-02.mkv`, `~/AIDevEnvBootstrappingTalk.mkv` | 0.8 + 0.4 + 0.4 | B | meeting recordings |
-| `~/audio` (`2026` 1.9, `2023` 0.35) | 2.3 | B | |
-| `~/quickdrop` | 1.9 | B | phone hand-off folder (APKs, `verity.m4b` 0.22 which is duplicated in `~/Music`) |
-| `~/music-presets`, `~/Presets`, `~/Splice` | 1.5, 1.5, 0.5 | B | music production |
-| `~/flutter-3.38.1` | 1.8 | B | a second Flutter 3.38.1 (mise has its own) |
+| `~/thegrinch.mkv` | 2.9 → 0 | B (decided) | archived to big-chungus, sha256-verified, deleted 2026-10-28 |
+| `~/AI Dev Onboarding-*.mp4` (two), `~/2025-06-04 11-03-02.mkv`, `~/AIDevEnvBootstrappingTalk.mkv` | 0.82 + 0.12 + 0.41 + 0.38 → 0 | B (decided) | archived, verified, deleted 2026-10-28. `~/2025-06-04 17-11-25.mkv` (0.03) was not in the owner's list and stays |
+| `~/audio` (`2026` 1.9, `2023` 0.35) | 2.3 → 0 | B (decided) | archived, verified, deleted. It carried a stale `.stfolder`, but Syncthing's `audio` folder id now points at the VoiceMemos recordings, so nothing synced from here |
+| `~/quickdrop` | 1.9 | **C (live Syncthing folder)** | archived (196 files) but **left in place**: Syncthing folder `quickdrop`, `sendreceive`, `ignoreDelete=false`, shared with big-chungus, tiny-chungus, the phone and Tom, so a local delete deletes it on every peer. `~/Music/verity.m4b` (identical sha256 to `quickdrop/verity.m4b`) was deleted |
+| `~/music-presets`, `~/Presets` | 1.5 → 0, 1.5 → 0 | B (decided) | Sylenth1/Xfer preset copies. Archived, verified, deleted. No app config pointed at them (Serum 2 uses `~/Documents/Serum 2 Presets` and `/Library/Audio/Presets`; FL Studio uses `~/Documents/Image-Line` and a Google Drive sample library) |
+| `~/Splice` | 0.5 | **C (Splice's default sample folder)** | archived (181 files) but **left in place**: `Splice Beta.app` and `Splice INSTRUMENT.app` are installed and `~/Splice/{sounds/packs,presets}` with its `.splice` marker is their default library. Packs are re-downloadable from Splice |
+| `~/flutter-3.38.1` | 1.8 → 0 | B (decided) | deleted 2026-10-28 after proving nothing referenced it; mise's Flutter (http-tarballs symlink) untouched. `flutter` is not activated by mise in `$HOME` or in `green-in-between` ("No version is set for shim"): pre-existing, not caused by this |
 | `~/.hermes` | 3.4 | C | live agent |
 | `~/.codex` | 2.3 | C/B | `packages` 0.8, `plugins` 0.8 |
 | `~/docker` | 0.9 | B | `DeLoContainers` clone, 352 commits behind, has an untracked `chase.tar.gz` |
@@ -136,7 +138,7 @@ Home breakdown (class A = rebuildable, delete without asking; B = owner decision
 | `~/Library/Group Containers/group.com.apple.VoiceMemos.shared` | 5.8 | C | see Never touch |
 | long tail | ~17 | mixed | ~300 entries under 0.9 each (`.npm` 0.8, `.antigravity-ide` 0.8, `if-ext` 0.8, `.cursor` 0.7, `.cargo/registry` 0.6, `.pulumi` 0.6...) |
 
-`/Applications` (59.7): Xcode 3.9, iMovie 3.7, Affinity 3.6, Android Studio 3.0, CapCut 2.6, `Studio 2.0` 2.3, FL Studio 2.3, Chrome 2.1, ChatGPT 1.7, Play-Doh 1.2, Teams 1.1, GarageBand 1.0, stitch 1.0, then ~100 apps under 1 GiB. Several are probably Carrie's or the kids' (iMovie, CapCut, Affinity, Play-Doh, GarageBand, Roblox Studio): **class B, ask whose they are**. `/Library/Arturia` (8.7), `/Library/Audio` (4.7, GarageBand/Logic loops) are the same story.
+`/Applications` (59.7, before the 2026-10-28 tier-B run; `Studio 2.0` 2.3 is gone, `Arturia`, iMovie, Play-Doh, GarageBand wait for the owner's admin script): Xcode 3.9, iMovie 3.7, Affinity 3.6, Android Studio 3.0, CapCut 2.6, `Studio 2.0` 2.3, FL Studio 2.3, Chrome 2.1, ChatGPT 1.7, Play-Doh 1.2, Teams 1.1, GarageBand 1.0, stitch 1.0, then ~100 apps under 1 GiB. Several are probably Carrie's or the kids' (iMovie, CapCut, Affinity, Play-Doh, GarageBand, Roblox Studio): **class B, ask whose they are**. `/Library/Arturia` (8.7), `/Library/Audio` (4.7, GarageBand/Logic loops) are the same story.
 
 **Could not measure:** Carrie's home and root-only paths (no sudo), APFS snapshot-held blocks (`tmutil` lists three `os.update` snapshots, size not queryable without root), Time Machine (no destinations configured), iCloud-evicted files, and the exact real yield of hardlink/clone-heavy caches (pnpm, uv, cargo: `du` shows full size in both places).
 
@@ -151,14 +153,14 @@ Home breakdown (class A = rebuildable, delete without asking; B = owner decision
 | Runner workspaces + diag | `~/actions-runner/*/_work`, `*/_diag` | 7.9 GiB `_work`, 0.23 GiB `_diag` | the 5 runners; `gruvato` keeps a Rust `target` | **weekly agent**: `_work` entries with nothing written within 2 levels for 7d, and `_diag` files >7d, only while no `Runner.Worker` runs (re-checked per runner) |
 | Rust build output | `~/code/gruvato/src-tauri/target` (+ runner `_work`) | 4.5 GiB | `cargo`/`tauri build` by hand | none: a dev tree in active use. Recommended: `cargo clean` after a release, or `cargo sweep --time 14` |
 | Agent-made scratch clones | `~/.cache/gib-ios*`, `~/gruvato-67`, `~/gruvato-checks`, `~/gruvato-spike` | 8.9 + 5.5 + 1.7 + 1.0 GiB | agents doing delivery/release work by hand (no script; checked green-in-between) and never cleaning up | **weekly agent** for `~/.cache/gib-ios*` + `gib-*.bundle` >7d (clean, no stash, no unpushed commits; bundles only when every head is in `~/code/green-in-between`). `~/gruvato-*` scratch at `$HOME` top level: none. Agents should delete their scratch clone when the delivery is verified |
-| App-data backups | `~/gruvato-backups/<date>/` | 10.9 GiB, 7 copies | manual pre-migration backups before gruvato 6.x work | none (tier B) |
-| Claude Cowork VM | `~/Library/Application Support/Claude/vm_bundles` | 10.1 GiB | Claude.app (re-downloads after removal) | none (tier B) |
+| App-data backups | `~/gruvato-backups/<date>/` | 10.9 GiB, 7 copies → 2 (3.2 GiB) on 2026-10-28 | manual pre-migration backups before gruvato 6.x work | owner's rule: **keep the newest two**. No timer; apply the rule by hand when a new backup appears |
+| Claude Cowork VM | `~/Library/Application Support/Claude/vm_bundles` | 10.1 GiB, deleted 2026-10-28 | Claude.app (re-downloads ~10 GiB on the next Cowork use) | none. Owner chose to delete it; expect it back if Cowork is used. Check for a VM process before deleting again |
 | ChatGPT updater staging | `~/Library/Caches/com.openai.codex/org.sparkle-project.Sparkle` | 3.6 GiB | ChatGPT.app's Sparkle updates (bundle id `com.openai.codex`) | none. Delete when ChatGPT is quit |
 | Chrome on-device model | `.../Google/Chrome/OptGuideOnDeviceModel` | 4.0 GiB | Chrome | none. Delete with Chrome quit; `chrome://flags` "optimization guide on device model" off stops it |
 | Tool caches | `~/Library/pnpm/store`, `~/.cache/uv`, `~/Library/Developer/Xcode/DerivedData`, simulators | 2.1 + 1.3 + 2.4 GiB | normal tool use | **weekly agent**: `pnpm store prune`, `uv cache prune`, DerivedData project dirs >14d, `simctl delete unavailable`. Gradle, CocoaPods and cargo registry are not swept (small after this run) |
 | Runaway logs (generic) | `~/Library/Logs/**`, `~/.<tool>/logs/**` | — | any future crash loop | **weekly agent** truncates files >100 MB in place |
 | Hub catch-up log | `~/Library/Logs/mobile-deploy-hub/catchup.log` | 1.3 MB since 2026-10-09 (~70 KB/day) | `sh.delo.mobile-deploy-hub.catchup`, `StartInterval 300` (686 runs, exit 0: periodic, not a loop) | weekly agent at 100 MB (years away). Rotation belongs in the hub if it ever matters |
-| Per-device Xcode symbols | `~/Library/Developer/Xcode/iOS DeviceSupport` | 6.4 GiB (one entry, `iPad14,5 27.0`) | Xcode on each new iPad OS build (~6.4 GiB per build) | none (tier B). Delete old OS versions when the iPad updates |
+| Per-device Xcode symbols | `~/Library/Developer/Xcode/iOS DeviceSupport` | 6.4 GiB (one entry, `iPad14,5 27.0`), deleted 2026-10-28 | Xcode on each new iPad OS build (~6.4 GiB per build) | none. It regenerates when the iPad is next connected; deleting it again is pre-approved |
 | Staged macOS update | Preboot 15.3, `AssetsV2` SFR/MacSoftwareUpdate 2.6, `os.update` snapshots | ~18 GiB combined | macOS auto-downloaded an update and has not applied it | macOS self-manages. Apply the update (restart) now that there is room |
 | Diagnostics | `/private/var/db/diagnostics` | 2.3 GiB | unified log | macOS (root-only) |
 | navi iOS CI dirs | `~/.cache/navi/ios/ci-<uuid>` | 0.17 GiB, 2 dirs (2026-10-13), one holds `Navi-store.xcarchive` | navi's iOS CI build | none: small. Watch it. If it grows past ~2 GiB it needs the same treatment as tower (a prune in navi's build tool) |
@@ -236,21 +238,24 @@ busy || rm -rf ~/actions-runner/_work/tower-of-lost-things
 
 The tower repo now prunes its own run dirs before each build (newest 3 kept), and the weekly agent sweeps idle `_work`. Expect little here unless the agent stopped running: check `tail ~/Library/Logs/sh.delo.disk-maintenance.log` first.
 
-**Tier B: decisions to put to the owner** (largest first). Put them as a list with the number, not as a deletion:
+**Tier B: owner decisions (answered 2026-10-28, do not re-ask).** The owner (delorenj) answered the 2026-10-28 questions; the run executed exactly these. Status: done / declined (left alone) / deferred.
 
-1. **Claude Cowork VM, 10.1 GiB** (`~/Library/Application Support/Claude/vm_bundles/claudevm.bundle`). "Do you use Cowork on this Mac? If not: quit Claude, delete it." It re-downloads ~10 GiB the first time Cowork is used again.
-2. **`~/gruvato-backups`, 10.9 GiB.** "Gruvato 6.7 is merged; keep only the newest two backups (`2026-10-15/...-012517` 1.9 GiB and `2026-10-13/sh.delo.gruvato` 0.9 GiB, the oldest known-good), delete the other five (~8 GiB)?"
-3. **Android emulator, 7.5 GiB** (`~/.android/avd` 4.6 + `Android/sdk/system-images` 2.9). "Do you run the Pixel 10 Pro emulator here? The hub deploys Android to the real S26." If no: `avdmanager delete avd -n Pixel_10_Pro`, then `sdkmanager --uninstall` the system image.
-4. **iOS Simulator runtime, 7.5 GiB** (the 18 GiB disk image). "Any iOS Simulator work here, or only device builds to the iPad?" If device-only: `xcrun simctl runtime delete BB4C5B29-4E7F-4884-A277-CFE5D5446298` (Xcode re-offers it in Settings > Components).
-5. **`iPad14,5 27.0` DeviceSupport, 6.4 GiB.** "Delete? It rebuilds next time the iPad is plugged in and trusted (~10 min)." Hub installs use `devicectl`, so deploys are unaffected.
-6. **Apps and their libraries probably not yours, ~35 GiB.** "Whose are these, and still used?" iMovie 3.7, Affinity 3.6, CapCut 2.6 (+0.6 `~/Movies/CapCut`), Play-Doh 1.2, GarageBand 1.0 (+ `/Library/Audio` 4.7), Roblox Studio 0.9 (+ `~/Library/Roblox` 1.4), FL Studio 2.3, `/Library/Arturia` 8.7, `Studio 2.0` 2.3. Delete through Finder / the app's uninstaller; `/Library` items may need an admin password, which agents do not have.
-7. **Loose media, ~11 GiB.** `thegrinch.mkv` 2.9, the three meeting recordings 1.6, `~/audio` 2.3, `~/quickdrop` 1.9, `~/music-presets` + `~/Presets` + `~/Splice` 3.5, duplicate `~/Music/verity.m4b` 0.22. "Move to the NAS (`rsync` to big-chungus) and delete locally?"
-8. **gruvato leftovers, 2.6 GiB:** `~/gruvato-67` remainder 1.6 (`data/`, `data2/`, `render-b-*` test instances, scripts, logs; its `repo/` is gone), `~/gruvato-spike` 1.0 (Sep 30 experiment).
-9. **Neo LocalLLM 2.6, CodingAssistant 1.4, `~/.cache/codex-runtimes` 1.6, `gib-native` 1.0 (bake cache, 15-30 min to rebuild), Docker.raw 1.6, `~/flutter-3.38.1` 1.8.** Each is a "still used?" question.
-10. **Voice Memos, 5.8 GiB (class C).** Mention only as: "if you want a last resort, export the recordings to the NAS first". Never delete.
-11. **iPhone 18 Pro simulator data, 3.6 GiB** (`xcrun simctl erase 12178C22-2533-44FD-BED8-19ACCDDECFC2`). Reclassified A to B on 2026-10-28: erase wipes the apps and state inside the simulator.
-12. **`~/.Trash`, 0.74 GiB** (`agents`, plus a vault-like tree), all trashed 2026-10-27. "Empty the Trash?" Also offer Finder's "Remove items from the Trash after 30 days" (`defaults write com.apple.finder FXRemoveOldTrashItems -bool true`) as the standing bound. It is a deferred deletion, so it needs the owner's yes.
-13. **`~/Downloads/dsh-latest-macos-arm64.dmg`, 0.25 GiB.** dsh is not installed, so this is not an installed-app leftover.
+| # | Item | Decision | Status |
+|---|---|---|---|
+| 1 | Android emulator (`~/.android/avd/Pixel_10_Pro.*` + `Android/sdk/system-images/android-37.0`) | delete | **done**, +7.52 GiB (no `avdmanager`/`sdkmanager`: no cmdline-tools installed, so `rm`; emulator/qemu not running) |
+| 2 | Claude Cowork VM (`~/Library/Application Support/Claude/vm_bundles`) | delete | **done**, +10.10 GiB (Claude.app was open but no `com.apple.Virtualization.VirtualMachine` process and nothing held `rootfs.img`). Re-downloads ~10 GiB on the next Cowork use |
+| 3 | `~/Library/Developer/Xcode/iOS DeviceSupport/*` (iPad14,5 27.0) | delete | **done**, +6.39 GiB. Regenerates the next time the iPad is plugged in and trusted (~10 min) |
+| 4 | `~/gruvato-backups` | keep newest two, delete the rest | **done**, +7.72 GiB. Kept `2026-10-15/sh.delo.gruvato-012517` and `2026-10-14/sh.delo.gruvato-200026` (newest by timestamp, not the profile's old "oldest known-good" pick); removed the other five data copies plus the old `Gruvato-0.2.2.app` |
+| 5 | Loose media: `thegrinch.mkv`, meeting recordings, `~/audio`, `~/quickdrop`, `~/music-presets`, `~/Presets`, `~/Splice`, `~/Music/verity.m4b` | archive to big-chungus, verify sha256, delete on the Mac | **done with two live-location exceptions**, see "Archive" below |
+| 6 | Dead leftovers: `~/Library/Containers/com.docker.docker`, `com.docker.install`, `~/flutter-3.38.1`, `~/gruvato-spike`, `~/gruvato-67` | delete | **done**, +6.2 GiB. `~/flutter-3.38.1` proven unused first (no reference in rc files, `~/.config`, runner env, LaunchAgents, `local.properties`; mise's flutter is the http-tarballs symlink and stayed intact) |
+| 7 | Neo `LocalLLM` + Xcode `CodingAssistant` | delete | **done**, +2.64 + 1.37 GiB (Neo and Xcode not running) |
+| 8 | Apps: iMovie, Play-Doh, GarageBand (+ library), Arturia, Studio 2.0 | remove what delorenj can; hand the rest to the owner | **partly done**: `Studio 2.0` removed (2.35), `/Library/Arturia` content emptied (8.74), GarageBand library (`Application Support/GarageBand`, `Logic`, `Apple Loops`, `Impulse Responses`) emptied (2.2). The root-owned `.app` bundles, plug-ins, helper and shells need an admin password: `~/code/infra/hosts/carries-macbook-air/remove-apps-needs-admin.sh` (~7.1 GiB, **owner to run with sudo**) |
+| 9 | iOS 27 Simulator runtime (7.5 GiB), iPhone 18 Pro sim data (3.6), `~/.cache/codex-runtimes` (1.6), `gib-native` (1.0), Voice Memos (5.8, C), `~/.Trash` (0.74), `dsh` dmg (0.25) | **not approved**: leave alone, do not re-ask until the owner raises it | declined / deferred |
+| - | FL Studio, Affinity, CapCut, Roblox | **not approved for removal** | declined |
+
+If free space drops under 40 GiB again, the next levers are, in order: the iOS Simulator runtime (7.5), the iPhone 18 Pro simulator data (3.6), `codex-runtimes` (1.6), then Carrie's account.
+
+**Archive of 2026-10-28** (on big-chungus, `~/archive/carries-macbook-air/2026-10-28/`, relative names kept; every file sha256-verified before the Mac copy went): `thegrinch.mkv`, the five meeting-recording files, `audio/`, `quickdrop/`, `music-presets/`, `Presets/`, `Splice/` = 27,298 files, 13 GiB. Manifest compared path by path: 0 missing, 0 extra, 0 mismatches. Only `quickdrop/` and `Splice/` are also still on the Mac (live-location exceptions, above). `Music/verity.m4b` was byte-identical to `quickdrop/verity.m4b` and is archived once, under `quickdrop/`. Restore a file with `rsync -a ~/archive/carries-macbook-air/2026-10-28/<path> hub-mac:<path>`.
 
 If Tier A + B are not enough, the remaining lever is Carrie's account (~31 GiB, probably more): only she can clear it. Ask the user to have her check System Settings > General > Storage while logged in.
 
@@ -284,10 +289,15 @@ If Tier A + B are not enough, the remaining lever is Carrie's account (~31 GiB, 
 - **Jobs start mid-run:** the root runner (`actions.runner.delorenj-pile-of-dumb-things.carries-macbook-air`, which also serves tower) picked up a job five minutes in. Check `busy` immediately before each runner- or build-dir `rm`, not once.
 - **Intel paths in old automation:** `/usr/local/bin/<tool>` in a 2025 script or plist fails on this Apple Silicon Mac (brew is `/opt/homebrew`). With `KeepAlive` that becomes a crash loop and a log leak.
 - **launchd over ssh works into `gui/502`** while delorenj is logged in at the console (`stat -f %Su /dev/console`). `bootout` followed immediately by `bootstrap` can fail with "5: Input/output error". `install.sh` retries.
-- **Secrets seen on disk (not a disk issue, flagged 2026-10-28):** `~/Downloads/1password-credentials*.json`, `~/Desktop/*.private-key.pem`, and a gateway token inside the retired openclaw plist.
+- **Secrets seen on disk (not a disk issue) were moved to 1Password on 2026-10-28:** the two identical `~/Downloads/1password-credentials*.json` were already in the vault (item "DeLoNET 1Password Connect", field `credentials-base64`, decoded sha256 equal), so only the local copies were deleted. `~/Desktop/33god-agentic-pipeline.2026-03-05.private-key.pem` was new: stored as document `z6kgn3xnm7xnzdymajfuprfs6y` (readback sha256 equal), local copy deleted. The `OPENCLAW_GATEWAY_TOKEN` in the retired `ai.openclaw.node.plist` was already vault item "Openclaw" (field `Gateway Token`), so the attic plist now holds `op://DeLoSecrets/ceuegc63po223g53g6ey5gpygm/Gateway Token`. `~/Desktop/encryption_public_key.pem` is a public key, left.
+- **Admin handoff pending:** `~/code/infra/hosts/carries-macbook-air/remove-apps-needs-admin.sh` (iMovie, Play-Doh, GarageBand, Arturia apps/plug-ins/helper, ~7.1 GiB) waits for the owner to run it with sudo. Until then the Arturia and GarageBand apps are installed with their content emptied (they will ask to re-download or show no sounds). If a later run finds those apps gone, drop this note.
+- **Syncthing `.stfolder` is not proof of syncing:** `~/audio` had one but the config no longer listed it. Read `config.xml`. A `sendreceive` + `ignoreDelete=false` folder (`~/quickdrop`) turns a local delete into a delete on every peer.
+- **App bundles you cannot delete:** `/Applications/{iMovie,GarageBand,Play-Doh}.app` and `/Applications/Arturia` are root-owned all the way down; `rm -rf` and Trash both need admin. `Studio 2.0` was drag-installed and fully writable. See macos.md "Removing installed apps".
+- **mise `flutter` has no active version in `$HOME`** (`mise ERROR No version is set for shim: flutter`), also inside `green-in-between`. The runners and `local.properties` use the http-tarballs path directly, so builds work; do not read that error as damage from a cleanup.
 
 ## Run log
 
+- 2026-10-28 — free 71.1 GiB → 131.1 GiB. tier B on the owner's answers (container free, bytes; gross yields sum 64.5, net +60.0 because the live Mac wrote ~4.5 GiB meanwhile): Cowork VM 10.1, gruvato-backups keep-newest-2 7.7, Android AVD+image 7.5, DeviceSupport 6.4, Neo LLM 2.6 + CodingAssistant 1.4, dead leftovers 6.2 (docker, flutter-3.38.1 proven unused, gruvato-spike/-67), Arturia content 8.7 + GarageBand/Logic library 2.2 + Studio 2.0 2.4, loose media 10.3 (27,298 files archived to big-chungus ~/archive/carries-macbook-air/2026-10-28, all sha256-verified before delete). Left in place: ~/quickdrop (live Syncthing sendreceive folder, deletes propagate to 4 peers) and ~/Splice (Splice default library). Root-owned apps (iMovie, Play-Doh, GarageBand, Arturia) handed off in infra hosts/carries-macbook-air/remove-apps-needs-admin.sh (~7 GiB, owner to run). Secrets: 33god pem stored in DeLoSecrets, credentials JSON + openclaw token already in vault, local copies removed
 - 2026-10-28 — free 71.3 GiB → 71.4 GiB. adversarial verification of the tier-A run: free space, 5 runners, Xcode/flutter/rust/pnpm, hub state, tier B and the stopped loops all confirmed. Fixed: weekly agent's pnpm prune failed EROFS in launchd cwd / (now cd $HOME + rc logged), its gib-clone guard ignored detached-HEAD commits; profile said ~/.cache/mobile-deploy-hub did not exist (holds live hub locks/); tower playbook now keeps newest 3.
 - 2026-10-28 — free 15.2 GiB → 71.3 GiB. tier A (container free, diskutil bytes): crash-loop logs 2.7, tower runs 10.7, gib scratch 7.9, gruvato scratch 4.8, gruvato target 4.2, runner _work 6.5, Neo/DerivedData/CocoaPods/docker-install 8.1, rust dup 1.3, pnpm 2.4, uv 0.1, gradle 4.2, junk 1.9. Retired com.delorenj.cleanup_screenshots + its rm -rf crontab and ai.openclaw.node (attic). Bounds: tower ios.mjs retention (8bd2872), weekly sh.delo.disk-maintenance agent (infra 2c3e1ba). Skipped (app running): ChatGPT Sparkle 3.6, Chrome OptGuide 4.0. Tier B untouched.
 - 2026-10-28 — initial profile (read-only survey). Free: 16 GiB (97% used, container 17.2 GB free).
