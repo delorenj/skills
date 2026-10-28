@@ -95,6 +95,12 @@ No systemd here. The equivalents:
   fires with `launchctl kickstart -p gui/<uid>/<label>` and read its log. `runs`
   resets to 0 on every re-bootstrap. Worked example with an installer:
   `~/code/infra/hosts/carries-macbook-air/` (`disk-maintenance.sh`, plist, `install.sh`).
+  **launchd starts the job in `/`, which is read-only on macOS**: `cd "$HOME"` at
+  the top of the script (or set `WorkingDirectory`). Otherwise tools that drop a
+  temp file into their cwd fail (`pnpm store prune` gave `EROFS ... open
+  '/_tmp_...'` while the agent still exited 0). Log each command's exit code,
+  and test with `cd / && env -i HOME=$HOME PATH=<agent PATH> <cmd>`, not from an
+  ssh shell that starts in `$HOME`.
 - **Retiring a looping or obsolete agent:** `launchctl bootout gui/<uid>/<label>`
   and move the plist to `~/Library/LaunchAgents.attic/` with a README of restore
   commands. `bootout` alone lasts only until the next login when the plist has

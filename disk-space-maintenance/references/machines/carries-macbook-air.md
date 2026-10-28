@@ -34,6 +34,7 @@
 ## Never touch
 
 - **`/Users/carriedelorenzo`** and anything of Carrie's. Do not `sudo`, do not look.
+- **Hub lock dir:** `~/.cache/mobile-deploy-hub/locks/` (empty, but live).
 - **Live hub state:** `~/Library/Caches/mobile-deploy-hub/handoff/` (in-flight builds, written today 04:25-04:32) and `~/Library/Caches/mobile-deploy-hub/outbox/` (the newest two IPAs per app, 0.2 GiB, which the iPad catch-up installs from). `handoff-cache/` is the hub's own cache, pruned by the hub at 3 days: leave it to the hub.
 - **Runner identity and binaries:** everything in `~/actions-runner/` and `~/actions-runner/<name>/` except `_work/*` and `_diag/*`. `.runner`, `.credentials*`, `bin/`, `externals/`, `*.sh`, and `~/Library/LaunchAgents/actions.runner.*.plist` deleted means re-registering the runner with GitHub. Never `launchctl bootout` a runner while a job is active.
 - **Signing material:** `~/Library/Keychains`, `~/Library/Developer/Xcode/UserData/Provisioning Profiles`, `~/Library/MobileDevice/Provisioning Profiles` (the hub enforces `profile_min_days: 30`), `~/.android/debug.keystore`, `~/.android/adbkey*`.
@@ -160,6 +161,7 @@ Home breakdown (class A = rebuildable, delete without asking; B = owner decision
 | Per-device Xcode symbols | `~/Library/Developer/Xcode/iOS DeviceSupport` | 6.4 GiB (one entry, `iPad14,5 27.0`) | Xcode on each new iPad OS build (~6.4 GiB per build) | none (tier B). Delete old OS versions when the iPad updates |
 | Staged macOS update | Preboot 15.3, `AssetsV2` SFR/MacSoftwareUpdate 2.6, `os.update` snapshots | ~18 GiB combined | macOS auto-downloaded an update and has not applied it | macOS self-manages. Apply the update (restart) now that there is room |
 | Diagnostics | `/private/var/db/diagnostics` | 2.3 GiB | unified log | macOS (root-only) |
+| navi iOS CI dirs | `~/.cache/navi/ios/ci-<uuid>` | 0.17 GiB, 2 dirs (2026-10-13), one holds `Navi-store.xcarchive` | navi's iOS CI build | none: small. Watch it. If it grows past ~2 GiB it needs the same treatment as tower (a prune in navi's build tool) |
 
 ## Targeted playbook
 
@@ -224,7 +226,10 @@ pgrep -xl java || rm -rf ~/.gradle/caches                         # re-downloads
 **Last, when idle: per-run build dirs and runner workspaces (tower 10.65, `_work` 6.46).** Both need `busy` false right before each `rm`; on 2026-10-28 they had to wait for a running job.
 
 ```sh
-busy || { cd ~/.cache/tower-of-lost-things/ios && find . -mindepth 1 -maxdepth 1 -type d -mtime +7 -exec rm -rf {} +; }
+# tower: >7d, but keep the newest 3 build runs (exportOnly resumes from them), same rule as ios.mjs pruneRuns.
+# (2026-10-28 removed all 43 because every run was >=19 days old; don't copy that when recent runs exist.)
+busy || { cd ~/.cache/tower-of-lost-things/ios && keep=$(ls -1t | grep -E '^[0-9]{8}T[0-9]{9}Z-[0-9a-f]{8}$' | head -3)
+  find . -mindepth 1 -maxdepth 1 -type d -mtime +7 | sed 's#^\./##' | grep -vxF "${keep:-/}" | while IFS= read -r d; do rm -rf "./$d"; done; }
 for w in ~/actions-runner/{gruvato,gib,navi,james-brennan}/_work; do busy && break; find "$w" -mindepth 1 -maxdepth 1 -exec rm -rf {} +; done
 busy || rm -rf ~/actions-runner/_work/tower-of-lost-things
 ```
@@ -251,7 +256,7 @@ If Tier A + B are not enough, the remaining lever is Carrie's account (~31 GiB, 
 
 ## Installed automation
 
-- **`sh.delo.disk-maintenance`** (installed 2026-10-28): `~/.local/bin/disk-maintenance` run by `~/Library/LaunchAgents/sh.delo.disk-maintenance.plist`, Sundays 05:17, loaded in `gui/502`. Canonical copy plus `install.sh` and a README live in `~/code/infra/hosts/carries-macbook-air/` on big-chungus. Edit there, then re-run `install.sh`, which copies, lints and re-bootstraps. It sweeps DerivedData >14d, tower run dirs >7d (newest 3 kept), clean+pushed `~/.cache/gib-ios*` clones/bundles >7d, idle runner `_work` and `_diag` >7d (no `Runner.Worker`), logs >100M (truncated), `simctl delete unavailable`, `pnpm store prune`, `uv cache prune`. It logs a WARNING under 40 GiB free. `disk-maintenance --dry-run` previews. Log: `~/Library/Logs/sh.delo.disk-maintenance.log` (self-truncates at 5 MB). Verified 2026-10-28: dry run, then a real run via `launchctl kickstart` (exit 0, +0.22 GiB of `_diag`). Check: `launchctl print gui/$(id -u)/sh.delo.disk-maintenance | grep -E "state|runs|last exit"`. `runs` resets to 0 on every re-bootstrap.
+- **`sh.delo.disk-maintenance`** (installed 2026-10-28): `~/.local/bin/disk-maintenance` run by `~/Library/LaunchAgents/sh.delo.disk-maintenance.plist`, Sundays 05:17, loaded in `gui/502`. Canonical copy plus `install.sh` and a README live in `~/code/infra/hosts/carries-macbook-air/` on big-chungus. Edit there, then re-run `install.sh`, which copies, lints and re-bootstraps. It sweeps DerivedData >14d, tower run dirs >7d (newest 3 kept), clean+pushed `~/.cache/gib-ios*` clones/bundles >7d, idle runner `_work` and `_diag` >7d (no `Runner.Worker`), logs >100M (truncated), `simctl delete unavailable`, `pnpm store prune`, `uv cache prune`. It logs a WARNING under 40 GiB free. `disk-maintenance --dry-run` previews. Log: `~/Library/Logs/sh.delo.disk-maintenance.log` (self-truncates at 5 MB). Verified 2026-10-28: dry run, then a real run via `launchctl kickstart` (exit 0, +0.22 GiB of `_diag`). Check: `launchctl print gui/$(id -u)/sh.delo.disk-maintenance | grep -E "state|runs|last exit"`. `runs` resets to 0 on every re-bootstrap. **Fixed by the verifier the same day:** the agent ran in launchd's cwd `/`, so its `pnpm store prune` failed with EROFS behind an exit 0 (log line `pnpm store prune: ` with nothing after it). It now `cd "$HOME"`, logs `rc=` per prune, and its gib-clone guard also counts commits on a detached HEAD (`git log HEAD --branches --not --remotes`), since scratch clones usually sit detached. Re-verified by kickstart: `pnpm store prune (rc=0)`, exit 0.
 - **tower-of-lost-things `tools/ios.mjs` `pruneRuns()`** (commit `8bd2872`): run dirs >7d are pruned before each build, newest 3 builds kept. It logs `IOS_PRUNED <n>` / `IOS_PRUNE_WARNING`.
 - mobile-deploy-hub bounds its own state: `outbox` keeps the newest 2 IPAs per app (`keepInOutbox`), `handoff-cache` is pruned at 3 days (`find ... -mtime +3` over ssh in `handoff.mjs`), big-chungus staging at 7 days (`pruneStaging`).
 - **Retired 2026-10-28** (in `~/Library/LaunchAgents.attic/` with a restore README): `com.delorenj.cleanup_screenshots` (the "cleanup" agent was the biggest leak), the user crontab `*/2 * * * * rm -rf ~/gd/screenshots/*` (removed; the user now has no crontab), and `ai.openclaw.node`.
@@ -266,7 +271,8 @@ If Tier A + B are not enough, the remaining lever is Carrie's account (~31 GiB, 
 - **`du` double-counts APFS clones and hardlinks** (pnpm/uv stores, cargo targets, `cp -c` handoff trees). Real yield of those caches is less than shown, and "Carrie's share by subtraction" is a *lower bound*.
 - **`os.update` snapshots (3) and Preboot (15.3 GiB) are system-managed.** `tmutil deletelocalsnapshots` needs root and refuses `os.update` ones anyway. They shrink after the staged macOS update is applied and the Mac restarts, or when macOS needs space.
 - **Looks deletable, is not:** `~/.local/share/mise/http-tarballs` (Flutter symlink), `~/Library/Caches/mobile-deploy-hub/{handoff,outbox}` (live deploy state, "Caches" is a lie), `~/Library/Application Support/sh.delo.gruvato` ("library" = live data), `~/.cache/gib-native/bake` (cheap to delete, 30 minutes to rebuild), `~/.hermes/hermes-agent`.
-- **`~/.cache` is not all disposable on this Mac:** tower and gib dirs are agent/build output, but `~/.cache/mobile-deploy-hub` does not exist here (the hub's cache lives in `~/Library/Caches/mobile-deploy-hub`; big-chungus has the `~/.cache/mobile-deploy-hub/staging`).
+- **`~/.cache` is not all disposable on this Mac:** tower and gib dirs are agent/build output, but `~/.cache/mobile-deploy-hub/locks/` is the hub's **live lock dir** (0 B, touched every few minutes): never touch. The hub's cache itself lives in `~/Library/Caches/mobile-deploy-hub`; big-chungus has `~/.cache/mobile-deploy-hub/staging`. (Corrected 2026-10-28: an earlier version said this dir did not exist.)
+- **launchd agents start in `/`, which is read-only on macOS.** Any tool that writes a temp file into its cwd fails there: `pnpm store prune` died with `EROFS ... open '/_tmp_...'` inside the weekly agent while the agent still exited 0. `disk-maintenance` now `cd "$HOME"` first and logs each prune's `rc=`. Test agent commands with `cd / && env -i HOME=$HOME PATH=... <cmd>`, not from an ssh shell sitting in `$HOME`.
 - **brew is not on PATH in non-interactive ssh.** Use `/opt/homebrew/bin/brew`; mise tools need `PATH=$HOME/.local/share/mise/shims:$PATH`; rustup is `~/.cargo/bin/rustup`. `brew cleanup -n` reports 192 bytes: Homebrew is not the problem.
 - **zsh remote shell:** unmatched globs error out and abort the line; `=` in a command word is expanded. `ssh hub-mac 'cmd'` runs under the user's zsh with the login PATH minimal.
 - **`~/Library/CloudStorage` is a network mount that `find -xdev` does not stop at** (Google Drive for Desktop, two accounts: it walked into a Drive `node_modules` and ran 15+ minutes). `survey.sh` now prunes it and has a perl-alarm `timeout` fallback; the fixed full run takes ~10 minutes. Never `find`/`du` through `~/Library/CloudStorage` or `~/gd`; it also triggers downloads and Drive sync churn.
@@ -282,5 +288,6 @@ If Tier A + B are not enough, the remaining lever is Carrie's account (~31 GiB, 
 
 ## Run log
 
+- 2026-10-28 — free 71.3 GiB → 71.4 GiB. adversarial verification of the tier-A run: free space, 5 runners, Xcode/flutter/rust/pnpm, hub state, tier B and the stopped loops all confirmed. Fixed: weekly agent's pnpm prune failed EROFS in launchd cwd / (now cd $HOME + rc logged), its gib-clone guard ignored detached-HEAD commits; profile said ~/.cache/mobile-deploy-hub did not exist (holds live hub locks/); tower playbook now keeps newest 3.
 - 2026-10-28 — free 15.2 GiB → 71.3 GiB. tier A (container free, diskutil bytes): crash-loop logs 2.7, tower runs 10.7, gib scratch 7.9, gruvato scratch 4.8, gruvato target 4.2, runner _work 6.5, Neo/DerivedData/CocoaPods/docker-install 8.1, rust dup 1.3, pnpm 2.4, uv 0.1, gradle 4.2, junk 1.9. Retired com.delorenj.cleanup_screenshots + its rm -rf crontab and ai.openclaw.node (attic). Bounds: tower ios.mjs retention (8bd2872), weekly sh.delo.disk-maintenance agent (infra 2c3e1ba). Skipped (app running): ChatGPT Sparkle 3.6, Chrome OptGuide 4.0. Tier B untouched.
 - 2026-10-28 — initial profile (read-only survey). Free: 16 GiB (97% used, container 17.2 GB free).

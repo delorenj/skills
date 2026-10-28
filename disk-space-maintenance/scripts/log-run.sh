@@ -32,7 +32,8 @@ awk -v entry="$entry" -v today="$today" '
   { print }
   /^## Run log/ && !done { print ""; print entry; done = 1; skip_blank = 1 }
 ' "$profile" > "$tmp"
-mv "$tmp" "$profile"
+# cat, not mv: mv would give the profile mktemp's 0600 mode
+cat "$tmp" > "$profile"; rm -f "$tmp"
 
 echo "logged: $entry"
 echo "now update the profile's Space map / Known accumulators / Gotchas, then commit + push the skills repo"

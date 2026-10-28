@@ -126,7 +126,12 @@ An unversioned cleanup job is just one more thing that rots.
 
 - Free space after vs before, in one unit (say GiB or GB, not both).
 - Each bound: file in place, timer or agent loaded with a next run, a dry run or
-  real run that acts on the target, and no errors in its log.
+  real run that acts on the target, and no errors in its log. Prove it in the
+  scheduler's own context (`launchctl kickstart`, `systemctl start`), not just
+  from your shell: cwd, PATH and environment differ there. A log line with an
+  empty result, or a step that logs no exit code, counts as a failure until you
+  prove otherwise (a launchd agent's `pnpm store prune` failed with EROFS in `/`
+  behind an exit 0 and a blank log line).
 - Nothing broke: the services and tools near what you cleaned still start.
   Interpreters and toolchains are the usual casualty.
 
