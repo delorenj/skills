@@ -31,7 +31,7 @@ changelog, skill routing, and backfill coordination.
 | Skill packs and agent capability distribution | Skillex |
 | Recall/retain/journal memory hooks | Hindsight |
 | Compact MCP tool gateway | Pipeline MCP Hub |
-| Topology/event visualization | Candybar |
+| Recurring/scheduled work (cron, timers, nightly jobs, poll loops) | Candybar (the single clock; never cron or a new `.timer`) via the `candybar` skill |
 | Metrics, logs and operator observability | Monitoring stack + Prometheus/Loki/Grafana |
 | Audio and document enrichment pipelines; voice/transcription interface | HeyMa / Wax (`wax-pipeline`); TTS via Vox |
 

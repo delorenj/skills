@@ -73,9 +73,10 @@ on later runs; dropping the flag does not permit overlays.
 
 Strict desks resync themselves. A desk's receipt records the `all-skills` HEAD, so
 every catalog commit leaves each one `sync pending` (`skillex profile show` exit 6);
-the user units `skillex-hermes-resync.path` (HEAD moved) and `.timer` (every 15
-minutes) run `scripts/hermes-skillex-resync.py` in the Skillex repo, which
-strict-syncs the pending ones and re-checks them. Give it about 20 seconds after a
+the user unit `skillex-hermes-resync.path` (HEAD moved) and the
+`skillex-hermes-resync` Candybar (every 15 minutes; there is no `.timer`, Candybar
+is the single clock) run `scripts/hermes-skillex-resync.py` in the Skillex repo,
+which strict-syncs the pending ones and re-checks them. Give it about 20 seconds after a
 commit and look with `scripts/install-hermes-resync.sh status`; the log is
 `~/.local/state/skillex/hermes-resync.jsonl` plus `hermes-resync.last.json`. A desk
 it reports `refused` (exit 3) holds foreign or unowned content and is left
