@@ -25,7 +25,8 @@ below, and trust it over this summary when they differ.
   `newapi-redis`, plus `newapi-caddy` and `newapi-cloudflared`. The home
   containers still exist, stopped with `restart=no`; do not start them.
 - **Ingress**: Cloudflare tunnel `aai-gateway` → `cloudflared` → Caddy →
-  `new-api`. No public inbound port is open; the VM is reachable over the tailnet
+  `new-api`, plus `api-direct.automaticai.io` (DNS-only, Caddy on 443, 2026-10-29) for AWS us-east-1 callers that
+  must skip Cloudflare. The only public inbound port is 443; the VM is reachable over the tailnet
   (`100.65.37.119`). Caddy answers a JSON 503 with `Retry-After` while `new-api`
   is down, so a redeploy shows clients a short retryable 503.
 - **Postgres health requires data.** New-api starts only once `users` has a
