@@ -534,7 +534,7 @@ as a turn on the `bloodbank` platform. The toolsets that turn gets come from
   a reconcile-sized task took ~36 min and outlived its PM's turn). The fleet base now
   has a **named provider**, `providers.automaticai` (`api: https://api.automaticai.io/v1`,
   `key_env: AUTOMATICAI_GATEWAY_KEY`, `extra_body: {reasoning_effort: high}`), and
-  `delegation.provider: automaticai`, `delegation.model: automaticai/personal/kimi-2.8`
+  `delegation.provider: automaticai`, `delegation.model: automaticai/auto/subagent`
   with `base_url` and `api_key` left EMPTY. The same task takes ~4 min.
   `hermes.gateway-routing` asserts all of it -- and, since 2026-09-30, every OTHER
   inference path too: the main `model`, every `auxiliary.<task>` (absent = `auto`,
@@ -589,9 +589,13 @@ as a turn on the `bloodbank` platform. The toolsets that turn gets come from
     `defaulted=false`, quota 0 (subscription), and the member's own consumer name.
   - **The primary model and the fallback chain go through the gateway too (2026-09-30).**
     One ordered list: `model:` is entry 1 (`provider: automaticai`), `fallback_providers`
-    the rest. The owner's order: `sol-6.1`, `claude-sonnet-5.5` (personal, pending
-    DELO-8), `glm-5.3`, `claude-sonnet-5.5` (Intelliforia, pending DELO-8), `kimi-2.8`
-    LAST. Live today: `sol-6.1`, `glm-5.3`, `kimi-2.8`. Facts that shaped it:
+    the rest. **No named models (owner, 2026-10-28/29):** the chain is `automaticai/auto` ->
+    `automaticai/auto/subagent` -> `automaticai/auto/fast`, and `auxiliary.vision`,
+    `auxiliary.tts_persona` and the MoA slots are auto aliases too. The router walks past an
+    exhausted route within a tier; each Hermes fallback is a different tier (own candidate
+    pool), and `fast` ends on free routes. Only the `/model` picker list
+    (`providers.automaticai.models`) still names routes. Never fix an outage by pinning a
+    named model: fix the tier chain in the gateway. Historical facts that shaped it:
     - **Kimi's weekly limit exhausts all three Kimi routes at once** (HTTP 403, one
       `kimi-personal` account; recurring since 09-09) and every PM primary was direct
       Kimi, so every Bloodbank turn failed. Until then the fleet had NO working
