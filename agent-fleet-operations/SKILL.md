@@ -144,13 +144,24 @@ was gated on a `role.yaml` flag that was true in exactly one repo, so ~20,000
 no-op invocations a day is all it did. What took over its three apparent jobs:
 
 - **liveness** — the gateway unit itself (`Restart=on-failure`);
-- **scheduling** — Bloodbank;
+- **scheduling** — Candybar (it fires Bloodbank commands and Hermes invocations);
 - **persistence** — krebs leases.
 
 `70-systemd.sh` now actively *removes* any heartbeat units it finds and records
 `service_state.heartbeat: retired` in `role.yaml`, so re-running provisioning
 converges a legacy host. `flume audit --rules systemd.sentinel` requires only the
 gateway unit; demanding a timer failed every freshly provisioned agent.
+
+**Recurring work.** Candybar owns WHEN recurring work runs; Hermes, systemd
+services and webhook workflows only execute what it fires. Never create a
+crontab entry, a new systemd `.timer`, `systemd-run --on-*`, a Hermes recurring
+job (the `cronjob` tool, or `hermes cron create` without `--scheduler external`),
+a workflow-engine Schedule Trigger or a private recurring poll loop for an
+agent or desk; register a Candybar manifest (skill `candybar`) and let it fire
+a `.service`, a Hermes job pinned `scheduler=external` or any exec argv. The
+standing exception is `candybar-watchdog.timer` (AD-22). Rule and audit:
+flume's `docs/scheduling-policy.md` and
+`flume refresh-scheduling-policy --json`.
 
 Bloodbank command ingress is **fleet-shared**: `hermes-fleet-bloodbank-gateway.service`
 (profile `fleet-bloodbank-gateway`, adapter `bloodbank/services/hermes-gateway`)

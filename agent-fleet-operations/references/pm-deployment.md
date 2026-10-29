@@ -124,15 +124,10 @@ preserves foreign children and is not proof of exclusivity.
 
 A role that declares a `skills:` loadout (roles/<role>.md) supplies the selection
 itself: `flume onboard` writes it to `<desk>/.skillex-selection/.agents/skills.json`
-and syncs the desk against that project. The desk then no longer follows its
-repo's `.agents/skills.json`; a `profile sync --project <repo>` re-points it and
+and syncs the desk against that project, so the desk is the global selection plus
+exactly the declared loadout. The desk then no longer follows its repo's
+`.agents/skills.json`; a `profile sync --project <repo>` re-points it and
 `hermes.runtime-singleton` reports the drift until `flume onboard` repairs it.
-
-Do not derive Skillex semantics from legacy role validation: sets replace the
-canonical skill root and are mutually exclusive; packs populate an existing root
-with per-skill symlinks and are composable (user clarification, 2026-10-10).
-Exclusive-pack restrictions are implementation drift. Preview before applying;
-do not promise additive set inheritance or silently change shared set membership.
 
 A new profile uses `hermes profile create <name> --no-alias --no-skills`. Existing
 profile revalidation must not reset databases, pid/state files, or skill roots.
@@ -146,7 +141,8 @@ check actual pinned Hermes discovery; UI source labels do not establish ownershi
 Per agent there is exactly one unit: `hermes-<agent-id>-gateway.service`, chat
 ingress. Per-agent heartbeat timers are retired and provisioning removes any it
 finds, recording `service_state.heartbeat: retired`. Liveness is the gateway's
-own `Restart=on-failure`; scheduling is Bloodbank; persistence is krebs leases.
+own `Restart=on-failure`; scheduling is Candybar (it fires Bloodbank commands and Hermes
+invocations); persistence is krebs leases.
 A heartbeat timer, a per-agent Bloodbank consumer, a checkpoint timer, or a
 filesystem inbox is drift.
 
@@ -230,7 +226,7 @@ cleaning tracked backups.
 
 After the command, directly re-read `.project.json`, the registry row, profile
 files, and systemd state. `flume hire` already runs its own postcondition pass —
-the eight employee rules, plus a `pj audit --rules mise.config-root,sot.project-json
+the employee rules, plus a `pj audit --rules mise.config-root,sot.project-json
 --json` probe for the two project contracts it changes or depends on. A probe
 that cannot reach `pj` reports **unable to assess**, is surfaced, and does not
 fail the hire; treat that as an unread surface you still owe evidence for.
@@ -238,7 +234,7 @@ fail the hire; treat that as an unread surface you still owe evidence for.
 Run the applicable read-only checks yourself:
 
 ```bash
-flume audit --json                 # the eight employee rules for this repo
+flume audit --json                 # the employee rules for this repo
 flume review --agent <agent-id>    # nine observation domains, read-only
 python3 ~/code/33GOD/hermes-agent-template/scripts/hermes-profile-config.py check
 ```

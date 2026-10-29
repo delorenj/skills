@@ -18,7 +18,13 @@
     "hermes.untracked-runtimes",
     "systemd.sentinel",
     "hermes.runtime-singleton",
+    "hermes.role-declaration",
     "hermes.fleet-config",
+    "hermes.bloodbank-toolsets",
+    "hermes.gateway-routing",
+    "hermes.dotenv-no-op-refs",
+    "hermes.wake-word-session",
+    "hermes.skillex-resync",
     "hermes.delta-list-override",
     "hermes.profile-wiring",
     "hermes.registry-parity"
@@ -274,7 +280,7 @@
     "heartbeat_role_yaml_state": "retired",
     "provisioning_removes_retired_heartbeat_units": true,
     "liveness_owner": "gateway unit Restart=on-failure",
-    "scheduling_owner": "bloodbank",
+    "scheduling_owner": "candybar",
     "persistence_owner": "krebs leases"
   },
   "service_stabilization": {

@@ -37,17 +37,20 @@ see the `agent-config-fanout` skill for the emitter contract and the
 
 **How Hermes receives them:** as a `hooks:` block in `~/.hermes/config.yaml`
 (the fleet base), where every profile inherits it through the generated
-base+delta render. Each entry shells out to the canonical publisher:
+base+delta render. Each entry shells out to the canonical publisher, the
+hook-hub client `bb-hook` (bloodbank `services/agent-hooks/hooks.master.json`
+names it Hermes' publisher; `bloodbank/publish.py` is a legacy forwarder):
 
 ```yaml
 hooks:
   on_session_start:
-    - command: python3 /home/delorenj/.agents/hooks/bloodbank/publish.py --client hermes --hook on_session_start
-      timeout: 5
+    - command: /home/delorenj/.agents/hooks/bb-hook --cli hermes --native on_session_start --deadline 15
+      timeout: 16
 ```
 
 Never write a Hermes-local publisher; always call
-`~/.agents/hooks/bloodbank/publish.py --client hermes`.
+`~/.agents/hooks/bb-hook --cli hermes --native <event>`. `hermes.fleet-config`
+fails a base whose four lifecycle events do not.
 
 > Trap fixed 2026-08-17: this block existed on **3 of 36** profiles, so 33 agents
 > published no lifecycle events at all. It now lives in the base. After changing

@@ -12,7 +12,8 @@ in repo-backed daemons.
 > `hermes-<agent>-gateway.service` (chat ingress). Bloodbank commands enter
 > through the single fleet-shared `hermes-fleet-bloodbank-gateway.service`.
 > Per-agent heartbeat timers are retired (liveness is the gateway's
-> `Restart=on-failure`, scheduling is Bloodbank, persistence is krebs leases),
+> `Restart=on-failure`, scheduling is Candybar, which fires Bloodbank commands and Hermes
+> invocations; persistence is krebs leases),
 > the scrum-master title is retired, and per-agent consumer/checkpoint units are
 > drift — flag them, don't debug them; `flume remediate hermes.registry-parity`
 > converges the registry side and re-running `70-systemd.sh` deletes leftover

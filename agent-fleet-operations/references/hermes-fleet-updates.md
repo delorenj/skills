@@ -8,13 +8,14 @@ Use this workflow when updating Hermes itself, changing shared non-secret
 defaults, or changing how future employees are provisioned. First classify the
 update, then touch the narrowest source of truth.
 
-> **Service model (canonical):** per agent, ONE unit —
-> `hermes-<agent>-gateway.service`. Bloodbank command ingress is the single
-> fleet-shared `hermes-fleet-bloodbank-gateway.service`. Per-agent heartbeat
-> timers, consumer units, and checkpoint timers are retired — treat any sighting
-> as drift and converge it with `flume remediate hermes.registry-parity` (registry
-> keys) or by re-running the role's `70-systemd.sh`, which deletes heartbeat units
-> it finds.
+> **Runtime model (canonical, 2026-10-17): ONE install, ONE code path.** `~/.hermes/hermes-agent` is a
+> checkout of `delorenj/hermes-agent` `main`. `hermes-gateway.service` (Hermes' own installer wrote it: ONE
+> host gateway multiplexes every profile, including the Bloodbank fleet lane), `~/.local/bin/hermes`,
+> `HERMES_FLEET_BIN` in `~/.hermes/fleet.env`, the template `[fleet]` config, every `agents/hermes/*/hermes`
+> wrapper and every registry row resolve to its launcher `.hermes/bin/hermes`. There is no `releases/<sha>`
+> checkout. Per-agent `hermes-<agent>-gateway.service` units, heartbeat timers, consumer units and checkpoint
+> timers are retired. Drift guard: `mise run hermes:one` in `templates/hermes-agent`
+> (`scripts/hermes-single-install-check.py`).
 
 ## Classify the update
 
@@ -33,25 +34,20 @@ write solves the problem.
 
 ## Update Hermes core
 
-**What actually runs (2026-09-26).** Every gateway execs the pinned release
-checkout named in `~/.hermes/fleet.env` (`HERMES_FLEET_REPO`/`HERMES_FLEET_BIN`)
-and in each unit's `10-versioned-runtime.conf` drop-in:
-`~/.local/share/hermes-agent/releases/0408fec7…/`. That directory is a blobless
-clone of `delorenj/hermes-agent` tracking `main`; its name is the pin id, not
-its HEAD. `~/.hermes/hermes-agent` is a dev checkout whose local `main` tracks
-NousResearch upstream, NOT the fork. Land fork changes like this:
+**What actually runs (2026-10-17).** One install, `~/.hermes/hermes-agent`, tracking `delorenj/main` (not Nous
+`origin/main`; never run `hermes update`). Land fork changes through a clone, never by editing the install:
 
 ```bash
-# 1. work in a detached worktree of fork main, test, push
-git -C ~/.hermes/hermes-agent fetch delorenj main
-git -C ~/.hermes/hermes-agent worktree add --detach <scratch>/hermes-fork delorenj/main
-<release>/.venv/bin/python -m pytest <tests> -o addopts=""  # run from the worktree
-git -C <scratch>/hermes-fork push delorenj HEAD:main
-# 2. deploy: fast-forward the release checkout (no reinstall unless deps changed;
-#    Hermes sweeps stale __pycache__ itself via .bytecode-fingerprint)
-git -C <release> pull --ff-only origin main
-# 3. restart each ACTIVE gateway, one unit at a time, and prove each
-systemctl --user restart hermes-<agent>-gateway.service
+# 1. work in a full clone of the fork (a worktree of the install fails the home-IO test guard), test, push
+git clone git@github.com:delorenj/hermes-agent.git ~/code/hermes-work && cd ~/code/hermes-work
+HERMES_PYTHON=<venv-with-pytest> scripts/run_tests.sh tests/agent/<the tests>
+git push origin HEAD:main
+# 2. deploy: fast-forward the one install (Hermes sweeps stale __pycache__ via .bytecode-fingerprint)
+git -C ~/.hermes/hermes-agent pull --ff-only
+# 3. restart the ONE gateway; the wrapper waits for idle (active_agents == 0, no turn lease) and coalesces callers
+hermes-gateway-restart --reason "<why>"
+# 4. prove nothing drifted
+python3 ~/code/33GOD/hermes-agent-template/scripts/hermes-single-install-check.py
 ```
 
 A gateway is healthy when it logs `Gateway running with N platform(s)`, or
@@ -110,11 +106,33 @@ Restart long-running user services after the code update:
 
 ```bash
 systemctl --user daemon-reload
-systemctl --user try-restart 'hermes-*-gateway.service'
-systemctl --user try-restart 'hermes-fleet-bloodbank-gateway.service'
+hermes-gateway-restart --reason "<why>"   # waits for idle; it serves every profile (never raw systemctl restart)
 ```
 
 Interactive `hermes` commands pick up the new code on their next launch.
+
+### The real import env and the safe restart
+
+When a gateway must load NEW Python code (a newly pip-installed package, a
+first-time platform plugin), a plain restart is not always enough and the
+import env is not the obvious one:
+
+- The gateway process bootstraps through `hermes_bootstrap`, which redirects
+  `sys.path` to a PM-managed env under
+  `~/.hermes/installs/<release-id>/venv` — NOT the repo `.venv` and NOT the
+  dev checkout. A package installed into the wrong env is invisible to the
+  gateway no matter how many times you restart it. Verify before installing:
+  read the unit's `ExecStart`, resolve which env `hermes_bootstrap` actually
+  enters, and install there.
+- Restarting the fleet gateway from inside a turn that the gateway itself is
+  driving kills the dispatching process before its own completion events
+  publish. Use `hermes-gateway-restart --reason "<why>"`: it detaches itself
+  when run from inside the gateway and waits for your own turn to end. Never
+  arm a cron line or a hand-rolled `systemd-run` timer for this.
+- After any restart, prove liveness from the journal, not `is-active` alone:
+  look for the platform-adapter attach line (e.g. `Bloodbank gateway
+  connected`) and for the durable consumer's `num_pending` draining to 0 at
+  `http://127.0.0.1:8222/jsz?streams=true&consumers=true`.
 
 ## Update shared base config
 
@@ -189,7 +207,7 @@ Use the canonical profile renderer and flume's remediation surface for repairs.
 Do not recreate the old symlink/native-inheritance layout manually.
 
 ```bash
-flume audit                                        # the eight employee rules, this repo
+flume audit                                        # the employee rules, this repo
 flume remediate hermes.runtime-singleton --dry-run # plan before applying
 flume remediate hermes.runtime-singleton
 ```
@@ -228,12 +246,14 @@ mise run deploy
 mise run health:hooks:check
 ```
 
-Existing Hermes runtimes should then call
-`~/.agents/hooks/bloodbank/publish.py --client hermes --hook <event>`. Only do a
-runtime backfill when health shows an old config missed the generated fan-out.
-`hermes.fleet-config` requires the base `hooks:` block to carry all four events
-(`on_session_start`, `on_session_end`, `pre_tool_call`, `post_tool_call`) and to
-call that canonical publisher.
+Existing Hermes runtimes should then call the hook-hub client
+`~/.agents/hooks/bb-hook --cli hermes --native <event>` (bloodbank
+`services/agent-hooks/hooks.master.json` names `bb-hook` as Hermes' publisher;
+`bloodbank/publish.py` and `hermes/publish.py` are legacy forwarders to the hub).
+Only do a runtime backfill when health shows an old config missed the generated
+fan-out. `hermes.fleet-config` requires the base `hooks:` block to carry all four
+events (`on_session_start`, `on_session_end`, `pre_tool_call`, `post_tool_call`)
+and each of them to call that canonical publisher for its own native event.
 
 ## Verify
 

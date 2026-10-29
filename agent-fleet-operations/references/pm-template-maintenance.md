@@ -131,7 +131,7 @@ Detailed checklist and acceptance criteria:
 - Confirm `hermes -p <repo>-pm config get model.default` resolves from the
   shared default when no local override exists
 - Confirm skill content includes requested `<X>` behavior
-- `flume audit` for the eight employee rules; `flume review --agent <repo>-pm`
+- `flume audit` for the employee rules; `flume review --agent <repo>-pm`
   for the nine observation domains
 - Observe `Result`, `ExecMainStatus`, and `NRestarts` through a bounded
   stabilization window
