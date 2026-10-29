@@ -99,7 +99,7 @@ Microsoft Graph caps webhook subscriptions at 72 hours and **will not auto-renew
 When the user reports "the pipeline worked yesterday but nothing is arriving today":
 1. Run `hermes teams-pipeline subscriptions` — if it's empty or all entries show `expirationDateTime` in the past, that's the cause.
 2. Recreate with `subscribe` as shown above.
-3. **Set up automated renewal immediately** via `hermes cron add`, a systemd timer, or plain crontab. The operator runbook at `/docs/guides/operate-teams-meeting-pipeline#automating-subscription-renewal-required-for-production` has all three options. 12-hour interval is safe (6x headroom against the 72h limit).
+3. **Set up automated renewal immediately** as a Candybar (`candybar` skill; exec runner for the renewal command, 12-hour schedule). Do not use `hermes cron add`, a systemd timer or crontab. The operator runbook (written before Candybar; its three options are superseded) at `/docs/guides/operate-teams-meeting-pipeline#automating-subscription-renewal-required-for-production` has all three options. 12-hour interval is safe (6x headroom against the 72h limit).
 
 ## Other pitfalls
 

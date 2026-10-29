@@ -55,16 +55,17 @@ repairs access-token synchronization on a later run. A crash after an ambiguous
 refresh must trigger reconnect through `begin`/`finish`, not blind reuse of the
 old refresh token. Preserve unrelated accounts while repairing one grant.
 
-Unit sources live in `ops/systemd/`. Install the matching OAuth service/timer
-into `~/.config/systemd/user`, reload the user manager and enable
-`newapi-oauth-connections.timer`. It runs every five minutes and renews with
-30 minutes remaining. Vault access is supplied to the manager in process
+Unit sources live in `ops/systemd/`. Install the matching OAuth `.service`
+into `~/.config/systemd/user` and reload the user manager. The schedule is the
+Candybar `newapi-oauth-connections` (every five minutes; see the `candybar`
+skill). Its old `newapi-oauth-connections.timer` is retired: do not enable it. It
+renews with 30 minutes remaining. Vault access is supplied to the manager in process
 environment, not a plaintext credential file.
 
 Prove renewal with the account's interactive CLI stopped: force renewal, inspect
 safe status, make an authenticated request and inspect the oneshot result.
-After reboot, verify manager vault access and run the oneshot explicitly. Timer
-enabled state alone proves neither successful refresh nor all-account health.
+After reboot, verify manager vault access and run the oneshot explicitly. Candybar
+registration or an enabled state alone proves neither successful refresh nor all-account health.
 
 ## Claude access-only setup tokens
 

@@ -5,13 +5,17 @@ pipeline-status: new
 
 Read when wiring the cadences to run unattended. Two execution tiers:
 
-- **Deterministic** (tune-up sweep, reap, consolidate loop) → plain systemd/cron, no agent.
+- **Deterministic** (tune-up sweep, reap, consolidate loop) → a plain script or `.service`, no agent.
 - **Agentic** (optimization prune review, cross-bank pollination, novel synthesis, karpathy Ingest)
   → a headless agent invocation, because they need judgment. Schedule these as `claude -p` runs of
   this skill, or run them interactively.
 
-This host schedules with **user systemd units** (see `~/docker/systemd/` and `~/docker/scripts/*.service`).
-Prefer that over crontab for logging/`systemctl status`.
+**Candybar is the only scheduler on this host** (see the `candybar` skill and
+`~/code/33GOD/candybar/README.md`). It owns WHEN each tier runs: register a
+`candybar.toml` whose runner is `exec` (the script) or `systemd` (a `.service`).
+Never add a crontab line or a new `.timer`; the `.service` units below are the
+execution half only. Headers that say "systemd (deterministic)" mean the
+execution unit, fired by a candybar.
 
 ## Cadence map
 
@@ -44,7 +48,7 @@ hs_db "SELECT bank_id FROM ${HS_SCHEMA}.memory_units
   | while read -r b; do [ -n "$b" ] && hindsight bank consolidate "$b"; done
 ```
 
-### systemd user units
+### systemd user service (execution only)
 
 `~/.config/systemd/user/hindsight-maint-nightly.service`:
 ```ini
@@ -57,26 +61,27 @@ Type=oneshot
 ExecStart=%h/docker/stacks/ai/hindsight/maint-nightly.sh
 ```
 
-`~/.config/systemd/user/hindsight-maint-nightly.timer`:
-```ini
-[Unit]
-Description=Run Hindsight nightly maintenance at 03:30
+Do not write a `hindsight-maint-nightly.timer`. Register the schedule instead:
 
-[Timer]
-OnCalendar=*-*-* 03:30:00
-Persistent=true
-
-[Install]
-WantedBy=timers.target
+```toml
+[candybar]
+name = "hindsight-maint-nightly"
+schedule = "30 3 * * *"
+timezone = "America/New_York"
+enabled = false            # register disabled, resume after the first readback
+[candybar.runner]
+kind = "systemd"
+unit = "hindsight-maint-nightly.service"
 ```
 
-Enable: `systemctl --user daemon-reload && systemctl --user enable --now hindsight-maint-nightly.timer`
-(`loginctl enable-linger $USER` so it runs while logged out). Check: `systemctl --user list-timers | grep hindsight`.
+Then follow the `candybar` skill: `uv run candybar register`, read it back with `show`/`next`,
+prove a terminal invocation and its effect, `resume`, run `doctor`, commit the manifest.
 
 ## Agentic runs (headless)
 
-The wiki, prune, pollination, and synthesis passes want an agent. Schedule them by pointing headless
-Claude Code at this skill — a second service/timer (e.g. `03:50` nightly for the wiki, `Sun 04:30` weekly):
+The wiki, prune, pollination, and synthesis passes want an agent. Fire them by pointing headless
+Claude Code at this skill from a second `.service`, scheduled by its own candybar (e.g. `03:50` nightly
+for the wiki, `Sun 04:30` weekly; never a `.timer`):
 
 ```ini
 ExecStart=/usr/bin/zsh -lc 'cd %h/docker && claude -p "Run the hindsight-maintenance nightly karpathy-wiki workflow across all banks with new memories, then stop." --dangerously-skip-permissions'

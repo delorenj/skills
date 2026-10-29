@@ -1,6 +1,6 @@
 ---
 name: context-self-heal
-description: Agent-local context guard and deterministic compaction workflow (GOD-13). Use when context usage is high, when wiring auto-compaction/restart timers, or when deploying standardized context-monitor hooks across agents.
+description: Agent-local context guard and deterministic compaction workflow (GOD-13). Use when context usage is high, when wiring auto-compaction/restart schedules (via Candybar), or when deploying standardized context-monitor hooks across agents.
 pipeline-status:
   - new
 ---
@@ -13,7 +13,7 @@ Provide a reusable, non-agent-specific package for context monitoring and determ
 ## Files
 - `files/god-13-context-monitor.sh`
 - `files/god-13-lenoon-monitor.service`
-- `files/god-13-lenoon-monitor.timer`
+- `files/god-13-lenoon-monitor.timer` (legacy reference only; do not install it, see Deployment Pattern)
 
 ## Standard Behavior
 - Warning zone: >=80% context
@@ -30,7 +30,7 @@ Provide a reusable, non-agent-specific package for context monitoring and determ
 ## Deployment Pattern
 1. Copy script + units from `files/` to target workspace.
 2. Parameterize `AGENT_NAME` and workspace path.
-3. Enable systemd timer (`--user`).
+3. Schedule it with a Candybar (`candybar` skill; the `.service` is the execution unit, runner `systemd` or `exec`). Do not enable the shipped `.timer` or add a crontab line.
 4. Verify artifact write + restart path on threshold breach.
 
 ## Notes

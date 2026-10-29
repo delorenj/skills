@@ -39,7 +39,7 @@ Need to build a workflow?
 ├─ Call external API on a schedule or trigger → references/workflow-patterns/http-api-integration.md
 ├─ Query or write to a database → references/workflow-patterns/database-operations.md
 ├─ Build an LLM-driven agent (chat, tools, memory) → references/workflow-patterns/ai-agent-workflow.md
-├─ Cron/scheduled job → references/workflow-patterns/scheduled-tasks.md
+├─ Cron/scheduled job → Webhook workflow fired by a Candybar n8n runner (candybar skill); pipeline shape in references/workflow-patterns/scheduled-tasks.md
 └─ Choosing between patterns or composing them → references/workflow-patterns/
 ```
 
@@ -138,7 +138,7 @@ This skill covers n8n workflow authoring, node configuration, and operation via 
 - **n8n core source code, internal APIs, or contributions** to the n8n repo.
 - **Workflow file format reverse-engineering.** Use n8n-mcp tools and the n8n REST API instead of editing JSON files by hand.
 - **Generic JavaScript or Python language tutorials.** This skill assumes language fluency; it covers only the n8n-specific runtime environment and helpers.
-- **Workflow scheduling outside n8n** (system cron, Airflow, etc.). Use n8n's Schedule Trigger; do not orchestrate n8n from external schedulers when avoidable.
+- **Workflow scheduling.** Candybar is the only clock on this host. Do not use n8n's Schedule Trigger, system cron or Airflow: build a Webhook-triggered workflow and let a Candybar `n8n` runner fire it (see the `candybar` skill).
 - **Credential storage and rotation policies at the organizational level.** This skill covers credential references in node config; credential lifecycle is a separate concern.
 
 For each excluded category, locate the appropriate documentation rather than treating it as an n8n skill problem.

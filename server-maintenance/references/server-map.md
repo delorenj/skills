@@ -17,8 +17,9 @@ Check ALL of these when hunting an actor; `srvls` covers them in one shot.
 3. `/etc/crontab` + `/etc/cron.d/`.
 4. **System systemd**: ~65 services, 19 timers.
 5. **User systemd** at `~/.config/systemd/user`: ~150 units, including the **hermes fleet**: one `hermes-<repo>-<role>-gateway.service` per agent plus the fleet-shared `hermes-fleet-bloodbank-gateway.service`. These pin **absolute repo paths** and break when repos move; the registry at `~/.hermes/agents-registry.yaml` must stay in sync with the unit files. Any `hermes-*-consumer`/`-checkpoint`/`-heartbeat` unit is a retired shape and a leftover — `flume review` reports it as unregistered.
-6. **Docker**: ~46 compose projects, ~120 running containers.
-7. **pm2**: n8n only.
+6. **Candybar** (`cd ~/code/33GOD/candybar && uv run candybar ls`): the single clock for recurring work. A user crontab line or a `.timer` that is not a candybar, an AD-22 or an approved exception is a bypass: report it, fix it by registering a candybar (`candybar` skill, `uv run candybar doctor --repo . --live --json` lists them), and do not auto-disable unfamiliar timers.
+7. **Docker**: ~46 compose projects, ~120 running containers.
+8. **pm2**: n8n only.
 
 ## THE TOOL: srvls
 

@@ -120,7 +120,10 @@ For each thing that regrows, install the bound closest to its source:
    that writes per-run dirs (a small repo change: commit it there);
 2. log rotation (logrotate or newsyslog, using copytruncate for files held open);
 3. age rules (systemd-tmpfiles on Linux; a launchd agent on macOS);
-4. a scheduled prune script (systemd timer or launchd agent) as the fallback.
+4. a scheduled prune script as the fallback. On this host's Linux machines the
+   schedule is a Candybar (runner `exec`, or `systemd` for an existing `.service`;
+   see the `candybar` skill), never a new `.timer` or crontab line. A launchd agent
+   is for macOS only, where Candybar does not run (unverified).
 
 The canonical copy of any script, unit, plist or config goes in a git repo and is
 symlinked into place: `~/code/infra` for DeLoNET machines. Commit and push it.
@@ -129,9 +132,9 @@ An unversioned cleanup job is just one more thing that rots.
 ### 6. Verify
 
 - Free space after vs before, in one unit (say GiB or GB, not both).
-- Each bound: file in place, timer or agent loaded with a next run, a dry run or
+- Each bound: file in place, schedule registered with a next run (on Linux `uv run candybar show <name>` and `candybar next`, not `systemctl list-timers`, which is blind to it; on macOS the launchd agent), a dry run or
   real run that acts on the target, and no errors in its log. Prove it in the
-  scheduler's own context (`launchctl kickstart`, `systemctl start`), not just
+  scheduler's own context (`launchctl kickstart`; on Linux a Candybar scheduled fire, or `candybar run <name> --wait` when the prune is safe to run now), not just
   from your shell: cwd, PATH and environment differ there. A log line with an
   empty result, or a step that logs no exit code, counts as a failure until you
   prove otherwise (a launchd agent's `pnpm store prune` failed with EROFS in `/`

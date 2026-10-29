@@ -26,7 +26,7 @@ In interactive zsh, `find` may be a function or alias (bfs on big-chungus); call
 | Container logs | `/var/lib/docker/containers/*/*-json.log` | truncate | `daemon.json` `log-opts: max-size 50m, max-file 3` (new containers only) |
 | journald | `/var/log/journal` | `journalctl --vacuum-size=1G` | `journald.conf.d`: `SystemMaxUse=1G`, `MaxRetentionSec=3week` |
 | syslog | `/var/log/syslog*` | delete rotated | logrotate daily + `maxsize`; drop chatty sources in rsyslog |
-| User logs | `~/.local/state`, `~/.pm2`, `~/.cache/*/log*`, app dirs | `: > file` if held open | user logrotate (own state file, systemd user timer), copytruncate |
+| User logs | `~/.local/state`, `~/.pm2`, `~/.cache/*/log*`, app dirs | `: > file` if held open | user logrotate (own state file, fired by a Candybar), copytruncate |
 | apt / snap | `/var/cache/apt`, `/var/lib/snapd/snaps` | `apt-get clean`; remove disabled snap revisions | `APT::Keep-Downloaded-Packages "false"`; `snap set system refresh.retain=2` |
 | Old kernels | `/boot`, `/usr/lib/modules` | **B** `apt autoremove --purge` (keep running + one) | — |
 | uv / pip | `~/.cache/uv`, `~/.cache/pip` | `uv cache prune` (`--force` only after stopping lock holders) | weekly prune |

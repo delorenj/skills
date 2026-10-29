@@ -140,7 +140,7 @@ Order of preference, closest to the source first:
    with O_APPEND.
 3. Age rules: systemd-tmpfiles (`e <dir> - - - 7d`, `x` to protect live paths)
    or a launchd agent running `find -mtime`.
-4. A scheduled prune script with a dry-run mode and an alert on failure.
+4. A scheduled prune script with a dry-run mode and an alert on failure. On Linux the scheduler is a Candybar (`candybar` skill), not a new timer or cron line.
 
 Then add a **loud early warning** if the machine has monitoring: absolute
 threshold (under 15% free) plus a trend (`predict_linear`, fills within 7 days).

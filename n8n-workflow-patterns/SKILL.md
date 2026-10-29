@@ -29,7 +29,7 @@ Based on analysis of real workflow usage:
    - AI agents with tools and memory
    - Pattern: Trigger → AI Agent (Model + Tools + Memory) → Output
 
-5. **[Scheduled Tasks](scheduled_tasks.md)**
+5. **[Scheduled Tasks](scheduled_tasks.md)** (on this host a Candybar fires a Webhook workflow; never add a Schedule Trigger, see the `candybar` skill)
    - Recurring automation workflows
    - Pattern: Schedule → Fetch → Process → Deliver → Log
 

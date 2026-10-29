@@ -1,6 +1,13 @@
 # Scheduling
 
-One systemd user timer per project, from two template units and one drop-in.
+> Candybar is the single clock. A project's nightly run is a registered
+> candybar (`schedule.scheduler: "candybar"`; see the `candybar` skill), never a
+> new timer. What follows documents the native systemd timer that Candybar
+> replaced. Use it only to migrate a project off it or to roll back, and keep
+> the timers disabled for any project whose scheduler is `candybar`.
+
+The native schedule was one systemd user timer per project, from two template
+units and one drop-in.
 
 ## Units
 

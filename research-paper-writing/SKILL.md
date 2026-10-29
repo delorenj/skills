@@ -2228,7 +2228,11 @@ todo("update", id=1, status="completed")
 
 ### Cron Monitoring with `cronjob`
 
-Use the `cronjob` tool to schedule periodic experiment checks:
+> On this host Candybar owns recurring schedules: the `cronjob` tool is for one-shot
+> checks or a job a registered candybar fires (pinned `scheduler=external`). For a
+> recurring check, register a candybar (`candybar` skill) instead.
+
+Use the `cronjob` tool to schedule experiment checks:
 
 ```
 cronjob("create", {

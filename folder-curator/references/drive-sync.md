@@ -106,11 +106,12 @@ local mtimes, but running `reindex` there too is a harmless idempotent safeguard
 
 ## 4. Scheduling
 
-systemd **user** timers, modeled on the existing `sync-automaticai.service`/`.timer`
-(hourly). The vault sync (`sync-vault-to-drive`, every 2h) was retired for good on
+Candybar is the only scheduler (`candybar` skill): each sync is a `.service` (below) fired by
+a registered candybar, never a new `.timer` or crontab line. Model the service on the existing
+`sync-automaticai.service` (hourly, scheduled by its candybar). The vault sync (`sync-vault-to-drive`, every 2h) was retired for good on
 2026-10-28 (candybar decommission; the script, its `~/.local/bin` link, the crontab
 line and the stale `sync-vault.timer` are all gone), so do not model new jobs on it
-or install it — new work schedules through candybar or a systemd **user** timer. Inbound wants a tighter cadence than outbound.
+or install it. Inbound wants a tighter cadence than outbound.
 
 ```ini
 # ~/.config/systemd/user/sync-jim-dropbox.service      (inbound)
@@ -127,22 +128,22 @@ TimeoutStartSec=15min
 [Install]
 WantedBy=default.target
 ```
-```ini
-# ~/.config/systemd/user/sync-jim-dropbox.timer        (inbound — every 10 min)
-[Timer]
-OnBootSec=5min
-OnUnitActiveSec=10min
-Persistent=true
-RandomizedDelaySec=2min
-Unit=sync-jim-dropbox.service
-[Install]
-WantedBy=timers.target
+```toml
+# candybar.toml (inbound — every 10 min); register disabled, readback, resume
+[candybar]
+name = "sync-jim-dropbox"
+schedule = "*/10 * * * *"
+timezone = "America/New_York"
+enabled = false
+[candybar.runner]
+kind = "systemd"
+unit = "sync-jim-dropbox.service"
 ```
 
 Outbound reuses the same shape: a `sync-client-to-drive.service` (oneshot →
-`sync-client-to-drive.sh`) plus a `.timer` with `OnUnitActiveSec=1h` (match
-`sync-automaticai.timer`). Enable with
-`systemctl --user enable --now sync-jim-dropbox.timer sync-client-to-drive.timer`.
+`sync-client-to-drive.sh`) plus its own candybar (`0 * * * *`). Follow the
+`candybar` skill to register, read back, prove a terminal invocation and resume. The
+`[Install]` section is only needed if the service is started by hand.
 
 **One-way push/pull only — bisync is intentionally NOT used.** The repo is
 git-tracked; a bidirectional sync against a working tree spawns `*.sync-conflict-*`

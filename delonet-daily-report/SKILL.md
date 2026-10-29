@@ -1,11 +1,11 @@
 ---
 name: delonet-daily-report
-description: Operate the merged DeLoNET Daily Report — one deterministic pipeline that writes the daily developer journal from the Candystore audit trail and git history, plus Hermes fleet health, nightly PR maintenance from pr-crusher state, and a report-delivery self-check that catches its own missed runs. Deterministic local collectors emit schema-validated SectionArtifacts with honest complete/partial/stale/failed status, a manifest enumerated from config (never from disk), one bounded LLM narration pass, and atomic immutable archive generations behind a current.json pointer. Use for reportctl, `reportctl verify`, daily journal or daily report work, section/collector configuration, coverage and freshness, stale or missing sections, archive publication, and diagnosing a report that silently did not run. Replaces the retired candystore-daily-journal skill. Do not use for Hermes fleet provisioning, Bloodbank schema changes, external news reporting, or general cron administration.
+description: Operate the merged DeLoNET Daily Report — one deterministic pipeline that writes the daily developer journal from the Candystore audit trail and git history, plus Hermes fleet health, nightly PR maintenance from pr-crusher state, and a report-delivery self-check that catches its own missed runs. Deterministic local collectors emit schema-validated SectionArtifacts with honest complete/partial/stale/failed status, a manifest enumerated from config (never from disk), one bounded LLM narration pass, and atomic immutable archive generations behind a current.json pointer. Use for reportctl, `reportctl verify`, daily journal or daily report work, section/collector configuration, coverage and freshness, stale or missing sections, archive publication, and diagnosing a report that silently did not run. Replaces the retired candystore-daily-journal skill. Do not use for Hermes fleet provisioning, Bloodbank schema changes, external news reporting, or scheduling and cron administration (candybar).
 ---
 
 # DeLoNET Daily Report
 
-One report, one cron job, one narrator pass. Deterministic collectors read real
+One report, one Candybar-scheduled job, one narrator pass. Deterministic collectors read real
 local sources; the framework refuses to describe a run as better than it was.
 
 **This skill replaces `candystore-daily-journal`**, which is retired into it as
@@ -275,4 +275,4 @@ paths and apply changes explicitly.
 - **Bloodbank event schemas or publishers:** use `bloodbank-integration`.
 - **Re-enabling pr-crusher's Bloodbank publisher** — a clean follow-up; for now
   its state is read directly from disk.
-- **General-purpose cron administration:** use Hermes cron documentation directly.
+- **Recurring schedules and cron administration:** Candybar is the single clock. Register or migrate a candybar per the `candybar` skill and `~/code/33GOD/candybar/README.md`; never use Hermes cron or a timer.

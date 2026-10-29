@@ -110,7 +110,7 @@ Every mobile app version on DeLoNET ships through one reusable hub:
 
 ## Catch-up
 
-- A systemd user timer on big-chungus (every 120 s, the S26) and a LaunchAgent
+- The Candybar `mobile-deploy-hub-catchup` on big-chungus (every 2 min, the S26; its old `.timer` is retired, do not re-enable it) and a LaunchAgent
   on the Mac (every 300 s, the iPad) install or confirm each `pending` build —
   always in place, with sha256 and signer checks — then report one event per
   status change. After three failures on one version: one `.failed`, then
@@ -122,8 +122,8 @@ Every mobile app version on DeLoNET ships through one reusable hub:
   validates its pointers with the strong ETag and reads over ssh from
   big-chungus when `s3.delo.sh` does not answer.
 - A Mac that goes away after the gate cannot hold a deploy: the iPad lane is
-  `skip-lost` at the plan, and the host watchdog (`tools/ci/macwatch.mjs`, a
-  systemd timer every 2 min) cancels a run whose Mac job waited past
+  `skip-lost` at the plan, and the host watchdog (`tools/ci/macwatch.mjs`, the
+  Candybar `mobile-deploy-hub-macwatch` every 2 min) cancels a run whose Mac job waited past
   `mac.queue_limit_min` with its runner not busy — only once `deliver-android`
   is done, so the S26's publish is never cut short.
 

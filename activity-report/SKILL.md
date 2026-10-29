@@ -137,13 +137,16 @@ how each block renders: `references/portal-grammar.md`.
    `xp:external` / `xp:internal` exposure labels. A ticket with the external
    label is always surfaced to the client; one with the internal label is never
    named to the client; unlabeled tickets are the agent's judgment call.
-4. `activity-report install-timer --project <slug>` (or
-   `scripts/install-timer.sh`): the nightly systemd user timer at
-   `schedule.at` in the project zone. `timer-status` shows the last run and the
-   next one. `references/scheduling.md` has the cutover order. A project whose
-   timer has migrated to candybar sets `schedule.scheduler: "candybar"`:
-   `install-timer` then writes the units and drop-in but never enables the
-   timer, so a re-install cannot resurrect the retired schedule.
+4. Schedule it with Candybar, the single clock: register a `candybar.toml`
+   (runner `exec`, argv `~/.local/bin/activity-report run --project <slug>`,
+   schedule at `schedule.at` in the project zone, register disabled first) and set
+   `schedule.scheduler: "candybar"` in the config block. Follow the `candybar`
+   skill for the manifest, readback and proof of the first scheduled night. Never
+   add a new `.timer`. `install-timer` and `timer-status` are migration and
+   rollback tools for the native schedule only: with `scheduler: "candybar"`
+   `install-timer` writes the units and drop-in but never enables the timer, so a
+   re-install cannot resurrect the retired schedule. `references/scheduling.md`
+   has the units and the cutover order.
 
 ## Where to look
 
@@ -151,7 +154,7 @@ how each block renders: `references/portal-grammar.md`.
 |---|---|
 | the client register, the internal register, the six rules, the exemplar | `references/composition.md` |
 | the body grammar, how each block renders, the portal row and its id | `references/portal-grammar.md` |
-| the timer units, the drop-in, dry parallel nights, the james-brennan cutover, intelliforia | `references/scheduling.md` |
+| the retired native timer units (migration/rollback only), dry parallel nights, the james-brennan cutover, intelliforia | `references/scheduling.md` |
 | module signatures, file layout, the digest and event shapes, the mapping table | `references/internals.md` |
 | what collect reads and how (Candystore, git, board, Hindsight, tokens) | `references/data-sources.md` |
 | the event's `data` schema, vendored for reading | `assets/schemas/event-data.schema.json` |

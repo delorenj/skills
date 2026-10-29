@@ -127,6 +127,12 @@ re-check timer so the pipeline keeps moving:
 Ten minutes is the default heartbeat for a waiting operator session; shorten only if you are
 polling something that changes faster, lengthen if you are genuinely idle.
 
+These timers are in-session waits only: they die with the session and are not a
+schedule. Any durable recurring pass (a board crank that must run when no session is
+open) is a Candybar, the single clock: register a `candybar.toml` per the `candybar`
+skill. Never add a crontab line, a systemd `.timer`, a Hermes internal recurring job
+or a private sleep/poll loop.
+
 ## End-of-run report
 
 When you stop, report: board snapshot (counts per state), tickets touched, evidence

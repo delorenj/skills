@@ -31,12 +31,17 @@ Use `wax-pipeline` for bindings/receipts and `heyma-pipeline-doctor` for inciden
 The vault runs a three-stage Inbox triage pipeline plus downstream wiki passes:
 
 ```
-Inbox/  →  cleanup (timer, 10m)  →  watchdog (service) + Hermes enrichment
-        →  router (timer, 10m)   →  {Category}/_triage/{file}.md
+Inbox/  →  cleanup (candybar, 10m)  →  watchdog (service) + Hermes enrichment
+        →  router (service, 10m)    →  {Category}/_triage/{file}.md
                                   →  (no secondary pass — known gap)
 ```
 
-### Stage 1: Cleanup — `delodocs-inbox-cleanup.timer`
+> Scheduling: Candybar owns WHEN each stage runs (see the `candybar` skill). The
+> `delodocs-*.timer` units are retired or disabled native clocks: never re-enable
+> one, and register a candybar instead of adding a timer. The `.service` units are
+> the execution half.
+
+### Stage 1: Cleanup — Candybar `delodocs-inbox-cleanup` (runs `delodocs-inbox-cleanup.service`)
 
 Script: `_vault/scripts/inbox_cleanup.py`
 
@@ -55,7 +60,7 @@ tags, route-path, route-confidence) and sets `pipeline-status: [ready]`.
 
 State: `~/.local/state/delodocs/inbox-watchdog/state.json`
 
-### Stage 3: Router — `delodocs-inbox-router.timer`
+### Stage 3: Router — `delodocs-inbox-router.service`
 
 Script: `_vault/scripts/inbox_router.py`
 
@@ -68,8 +73,11 @@ Logs: `_vault/Workflows/logs/inbox-router-YYYY-MM.md`
 
 ### Downstream
 
-- `delodocs-wiki-curator-daily.timer` — reviews routed notes for wiki growth
-- `delodocs-wiki-self-tuning-weekly.timer` — routing quality review
+- `delodocs-wiki-curator-daily.service` — reviews routed notes for wiki growth
+- `delodocs-wiki-self-tuning-weekly.service` — routing quality review (Candybar `delodocs-wiki-self-tuning-weekly`)
+
+Check a stage's schedule with `cd ~/code/33GOD/candybar && uv run candybar show <name>`;
+if a stage has no candybar, it is not scheduled. Register one rather than restoring its timer.
 
 ## Diagnostic Playbook
 
@@ -79,8 +87,7 @@ When the pipeline appears stalled:
 
 ```bash
 systemctl --user is-active delodocs-inbox-watchdog.service
-systemctl --user is-active delodocs-inbox-router.timer
-systemctl --user is-active delodocs-inbox-cleanup.timer
+(cd ~/code/33GOD/candybar && uv run candybar show delodocs-inbox-cleanup -n 5)
 ```
 
 ### 2. Check watchdog journal for errors
@@ -181,7 +188,7 @@ Hermes job scanning `_triage/` directories and routing to final destinations.
 |---|---|
 | `_vault/Workflows/systemd/delodocs-inbox-watchdog.service` | Watchdog unit |
 | `_vault/Workflows/systemd/delodocs-inbox-router.service` | Router unit |
-| `_vault/Workflows/systemd/delodocs-inbox-router.timer` | Router timer |
+| `_vault/Workflows/systemd/delodocs-inbox-router.timer` | Retired native router timer; do not enable |
 | `_vault/scripts/inbox_watchdog.py` | Watchdog script |
 | `_vault/scripts/inbox_router.py` | Router script |
 | `_vault/scripts/inbox_cleanup.py` | Cleanup script |

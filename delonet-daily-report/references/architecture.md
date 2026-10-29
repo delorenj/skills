@@ -12,7 +12,7 @@ Component ownership, pipeline data flow, and the durable filesystem contract.
 
 ## Data flow
 
-One cron job, four deterministic collectors, one narration pass.
+One Candybar-scheduled job, four deterministic collectors, one narration pass.
 
 ```text
 reportctl run --date <yesterday>

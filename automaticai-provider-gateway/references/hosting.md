@@ -71,7 +71,7 @@ means the VM served it; Caddy's `503` means `new-api` is down; Cloudflare's
 
 ## Monitoring and alerts
 
-- `newapi-vm-health.timer` (every 5 min) pushes problems to ntfy once, again
+- The Candybar `newapi-vm-health` (every 5 min; its `.timer` is retired, do not enable it) pushes problems to ntfy once, again
   every 6 h while they last, and their recovery once.
 - infra-doctor probes the public endpoint every minute and watches two
   dead-man markers: the health checker and the nightly database pull.
@@ -85,7 +85,7 @@ means the VM served it; Caddy's `503` means `new-api` is down; Cloudflare's
 
 ## Backups
 
-`newapi-db-pull.timer` (08:05) dumps the VM's database and roles into
+The Candybar `newapi-db-pull` (08:05; its `.timer` is retired, do not enable it) dumps the VM's database and roles into
 `~/backups/postgres/dbs/containers/newapi-postgres.*` and restore-tests every
 copy in a throwaway Postgres. Lightsail keeps daily snapshots as a second
 layer. A snapshot restored beside the live VM would start a second
