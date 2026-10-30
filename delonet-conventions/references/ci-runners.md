@@ -39,6 +39,7 @@ Check visibility first: `gh repo view <owner/repo> --json visibility`.
 | delonet-ivoa-r1 | repo `delorenj/intelliforia-voice-agent` (private) | big-chungus, `~/actions-runner/ivoa1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-intelliforia-voice-agent.delonet-ivoa-r1.service` |
 | delonet-wing-r1 | repo `delorenj/Wingman` (private) | big-chungus, `~/actions-runner/wing1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-Wingman.delonet-wing-r1.service` |
 | delonet-ltf-r1 | repo `delorenj/lost-things-forge` (private) | big-chungus, `~/actions-runner/ltf1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-lost-things-forge.delonet-ltf-r1.service` |
+| delonet-dres-r1 | repo `delorenj/dresscode` (private) | big-chungus, `~/actions-runner/dres1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-dresscode.delonet-dres-r1.service` |
 | big-chungus-earshot | repo `delorenj/earshot` | big-chungus, `~/actions-runner/earshot1` (started through `runsvc-op.sh`) | `self-hosted, Linux, X64, earshot, delonet` | `actions.runner.delorenj-earshot.big-chungus-earshot.service` |
 | big-chungus-gruvato, big-chungus (pile-of-dumb-things) | repos `delorenj/gruvato`, `delorenj/pile-of-dumb-things` | big-chungus, `~/actions-runner/gruvato1` (others not inventoried here) | see `gh api repos/<repo>/actions/runners` | `actions.runner.delorenj-gruvato.big-chungus-gruvato.service` |
 | (none) | macOS | -- | -- | planned; iOS builds wait on it |
