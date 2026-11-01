@@ -60,7 +60,7 @@ Working mode:
 
 - **Fast path** — batch gaps, draft both spines with `[ASSUMPTION]` tags, skip creative tools.
 - **Coaching path** — walk decisions; creative tools woven in.
-- **Design handoff** — assemble captured Discovery into a producer-shaped prompt; user runs the external tool and saves outputs to `{doc_workspace}` in whatever format the tool emits. Producer registry: `{workflow.design_handoffs}` (default: Google Stitch). EXPERIENCE.md can follow via Update mode when ready.
+- **Design handoff** — assemble captured Discovery into a producer-shaped prompt. For Stitch, load `stitch` and follow [the CLI/manual handoff](references/stitch-handoff.md): generate only after the user approves the target project and external content, compare variants, capture their choice, and export reference artifacts into `{doc_workspace}`. If CLI/auth is unavailable or execution is not approved, the user can run the external tool and save its outputs manually. Producer registry: `{workflow.design_handoffs}` (default: Google Stitch). Resume Update/Finalize to reconcile outputs; DESIGN.md and EXPERIENCE.md remain authoritative.
 
 Creative tools — scan `{workflow.creative_tools}`, invoke when seeing helps. Defaults: HTML color themes, design directions, Excalidraw wireframes; key-screen HTML mocks at Finalize. See `references/creative-tools.md`. Research subagents on demand; consult `{workflow.external_sources}` when entries match.
 

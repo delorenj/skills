@@ -38,14 +38,14 @@ experience_md_examples = [
 ]
 
 # Design handoff targets — external tools that can take over the design /
-# visual identity work. The user runs the tool externally and saves outputs
-# (whatever the tool produces — DESIGN.md, Figma files, React components,
-# HTML mocks) to {doc_workspace}.
+# visual identity work. Stitch may run via the canonical skill after approval;
+# other producers or unavailable CLI/auth retain the manual prompt/output path.
+# Save reference artifacts in {doc_workspace}; the BMAD spines stay authoritative.
 # Each entry: `tool:NAME: <directive>`, `skill:NAME`, or plain-text descriptor.
-# Default: Google Stitch (emits DESIGN.md + per-screen HTML). Other producers:
-# Vercel v0, Figma, Galileo, Anima, internal generators.
+# Default: Google Stitch via the canonical stitch skill, or manual Canvas.
+# Other producers: Vercel v0, Figma, Galileo, Anima, internal generators.
 design_handoffs = [
-  "Google Stitch (https://stitch.withgoogle.com) — emits DESIGN.md + per-screen HTML. Paste assembled prompt; save outputs to {doc_workspace}.",
+  "skill:stitch — follow references/stitch-handoff.md; approved CLI generation/variants export HTML + screenshots and a selection record to {doc_workspace}/.working/stitch/. Manual Canvas prompt/output remains available. BMAD reconciles DESIGN.md + EXPERIENCE.md.",
 ]
 
 # HTML skeleton filled in by the validation synthesis pass.

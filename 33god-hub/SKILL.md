@@ -1,6 +1,6 @@
 ---
 name: 33god-hub
-description: Unified entrypoint for the private 33GOD productized development environment. Use when work spans Plane/n8n ingress, Bloodbank events or commands, Candystore, Holocene, PJangler, Flume, Hermes Fleet, Skillex, Hindsight, Pipeline MCP Hub, Candybar, HeyMa, hooks, changelogs, backfills, or local/cloud platform composition, especially when tracing a message end-to-end.
+description: Unified entrypoint for the private 33GOD productized development environment. Use when work spans Plane/n8n ingress, Bloodbank events or commands, Candystore, Holocene, PJangler, Flume, Hermes Fleet, Skillex, Hindsight, Pipeline MCP Hub, Candybar, HeyMa, Stitch UX ideation and BMAD handoffs, hooks, changelogs, backfills, or local/cloud platform composition, especially when tracing a message end-to-end.
 ---
 
 # 33GOD Hub
@@ -46,6 +46,7 @@ matching one rather than re-deriving its decisions here.
 | Adding or renaming a Plane label, choosing between a label and a state, wiring automation that writes to a board, scaffolding or reconciling a project board | `board-taxonomy` |
 | Landing a change forward across the component repos | `merge-forward` |
 | Publishing or composing skill packs | `skillex-skill-registry` |
+| UX ideation from captured intent, Stitch screen/variant exploration, and a selected design handoff into BMAD UX | [stitch](../stitch/SKILL.md); `bmad-ux` owns Discovery and final DESIGN.md / EXPERIENCE.md |
 | Wax audio/document provenance, CLI discovery, folder bindings, n8n EP graph authoring and the read-only Holocene Wax tab | [wax-pipeline](../wax-pipeline/SKILL.md) |
 | Wax recording, diarization, archive or execution incident | `heyma-pipeline-doctor` |
 | Implementing a reusable text/frontmatter enrichment pass | [create-enrichment-pass](../create-enrichment-pass/SKILL.md) |
