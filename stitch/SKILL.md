@@ -40,6 +40,17 @@ stitch status --json | jq '{authenticated, authMethod, verified, storage, canvas
 
 Configured/present is **not verified**. After the user authorizes an authenticated
 check, `stitch find projects --json` proves access without generating a design.
+
+`CANVAS_AUTH_REJECTED` ("API keys are not supported") means the ambient key is not
+a Stitch key; Stitch keys start with `AQ`. On DeLoNET the shell resolves
+`STITCH_API_KEY` from `op://DeLoSecrets/ljwyp3xfpm7pctx7dfuqajwwt4/legacy_proxy_api_key`
+(the item's `API Key` field is a stale, rejected value). A process started before
+that change needs a per-command override, never a config write:
+
+```bash
+STITCH_API_KEY="$(op read 'op://DeLoSecrets/ljwyp3xfpm7pctx7dfuqajwwt4/legacy_proxy_api_key')" \
+  stitch find projects --json
+```
 If auth is missing, have them run `! stitch login` interactively, or inject a
 per-consumer `STITCH_API_KEY` from 1Password into the process environment. Do not
 write an API key into config, a dotenv file, a command flag, or any tracked file.
