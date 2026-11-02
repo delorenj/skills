@@ -206,10 +206,45 @@ only token-permitted subscription routes, then proven OpenRouter `:free` routes;
 there is no paid fallback. A turn and its tool loop stay pinned. State and
 feedback are available through `tokies auto` and `tokies auto feedback`.
 
+**Dead-route hygiene (the auto policy is COMPILED into the Go binary via
+go:embed catalog.json ← ops/routes.json through brand/apply-gateway.py):**
+removing a dead model from a live channel is NOT enough — the router still
+targets it, and a target-side 400 does not walk the chain (only 429/exhaustion
+does; a static-looking upstream rejection passes through honestly). Verify the
+suspect with a DIRECT explicit-route probe using a clean consumer token before
+surgery, and probe a sibling route on the same account/grant to distinguish a
+dead model from a dead grant. This applies to the FREE family too
+(`automaticai/free`, what the hindsight litellm sidecar routes through): a
+dead free member surfaces as a 410/400 naming the member inside a downstream
+consumer's error (e.g. a memory retain failing mid-pipeline); the member rows
+live under `free.members` in ops/routes.json — purge the route entry AND the
+free.members row (grep the exact route id to catch every nesting), then follow
+the same rebuild sequence. Then: (1) purge the route from ops/routes.json
+(route entry, auto.tiers, auto.context, AND free.members if present), (2)
+`python3 ops/reconcile-routes.py --apply`, (3) `./brand/build.sh`, (4) tag the
+built image with a topical `-<change>-rN` suffix, repin compose.yml's image
+line (the compose pin decides what actually deploys — a rebuild without a
+repin redeploys the old tag), and deploy via `./ops/compose.sh up -d
+--no-deps --force-recreate new-api`. Tag the FRESH build's image ID
+(`docker image inspect <id> --format '{{.Id}}'`) — tagging by name, or tagging
+before `build.sh` runs, attaches the label to whatever image currently holds
+that name (often the previous candidate, so a stale tag passes a name-based
+freshness check; when a `docker tag` and a `build.sh` share one compound
+command, the tag ALWAYS wins the race and the new build lands untagged under
+the floating tag — run them as separate steps and re-point the suffix tag at
+the freshly built image ID). Verify the artifact by ID before calling it
+shipped: `docker run --rm --entrypoint sh <image> -c 'grep -c
+<dead-route-string> /new-api'` must be 0, then confirm with repeated
+affected-family probes checking the response `model` field. During a rebuild
+window the gateway answers 503 `gateway_restarting`; wait for container
+`healthy` before probing. Never pin a consumer's delegation.model to work
+around a dead auto target — fix the tier chain instead.
+
 For Claude Code, `/model automaticai/auto` changes one session. The durable
 launcher recipe uses main/Opus `automaticai/auto/orchestrator`, Sonnet and
 `CLAUDE_CODE_SUBAGENT_MODEL` `automaticai/auto/subagent`, Haiku
-`automaticai/auto/fast`, and `CLAUDE_CODE_MAX_CONTEXT_TOKENS=800000`. Native
+`automaticai/auto/fast`, and `CLAUDE_CODE_MAX_CONTEXT_TOKENS=300000` (a compaction threshold; 800000
+doubled orchestrator input). Native
 subagent markers still override an inherited orchestrator slot. Never map the
 Fable advisor to auto. Preserve the existing gateway token and credential owner.
 Before enabling auto for another consumer, verify its discovery parser accepts
