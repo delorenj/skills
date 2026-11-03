@@ -27,10 +27,13 @@ the fleet/runtime mechanics behind it live in `agent-fleet-operations`.
 - Ignored repo-local `agents/hermes/<title>/runtime/` state. It is neither the
   profile target nor a nested Git repository; explicit owned-state links are
   the only bridge to the named profile.
-- Exactly one systemd unit, `hermes-<agent-id>-gateway.service`. If no channel
-  credential is supplied the gateway is explicitly deferred, disabled, and
-  inactive, and the profile delta must set both `platforms.telegram.enabled`
-  and `platforms.slack.enabled` false until ownership of the corresponding
+- No systemd unit: the host `hermes-gateway.service` is asked to serve the
+  profile (control socket `~/.hermes/gateway.sock`, `serve-profile`). Per-agent
+  `hermes-<agent-id>-gateway.service` units were retired 2026-10-11; one that
+  exists is a leftover that fights the host, not a deliverable. If no channel
+  credential is supplied, `provisioning_status` is deferred and the profile
+  delta must set both `platforms.telegram.enabled` and
+  `platforms.slack.enabled` false until ownership of the corresponding
   dedicated credential is verified.
 - The org-chart row in `~/.hermes/agents-registry.yaml`. That row is the record;
   `.project.json.agents` is its projection, and `pj init` only carries it
@@ -53,7 +56,8 @@ sealing and migration procedure.
 - Decide the fleet default model or provider.
 - Backfill existing agents after a template change.
 - Repair systemd units or the shared Hermes checkout.
-- Modify or restart `hermes-fleet-bloodbank-gateway.service`.
+- Modify or restart `hermes-gateway.service` (restarts go only through
+  `hermes-gateway-restart --reason "<why>"`, and are not the project side's job).
 - Remove an agent's record. `pj project identity` reports an abandoned agent and
   names the command; `flume offboard <employee>` is what deletes the row, and it
   is a dry run until `--apply`. A "dead" report comes from the hard-coded

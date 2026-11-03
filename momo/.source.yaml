@@ -3,9 +3,9 @@ origin:
   source: momo
   upstream: git@github.com:delorenj/momo.git
   upstream_version: main
-  upstream_commit: 8d110b043b8908fc5196e7e0d84cfd57cfec70d6
-  upstream_tree: fb99532a8056daa5f7cb77ba89c3d009b9cfcbf7
+  upstream_commit: ec2ea9729764020a9cd8066c17121e452cbf4ddf
+  upstream_tree: 19d3608afa53dd1d2882750c5345f9bd771d0f46
   upstream_path: skill
-  extracted_at: 2026-10-01T16:04:33.530Z
-  digest: sha256:4ce93370af9e36c1a2e53636409fe627682e3bf57787d40242896f15c1fd9d9b
+  extracted_at: 2026-11-03T22:55:18.444Z
+  digest: sha256:8dcd4eb4580a34572676c3341a0158ae11755a17e50eab5b78273611f090f5a2
 modified_locally: false

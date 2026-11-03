@@ -156,7 +156,7 @@ Command producer (PM/control plane/operator adapter)
   ▼
 JetStream `BLOODBANK_COMMANDS` (work-queue retention)
   ▼ durable pull consumer `bloodbank-hermes-gateway`
-Fleet-shared `hermes-fleet-bloodbank-gateway.service`
+Host `hermes-gateway.service` (Bloodbank lane, profile fleet-bloodbank-gateway)
   │ 1. cap size and validate command/schema/actor/prompt
   │ 2. resolve target_agent_id through fleet registry
   │ 3. check the Bloodbank route block (no enabled key = enabled)

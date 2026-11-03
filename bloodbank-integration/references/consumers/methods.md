@@ -140,8 +140,10 @@ curl -fsS 'http://127.0.0.1:8683/events?producer=<producer>&type=<type>&limit=10
 
 ## 7. Hermes fleet command consumer (canonical targeted-intent consumer)
 
-`hermes-fleet-bloodbank-gateway.service` owns one JetStream durable pull
-consumer on `bloodbank.cmd.agent.invocation.start`. It validates the complete
+The host `hermes-gateway.service` (its Bloodbank platform adapter, profile
+`fleet-bloodbank-gateway`) owns one JetStream durable pull consumer
+(`bloodbank-hermes-gateway`) on `bloodbank.cmd.agent.invocation.start`. The
+separate `hermes-fleet-bloodbank-gateway.service` unit was retired 2026-10-11. It validates the complete
 command, routes `data.target_agent_id` through the fleet registry's Bloodbank
 route block (no `enabled` key means enabled; only an explicit `false`
 quarantines), journals execution state, invokes the selected

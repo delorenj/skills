@@ -133,6 +133,71 @@ open) is a Candybar, the single clock: register a `candybar.toml` per the `candy
 skill. Never add a crontab line, a systemd `.timer`, a Hermes internal recurring job
 or a private sleep/poll loop.
 
+## Hourly unattended ready pickup (deployment gated)
+
+`scripts/momo-board-crank.mjs` implements one bounded pass for ready work created
+directly in Todo: a historical Todo transition is not required. It reads current
+manifest, Pilot/Plane, native dependencies, cycle, registry, runtime and worker
+truth. Only triaged, fortified, exact-Todo executable tickets are ranked; one
+existing Momo per-ticket pipeline can be dispatched. Implementation and independent
+spec/quality review remain the normal delegation pipeline in `delegation.md`.
+Cron contains no product implementation and creates no second PM/board driver.
+
+The versioned invocation, runtime gate, receipt and recovery contract is
+[`../contracts/board.crank.v1.md`](../contracts/board.crank.v1.md). Inspect/dry-run
+does not write. Execute reuses the existing shared driver lease. A fresh lease or
+board/runtime implementation WIP is busy; stale driver TTL does not free WIP.
+No evidenced candidate is idle. Managed/shadow ownership, missing prerequisites,
+ambiguous/ineligible routes and unknown readiness refuse explicitly.
+Every written prerequisite must match completed native truth. Cycle configuration
+is explicitly boolean, and enabled membership must be observed. Downstream
+credit counts only tickets whose remaining blockers this item would all resolve.
+Relation and cycle hydration uses at most eight concurrent reads and a shared
+five-second deadline, leaving time for dispatch and readback.
+
+Persist the exact command intent outside source before publication. PubAck is
+transport storage, not execution acceptance. Only matching gateway turn/invocation
+started receipts permit the initial exact In Progress transition and missing start
+date. Preserve existing dates, assignees, labels and unrelated content. An uncertain
+dispatch retains its command and ready state; explicit replay sends identical
+bytes. An uncertain write is read back, never blindly repeated or compensated.
+The durable execution fence survives driver TTL and process restarts.
+Only a worker with the exact saved command AND ticket is exempt during recovery;
+another or unidentified command on that ticket remains WIP. The saved prompt
+binds ticket content and cannot dispatch or claim after that content changes.
+Runtime and lease freshness are refreshed after hydration before external effects.
+
+Under the authoritative driver lease, the first intent creates an atomic,
+fsynced `${driver_lease}.board-crank.json` binding beside that lease. It fixes one
+canonical journal directory per board across receipt renewal. Changed storage
+identity fails closed; inspect/dry-run never creates the binding. Configuration
+digests sort keys, while exact saved command bytes remain unchanged.
+
+The same Momo runtime owner reconciles a completed execution: matching completed
+receipt AND fresh post-completion no-worker supervision AND fresh final Done state
+are all required. Reconciliation archives proof and lets a later hourly pass
+advance one ticket. An empty snapshot, board claim or expired TTL cannot clear
+the fence. Mutation conflicts remain for explicit owner investigation.
+
+Live activation requires an independently accepted, explicit deployed
+contractor/version and runtime configuration plus a live worker-status producer.
+The PM must wait for the adapter's short shared lease to be released, then acquire
+that same lease before driving implementation/review. Acceptance must verify this
+handoff and bind the stable journal directory and worker-status producer path.
+Acceptance fingerprints sorted installed file identities and contents across
+SKILL.md, references, executable scripts and contracts (excluding tests/caches),
+and requires the executing adapter to match. An executable or schema edit requires
+new acceptance. The CLI supervises a detached child with a 45-second wall-clock
+limit, including synchronous vault reads. Timeout/error kills its process group
+and preserves fsynced uncertainty; output is sanitized and successful JSON waits
+for stdout to close. Retained receipt reads reuse Bloodbank's bounded canonical
+direct-get traversal with a recent 16-sequence starting window. A search miss
+leaves the fence intact.
+33GOD-44/46/50 remain unresolved; this source change does not enable them or install
+cron. Keep the legacy five-minute cron disabled. The parent integrates and reviews
+source, proves safe installed busy/idle behavior and actual durable receipts, and
+decides activation. Fixture transports are source verification only.
+
 ## End-of-run report
 
 When you stop, report: board snapshot (counts per state), tickets touched, evidence

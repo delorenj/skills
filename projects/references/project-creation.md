@@ -67,7 +67,7 @@ recorded in `.project.json` — it must not create a second board. `flume onboar
 pm` is the convergent rerun.
 
 Everything about that command — the abort gates, the before/after seal, the
-profile and credential contract, the one per-agent unit, and the convergence
+profile and credential contract, the host-gateway serving check (no per-agent unit), and the convergence
 proof — is **agent-fleet-operations** `references/pm-deployment.md`. Do not
 reconstruct it here; it is a contract with a machine-readable form
 (`pm-deployment-contract.json`) and this file would drift from it.

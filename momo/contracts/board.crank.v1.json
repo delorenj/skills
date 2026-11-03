@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:33god:momo:board.crank.v1",
+  "$ref": "#/$defs/input",
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "path": { "type": "string", "pattern": "^/" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "memory": {
+      "type": "object", "additionalProperties": false,
+      "required": ["write_bank", "recall_banks"],
+      "properties": {
+        "write_bank": { "$ref": "#/$defs/text" },
+        "recall_banks": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/text" } }
+      }
+    },
+    "roles": {
+      "type": "object", "additionalProperties": false,
+      "required": ["implementer", "spec_reviewer", "quality_reviewer"],
+      "properties": {
+        "implementer": { "$ref": "#/$defs/text" },
+        "spec_reviewer": { "$ref": "#/$defs/text" },
+        "quality_reviewer": { "$ref": "#/$defs/text" }
+      }
+    },
+    "input": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contract", "enabled", "project", "contractor", "runtime"],
+      "properties": {
+        "contract": { "const": "board.crank.v1" },
+        "enabled": { "type": "boolean" },
+        "project": {
+          "type": "object", "additionalProperties": false,
+          "required": ["id", "workspace", "board_id", "workdir"],
+          "properties": {
+            "id": { "$ref": "#/$defs/text" }, "workspace": { "$ref": "#/$defs/text" },
+            "board_id": { "type": "string", "format": "uuid" }, "workdir": { "$ref": "#/$defs/path" }
+          }
+        },
+        "contractor": {
+          "type": "object", "additionalProperties": false,
+          "required": ["name", "version", "mode", "skill_root", "skill_sha256", "memory_policy", "roles"],
+          "properties": {
+            "name": { "const": "momo" }, "version": { "$ref": "#/$defs/text" },
+            "mode": { "const": "hermes-profile" }, "skill_root": { "$ref": "#/$defs/path" },
+            "skill_sha256": { "$ref": "#/$defs/sha256" }, "memory_policy": { "$ref": "#/$defs/memory" },
+            "roles": { "$ref": "#/$defs/roles" }
+          }
+        },
+        "runtime": {
+          "type": "object", "additionalProperties": false,
+          "required": ["state_dir", "driver_lease", "worker_status_file", "registry_file", "profile_root", "deployment_receipt", "nats_server", "ack_timeout_ms"],
+          "properties": {
+            "state_dir": { "$ref": "#/$defs/path" }, "driver_lease": { "$ref": "#/$defs/path" },
+            "worker_status_file": { "$ref": "#/$defs/path" }, "registry_file": { "$ref": "#/$defs/path" },
+            "profile_root": { "$ref": "#/$defs/path" }, "deployment_receipt": { "$ref": "#/$defs/path" },
+            "nats_server": { "type": "string", "pattern": "^(nats|tls)://[^/@]+(?::[0-9]+)?$" },
+            "ack_timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 10000 }
+          }
+        }
+      }
+    },
+    "runtime": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contract", "accepted", "pipeline", "contractor", "version", "project_id", "board_id", "workdir", "profile_name", "driver_lease", "state_dir", "worker_status_file", "skill_sha256", "single_driver", "gateway_command_journal", "independent_reviews", "control_lease_handoff", "memory_policy", "roles", "verified_at", "expires_at"],
+      "properties": {
+        "contract": { "const": "board.crank.runtime.v1" }, "accepted": { "const": true },
+        "pipeline": { "const": "momo-per-ticket" }, "contractor": { "const": "momo" }, "version": { "$ref": "#/$defs/text" },
+        "project_id": { "$ref": "#/$defs/text" }, "board_id": { "type": "string", "format": "uuid" },
+        "workdir": { "$ref": "#/$defs/path" }, "profile_name": { "$ref": "#/$defs/text" },
+        "driver_lease": { "$ref": "#/$defs/path" }, "skill_sha256": { "$ref": "#/$defs/sha256" },
+        "state_dir": { "$ref": "#/$defs/path" }, "worker_status_file": { "$ref": "#/$defs/path" },
+        "single_driver": { "const": true }, "gateway_command_journal": { "const": true }, "independent_reviews": { "const": true },
+        "control_lease_handoff": { "const": true },
+        "memory_policy": { "$ref": "#/$defs/memory" }, "roles": { "$ref": "#/$defs/roles" },
+        "verified_at": { "type": "string", "format": "date-time" }, "expires_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "workers": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contract", "board_id", "observed_at", "active"],
+      "properties": {
+        "contract": { "const": "board.crank.workers.v1" }, "board_id": { "type": "string", "format": "uuid" },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "active": { "type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["ticket_id", "command_id", "status"],
+          "properties": { "ticket_id": { "type": "string", "format": "uuid" },
+            "command_id": { "type": ["string", "null"], "format": "uuid" }, "status": { "enum": ["pending", "active", "review"] } }
+        } }
+      }
+    },
+    "receipt": {
+      "type": "object", "required": ["contract", "status", "reason", "live_execution_proof"],
+      "properties": {
+        "contract": { "const": "board.crank.v1" }, "status": { "enum": ["idle", "busy", "ready", "pending", "started", "reconciled", "uncertain", "refused"] },
+        "reason": { "$ref": "#/$defs/text" }, "live_execution_proof": { "const": false },
+        "ticket_id": { "type": "string" }, "command_id": { "type": "string", "format": "uuid" }
+      }
+    }
+  }
+}

@@ -68,9 +68,12 @@ bloodbank:
 ```
 
 **Consume:** there is intentionally **no per-agent consumer**. Command ingress
-is the single fleet-shared `hermes-fleet-bloodbank-gateway.service`, which
+is the Bloodbank lane of the single host `hermes-gateway.service` (durable
+consumer `bloodbank-hermes-gateway`, profile `fleet-bloodbank-gateway`), which
 subscribes once to `bloodbank.cmd.agent.invocation.start` and routes
 `data.target_agent_id` → the agent's Hermes profile via the fleet registry.
+(The separate `hermes-fleet-bloodbank-gateway.service` unit was retired
+2026-10-11.)
 `60-bloodbank.sh` is a compatibility checkpoint only — it installs no files or
 services. A `bloodbank-consumer.py` or `hermes-<agent>-consumer.service`
 sighting is drift (`flume remediate hermes.registry-parity` removes it).
@@ -117,8 +120,9 @@ Skipping (e.g. local-only provisioning): `SKIP_BLOODBANK=1` makes `60-bloodbank.
    `bloodbank.{gateway_scope,target_agent_id}`; `enabled` absent or `true`
    (an absent key means enabled, explicit `false` quarantines, a non-boolean is
    invalid). There is no per-agent consumer file or service.
-3. `hermes-fleet-bloodbank-gateway.service` is the only command consumer; a live
-   dispatch additionally requires that the target is not quarantined.
+3. `hermes-gateway.service` (its Bloodbank lane, durable consumer
+   `bloodbank-hermes-gateway`) is the only command consumer; a live dispatch
+   additionally requires that the target is not quarantined.
 4. The live CLI hook config calls `~/.agents/hooks/bloodbank/publish.py --client <agent> --hook ...`;
    run `cd ~/code/33GOD/bloodbank && mise run health:hooks:check` after repair.
 5. Hindsight: the harness `UserPromptSubmit` recall hook is active and the bank resolves to the
