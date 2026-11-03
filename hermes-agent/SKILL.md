@@ -32,6 +32,33 @@ People use Hermes for software development, research, system administration, dat
 
 **Docs:** https://hermes-agent.nousresearch.com/docs/
 
+## DeLoNET fleet override
+
+The generic CLI reference below describes upstream Hermes. On this host three
+rules override it (verified 2026-11-03):
+
+- **One host gateway.** A single systemd `--user` unit, `hermes-gateway.service`
+  (`HERMES_HOME=~/.hermes`), serves every profile: Telegram/Slack and the
+  Bloodbank command lane (durable consumer `bloodbank-hermes-gateway`).
+  Per-profile serving goes through the control socket `~/.hermes/gateway.sock`
+  (`serve-profile` / `unserve-profile`). Never run `hermes -p <profile> gateway
+  install` or `gateway run`: it creates a per-agent `hermes-gateway-<profile>`
+  unit (`hermes_cli/gateway.py`) that fights the host for the role. Per-agent
+  `hermes-<agent>-gateway.service` units were retired 2026-10-11.
+- **Restart only via `hermes-gateway-restart --reason "<why>"`.** Never
+  `hermes gateway restart/stop`, raw `systemctl --user restart|reload|stop
+  hermes-gateway`, or `kill -USR1`. The wrapper waits for idle, coalesces
+  callers and pauses the watchdog. Batch changes and ask for one restart.
+- **Candybar is the single clock.** Recurring work is a Candybar manifest
+  (`~/code/33GOD/candybar`, skill `candybar`). A Hermes job Candybar runs is
+  pinned `scheduler: external` and fired by `hermes -p <profile> cron run
+  <job_id> --wait`. Never create a recurring schedule with the `cronjob` tool
+  or `hermes cron create` without `--scheduler external`; the native ticker is
+  for one-shots only.
+
+One install: `~/.hermes/hermes-agent` (tracks `delorenj/main`). There are no
+release checkouts.
+
 ## PM ownership override
 
 On this fleet, Hermes PM skills are Skillex-only. Generic Hermes supports local
@@ -171,11 +198,16 @@ their tools, and exposes them as first-class tools, plus catalog install
 
 ### Gateway (Messaging Platforms)
 
+> **DeLoNET:** `hermes gateway status` is safe. `run`, `install`, `start/stop`
+> and `restart` are upstream-only here: the host `hermes-gateway.service`
+> serves every profile, and restarts go through
+> `hermes-gateway-restart --reason "<why>"` (see the fleet override above).
+
 ```
-hermes gateway run          Start gateway foreground
-hermes gateway install      Install as background service
-hermes gateway start/stop   Control the service
-hermes gateway restart      Restart the service
+hermes gateway run          Start gateway foreground        (DeLoNET: never)
+hermes gateway install      Install as background service   (DeLoNET: never)
+hermes gateway start/stop   Control the service             (DeLoNET: never)
+hermes gateway restart      Restart the service             (DeLoNET: use hermes-gateway-restart)
 hermes gateway status       Check status
 hermes gateway setup        Configure platforms
 ```
@@ -198,9 +230,14 @@ hermes sessions stats       Session store statistics
 
 ### Cron Jobs
 
+> **DeLoNET:** recurring schedules belong to Candybar. A recurring Hermes job is
+> created with `--scheduler external` and fired by Candybar through
+> `hermes -p <profile> cron run <job_id> --wait`. Native recurring schedules
+> (`every 2h`, `0 9 * * *` without `--scheduler external`) are retired here.
+
 ```
 hermes cron list            List jobs (--all for disabled)
-hermes cron create SCHED    Create: '30m', 'every 2h', '0 9 * * *'
+hermes cron create SCHED    Create: '30m', 'every 2h', '0 9 * * *'  (DeLoNET: recurring => --scheduler external)
 hermes cron edit ID         Edit schedule, prompt, delivery
 hermes cron pause/resume ID Control job state
 hermes cron run ID          Trigger on next tick
@@ -463,7 +500,7 @@ Enable/disable via `hermes tools` (interactive) or `hermes tools enable/disable 
 | `memory` | Persistent cross-session memory |
 | `session_search` | Search past conversations |
 | `delegation` | Subagent task delegation |
-| `cronjob` | Scheduled task management |
+| `cronjob` | Scheduled task management (DeLoNET: one-shots, or jobs pinned `scheduler: external` for Candybar) |
 | `clarify` | Ask user clarifying questions |
 | `messaging` | Cross-platform message sending |
 | `todo` | In-session task planning and tracking |
@@ -704,7 +741,7 @@ terminal(command="tmux new-session -d -s resumed 'hermes --resume 20260225_14305
 - **Set timeouts** for one-shot mode — complex tasks can take 5-10 minutes
 - **Use `hermes chat -q` for fire-and-forget** — no PTY needed
 - **Use tmux for interactive sessions** — raw PTY mode has `\r` vs `\n` issues with prompt_toolkit
-- **For scheduled tasks**, use the `cronjob` tool instead of spawning — handles delivery and retry
+- **For scheduled tasks**, use the `cronjob` tool instead of spawning — handles delivery and retry. On DeLoNET, recurring (interval/cron) schedules belong to Candybar: use `cronjob` for one-shots (`in 30m`, ISO timestamp) or jobs pinned `--scheduler external` that a Candybar manifest fires
 
 ---
 
@@ -728,7 +765,7 @@ Spawn a subagent with an isolated context + terminal session.
   (can spawn its own workers, bounded by `delegation.max_spawn_depth`).
 - **Not durable.** A backgrounded child is still process-local — if the
   parent process exits, the child is lost. For work that must outlive
-  the process, use `cronjob` or
+  the process, use a one-shot `cronjob` or
   `terminal(background=True, notify_on_complete=True)`.
 
 Config: `delegation.*` in `config.yaml`.
@@ -738,6 +775,11 @@ Config: `delegation.*` in `config.yaml`.
 Durable scheduler — `cron/jobs.py` + `cron/scheduler.py`. Drive it via
 the `cronjob` tool, the `hermes cron` CLI (`list`, `add`, `edit`,
 `pause`, `resume`, `run`, `remove`), or the `/cron` slash command.
+
+> **DeLoNET:** the native ticker owns one-shots only. Recurring jobs are pinned
+> `scheduler: external`; Candybar owns when they fire (`cron run <id> --wait`),
+> and their `jobs.json` `next_run_at` / `enabled` fields are a ledger, not the
+> schedule of record.
 
 - **Schedules:** duration (`"30m"`, `"2h"`), "every" phrase
   (`"every monday 9am"`), 5-field cron (`"0 9 * * *"`), or ISO timestamp.
@@ -908,7 +950,7 @@ and logs — avoids shell-escaping backslashes in bash.
 ### Voice not working
 1. Check `stt.enabled: true` in config.yaml
 2. Verify provider: `pip install faster-whisper` or set API key
-3. In gateway: `/restart`. In CLI: exit and relaunch.
+3. In gateway: `/restart` (DeLoNET: `hermes-gateway-restart --reason "<why>"`). In CLI: exit and relaunch.
 
 ### Tool not available
 1. `hermes tools` — check if toolset is enabled for your platform
@@ -923,8 +965,8 @@ and logs — avoids shell-escaping backslashes in bash.
 
 ### Changes not taking effect
 - **Tools/skills:** `/reset` starts a new session with updated toolset
-- **Config changes:** In gateway: `/restart`. In CLI: exit and relaunch.
-- **Code changes:** Restart the CLI or gateway process
+- **Config changes:** In gateway: `/restart` (DeLoNET: `hermes-gateway-restart --reason "<why>"`). In CLI: exit and relaunch.
+- **Code changes:** Restart the CLI or gateway process (DeLoNET gateway: only via `hermes-gateway-restart`)
 
 ### Skills not showing
 1. `hermes skills list` — verify installed

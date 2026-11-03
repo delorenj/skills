@@ -48,9 +48,18 @@ Registry pitfalls:
 
 ## Health check (operator asks: is the crank alive?)
 
-Verify the chain top-down; each layer's freshness proves the next:
-1. Ticker: `~/.hermes/profiles/33god-pm/cron/ticker_heartbeat` — age in seconds (<60 = alive).
-2. Cron jobs: parse `cron/jobs.json` — `crank-watchdog` enabled, `last_status: ok`, `next_run_at` in the future.
+Verify the chain top-down; each layer's freshness proves the next. Candybar is the
+single clock: the crank fires as candybars `crank-beat` (`*/5`) and `crank-watchdog`
+(`*/15`), not from the Hermes ticker.
+1. Schedule of record: `cd ~/code/33GOD/candybar && uv run candybar show crank-beat` and
+   `... show crank-watchdog` (or `curl -s http://127.0.0.1:8700/candybars`): both registered,
+   enabled, and the latest terminal invocation (`GET /candybars/<id>/invocations`) is recent
+   with `result: success`. A stale or failing last invocation is the first fault.
+2. Hermes job pin: in `~/.hermes/profiles/33god-pm/cron/jobs.json`, confirm only that the
+   crank jobs are `scheduler: external`. For external-pinned jobs, `enabled`, `next_run_at`
+   and `last_status` are stale ledger fields, not the schedule: `enabled: false` with an old
+   `next_run_at` is normal and is NOT a dead crank. Never re-enable a native Hermes schedule to
+   "fix" it. `cron/ticker_heartbeat` is not a liveness proof for the crank.
 3. Scheduler output: newest `*.md` in `cron/output/777c511a009c/` proves only that a scheduled execution produced a file. `no_change`, `skipped before inference`, execution `completed`, and `last_status: ok` do NOT establish healthy projects. Inspect `usage_audit.jsonl` for the last actual agent completion and Redis per-project action/structured checked receipts. Stable monitor output can coexist with unattended work; verify effective enabled live panes and due cadence, not registry-only closed tabs. Monitor acknowledgements must not consume work refused before execution.
 4. Live spot-check: use read-only topology and process/log evidence first; `zcrank-scan.sh` mutates pane counters, so run it deliberately, not as a read-only health probe. For apparent waits use Mechanics step 2. A working classifier alone is not proof; inspect actual progress. Compare installed watchdog/source hashes and use `crank-watchdog.sh --dry-run --state-file <scratch-path>` for non-delivering diagnosis.
 5. Report separately: scheduler freshness, actual agent execution, per-project verified attendance, and independent burn/host health. Unavailable telemetry is unknown—not recovery. Never declare the crank healthy from output mtime or suppression alone.

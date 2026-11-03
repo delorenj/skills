@@ -1366,14 +1366,6 @@
 │   └── SKILL.md
 ├── product-changelog
 │   └── SKILL.md
-├── project-crank-engine
-│   ├── references
-│   │   ├── prompt-templates.md
-│   │   ├── prompt-templates.sync-conflict-20260402-113715-DSLLPB2.md
-│   │   └── prompt-templates.sync-conflict-20260402-113721-DSLLPB2.md
-│   ├── scripts
-│   │   └── render_crank_prompt.py
-│   └── SKILL.md
 ├── rabbitmq-management
 ├── ralph-wiggum-v2
 │   └── SKILL.md

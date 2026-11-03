@@ -1,6 +1,6 @@
 # big-chungus System Map
 
-**Last verified: 2026-07-04** (CPU-runaway + crash-loop sweep). This file is the baseline for Phase 1 triage. If a sweep contradicts it, the sweep wins — fix the system or fix this map (Phase 6), never leave them divergent.
+**Last verified: 2026-11-03** (host-gateway + Candybar baseline refresh; earlier sweep 2026-07-04). This file is the baseline for Phase 1 triage. If a sweep contradicts it, the sweep wins — fix the system or fix this map (Phase 6), never leave them divergent.
 
 ## Host
 
@@ -16,7 +16,7 @@ Check ALL of these when hunting an actor; `srvls` covers them in one shot.
 2. **Root crontab** (`sudo crontab -l`) — **cleared 2026-06-10. ANY entry reappearing here is suspect.**
 3. `/etc/crontab` + `/etc/cron.d/`.
 4. **System systemd**: ~65 services, 19 timers.
-5. **User systemd** at `~/.config/systemd/user`: ~150 units, including the **hermes fleet**: one `hermes-<repo>-<role>-gateway.service` per agent plus the fleet-shared `hermes-fleet-bloodbank-gateway.service`. These pin **absolute repo paths** and break when repos move; the registry at `~/.hermes/agents-registry.yaml` must stay in sync with the unit files. Any `hermes-*-consumer`/`-checkpoint`/`-heartbeat` unit is a retired shape and a leftover — `flume review` reports it as unregistered.
+5. **User systemd** at `~/.config/systemd/user`: ~150 units. The **hermes baseline** is exactly `hermes-gateway.service` (the one host gateway: serves every profile, Telegram/Slack and the Bloodbank command lane), `hermes-gateway-watchdog.{service,timer}`, `hermes-dashboard.service` and `hermes-single-install-guard.service` (its `.timer` is installed but disabled). Per-profile serving goes through `~/.hermes/gateway.sock`, not units. Any other `hermes-*` unit is an anomaly: a per-agent `hermes-<agent>-gateway.service` (retired 2026-10-11) or `hermes-fleet-bloodbank-gateway.service` (unit retired; the profile `fleet-bloodbank-gateway` lives on) is a leftover that fights the host gateway if it starts, and so is any `hermes-*-consumer`/`-checkpoint`/`-heartbeat` unit. Retire leftovers through flume; restart the host only via `hermes-gateway-restart --reason "<why>"`.
 6. **Candybar** (`cd ~/code/33GOD/candybar && uv run candybar ls`): the single clock for recurring work. A user crontab line or a `.timer` that is not a candybar, an AD-22 or an approved exception is a bypass: report it, fix it by registering a candybar (`candybar` skill, `uv run candybar doctor --repo . --live --json` lists them), and do not auto-disable unfamiliar timers.
 7. **Docker**: ~46 compose projects, ~120 running containers.
 8. **pm2**: n8n only.
@@ -31,9 +31,9 @@ Check ALL of these when hunting an actor; `srvls` covers them in one shot.
 
 ## Metrics pipeline
 
-- `srvls-metrics.timer` (user, every 5 min) → writes `~/.local/state/node-exporter-textfile/srvls.prom` → **node-exporter** (host `:9519`, textfile collector) → **Prometheus** (host `:9472`).
+- Candybar `srvls-metrics` (every 5 min; its `.timer` was retired) → writes `~/.local/state/node-exporter-textfile/srvls.prom` → **node-exporter** (host `:9519`, textfile collector) → **Prometheus** (host `:9472`).
 - Prometheus queries: `srvls_items`, `srvls_unit_problem`, `srvls_loadavg`.
-- Nightly markdown snapshots: `srvls-snapshot.timer` → `~/code/infra/docs/inventory/` (git-committed) — diff these for "when did X appear".
+- Nightly markdown snapshots: Candybar `srvls-snapshot` (04:10) → `~/code/infra/docs/inventory/` (git-committed) — diff these for "when did X appear".
 - **Holocene dashboard** (holocene.delo.sh, behind SSO) has a Systems tab over this data; its API is the user unit `holocene-api.service` on `:4000` (its PATH resolves the cached `~/.local/bin/op`). Redeploy from `~/code/33GOD/holocene` with `mise run deploy` (API then web), or `mise run deploy:api` / `mise run deploy:web` alone.
 
 ## Docker layout
@@ -71,7 +71,7 @@ If these files are missing or values differ, that is an anomaly.
 - **openclaw-gateway**: Telegram token 401 → openclaw bug crashes the gateway → 150%-CPU restart loop. Needs a new token from 1Password DeLoSecrets before re-enabling.
 - **intelliforia-demo-snapshot**: its mise task is gone.
 - **whisper-server stack**: stopped (idle since Feb). Compose kept at `~/docker/core/whisper-server`, models at `~/whisper-models`.
-- **keepy-money PM (hermes)**: **MIGRATED tiller→KeepyMoney 2026-07-07** (out-of-band). The repo moved `~/code/tiller` → `~/code/KeepyMoney`; the unit files, profile symlink, and registry `project_path` were repointed to KeepyMoney (`.bak-tiller-*` backups kept). Migration complete: the gateway is the only unit and it is active. `~/code/tiller` is the abandoned husk.
+- **keepy-money PM (hermes)**: **MIGRATED tiller→KeepyMoney 2026-07-07** (out-of-band). The repo moved `~/code/tiller` → `~/code/KeepyMoney`; the unit files, profile symlink, and registry `project_path` were repointed to KeepyMoney (`.bak-tiller-*` backups kept). 2026-07 history: at the time its per-agent gateway was the only unit and active; that unit shape was retired 2026-10-11 and keepy-money is now served by the host `hermes-gateway.service`. `~/code/tiller` is the abandoned husk.
 - **vexa transcription-service stack**: **removed 2026-07-04** (`docker rm -f transcription-lb/-worker-1/-worker-2`). Workers were `Exited(255)` for 2 days; the nginx LB flap-looped 3047× on unresolvable upstream. Compose at `~/code/vexa/services/transcription-service/docker-compose.yml`; `docker compose up -d` to revive when vexa is worked on again.
 
 ## Known recurring issues (band-aided, need real fixes)

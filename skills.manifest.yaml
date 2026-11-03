@@ -133,7 +133,6 @@ always_on:
     - openclaw-upgrade
     - project-jangler
     - project-notebook
-    - project-crank-engine
     - security-monitor
     - svgme-status-handoff
 

@@ -39,11 +39,11 @@ WEBHOOK_PORT=8644
 WEBHOOK_SECRET=generate-a-strong-secret-here
 ```
 
-After configuration, start (or restart) the gateway:
+After configuration, restart the host gateway so it loads the webhook platform.
+On DeLoNET the single `hermes-gateway.service` already serves every profile, so
+never start a second one with `hermes gateway run`, and never restart it raw:
 ```bash
-hermes gateway run
-# Or if using systemd:
-systemctl --user restart hermes-gateway
+hermes-gateway-restart --reason "enable webhook platform"
 ```
 
 Verify it's running:

@@ -7,6 +7,12 @@ pipeline-status:
 
 # Systemd Agent Service Diagnostics
 
+> **Hermes on DeLoNET:** the only Hermes gateway unit is `hermes-gateway.service`
+> (one host gateway serving every profile since 2026-10-11). Never restart, reload
+> or stop it with raw `systemctl`; use `hermes-gateway-restart --reason "<why>"`.
+> A per-agent `hermes-<agent>-gateway.service` is a retired leftover, not a service
+> to repair. Fleet questions go to `agent-fleet-operations`.
+
 Use this when a systemd-managed agent service appears healthy (`active`) but the real behavior says otherwise: stale model/provider, wrong binary, old credentials, repeated task failures, or a backlog that does not drain.
 
 ## Trigger signals
@@ -59,7 +65,8 @@ After you prove the live env is stale:
 
 1. Update/install the correct unit file if needed.
 2. Ask for approval before restart if the project/operator requires it.
-3. Reload and restart the service.
+3. Reload and restart the service. For `hermes-gateway.service`, never restart raw:
+   run `hermes-gateway-restart --reason "<why>"` (it waits for idle and pauses the watchdog).
 4. Re-check the live `/proc/<pid>/environ` after restart.
 5. If the service uses state files and prior failures were abandoned, reset the stuck entries too.
 6. Re-run a one-shot/backfill pass if the system supports it, then verify backlog movement.
@@ -72,6 +79,8 @@ You are done only when all of the following are true:
 - journal no longer shows the old provider/model failure
 - stateful backlog items are retrying or draining again
 
-## Support files
+## Worked example
 
-- `references/live-env-mismatch-and-provider-override.md` — concrete example of unit-file-vs-live-env mismatch and the checks to run
+The "Common pitfall" section above is the concrete case: the unit file says
+the new provider/model, `/proc/<pid>/environ` still carries the old one, and the
+journal keeps showing the old provider's failures.
