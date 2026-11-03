@@ -54,9 +54,8 @@ def minimal(audience="internal"):
                    "previous_event_id": None},
         "previous_report": None,
         "scope": {"roots": [ROOT], "worktrees": [WORKTREE]},
-        "candystore": {"reachable": True, "base_url": "http://127.0.0.1:8683", "tool_calls_total": 1, "failed": 0, "unknown_outcome": 0,
-                       "by_cli": {"claude": 1}, "by_tool": {"Bash": 1}, "sessions": 1, "sessions_by_cli": {"claude": 1},
-                       "branches_touched": ["main"], "deploy_commands": [], "failures": [],
+        "candystore": {"reachable": True, "base_url": "http://127.0.0.1:8683",
+                       "session_summaries": [{"session_id": "min-sess", "summary": "minimal", "event_count": 1}],
                        "sessions_ended": {"count": 0, "turns": 0, "duration_seconds": 0, "by_cli": {}},
                        "coverage": {"total": 1, "fetched": 1, "pages": 1, "truncated": False}},
         "git": {"commit_count": 1, "repos": [repo()]},
@@ -153,11 +152,7 @@ class ValidateTests(unittest.TestCase):
         self.assert_rejects(lambda d: d["git"]["repos"][0]["commits"][0].update({"sha": "xyz"}), "sha")
         self.assert_rejects(lambda d: d["git"]["repos"].append(repo()), "duplicate repo name")
         self.assert_rejects(lambda d: d["candystore"].update({"reachable": False}), "exit 2")
-        self.assert_rejects(lambda d: d["candystore"].update({"by_cli": {"Claude Code": 1}}), "by_cli key")
-        self.assert_rejects(lambda d: d["candystore"].update({"failures": [{"at": "x", "cli": "claude", "tool": "Bash", "detail": "d"}] * 41}),
-                            "more than 40 items")
-        self.assert_rejects(lambda d: d["candystore"].update({"by_tool": {f"t{i}": 1 for i in range(13)}}), "more than 12 tools")
-        self.assert_rejects(lambda d: d["candystore"].update({"branches_touched": [f"b{i}" for i in range(65)]}), "more than 64 items")
+        self.assert_rejects(lambda d: d["candystore"]["sessions_ended"].pop("turns"), "sessions_ended")
         self.assert_rejects(lambda d: d["candystore"]["sessions_ended"].pop("turns"), "sessions_ended")
         self.assert_rejects(lambda d: d["hindsight"].update({"status": "meh"}), "hindsight.status")
         self.assert_rejects(lambda d: d.update({"label": "2026-09-03"}), "label")
@@ -207,11 +202,9 @@ class CollectTests(unittest.TestCase):
                       previous=prev, caveats=["previous end clamped"] if previous else [])
 
     def patches(self, audience):
-        tools = {"reachable": True, "base_url": "http://127.0.0.1:8683", "tool_calls_total": 3, "failed": 1, "unknown_outcome": 0,
-                 "by_cli": {"claude": 2, "hermes": 1}, "by_tool": {"Bash": 3}, "sessions": 2, "sessions_by_cli": {"claude": 1, "hermes": 1},
-                 "branches_touched": ["main"], "deploy_commands": [{"at": "2026-09-02T12:00:00Z", "cli": "claude", "command": "mise run deploy"}],
-                 "failures": [{"at": "2026-09-02T12:00:00Z", "cli": "hermes", "tool": "terminal", "detail": f"ls {ROOT}/apps: boom"}],
-                 "coverage": {"total": 3, "fetched": 3, "pages": 1, "truncated": False}, "caveats": ["failures list capped at 40 of 41"]}
+        session_reports = {"reachable": True, "base_url": "http://127.0.0.1:8683",
+                 "session_summaries": [{"session_id": "test-session", "summary": "Did some stuff", "event_count": 5}],
+                 "coverage": {"total": 1, "fetched": 1, "pages": 1, "truncated": False}, "caveats": ["reports test caveat"]}
         ended = {"count": 1, "turns": 4, "duration_seconds": 30, "by_cli": {"claude": 1}}
         records = [{"key": "JIMB-251", "ticket_id": "t1"}]
         decisions = [{"at": "2026-09-02T13:00:00Z", "title": "Hold", "note": "JIMB-1: because"}]
@@ -230,7 +223,7 @@ class CollectTests(unittest.TestCase):
         scope = ScopeSet(roots=[ROOT], worktrees=[WORKTREE], missing=["/home/delorenj/code/missing"])
         return [
             mock.patch.object(digest_mod, "scope_set", return_value=scope),
-            mock.patch.object(digest_mod.candystore, "collect_tools", return_value=copy.deepcopy(tools)),
+            mock.patch.object(digest_mod.candystore, "collect_session_reports", return_value=copy.deepcopy(session_reports)),
             mock.patch.object(digest_mod.candystore, "collect_sessions_ended", return_value=ended),
             mock.patch.object(digest_mod.candystore, "collect_tickets", return_value=records),
             mock.patch.object(digest_mod.candystore, "collect_decisions", return_value=decisions),
@@ -266,12 +259,12 @@ class CollectTests(unittest.TestCase):
         self.assertEqual(d["caveats"], [
             "window: previous end clamped",
             "scope: configured root ~/code/missing is not a git checkout",
-            "candystore: failures list capped at 40 of 41",
+            "candystore: reports test caveat",
             "git: repo james-brennan: worktree jimb169 skipped: boom at ~/code/james-brennan-jimb169",
             "board: xp:internal missing",
             "tokens: no Codex rollout in scope for the window",
         ])
-        self.assertEqual(d["candystore"]["failures"][0]["detail"], "ls ~/code/james-brennan/apps: boom")
+        self.assertEqual(d["candystore"]["session_summaries"][0]["summary"], "Did some stuff")
         self.assertEqual(d["candystore"]["sessions_ended"]["turns"], 4)
         self.assertNotIn("caveats", d["candystore"])
         self.assertEqual(d["git"]["repos"][0]["commits"][0]["subject"], "fix: read ~/code/james-brennan/boards")
@@ -315,7 +308,7 @@ class CollectTests(unittest.TestCase):
             self.assertEqual(digest_mod.collect_cmd(args), 0)
         text = "".join(c.args[0] for c in stdout.write.call_args_list)
         self.assertIn(f"digest    {out}", text)
-        self.assertIn("by_cli claude=1", text)
+        self.assertIn("candystore session reports 1; by_cli -; ended 0", text)
         self.assertIn("tokens    total 10; claude=10, codex=null, kimi=null", text)
 
 

@@ -1,6 +1,6 @@
 # Consumers
 
-How to receive events from the bloodbank bus. The recommended default for new consumers is **NATS core subscribe** on a specific subject (or a wildcard). Reach for JetStream durables, Dapr subscribers, FastStream, or the catch-all toaster only when their distinct capabilities are needed.
+How to receive events from the bloodbank bus. The recommended default for new consumers is **NATS core subscribe** on a specific subject (or a wildcard). Reach for JetStream durables, Dapr subscribers, FastStream, or the catch-all router only when their distinct capabilities are needed.
 
 ## Reading Order
 
@@ -14,14 +14,14 @@ How to receive events from the bloodbank bus. The recommended default for new co
 
 | Method | Durable? | Use when | Code reference |
 |---|---|---|---|
-| **NATS core subscribe**          | No  | Fire-and-forget reactions, observability, wildcard fan-in | `bloodbank/services/event-toaster/main.py` |
+| **NATS core subscribe**          | No  | Fire-and-forget reactions, observability, wildcard fan-in | `bloodbank/services/ntfy-router/main.py` |
 | **NATS JetStream durable**       | Yes | Must not miss messages; need replay; consumer can be offline | `bloodbank/compose/v3/nats/streams.json` |
 | **Dapr subscriber**              | Yes (Dapr handles ack) | Service already has a Dapr sidecar; want declarative subscriptions | `bloodbank/services/claude-events-recorder/main.py` |
 | **FastStream RabbitMQ consumer** | Yes (AMQP ack) | v2 only; legacy consumer or RabbitMQ-only environment | `bloodbank/event_producers/consumer.py` |
 | **ntfy.delo.sh/bloodbank**       | No  | You want desktop notifications, not code-level consumption | already running; subscribe in the ntfy app |
 
 Canonical platform consumers are intentionally different: Candystore uses a
-durable Dapr/JetStream subscription on `bloodbank.evt.>`; event-toaster uses a
+durable Dapr/JetStream subscription on `bloodbank.evt.>`; ntfy-router uses a
 non-durable core wildcard for human notification; the Hermes fleet gateway uses
 a durable pull consumer on the **command** stream. Do not copy one consumer's
 delivery semantics into another just because all three connect to NATS.
@@ -50,7 +50,7 @@ Subject filters:
 
 - `bloodbank.evt.agent.tool.completed` — exactly that event.
 - `bloodbank.evt.agent.>` — all agent events.
-- `bloodbank.evt.>` — wildcard fan-in (the catch-all pattern; see `event-toaster`).
+- `bloodbank.evt.>` — wildcard fan-in (the catch-all pattern; see `ntfy-router`).
 
 ## When to upgrade past core subscribe
 

@@ -56,8 +56,8 @@ printf '{"tool_name":"Bash","tool_input":{"command":"ls"}}' \
 ```
 
 With NATS running, set `BLOODBANK_HOOK_VERBOSE=1` and confirm
-`docker logs bloodbank-event-toaster` shows `digested: bloodbank.agent.tool.completed`
-(tool events are digested, not toasted one by one, so ntfy only shows them in
+`docker logs bloodbank-ntfy-router` shows `digested: bloodbank.agent.tool.completed`
+(tool events are digested, not routed one by one, so ntfy only shows them in
 the periodic summary).
 
 ## Legacy wrappers

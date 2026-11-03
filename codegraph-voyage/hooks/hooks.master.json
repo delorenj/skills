@@ -13,7 +13,7 @@
       "mutating_tool_matcher": "Write|Edit|Patch|Create|write_file|patch|apply_patch|create_file|multi_edit|str_replace"
     },
     "session_end": {
-      "description": "Coalesce dirty state into one bounded incremental index refresh.",
+      "description": "Opt-in only: coalesce dirty state into one bounded incremental index refresh with a real provider; does nothing unless a provider is configured.",
       "timeout_seconds": 65
     }
   },

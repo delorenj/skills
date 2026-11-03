@@ -17,7 +17,7 @@ How to publish an event onto the bloodbank bus. The recommended path is **NATS d
 | **NATS direct (nats-py)**       | Long-running Python service on host, has nats-py available | NATS subject `bloodbank.evt.<domain>.<entity>.<action>` | _new code; see `methods.md`_ |
 | **NATS direct (stdlib TCP)**    | Hook scripts, no deps allowed, fire-and-forget | NATS subject `bloodbank.evt.<...>` | `bloodbank/services/agent-hooks/core/nats_publish.py` |
 | **Dapr pub/sub**                | 33GOD service container with a Dapr sidecar | Dapr `bloodbank-pubsub` → NATS `bloodbank.evt.<...>` | `bloodbank/services/heartbeat-tick/main.py` |
-| **bloodbank HTTP `/publish`**   | External tool with HTTP only, generic event | RabbitMQ `bloodbank.events.v1` (v2 path; toaster won't see it) | `bloodbank/event_producers/http.py` |
+| **bloodbank HTTP `/publish`**   | External tool with HTTP only, generic event | RabbitMQ `bloodbank.events.v1` (v2 path; router won't see it) | `bloodbank/event_producers/http.py` |
 | **n8n Plane ingress**           | Signed Plane webhook from either self-hosted workspace | HMAC + normalization → NATS `bloodbank.evt.repo.*` | `bloodbank/integrations/n8n-nodes-bloodbank` |
 | **bloodbank HTTP `/event`**     | Legacy typed HTTP producer that explicitly needs v2 | RabbitMQ `bloodbank.events.v1` (v2 path) | `bloodbank/event_producers/http.py` |
 | **hookd_bridge `/hooks/agent`** | Issuing a COMMAND envelope (not an event) to a specific agent | command subject `bloodbank.cmd.agent.invocation.start` | `bloodbank/hookd_bridge/bridge.py` |
@@ -44,7 +44,7 @@ await nc.publish(env.subject, env.model_dump_json().encode())
 await nc.drain()
 ```
 
-Verify it arrived: tail `bloodbank-event-toaster` logs (a `toasted:` or `digested:` line with your type) or curl `https://ntfy.delo.sh/bloodbank/json?poll=1&since=30s`. The toaster mutes `bloodbank.agent.hook.updated` / `bloodbank.system.hook.updated`; for those, check Candystore.
+Verify it arrived: tail `bloodbank-ntfy-router` logs (a `routed:` or `digested:` line with your type) or curl `https://ntfy.delo.sh/bloodbank/json?poll=1&since=30s`. The router mutes `bloodbank.agent.hook.updated` / `bloodbank.system.hook.updated`; for those, check Candystore.
 
 ## When the default doesn't fit
 

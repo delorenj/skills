@@ -44,7 +44,7 @@ async def emit():
 asyncio.run(emit())
 ```
 
-**Verify.** `docker logs bloodbank-event-toaster --tail 5` should show the `bloodbank.system.heartbeat.received` event.
+**Verify.** `docker logs bloodbank-ntfy-router --tail 5` should show the `bloodbank.system.heartbeat.received` event.
 
 ## 2. NATS direct via stdlib TCP (recommended for shell hooks)
 
@@ -96,7 +96,7 @@ urllib.request.urlopen(req, timeout=5).read()
 
 **Requires.** bloodbank's FastAPI service reachable at `http://bloodbank:8000` (in network) or `https://bloodbank.delo.sh` (external). RabbitMQ at `amqp://...:5673`.
 
-**Important.** This publishes to the **v2 RabbitMQ exchange** (`bloodbank.events.v1`). The v3 NATS catch-all (`event-toaster`) does **not** see RabbitMQ-only events. Use this only when:
+**Important.** This publishes to the **v2 RabbitMQ exchange** (`bloodbank.events.v1`). The v3 NATS catch-all (`ntfy-router`) does **not** see RabbitMQ-only events. Use this only when:
 
 - you genuinely need v2 fan-out (e.g., a consumer wired through FastStream)
 - you have HTTP only and no path to NATS

@@ -21,3 +21,6 @@ source-command-*/
 # Authored n8n deployment examples contain placeholders, not credentials.
 !n8n-self-hosting/assets/.env.queue.example
 !n8n-self-hosting/assets/.env.single.example
+
+# local archive snapshots (git is the backup)
+/*.tar.gz

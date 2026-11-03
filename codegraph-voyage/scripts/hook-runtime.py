@@ -113,7 +113,14 @@ def _append_log(root: Path, message: str) -> None:
         pass
 
 
+REAL_PROVIDERS = frozenset({"voyage", "openrouter", "automaticai"})
+
+
 def _provider(root: Path) -> str:
+    """Resolve the hook index provider. Unset means off.
+
+    Fake vectors are hashes of the text, not embeddings, and must never reach a real index.
+    """
     value = os.environ.get("CODEGRAPH_VOYAGE_HOOK_PROVIDER", "").strip().lower()
     if not value:
         try:
@@ -122,11 +129,20 @@ def _provider(root: Path) -> str:
                 local.get("codegraph_voyage_hook_provider")
                 or local.get("codegraph-voyage", {}).get("hook_provider")
                 or local.get("codegraph_voyage", {}).get("hook_provider")
-                or "fake"
+                or "off"
             ).strip().lower()
         except Exception:
-            value = "fake"
-    return value if value in {"fake", "voyage", "off"} else "fake"
+            value = "off"
+    if value == "off" or value in REAL_PROVIDERS:
+        return value
+    allowed = ", ".join(sorted(REAL_PROVIDERS | {"off"}))
+    if value == "fake":
+        reason = "hook provider 'fake' is not allowed: fake vectors are test-only"
+    else:
+        # Never echo the value: a mistyped setting can be a secret.
+        reason = f"unrecognized hook provider ({len(value)} chars)"
+    _append_log(root, f"{reason}; allowed: {allowed}; refresh disabled")
+    return "off"
 
 
 def _timeout(variable: str, default: float, maximum: float) -> float:

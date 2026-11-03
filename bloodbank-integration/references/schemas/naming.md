@@ -54,7 +54,7 @@ marker is transport routing; `envelope.kind` remains authoritative.
 
 - `bloodbank.evt.agent.tool.completed` — exactly that event.
 - `bloodbank.evt.agent.>` — all agent events.
-- `bloodbank.evt.>` — event catch-all used by `bloodbank-event-toaster`.
+- `bloodbank.evt.>` — event catch-all used by `bloodbank-ntfy-router`.
 - `bloodbank.cmd.agent.invocation.start` — command to start an invocation;
   target agent lives in `data.target_agent_id`, not in the subject path.
 

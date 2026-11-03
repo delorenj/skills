@@ -107,11 +107,9 @@ def collect(project, audience: str, window, run_id: str, out_path: str | None = 
     for missing in scope.missing:
         caveats.append(f"scope: configured root {missing} is not a git checkout")
 
-    candy = _hoist(caveats, candystore.collect_tools(scope, window), "candystore")
+    candy = _hoist(caveats, candystore.collect_session_reports(scope, window), "candystore")
     candy["sessions_ended"] = candystore.collect_sessions_ended(scope, window)
-    candy = {k: candy[k] for k in ("reachable", "base_url", "tool_calls_total", "failed", "unknown_outcome", "by_cli",
-                                   "by_tool", "sessions", "sessions_by_cli", "branches_touched", "deploy_commands",
-                                   "failures", "sessions_ended", "coverage")}
+    candy = {k: candy[k] for k in ("reachable", "base_url", "session_summaries", "sessions_ended", "coverage")}
     ticket_events = candystore.collect_tickets(project.slug, window, identifier=project.identifier)
     decisions = candystore.collect_decisions(project.slug, window)
     git = _hoist(caveats, gitscan.scan(project, scope, window), "git")
@@ -303,24 +301,14 @@ def validate_digest(d: dict) -> None:
             if not isinstance(item, str) or not os.path.isabs(item):
                 _fail(f"scope.{key}[{i}]", "must be an absolute path")
 
-    candy = _obj(d["candystore"], "candystore", ("reachable", "base_url", "tool_calls_total", "failed", "unknown_outcome",
-                                                  "by_cli", "by_tool", "sessions", "sessions_by_cli", "branches_touched",
-                                                  "deploy_commands", "failures", "sessions_ended", "coverage"))
+    candy = _obj(d["candystore"], "candystore", ("reachable", "base_url", "session_summaries", "sessions_ended", "coverage"))
     if candy["reachable"] is not True:
         _fail("candystore.reachable", "must be true; an unreachable store is exit 2, not a digest")
-    for key in ("tool_calls_total", "failed", "unknown_outcome", "sessions"):
-        _count(candy[key], f"candystore.{key}")
-    for key in ("by_cli", "sessions_by_cli"):
-        for agent, n in _obj(candy[key], f"candystore.{key}").items():
-            _str(agent, f"candystore.{key} key", pattern=AGENT_KEY_RE)
-            _count(n, f"candystore.{key}.{agent}")
-    if len(_obj(candy["by_tool"], "candystore.by_tool")) > BY_TOOL_CAP:
-        _fail("candystore.by_tool", f"more than {BY_TOOL_CAP} tools")
-    _list(candy["branches_touched"], "candystore.branches_touched", max_items=BRANCH_CAP)
-    for i, item in enumerate(_list(candy["failures"], "candystore.failures", max_items=FAILURE_CAP)):
-        _obj(item, f"candystore.failures[{i}]", ("at", "cli", "tool", "detail"))
-    for i, item in enumerate(_list(candy["deploy_commands"], "candystore.deploy_commands")):
-        _obj(item, f"candystore.deploy_commands[{i}]", ("at", "cli", "command"))
+    for i, item in enumerate(_list(candy["session_summaries"], "candystore.session_summaries")):
+        _obj(item, f"candystore.session_summaries[{i}]", ("session_id", "summary", "event_count"))
+        _str(item["session_id"], f"candystore.session_summaries[{i}].session_id", nullable=True)
+        _str(item["summary"], f"candystore.session_summaries[{i}].summary", nullable=True)
+        _count(item["event_count"] if item["event_count"] is not None else 0, f"candystore.session_summaries[{i}].event_count")
     ended = _obj(candy["sessions_ended"], "candystore.sessions_ended", ("count", "turns", "duration_seconds", "by_cli"))
     for key in ("count", "turns", "duration_seconds"):
         _count(ended[key], f"candystore.sessions_ended.{key}")
@@ -446,14 +434,13 @@ def _summary_lines(digest: dict, path: str, lint_path: str | None) -> list[str]:
     b = digest["board"]
     h = digest["hindsight"]
     t = digest["tokens"]
-    by_cli = ", ".join(f"{k}={v}" for k, v in c["by_cli"].items()) or "-"
+    by_cli = ", ".join(f"{k}={v}" for k, v in c["sessions_ended"]["by_cli"].items()) or "-"
     repos = ", ".join(f"{r['name']}={r['commit_count']}" + ("" if r["state"] == "ok" else f" ({r['state']})") for r in g["repos"]) or "-"
     agents = ", ".join(f"{k}={v['total'] if v else 'null'}" for k, v in t["by_agent"].items())
     lines = [
         f"digest    {path}",
         f"window    {w['start']} -> {w['end']}  ({w['duration_seconds']}s, basis {w['basis']})  label {digest['label']}",
-        f"candystore tool calls {c['tool_calls_total']} (failed {c['failed']}, unknown {c['unknown_outcome']}); "
-        f"sessions {c['sessions']}; by_cli {by_cli}; ended {c['sessions_ended']['count']}",
+        f"candystore session reports {len(c['session_summaries'])}; by_cli {by_cli}; ended {c['sessions_ended']['count']}",
         f"git       {g['commit_count']} commits: {repos}",
         f"board     {b['status']}; tickets {len(b['tickets'])}; opened {len(b['opened'])} closed {len(b['closed'])} "
         f"started {len(b['started'])} commented {len(b['commented'])}; decisions {len(b['decisions'])}",

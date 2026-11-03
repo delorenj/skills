@@ -84,20 +84,21 @@ def test_mutation_marks_dirty_and_read_only_does_not(tmp_path: Path):
 def test_session_end_coalesces_and_clears_only_after_success(tmp_path: Path):
     root = make_project(tmp_path)
     (root / DIRTY).write_text("dirty")
-    first = run_runtime("session_end", root, {"cwd": str(root)})
-    second = run_runtime("session_end", root, {"cwd": str(root)})
+    opt_in = {"CODEGRAPH_VOYAGE_HOOK_PROVIDER": "voyage"}
+    first = run_runtime("session_end", root, {"cwd": str(root)}, opt_in)
+    second = run_runtime("session_end", root, {"cwd": str(root)}, opt_in)
     assert first.returncode == second.returncode == 0
     assert not (root / DIRTY).exists()
-    assert [call["args"] for call in calls(root)] == [["index", "--provider", "fake"]]
+    assert [call["args"] for call in calls(root)] == [["index", "--provider", "voyage"]]
 
 
-def test_provider_defaults_fake_and_voyage_needs_explicit_opt_in(tmp_path: Path):
+def test_provider_defaults_off_and_voyage_needs_explicit_opt_in(tmp_path: Path):
     root = make_project(tmp_path)
     (root / DIRTY).write_text("dirty")
     run_runtime("session_end", root, {"cwd": str(root)})
-    assert calls(root)[-1] == {"args": ["index", "--provider", "fake"], "key_in_env": False}
+    assert calls(root) == []
+    assert (root / DIRTY).is_file()  # pending work is kept for an explicit opt-in
 
-    (root / DIRTY).write_text("dirty")
     (root / ".agents").mkdir()
     (root / ".agents/local.json").write_text(
         json.dumps({"codegraph_voyage": {"hook_provider": "voyage"}})
@@ -112,10 +113,58 @@ def test_provider_defaults_fake_and_voyage_needs_explicit_opt_in(tmp_path: Path)
     assert secret.encode() not in all_skill_bytes
 
 
+@pytest.mark.parametrize("via", ["env", "local-json"])
+@pytest.mark.parametrize(
+    "value,logged",
+    [("fake", "not allowed"), ("FAKE", "not allowed"), ("bogus", "unrecognized")],
+)
+def test_fake_and_unknown_providers_never_index(tmp_path: Path, via: str, value: str, logged: str):
+    root = make_project(tmp_path)
+    (root / DIRTY).write_text("dirty")
+    env = None
+    if via == "env":
+        env = {"CODEGRAPH_VOYAGE_HOOK_PROVIDER": value}
+    else:
+        (root / ".agents").mkdir()
+        (root / ".agents/local.json").write_text(
+            json.dumps({"codegraph_voyage": {"hook_provider": value}})
+        )
+    result = run_runtime("session_end", root, {"cwd": str(root)}, env)
+    assert result.returncode == 0
+    assert calls(root) == []
+    assert (root / DIRTY).is_file()
+    assert logged in (root / ".codegraph/codegraph-voyage-hooks.log").read_text()
+
+
+@pytest.mark.parametrize("value", ["voyage", "openrouter", "automaticai", " AutomaticAI "])
+def test_every_real_provider_is_allowed_and_passed_through(tmp_path: Path, value: str):
+    root = make_project(tmp_path)
+    (root / DIRTY).write_text("dirty")
+    run_runtime(
+        "session_end", root, {"cwd": str(root)}, {"CODEGRAPH_VOYAGE_HOOK_PROVIDER": value}
+    )
+    assert [call["args"] for call in calls(root)] == [["index", "--provider", value.strip().lower()]]
+    assert not (root / DIRTY).exists()
+
+
+def test_a_rejected_provider_value_is_never_echoed_into_the_log(tmp_path: Path):
+    root = make_project(tmp_path)
+    (root / DIRTY).write_text("dirty")
+    canary = "pa-" + "canary-" + "7f3a9c"
+    run_runtime(
+        "session_end", root, {"cwd": str(root)}, {"CODEGRAPH_VOYAGE_HOOK_PROVIDER": canary}
+    )
+    log = (root / ".codegraph/codegraph-voyage-hooks.log").read_text()
+    assert canary not in log and "unrecognized hook provider" in log
+    assert calls(root) == []
+
+
 def test_failed_index_retains_dirty_and_exits_success(tmp_path: Path):
     root = make_project(tmp_path, exit_code=7)
     (root / DIRTY).write_text("dirty")
-    result = run_runtime("session_end", root, {"cwd": str(root)})
+    result = run_runtime(
+        "session_end", root, {"cwd": str(root)}, {"CODEGRAPH_VOYAGE_HOOK_PROVIDER": "voyage"}
+    )
     assert result.returncode == 0
     assert (root / DIRTY).exists()
     assert (root / ".codegraph/codegraph-voyage-hooks.log").is_file()

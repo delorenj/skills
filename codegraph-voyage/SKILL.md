@@ -7,20 +7,22 @@ description: Use for symbol-level semantic code search, hybrid retrieval, or Cod
 
 `codegraph-voyage` is a symbol-level semantic retrieval sidecar for CodeGraph. It builds embeddings from `.codegraph/codegraph.db`, stores them separately in `.codegraph/codegraph-voyage.db`, and combines lexical and vector candidates for search and `codegraph explore`.
 
-Use it when the user asks for semantic code search, hybrid lexical/vector retrieval, or a CodeGraph exploration seeded by semantically relevant symbols. Run commands from a project root containing `.codegraph/codegraph.db` and the `tools/codegraph_voyage/` sidecar package.
+Use it when the user asks for semantic code search, hybrid lexical/vector retrieval, or a CodeGraph exploration seeded by semantically relevant symbols. Run commands from a project root containing `.codegraph/codegraph.db`, using the installed `codegraph-voyage` CLI (alias `cgv`).
 
 ## CLI
 
 ```bash
-codegraph-voyage index [--provider fake|voyage|openrouter] [--model MODEL] [--dimensions N]
-codegraph-voyage search "query" [--provider fake|voyage|openrouter] [--top-k N] [--json]
+codegraph-voyage index [--provider voyage|openrouter|automaticai] [--model MODEL] [--dimensions N]
+codegraph-voyage search "query" [--provider voyage|openrouter|automaticai] [--top-k N] [--json]
 codegraph-voyage status
-codegraph-voyage explore "query" [--provider fake|voyage|openrouter] [--dry-run]
+codegraph-voyage purge (--fake | --model MODEL [--dimensions N]) [--dry-run]
+codegraph-voyage explore "query" [--provider voyage|openrouter|automaticai] [--dry-run]
 ```
 
 `search` is also available as `semantic_candidates`. Index before searching when `.codegraph/codegraph-voyage.db` is absent or stale. Use `status` to inspect the CodeGraph and embedding indexes.
 
-The `fake` provider is deterministic, offline, and suitable for development and CI.
+The `fake` provider is test-only: it writes hash vectors, not semantic embeddings, so never run it on a real project.
+The sidecar refuses to store fake vectors beside real ones, a real-provider `index` purges any leftovers, and `status` flags them (`purge --fake` removes them on demand).
 The `voyage` provider sends locally sanitized source-derived text to Voyage AI.
 The `openrouter` provider sends requests to OpenRouter's OpenAI-compatible embeddings API.
 
@@ -58,7 +60,7 @@ python3 scripts/hooks-fanout.py install --project-root /absolute/project
 python3 scripts/hooks-fanout.py uninstall --project-root /absolute/project
 ```
 
-The runtime defaults to the offline deterministic `fake` provider. Remote Voyage processing is never automatic: opt in per project with `CODEGRAPH_VOYAGE_HOOK_PROVIDER=voyage` in the client runtime environment or `{"codegraph_voyage":{"hook_provider":"voyage"}}` in gitignored `.agents/local.json`. The client must inherit `VOYAGE_API_KEY`; never put that key in hook JSON, config arguments, logs, or tool payloads. Set the provider to `off` to disable refreshes.
+The runtime defaults to `off`: it marks dirty state but never indexes. Refreshing is an explicit per-project opt-in with `CODEGRAPH_VOYAGE_HOOK_PROVIDER=<voyage|openrouter|automaticai>` in the client runtime environment or `{"codegraph_voyage":{"hook_provider":"automaticai"}}` (same values) in gitignored `.agents/local.json`. Pick the provider whose model matches the project's existing sidecar (`codegraph-voyage status`). The client must inherit that provider's API key (`VOYAGE_API_KEY`, `OPENROUTER_API_KEY` or `AUTOMATICAI_API_KEY`); never put a key in hook JSON, config arguments, logs, or tool payloads. `fake` (and any unknown value) is rejected and treated as `off`, because fake vectors are not semantic and used to fill real indexes.
 
 Read [references/hooks.md](references/hooks.md) for lifecycle behavior, generated client mappings, safety properties, and local configuration.
 

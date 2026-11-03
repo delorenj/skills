@@ -40,6 +40,25 @@ package. Do not write through unknown/generated symlinks until ownership is know
 - Commit/push source changes before advancing parent pins; verify upstream state.
   Do not absorb unrelated WIP to make a global status report green.
 
+## Session lessons and knowledge capture
+
+When asked to capture a completed session, update the existing procedure owner
+and operative references, then jot only high-signal mental models. Separate
+portable rules from dated deployment facts and user preferences. Distinguish
+observed failures from diagnoses that remain unverified; record partial
+acceptance and uncommitted source state truthfully.
+
+The user's correction is a lesson too: if a working deployment was over-probed,
+add a concrete verification budget and stop rule where the repeated work was
+required. Do not merely add more checks or weaken failure assertions. Existing
+relevant runtime evidence can replace redundant synthetic proof.
+
+Capture is not permission to resume live probes, deploy, flush memory through
+new inference loops, benchmark every skill, fan out unrelated configuration, or
+commit prior WIP. Edit canonical files, validate the changed metadata/links and
+diff offline, and use the existing jot/session-end retention path. A brief
+closeout naming the changed skills and memory themes is enough.
+
 ## Tool limits
 
 The inventory script checks literal Markdown file links outside fenced examples.

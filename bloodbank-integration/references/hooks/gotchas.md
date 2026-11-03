@@ -4,7 +4,7 @@ Each gotcha: **Symptom**, **Cause**, **Fix**, **Prevention**.
 
 ## 1. "Hooks fire but nothing reaches NATS"
 
-**Symptom.** Manually piping a payload to the publisher exits 0, but no toast appears and no NATS subscription sees it.
+**Symptom.** Manually piping a payload to the publisher exits 0, but no route appears and no NATS subscription sees it.
 
 **Cause.** Publisher is failing open on a connection error — the script swallowed the failure to protect the harness.
 

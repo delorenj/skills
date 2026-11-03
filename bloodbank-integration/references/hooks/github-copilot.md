@@ -62,8 +62,8 @@ done
 ```
 
 With NATS running, set `BLOODBANK_HOOK_VERBOSE=1` and tail
-`docker logs -f bloodbank-event-toaster`: tool events show as `digested:` lines,
-session and turn events as `toasted:` lines.
+`docker logs -f bloodbank-ntfy-router`: tool events show as `digested:` lines,
+session and turn events as `routed:` lines.
 
 ## Configuration knobs
 

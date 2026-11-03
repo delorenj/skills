@@ -45,7 +45,7 @@ Enrollment failures stop managed work. Existing non-Plane playbooks still apply.
    transitions, comments, and deletes already enter Bloodbank through the signed
    n8n webhook path; never duplicate those provider facts manually. Never lose
    the trail.
-6. **Anti-stall.** Never end a pass with work parked "waiting on the operator's sign-off."
+6. **Anti-stall.** Never end a pass with work parked "waiting on the operator's sign-off." The anti-stall rule extends to the WHOLE arc, not just one pass: when the operator sets a goal ("keep going", "productize this", "clear the board"), the PM works the arc to completion — dispatching the next group's spec, reviewing workers, merging — without stopping to ask "should I continue?" at every boundary. Momentum > perfection: asking "go?" after every merge is itself a stall. The only legitimate stops are (a) the arc is verifiably done, (b) an out-of-scope blocker (recorded + waited on), or (c) the operator explicitly redirects.
    The only resting states are: accepted (move on), held (back to active), or a genuine
    out-of-scope blocker (recorded + waited on).
 7. **Respect the pillars.** When a call is genuinely yours, consult the pillars and act;

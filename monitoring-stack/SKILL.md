@@ -44,6 +44,17 @@ curl -s -X POST http://localhost:9472/-/reload
 curl -s -X POST http://localhost:9784/-/reload
 ```
 
+### Verify the auto-restart monitor (docker-health-monitor)
+```bash
+docker ps --format '{{.Names}}' | grep docker-health-monitor
+```
+This container **revives any Exited container automatically**. Its presence
+is load-bearing for alert-test design: a killed (`docker stop`) canary comes
+back before an alert can be observed, so alert tests must `docker pause` the
+target instead — pause leaves containers untouched by the monitor. If a
+test unexpectedly shows the target alive again after a stop, this monitor
+is the mechanism.
+
 ### Verify AutomaticAI LLM observability
 ```bash
 curl -fsS http://localhost:9480/metrics | grep automaticai_llm_ | head

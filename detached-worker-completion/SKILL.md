@@ -59,6 +59,11 @@ is simpler — use that instead.
 5. **Launch a completion watcher before the session exits.** The watcher polls
    the pinned identity (PID + start-tick), and on exit (or timeout) inspects
    the worker's own artifacts — never the watcher's assumptions.
+   - The watcher also tracks **elapsed wall-clock time** against a
+     dispatch-declared `expected_minutes`; see
+     `references/detached-completion-routing.md` § elapsed-time escalation
+     for the escalation ladder (over-budget → interrogate-why on recovery;
+     2× over-budget → operator-facing notification).
 6. **Classify honestly.** Terminal JSONL markers (`turn.completed` /
    `turn.failed` / `turn.aborted`) plus a nonempty final-message file.
    `worker_exited_incomplete` is a legitimate outcome. A handback bundle that

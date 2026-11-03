@@ -72,6 +72,36 @@ fillers = " ".join(["0"] * 18)                       # fields 4..21
 Verify the parser against a REAL `/proc/<pid>/stat` once (read the live tick
 of the actual worker PID) before trusting the fixture.
 
+## Elapsed-time escalation
+
+A worker's own artifacts can show steady progress while the WALL-CLOCK elapsed
+time blows past what the task warrants. Completion routing alone does not
+catch this: the worker is alive, heartbeating, maybe even committing — and
+still effectively stalled. Add an elapsed-time gate to the watcher:
+
+- Record `dispatch_wall_time` at dispatch; the watcher computes
+  `elapsed_minutes = (now - dispatch_wall_time) / 60` on every poll.
+- Define `expected_minutes` per task class at dispatch (small fix ~30,
+  feature ~120, integration ~240 — set explicitly in `task.md`, never
+  inferred by the worker).
+- Escalation ladder when `elapsed_minutes > expected_minutes`:
+  - `elapsed > expected` → the watcher's completion command carries
+    `context.escalation: "elapsed-over-budget"` in `data.context` — the
+    recovery turn knows to interrogate WHY it took that long before any
+    redispatch.
+  - `elapsed > 2 * expected` → the watcher publishes an
+    OPERATOR-facing ntfy/Telegram notification directly (do not route through
+    the normal PM recovery turn): a worker this far over budget is an
+    operator question, not a PM routing question.
+- Mechanism: the watcher's own poll loop is the cheapest place to compute
+  this — it already wakes on interval; the escalation rides the same
+  deterministic envelope channel so a watcher restart re-derives it.
+- The reward-box case (7.5h across a death + silent restart-from-scratch)
+  showed the failure mode: the worker genuinely restarted and did real work
+  the whole time. The only missing signal was "this is taking WAY longer
+  than the task warrants" — which is a wall-clock fact, not an artifact
+  fact.
+
 ## Incident walkthroughs (2026-10-02, holocene board)
 
 **HOLOC-9 (first occurrence, diagnosed post-hoc).** Detached Codex implementer

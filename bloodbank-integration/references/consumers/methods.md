@@ -25,7 +25,7 @@ asyncio.run(main())
 
 **Properties.** No durability — if your service is down when an event fires, the event is missed. No ack — if your handler raises, the message is gone. Fan-in works (multiple instances of the same consumer all get every message).
 
-**Reference.** `bloodbank/services/event-toaster/main.py` — wildcard `bloodbank.evt.>` fan-in.
+**Reference.** `bloodbank/services/ntfy-router/main.py` — wildcard `bloodbank.evt.>` fan-in.
 
 ## 2. NATS JetStream durable consumer
 
@@ -115,7 +115,7 @@ Nothing to deploy. Open `https://ntfy.delo.sh/bloodbank` in the ntfy mobile/desk
 curl -s "https://ntfy.delo.sh/bloodbank/json?poll=1&since=5m"
 ```
 
-Not every event on `bloodbank.evt.>` shows up here. The toaster mutes `bloodbank.agent.hook.updated` and `bloodbank.system.hook.updated` (never posted), rolls `bloodbank.agent.tool.*` into one digest toast every few minutes, and rate-limits the rest (a shared bucket plus a per-type bucket), folding overflow into the digest. A 429 or 5xx from ntfy pauses posting for `Retry-After` (else exponential backoff) and counts the pause into the digest. Everything else gets one toast each. The n8n ticket lanes page on their own ntfy topic, `lifecycle` (the only topic, with `infra`, forwarded for iOS instant delivery). Use it for human eyes / smoke tests, not for code-level consumption; `docker logs bloodbank-event-toaster` has one `toasted:` / `digested:` / `rate-limited:` line per non-muted event, and Candystore has all of them.
+Not every event on `bloodbank.evt.>` shows up here. The router mutes `bloodbank.agent.hook.updated` and `bloodbank.system.hook.updated` (never posted), rolls `bloodbank.agent.tool.*` into one digest notification every few minutes, and rate-limits the rest (a shared bucket plus a per-type bucket), folding overflow into the digest. A 429 or 5xx from ntfy pauses posting for `Retry-After` (else exponential backoff) and counts the pause into the digest. Everything else gets one notification each. The n8n ticket lanes page on their own ntfy topic, `lifecycle` (the only topic, with `infra`, forwarded for iOS instant delivery). Use it for human eyes / smoke tests, not for code-level consumption; `docker logs bloodbank-ntfy-router` has one `routed:` / `digested:` / `rate-limited:` line per non-muted event, and Candystore has all of them.
 
 ## 6. Candystore durable event projection (canonical audit consumer)
 

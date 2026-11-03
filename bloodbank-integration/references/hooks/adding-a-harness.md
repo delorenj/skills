@@ -86,7 +86,7 @@ printf '{"probe":"session"}' \
 ```
 
 With NATS up, remove `BLOODBANK_ENABLED=false`, set `BLOODBANK_HOOK_VERBOSE=1`,
-and tail `bloodbank-event-toaster`.
+and tail `bloodbank-ntfy-router`.
 
 ### 6. Record the integration
 

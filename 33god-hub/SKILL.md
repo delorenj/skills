@@ -53,6 +53,32 @@ matching one rather than re-deriving its decisions here.
 | Designing or changing metrics, logs, traces, dashboards or cross-system observability | `monitoring-stack` |
 | Simplifying repository ignores or reconciling already-tracked paths against the effective global ignore | `gitignore-maintenance` |
 
+## Portability / external deployment
+
+When packaging 33GOD parts for deployment outside the home lab (e.g. a
+`docker compose up` install on someone else's machine):
+
+- Ground the inventory in RUNTIME evidence, not the repo tree alone — sweep
+  `docker ps`, `systemctl --user list-units --state=running`, the Bloodbank
+  compose services, cron jobs, and the event catalog (`docs/event-naming.md`).
+  Repos under 33GOD/ are only a subset of what actually runs; systemd user
+  units (hook-hub, n8n binary, Wax, Vinyl, curator, pdf2md, hermes-gateway)
+  and host-level stacks carry much of the system.
+- Split into dependency-ordered, non-overlapping groups where each group is one
+  Compose bundle: bus first (NATS/Dapr/Apicurio/Candystore — zero deps), then
+  integration plane (n8n + custom nodes + workflows), fleet runtime,
+  observability, project tooling (PJangler + Skillex + CommonProject move
+  together), voice (Wax+Vinyl+transcription+TTS; n8n and Bloodbank are prereqs),
+  enrichment/memory, orchestration apps.
+- LLM-touching services ship with their base_url as CONFIG, never wired to the
+  home gateway — the recipient points them at any OpenAI-compatible endpoint.
+  The personal gateway, desktop operator layer (zellij/crank/deckard), and
+  household stacks are deliberately not shipped.
+- Deliver the plan as a live checkoff artifact (see `html-artifact-delivery`):
+  one checkbox per component + per group, dependency gating that shows
+  "blocked by" until upstream components are checked, and localStorage
+  persistence — the operator works through it one group at a time.
+
 ## Event and command spine
 
 - **Observability has one backbone.** Immutable facts belong in

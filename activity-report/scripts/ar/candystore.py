@@ -43,6 +43,7 @@ SESSION_TYPES = _both("agent.session.ended")
 TASK_TYPES = _both("repo.task.created", "repo.task.updated", "repo.task.appended")
 DECISION_TYPES = _both("repo.decision.recorded")
 REPORT_TYPES = _both("project.activity.recorded")
+SESSION_REPORT_TYPES = _both("report.session.completed")
 
 _VERSIONED = re.compile(r"^bloodbank\.v[0-9]+\.")
 _RENAMED = {"bloodbank.tool.tool_call.": "bloodbank.agent.tool."}
@@ -327,80 +328,38 @@ def _sorted_counter(counter: Counter, top: int | None = None) -> dict:
 
 # -- collectors -------------------------------------------------------------------
 
-def collect_tools(scope, window, base_url: str = CANDYSTORE_URL) -> dict:
-    """The digest "candystore" block minus sessions_ended (plus a caveats list digest.py hoists)."""
-    events, total, truncated, pages = _fetch_pages(TOOL_TYPES, window.start, window.end, base_url)
+def collect_session_reports(scope, window, base_url: str = CANDYSTORE_URL) -> dict:
+    events, total, truncated, pages = _fetch_pages(SESSION_REPORT_TYPES, window.start, window.end, base_url)
     caveats: list[str] = []
     in_scope: list[dict] = []
     no_cwd = 0
     for event in events:
-        cwd = cwd_of(event)
+        data = event.get("data") or {}
+        cwd = data.get("cwd")
         if cwd is None:
             no_cwd += 1
             continue
         if scope.contains(cwd):
             in_scope.append(event)
 
-    by_cli: Counter = Counter()
-    by_tool: Counter = Counter()
-    sessions: dict[str, str] = {}
-    branches: set[str] = set()
-    deploys: list[dict] = []
-    failures: list[dict] = []
-    failed = unknown = 0
+    session_summaries = []
     for event in in_scope:
-        cli = cli_of(event)
-        by_cli[cli] += 1
-        tool = field(event, "tool_name")
-        by_tool[str(tool) if tool else "unknown"] += 1
-        sid = session_of(event)
-        if sid:
-            sessions.setdefault(sid, cli)
-        branch = field(event, "git_branch")
-        if isinstance(branch, str) and branch.strip():
-            branches.add(branch.strip())
-        klass = outcome_class(event)
-        if klass == "failed":
-            failed += 1
-        elif klass == "unknown":
-            unknown += 1
-        command = command_of(event)
-        raw_command = field(event, "command")     # the collapsed copy has no first line to judge by
-        if is_deploy_command(raw_command if isinstance(raw_command, str) else command):
-            deploys.append({"at": _iso(event), "cli": cli, "command": command[:DETAIL_CHARS]})
-        if klass == "failed":
-            failures.append({"at": _iso(event), "cli": cli, "tool": str(tool) if tool else "unknown",
-                             "detail": failure_detail(event)})
+        data = event.get("data") or {}
+        session_summaries.append({
+            "session_id": data.get("session_id"),
+            "summary": data.get("summary"),
+            "event_count": data.get("event_count")
+        })
 
-    deploys.sort(key=lambda d: d["at"] or "", reverse=True)
-    failures.sort(key=lambda f: f["at"] or "", reverse=True)
     if truncated:
-        caveats.append(f"Candystore paging stopped after {pages} pages ({len(events)} of {total} tool events fetched); "
-                       "tool counts are a floor")
+        caveats.append(f"Candystore paging stopped after {pages} pages ({len(events)} of {total} session reports fetched)")
     if no_cwd:
-        caveats.append(f"{no_cwd} tool events in the window carried no working directory and were attributed to no project")
-    if len(failures) > FAILURE_CAP:
-        caveats.append(f"failures list capped at {FAILURE_CAP} of {len(failures)}")
-    if len(deploys) > DEPLOY_CAP:
-        caveats.append(f"deploy_commands list capped at {DEPLOY_CAP} of {len(deploys)}")
-    branch_list = sorted(branches)
-    if len(branch_list) > BRANCH_CAP:
-        caveats.append(f"branches_touched capped at {BRANCH_CAP} of {len(branch_list)}")
-        branch_list = branch_list[:BRANCH_CAP]
+        caveats.append(f"{no_cwd} session reports in the window carried no working directory and were attributed to no project")
 
     return {
         "reachable": True,
         "base_url": base_url,
-        "tool_calls_total": len(in_scope),
-        "failed": failed,
-        "unknown_outcome": unknown,
-        "by_cli": _sorted_counter(by_cli),
-        "by_tool": _sorted_counter(by_tool, BY_TOOL_TOP),
-        "sessions": len(sessions),
-        "sessions_by_cli": _sorted_counter(Counter(sessions.values())),
-        "branches_touched": branch_list,
-        "deploy_commands": deploys[:DEPLOY_CAP],
-        "failures": failures[:FAILURE_CAP],
+        "session_summaries": session_summaries,
         "coverage": {"total": total, "fetched": len(events), "pages": pages, "truncated": truncated},
         "caveats": caveats,
     }

@@ -17,7 +17,7 @@ The hooks own only CodeGraph indexing behavior. They do not publish lifecycle ev
 |---|---|---|---|---|
 | `session_start` | `SessionStart` | `SessionStart` | `on_session_start` | Bounded local status probe only; no indexing and no provider call |
 | `post_tool` | `PostToolUse` | `PostToolUse` | `post_tool_call` | Inspect bounded stdin and mark dirty only for likely mutations |
-| `session_end` | `Stop` | `Stop` | `on_session_end` | Under a nonblocking advisory lock, run one bounded index if dirty |
+| `session_end` | `Stop` | `Stop` | `on_session_end` | If dirty and a real provider is opted in, run one bounded index under a nonblocking advisory lock |
 
 Claude and Codex receive a mutating-tool matcher on `PostToolUse`. Hermes receives hook config plus owner-marked shell-hook allowlist metadata. Runtime payload parsing still tolerates common snake/camel-case field and tool-name dialects.
 
@@ -29,13 +29,13 @@ $HOME/.agents/skills/codegraph-voyage/scripts/hook-runtime.py <normalized-role>
 
 ## Provider and remote-source policy
 
-The default is `fake`, which is deterministic and offline. Source-derived text is never sent remotely without an explicit project/runtime choice.
+The default is `off`: the hooks track dirty state but never index. Allowed providers are `voyage`, `openrouter` and `automaticai`. `fake` is not an accepted hook provider (its vectors are hashes, not embeddings, and used to pollute real indexes); it and any unrecognized value are treated as `off` and noted in the hook log (an unrecognized value is never echoed). Source-derived text is never sent remotely without an explicit project/runtime choice.
 
-To opt in to Voyage, use one of:
+To opt in, pick the provider whose model matches the project's existing sidecar (`codegraph-voyage status`) and use one of:
 
 ```bash
-export CODEGRAPH_VOYAGE_HOOK_PROVIDER=voyage
-export VOYAGE_API_KEY="$(op read 'op://DeLoSecrets/Voyage AI/API Key')"
+export CODEGRAPH_VOYAGE_HOOK_PROVIDER=automaticai   # or voyage | openrouter
+export AUTOMATICAI_API_KEY="$(op read 'op://DeLoSecrets/NewAPI Virtual Keys/codegraph-voyage')"
 ```
 
 or add this to the project's **gitignored** `.agents/local.json`:
@@ -43,12 +43,12 @@ or add this to the project's **gitignored** `.agents/local.json`:
 ```json
 {
   "codegraph_voyage": {
-    "hook_provider": "voyage"
+    "hook_provider": "automaticai"
   }
 }
 ```
 
-The client process must inherit `VOYAGE_API_KEY` ambiently. The key is never accepted by the master manifest, local JSON schema, hook command arguments, tool payloads, or diagnostic log. `CODEGRAPH_VOYAGE_HOOK_PROVIDER=off` disables session-end refresh without deleting pending dirty state.
+The client process must inherit the provider's API key ambiently (`VOYAGE_API_KEY`, `OPENROUTER_API_KEY` or `AUTOMATICAI_API_KEY`). A key is never accepted by the master manifest, local JSON schema, hook command arguments, tool payloads, or diagnostic log. `CODEGRAPH_VOYAGE_HOOK_PROVIDER=off` disables session-end refresh without deleting pending dirty state.
 
 ## Render, inspect, install
 

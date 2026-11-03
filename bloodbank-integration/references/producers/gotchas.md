@@ -2,11 +2,11 @@
 
 Each gotcha: **Symptom**, **Cause**, **Fix**, **Prevention**.
 
-## 1. "I published but `event-toaster` never logged it"
+## 1. "I published but `ntfy-router` never logged it"
 
-**Symptom.** A `curl … /publish` returns 200, but `docker logs bloodbank-event-toaster` shows nothing for your event.
+**Symptom.** A `curl … /publish` returns 200, but `docker logs bloodbank-ntfy-router` shows nothing for your event.
 
-**Cause.** `/publish` lands on the v2 RabbitMQ exchange. `event-toaster` subscribes to v3 NATS `bloodbank.evt.>` only. The two buses are not bridged.
+**Cause.** `/publish` lands on the v2 RabbitMQ exchange. `ntfy-router` subscribes to v3 NATS `bloodbank.evt.>` only. The two buses are not bridged.
 
 **Fix.** Republish through NATS — either the canonical stdlib hook publisher (`bloodbank/services/agent-hooks/publish.py`) or nats-py.
 
@@ -14,7 +14,7 @@ Each gotcha: **Symptom**, **Cause**, **Fix**, **Prevention**.
 
 ## 2. "My NATS publish goes through but downstream consumers don't react"
 
-**Symptom.** Toaster logs `toasted: myservice.thing.happened` (so NATS got it), but the specific consumer that filters on `type == "myservice.thing.happened"` never fires.
+**Symptom.** NtfyRouter logs `routed: myservice.thing.happened` (so NATS got it), but the specific consumer that filters on `type == "myservice.thing.happened"` never fires.
 
 **Cause.** Envelope `type` field doesn't match the NATS subject. The subject was `bloodbank.evt.system.heartbeat.received` but the envelope's `type` is `"bloodbank.system.heartbeat.RECEIVED"` or `"system.heartbeat.received"` etc.
 
@@ -30,7 +30,7 @@ Each gotcha: **Symptom**, **Cause**, **Fix**, **Prevention**.
 
 **Fix.** Check the daprd sidecar logs (`docker logs <svc>-daprd`) for `error publishing to topic`. Confirm the component name in `compose/v3/components/` matches the path segment after `/publish/`.
 
-**Prevention.** Wire an integration smoke test that publishes once and reads back via NATS in CI. The `bloodbank-event-toaster` ntfy stream is a fast manual smoke check.
+**Prevention.** Wire an integration smoke test that publishes once and reads back via NATS in CI. The `bloodbank-ntfy-router` ntfy stream is a fast manual smoke check.
 
 ## 4. "Hook hangs the agent for ~5 seconds"
 

@@ -46,7 +46,7 @@ n8n workflow `Plane → Bloodbank` (iMw484J1ZCqKME2C)
   ▼
 NATS `bloodbank.evt.repo.*`
   ├─ JetStream `BLOODBANK_EVENTS` retains the immutable envelope
-  ├─ event-toaster core subscription fans out to ntfy for human observation
+  ├─ ntfy-router core subscription fans out to ntfy for human observation
   └─ Dapr durable `candystore-events` subscription (`bloodbank.evt.>`)
        ▼
      Candystore `/events/all` → idempotent PostgreSQL insert
@@ -172,7 +172,7 @@ Lifecycle event publications on `bloodbank.evt.*`
        ├─ `BLOODBANK_EVENTS`
        ├─ Candystore durable projection
        ├─ Holocene fleet/velocity read model
-       └─ event-toaster → ntfy
+       └─ ntfy-router → ntfy
 ```
 
 The gateway acknowledges a command only after Hermes processing and terminal
@@ -214,7 +214,7 @@ gateway with zero eligible entries is healthy but intentionally unroutable.
 | Durable event projection | Candystore | Dapr subscription, idempotent insert, query API |
 | Agent command consumption | Hermes fleet gateway | Validates, authorizes, journals, dispatches, and emits lifecycle facts |
 | Operator read model | Holocene | Reads selected Candystore/fleet state; does not become event authority |
-| Human notification | event-toaster / ntfy | Best-effort observation; not durable proof |
+| Human notification | ntfy-router / ntfy | Best-effort observation; not durable proof |
 
 ## End-to-end proof checklist
 
@@ -226,7 +226,7 @@ gateway with zero eligible entries is healthy but intentionally unroutable.
    enabled.
 3. Trigger one safe Plane action.
 4. Confirm the n8n execution accepted the known `webhook_id` and HMAC.
-5. Confirm the expected NATS subject or event-toaster observation.
+5. Confirm the expected NATS subject or ntfy-router observation.
 6. Query Candystore by producer and type, for example:
    `GET /events?producer=n8n-plane-webhook&type=bloodbank.repo.task.created`.
 7. Match `id`, `workspace`, `board_id`, `repo`, and
@@ -248,7 +248,7 @@ gateway with zero eligible entries is healthy but intentionally unroutable.
 ## Common false conclusions
 
 - **"n8n returned 200, so the event is durable."** No. Prove the Candystore row.
-- **"ntfy showed it, so Candystore has it."** No. The toaster and Candystore are
+- **"ntfy showed it, so Candystore has it."** No. The router and Candystore are
   independent consumers.
 - **"The gateway service is running, so commands can execute."** No. Prove the
   current registry route is eligible.

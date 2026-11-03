@@ -1,0 +1,8 @@
+:root { color-scheme: light; --ok: #136f3a; }
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; background: #eef4f0; color: #18201b; }
+.card { max-width: 32rem; margin: 3rem auto; padding: 2rem; background: #fff; border-radius: 12px;
+        box-shadow: 0 2px 12px rgb(0 0 0 / 12%); }
+.status { font-weight: 600; }
+.status.ok { color: var(--ok); }
+/* Probe read by app.js: proves this stylesheet applied. */
+#css-status { --css-loaded: yes; }

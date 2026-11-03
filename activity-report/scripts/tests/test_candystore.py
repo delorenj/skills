@@ -185,53 +185,41 @@ class FetchTests(unittest.TestCase):
             candystore.fetch_json("http://127.0.0.1:1/events")
         with mock.patch.object(candystore, "fetch_json", side_effect=SourceUnavailable("down")):
             with self.assertRaises(SourceUnavailable):
-                candystore.collect_tools(ScopeSet(roots=[ROOT], worktrees=[], missing=[]), window())
+                candystore.collect_session_reports(ScopeSet(roots=[ROOT], worktrees=[], missing=[]), window())
 
 
-class CollectToolsTests(unittest.TestCase):
+class CollectSessionReportsTests(unittest.TestCase):
     def setUp(self):
-        claude = fixture("tool_completed_claude.json")
-        hermes = fixture("tool_completed_hermes.json")
-        hermes_error = fixture("tool_completed_hermes_error.json")
-        codex = fixture("tool_completed_codex.json")
+        base_event = {"type": "bloodbank.report.session.completed", "data": {"cwd": ROOT, "session_id": "sess-1", "summary": "Sum 1", "event_count": 5}}
+        other_cwd = {"type": "bloodbank.report.session.completed", "data": {"cwd": OTHER, "session_id": "sess-2", "summary": "Sum 2", "event_count": 2}}
+        worktree_cwd = {"type": "bloodbank.report.session.completed", "data": {"cwd": WORKTREE, "session_id": "sess-3", "summary": "Sum 3", "event_count": 3}}
+        no_cwd = {"type": "bloodbank.report.session.completed", "data": {"session_id": "sess-4", "summary": "Sum 4", "event_count": 1}}
+        
         self.events = [
-            stamped(claude, "2026-09-02T10:00:00.000000Z"),
-            stamped(claude, "2026-09-02T10:01:00.000000Z", arguments={"command": "mise run relay:deploy"}),
-            stamped(claude, "2026-09-02T10:02:00.000000Z", invocation_id="second-claude-session", git_branch="feat/x"),
-            stamped(claude, "2026-09-02T10:03:00.000000Z", arguments={"command": "cat > notes.md <<'EOF'\ncd x && mise run deploy\nEOF"}),
-            stamped(hermes, "2026-09-02T11:00:00.000000Z"),
-            stamped(hermes_error, "2026-09-02T11:01:00.000000Z"),
-            stamped(codex, "2026-09-02T12:00:00.000000Z"),                       # worktree: in scope
-            with_cwd(stamped(codex, "2026-09-02T12:01:00.000000Z"), OTHER),      # sibling: never
-            stamped(claude, "2026-09-02T13:00:00.000000Z", outcome=None),        # unknown outcome
+            stamped(base_event, "2026-09-02T10:00:00.000000Z"),
+            stamped(worktree_cwd, "2026-09-02T11:00:00.000000Z"),
+            stamped(other_cwd, "2026-09-02T12:00:00.000000Z"),
+            stamped(no_cwd, "2026-09-02T13:00:00.000000Z"),
         ]
         self.store = FakeStore(self.events)
 
     def collect(self, scope):
         with mock.patch.object(candystore, "fetch_json", self.store):
-            return candystore.collect_tools(scope, window())
+            return candystore.collect_session_reports(scope, window())
 
     def test_counts(self):
         block = self.collect(ScopeSet(roots=[ROOT], worktrees=[WORKTREE], missing=[]))
-        self.assertEqual(block["tool_calls_total"], 8)
-        self.assertEqual(block["by_cli"], {"claude": 5, "hermes": 2, "codex": 1})
-        self.assertEqual(block["failed"], 1)
-        self.assertEqual(block["unknown_outcome"], 1)
-        self.assertEqual(block["sessions"], 4)   # claude x2, hermes, codex: distinct invocation_id, not volume
-        self.assertEqual(block["sessions_by_cli"], {"claude": 2, "codex": 1, "hermes": 1})
-        self.assertEqual(block["branches_touched"], ["codex/jimb-169-prod-incident-20260901", "feat/x", "main"])
-        self.assertEqual(block["by_tool"]["Bash"], 5)
-        self.assertEqual([d["command"] for d in block["deploy_commands"]], ["mise run relay:deploy"])   # the heredoc body is not a deploy
-        self.assertEqual(len(block["failures"]), 1)
-        self.assertEqual(block["failures"][0]["tool"], "mcp__plane__workitem_relation")
-        self.assertEqual(block["failures"][0]["at"], "2026-09-02T11:01:00Z")
-        self.assertEqual(block["coverage"], {"total": 9, "fetched": 9, "pages": 1, "truncated": False})
         self.assertTrue(block["reachable"])
+        self.assertEqual(len(block["session_summaries"]), 2)
+        session_ids = [s["session_id"] for s in block["session_summaries"]]
+        self.assertCountEqual(session_ids, ["sess-1", "sess-3"])
+        self.assertEqual(block["coverage"], {"total": 4, "fetched": 4, "pages": 1, "truncated": False})
+        self.assertIn("1 session reports in the window carried no working directory", block["caveats"][0])
 
     def test_worktree_scope_changes_the_count(self):
         block = self.collect(ScopeSet(roots=[ROOT], worktrees=[], missing=[]))
-        self.assertEqual(block["tool_calls_total"], 7)
-        self.assertNotIn("codex", block["by_cli"])
+        self.assertEqual(len(block["session_summaries"]), 1)
+        self.assertEqual(block["session_summaries"][0]["session_id"], "sess-1")
 
 
 class SessionsEndedTests(unittest.TestCase):

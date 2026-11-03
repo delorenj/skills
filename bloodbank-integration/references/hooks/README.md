@@ -57,14 +57,14 @@ lives in `actor`, not in `type`.
 | Invocation completed | `bloodbank.agent.invocation.completed` | `bloodbank.evt.agent.invocation.completed` |
 | Invocation failed | `bloodbank.agent.invocation.failed` | `bloodbank.evt.agent.invocation.failed` |
 
-`bloodbank-event-toaster` subscribes to `bloodbank.evt.>` but does not toast
+`bloodbank-ntfy-router` subscribes to `bloodbank.evt.>` but does not route
 every hook event. It mutes `bloodbank.agent.hook.updated` (hook-hub's state
 pulse; hook-hub coalesces revisions with a 2s debounce and a 10s cap, so it runs ~2/s in a busy session,
 down from ~9/s; a finished invocation publishes at once) and `bloodbank.system.hook.updated`, and rolls
-`bloodbank.agent.tool.*` into one digest toast every few minutes; session, turn
-and invocation events still toast one each at `https://ntfy.delo.sh/bloodbank`.
+`bloodbank.agent.tool.*` into one digest notification every few minutes; session, turn
+and invocation events still route one each at `https://ntfy.delo.sh/bloodbank`.
 So ntfy is not the check for a hook event. Look for its `digested:` or
-`toasted:` line in `docker logs bloodbank-event-toaster`, or query Candystore
+`routed:` line in `docker logs bloodbank-ntfy-router`, or query Candystore
 (`GET http://127.0.0.1:8683/events`), which records every event, muted or not.
 
 ## Current implementation

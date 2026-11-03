@@ -32,15 +32,15 @@ Each gotcha: **Symptom**, **Cause**, **Fix**, **Prevention**.
 
 **Prevention.** Diff the subscriptions list on startup against expected; fail the boot if there are duplicates.
 
-## 4. "Toaster sees the event but my JetStream durable doesn't"
+## 4. "NtfyRouter sees the event but my JetStream durable doesn't"
 
-**Symptom.** `bloodbank-event-toaster` logs `toasted: foo.bar.baz` but your durable consumer on the same subject is silent.
+**Symptom.** `bloodbank-ntfy-router` logs `routed: foo.bar.baz` but your durable consumer on the same subject is silent.
 
-**Cause.** Toaster uses **core** subscribe (sees every message on the broker); JetStream durables only see messages **retained by a stream**. The subject isn't in any stream.
+**Cause.** NtfyRouter uses **core** subscribe (sees every message on the broker); JetStream durables only see messages **retained by a stream**. The subject isn't in any stream.
 
 **Fix.** Add the subject to the appropriate stream in `compose/v3/nats/streams.json` and re-apply (`nats-init` runs at compose-up time).
 
-**Prevention.** Treat the toaster as a "did it hit the broker" check, not a "is it retained" check.
+**Prevention.** Treat the router as a "did it hit the broker" check, not a "is it retained" check.
 
 ## 5. "FastStream consumer binds but never gets messages" (legacy v2 `/publish`)
 
@@ -64,10 +64,10 @@ Each gotcha: **Symptom**, **Cause**, **Fix**, **Prevention**.
 
 ## 7. "ntfy stream stops mid-day"
 
-**Symptom.** You stop seeing toasts on `https://ntfy.delo.sh/bloodbank`.
+**Symptom.** You stop seeing routes on `https://ntfy.delo.sh/bloodbank`.
 
-**Cause.** The toaster container is down or the ntfy server is unreachable. The toaster is best-effort by design.
+**Cause.** The router container is down or the ntfy server is unreachable. The router is best-effort by design.
 
-**Fix.** `docker logs bloodbank-event-toaster --tail 50`. Common: container restarted and lost its NATS subscription handle — usually self-heals via `max_reconnect_attempts=-1`.
+**Fix.** `docker logs bloodbank-ntfy-router --tail 50`. Common: container restarted and lost its NATS subscription handle — usually self-heals via `max_reconnect_attempts=-1`.
 
-**Prevention.** Don't depend on the toaster for anything operational; it's intentionally not durable.
+**Prevention.** Don't depend on the router for anything operational; it's intentionally not durable.

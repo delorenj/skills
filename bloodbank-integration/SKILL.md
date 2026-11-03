@@ -1,6 +1,6 @@
 ---
 name: bloodbank-integration
-description: "Integrate producers, consumers, webhooks, or agent harnesses with the 33GOD Bloodbank event and command pipeline. Covers the full event journey, schemas in Bloodbank schemas/ and docs/event-naming.md, Plane webhook ingress through n8n, NATS/Dapr publication, Candystore projection, Holocene/toaster read sides, the fleet-shared Hermes command gateway, and canonical agent hooks. Use for event publish/consume, webhook normalization, command dispatch, authoring schemas, integrating harnesses (Claude Code, Copilot CLI, OpenCode, Cursor, Aider, Codex CLI, Hermes), or tracing a message end-to-end. Triggers: bloodbank, event bus, publish, subscribe, NATS subject, CloudEvents, Plane webhook, n8n Plane to Bloodbank, Candystore projection, event-toaster, ntfy.delo.sh/bloodbank, bloodbank.agent.session.started, bloodbank.agent.tool.completed, bloodbank.cmd.agent.invocation.start. Skip for generic brokers, general n8n workflow authoring, hindsight memory, or non-event-bus 33GOD."
+description: "Integrate producers, consumers, webhooks, or agent harnesses with the 33GOD Bloodbank event and command pipeline. Covers the full event journey, schemas in Bloodbank schemas/ and docs/event-naming.md, Plane webhook ingress through n8n, NATS/Dapr publication, Candystore projection, Holocene/router read sides, the fleet-shared Hermes command gateway, and canonical agent hooks. Use for event publish/consume, webhook normalization, command dispatch, authoring schemas, integrating harnesses (Claude Code, Copilot CLI, OpenCode, Cursor, Aider, Codex CLI, Hermes), or tracing a message end-to-end. Triggers: bloodbank, event bus, publish, subscribe, NATS subject, CloudEvents, Plane webhook, n8n Plane to Bloodbank, Candystore projection, ntfy-router, ntfy.delo.sh/bloodbank, bloodbank.agent.session.started, bloodbank.agent.tool.completed, bloodbank.cmd.agent.invocation.start. Skip for generic brokers, general n8n workflow authoring, hindsight memory, or non-event-bus 33GOD."
 ---
 
 # Bloodbank Integration
@@ -13,7 +13,7 @@ Route here when a service or harness needs to **emit** or **consume** events on 
 - **Schema first.** Every event has a JSON Schema under `bloodbank/schemas/`. Build envelopes through the canonical builder/validator path, and keep manual envelope examples derivable from the schema and naming contract.
 - **NATS is the current bus.** v3 (Dapr + NATS JetStream + CloudEvents 1.0) is the live target. v2 (RabbitMQ topic exchange) still runs but is migration-only territory.
 - **Facts and intent take different lanes.** Events are immutable facts on `bloodbank.evt.*`; commands are targeted intent on `bloodbank.cmd.*`. Candystore projects events, not commands. A command consumer emits lifecycle events so execution still becomes durable history.
-- **Subject convention is load-bearing.** CloudEvents `type` is `bloodbank.<domain>.<entity>.<action>`. NATS subjects are `bloodbank.evt.<domain>.<entity>.<action>` for events, `bloodbank.cmd.<domain>.<entity>.<action>` for commands, and `bloodbank.rpy.<domain>.<entity>.<action>` for replies. The catch-all `event-toaster` listens on `bloodbank.evt.>`.
+- **Subject convention is load-bearing.** CloudEvents `type` is `bloodbank.<domain>.<entity>.<action>`. NATS subjects are `bloodbank.evt.<domain>.<entity>.<action>` for events, `bloodbank.cmd.<domain>.<entity>.<action>` for commands, and `bloodbank.rpy.<domain>.<entity>.<action>` for replies. The catch-all `ntfy-router` listens on `bloodbank.evt.>`.
 - **Plane enters through one provenance boundary.** Both self-hosted Plane workspaces post over HTTPS to the active `Plane → Bloodbank` n8n workflow. The custom node (`n8n-nodes-bloodbank` `src/plane.ts`, the ONLY Plane normalizer) selects the 1Password secret by payload `webhook_id`, verifies `X-Plane-Signature` over the raw body, routes the board by pjangler enrollment (`.project.json` `ticket_provider.board_id`, which wins) merged with the Hermes registry, normalizes the provider action, and publishes NATS-direct. A board nothing claims goes to the Unrouted output (one ntfy push per board per 24h), never guessed. `plane.*` names are n8n trigger aliases declared as `x-provider-aliases` in the canonical `repo.*` schemas, not bus events. `plane-webhook-bridge` (port `8477`), `bb-triage-invoke`, `bb-ack-labels` and Bloodbank HTTP `/event` are deleted or retired.
 - **Agents never emit `repo.task.*` / `repo.board.*` facts.** Plane is the record; its webhook echo is the fact. To create a ticket run `px task create` (on a Krebs-managed board, send `bloodbank.cmd.lifecycle.task.invoke` with `data.command.operation: create`). Never build "task.created → create Plane ticket" mirroring: it loops and gives one task two IDs.
 - **Agent hooks use one publisher.** All CLI lifecycle hooks call `~/.agents/hooks/bloodbank/publish.py --client <agent> --hook <native-event>`. Client-specific prep lives in `services/agent-hooks/clients/<agent>.py`; per-client `publish.py` files are wrappers.
@@ -22,6 +22,8 @@ Route here when a service or harness needs to **emit** or **consume** events on 
   `bloodbank.llm.allowance.observed`. Project them to Prometheus/Candystore
   consumers rather than mirroring every envelope into Loki.
 - **Fail open at the boundary.** Hooks must never block the host agent. Producer libs should swallow publish failures by default.
+- **Hermes conversation events carry content.** `bloodbank.conversation.turn.started` includes `prompt_text`/`prompt_length`; `bloodbank.conversation.turn.completed` includes `reply_text`/`reply_length`. The Hermes adapter (`services/agent-hooks/clients/hermes.py`) extracts these from the native payload's `extra.prompt`, `extra.user_input`, `extra.last_assistant_message` etc. If a consumer needs conversation content, subscribe to these events rather than querying Hindsight.
+- **The Hermes gateway is a single multiplexed process.** One gateway serves all profiles. A NATS JetStream consumer stall blocks command consumption for every profile simultaneously. Verify consumption by checking for new execution rows in `bloodbank-hermes-gateway-state.sqlite3` after dispatch, not by checking that the gateway process is alive.
 
 ## Triage Table
 
@@ -37,7 +39,7 @@ Match the user's intent against the signals on the left; load the cited file fir
 | "how do I publish / fire / emit", "send an event", "publish to bloodbank", "from <language>" | `references/producers/README.md` |
 | "Dapr publish", "HTTP /publish", "hookd_bridge", "from a bash hook" | `references/producers/methods.md` |
 | "how do I consume / subscribe / listen", "build a consumer", "react to events", "downstream service" | `references/consumers/README.md` |
-| "Dapr subscriber", "FastStream", "event-toaster", "catch-all", "ntfy notification" | `references/consumers/methods.md` |
+| "Dapr subscriber", "FastStream", "ntfy-router", "catch-all", "ntfy notification" | `references/consumers/methods.md` |
 | "wire Claude Code hooks", "wire Copilot hooks", "integrate <harness> into bloodbank", "agent lifecycle events" | `references/hooks/README.md` |
 | "add a new harness" (Cursor, Aider, OpenCode, Cody, Codex CLI, etc.) | `references/hooks/adding-a-harness.md` |
 | "envelope didn't arrive", "consumer not getting messages", "subject mismatch", "drift" | the matching topic's `gotchas.md` |
@@ -72,7 +74,7 @@ Do you own a 33GOD service container with a Dapr sidecar?
 └─ No
    ├─ Need wildcard fan-in across many subjects (observability, audit, notify)?
    │  → NATS core subscribe on "bloodbank.evt.>" (no JetStream consumer, no durability).
-   │    Reference: services/event-toaster/main.py.
+   │    Reference: services/ntfy-router/main.py.
    ├─ Need durable, replay-capable consumption on a specific subject?
    │  → NATS JetStream durable consumer. Subjects defined in compose/nats/streams.json.
    ├─ Inside an n8n workflow?
@@ -83,7 +85,7 @@ Do you own a 33GOD service container with a Dapr sidecar?
    ├─ Legacy v2 consumer or RabbitMQ-only environment?
    │  → FastStream RabbitMQ consumer bound to exchange bloodbank.events.v1. Avoid for new work.
    └─ Just want desktop notifications?
-      → Subscribe to https://ntfy.delo.sh/bloodbank (event-toaster publishes there: one toast
+      → Subscribe to https://ntfy.delo.sh/bloodbank (ntfy-router publishes there: one route
         per event, except muted hook pulses and a periodic digest of agent.tool.*).
 ```
 
@@ -96,8 +98,8 @@ These apply regardless of producer/consumer path or language:
 - **The schema tree is keyed by domain, not version.** `schemas/bloodbank/agent/session.started.json`. A breaking payload change does NOT become a `.v2.json` — it becomes a new `action` or `entity`, i.e. a different fact with its own type and subject (event-naming.md §3.1). Only `dataschema`/`schemaref` carry a revision number.
 - **Do not make schemas optional.** Edit the JSON Schema first, then validate with `mise run smoketest:schemas`.
 - **Use Hindsight memory bank `bloodbank` for integration notes** — broker-level decisions, subject-naming surprises, consumer wiring gotchas live there, not in the code.
-- **Test producers with the toaster log, not just ntfy.** `bloodbank-event-toaster` subscribes to `bloodbank.evt.>` and gives each type one disposition: `bloodbank.agent.hook.updated` and `bloodbank.system.hook.updated` are **muted** (counted only in the per-minute `stats` log line, never posted), `bloodbank.agent.tool.*` is **digested** (one summary toast every few minutes), and everything else is **toasted** one by one to `https://ntfy.delo.sh/bloodbank`, rate-limited, with overflow joining the digest. Every non-muted event logs one line in `docker logs bloodbank-event-toaster` (`toasted:`, `digested:` or `rate-limited:` plus the type). No such line for a non-muted type means it didn't make it to NATS; for a muted type, check Candystore.
-- **Prove durable arrival in Candystore.** The canonical projection subscribes through Dapr to `bloodbank.evt.>` and exposes loopback query API `GET http://127.0.0.1:8683/events`. A toaster log line or notification proves live fan-out; a Candystore row proves durable projection.
+- **Test producers with the router log, not just ntfy.** `bloodbank-ntfy-router` subscribes to `bloodbank.evt.>` and gives each type one disposition: `bloodbank.agent.hook.updated` and `bloodbank.system.hook.updated` are **muted** (counted only in the per-minute `stats` log line, never posted), `bloodbank.agent.tool.*` is **digested** (one summary route every few minutes), and everything else is **routed** one by one to `https://ntfy.delo.sh/bloodbank`, rate-limited, with overflow joining the digest. Every non-muted event logs one line in `docker logs bloodbank-ntfy-router` (`routed:`, `digested:` or `rate-limited:` plus the type). No such line for a non-muted type means it didn't make it to NATS; for a muted type, check Candystore.
+- **Prove durable arrival in Candystore.** The canonical projection subscribes through Dapr to `bloodbank.evt.>` and exposes loopback query API `GET http://127.0.0.1:8683/events`. A router log line or notification proves live fan-out; a Candystore row proves durable projection.
 - **Do not treat a running command gateway as routability.** Activation defaults to allow (the same rule in the template's `80-registry.sh`, flume's validators and handbook, the fleet gateway and the n8n Fleet resolver): a missing `bloodbank.enabled` means enabled, only an explicit `false` quarantines, and a present non-boolean (`"true"`, `null`, `1`) is invalid and treated as disabled. Before claiming commands can execute, count registry entries that have a `bloodbank` mapping with `enabled` absent or `true`, `gateway_scope: fleet`, a matching `target_agent_id`, and a nonblank `profile_name`.
 
 ## Reading Order
