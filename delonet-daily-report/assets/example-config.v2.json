@@ -66,8 +66,8 @@
       "max_age_hours": 24,
       "options": {
         "hermes_home": "/home/delorenj/.hermes",
-        "registry_file": "agents-registry.yaml",
-        "systemd_unit_glob": "hermes-*"
+        "unit_prefix": "hermes-",
+        "host_gateway_unit": "hermes-gateway.service"
       }
     },
     {

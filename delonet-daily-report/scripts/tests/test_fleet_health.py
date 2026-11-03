@@ -27,8 +27,9 @@ fleet_health = importlib.import_module("collectors.fleet_health")
 
 
 UNIT_ROWS = [
+    # T1: one host gateway serves every profile; there is no per-agent unit.
     {
-        "unit": "hermes-alpha-pm-gateway.service",
+        "unit": "hermes-gateway.service",
         "load": "loaded",
         "active": "active",
         "sub": "running",
@@ -126,6 +127,22 @@ class FleetFixture:
     def add_broken_skill_link(self, name: str) -> None:
         (self.skills / name).symlink_to(self.root / "gone" / name)
 
+    def write_policy(self, *exempt_units: str) -> Path:
+        path = self.root / "scheduling-policy.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "exceptions": [
+                        {"id": f"systemd:user:{unit}", "owner": "test", "reason": "test"}
+                        for unit in exempt_units
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        return path
+
     def add_profile(
         self,
         name: str,
@@ -134,9 +151,18 @@ class FleetFixture:
         cron_dir: Path | None = None,
         ticker_age: float | None = 0.0,
         raw_jobs: str | None = None,
+        skill_config: str | None = None,
     ) -> Path:
         profile = self.profiles / name
         profile.mkdir(parents=True, exist_ok=True)
+        # By default the fixture's shared skills dir is the profile's
+        # ``skills.external_dirs`` -- how skillex projections reach a profile.
+        (profile / "config.yaml").write_text(
+            skill_config
+            if skill_config is not None
+            else f"skills:\n  external_dirs:\n    - {self.skills}\n",
+            encoding="utf-8",
+        )
         target = cron_dir or (profile / "cron")
         target.mkdir(parents=True, exist_ok=True)
         if cron_dir is not None:
@@ -160,7 +186,8 @@ class FleetFixture:
             "hermes_home": str(self.root),
             "registry_path": str(self.registry),
             "profiles_dir": str(self.profiles),
-            "skills_dir": str(self.skills),
+            # Never read the real candybar repo's policy register.
+            "scheduling_policy_path": str(self.root / "no-policy.json"),
             # Tests opt into the candybar source explicitly (with a stubbed
             # _http_json); nothing here may touch the network by default.
             "candybar_api_url": "",
@@ -389,6 +416,199 @@ class FleetHealthTest(unittest.TestCase):
         artifact = self.artifact(self.run_collect(self.fleet.section()))
         self.assertEqual(0, artifact["metrics"]["jobs_with_missing_skill"])
 
+    # --- skill resolution mirrors Hermes (agent/skill_utils.py) ------------- #
+
+    def write_skill(self, root: Path, rel: str, frontmatter_name: str = "") -> None:
+        path = root / rel
+        path.mkdir(parents=True, exist_ok=True)
+        body = f"---\nname: {frontmatter_name}\n---\n# s\n" if frontmatter_name else "# s\n"
+        (path / "SKILL.md").write_text(body, encoding="utf-8")
+
+    def missing_for(self, artifact: dict[str, Any]) -> int:
+        return artifact["metrics"]["jobs_with_missing_skill"]
+
+    def test_a_skill_in_the_profiles_own_skills_dir_resolves(self) -> None:
+        self.fleet.write_registry()
+        profile = self.fleet.add_profile("alpha-pm", [job()], skill_config="")
+        self.write_skill(profile / "skills", "good-skill")
+        artifact = self.artifact(self.run_collect(self.fleet.section()))
+        self.assertEqual(0, self.missing_for(artifact))
+
+    def test_without_external_dirs_a_shared_skill_does_not_resolve(self) -> None:
+        self.fleet.write_registry()
+        self.fleet.add_skill("good-skill")
+        self.fleet.add_profile("alpha-pm", [job()], skill_config="")
+        artifact = self.artifact(self.run_collect(self.fleet.section()))
+        self.assertEqual(1, self.missing_for(artifact))
+
+    def test_a_relative_create_dir_is_anchored_at_the_profile(self) -> None:
+        self.fleet.write_registry()
+        profile = self.fleet.add_profile(
+            "alpha-pm", [job()], skill_config="skills:\n  create_dir: authored\n"
+        )
+        self.write_skill(profile / "authored", "good-skill")
+        artifact = self.artifact(self.run_collect(self.fleet.section()))
+        self.assertEqual(0, self.missing_for(artifact))
+
+    def test_a_skill_answers_to_its_frontmatter_name(self) -> None:
+        self.fleet.write_registry()
+        self.write_skill(self.fleet.skills, "33god-good", frontmatter_name="good-skill")
+        self.fleet.add_profile("alpha-pm", [job()])
+        artifact = self.artifact(self.run_collect(self.fleet.section()))
+        self.assertEqual(0, self.missing_for(artifact))
+
+    def test_a_disabled_skill_does_not_resolve(self) -> None:
+        self.fleet.write_registry()
+        self.fleet.add_skill("good-skill")
+        self.fleet.add_profile(
+            "alpha-pm",
+            [job()],
+            skill_config=(
+                f"skills:\n  external_dirs:\n    - {self.fleet.skills}\n"
+                "  disabled:\n    - good-skill\n"
+            ),
+        )
+        artifact = self.artifact(self.run_collect(self.fleet.section()))
+        self.assertEqual(1, self.missing_for(artifact))
+
+    def test_a_skill_md_inside_a_skills_support_dir_is_not_a_skill(self) -> None:
+        self.fleet.write_registry()
+        self.fleet.add_skill("host-skill")
+        self.write_skill(self.fleet.skills / "host-skill" / "references", "good-skill")
+        self.fleet.add_profile("alpha-pm", [job()])
+        artifact = self.artifact(self.run_collect(self.fleet.section()))
+        self.assertEqual(1, self.missing_for(artifact))
+
+    def test_a_trusted_project_skill_resolves_for_a_job_running_inside_it(self) -> None:
+        self.fleet.write_registry()
+        project = Path(self.temporary.name) / "proj"
+        (project / ".git").mkdir(parents=True)
+        self.write_skill(project / ".agents" / "skills", "good-skill")
+        self.fleet.add_profile(
+            "alpha-pm",
+            [job(workdir=str(project / "sub"))],
+            skill_config=f"skills:\n  trusted_project_dirs:\n    - {project}\n",
+        )
+        artifact = self.artifact(self.run_collect(self.fleet.section()))
+        self.assertEqual(0, self.missing_for(artifact))
+
+    def test_an_untrusted_project_skill_does_not_resolve(self) -> None:
+        self.fleet.write_registry()
+        project = Path(self.temporary.name) / "proj"
+        (project / ".git").mkdir(parents=True)
+        self.write_skill(project / ".agents" / "skills", "good-skill")
+        self.fleet.add_profile("alpha-pm", [job(workdir=str(project))], skill_config="")
+        artifact = self.artifact(self.run_collect(self.fleet.section()))
+        self.assertEqual(1, self.missing_for(artifact))
+
+    # --- who owns the schedule (T2) ---------------------------------------- #
+
+    def test_a_disabled_unpinned_job_is_dormant_not_a_claim(self) -> None:
+        self.fleet.write_registry()
+        self.fleet.add_profile(
+            "alpha-pm", [job(enabled=False, skills=["gone-skill"], skill="gone-skill")]
+        )
+        artifact = self.artifact(self.run_collect(self.fleet.section()))
+        metrics = artifact["metrics"]
+
+        self.assertEqual(1, metrics["cron_jobs_dormant"])
+        self.assertEqual(0, metrics["cron_jobs_enabled"])
+        self.assertEqual(0, metrics["jobs_claiming_ok_unverified"])
+        self.assertEqual(0, metrics["jobs_claiming_ok_contradicted"])
+        self.assertEqual(0, metrics["jobs_with_missing_skill"])
+        self.assertTrue(any("dormant Hermes cron entr" in line for line in artifact["detail"]))
+
+    def test_an_enabled_unpinned_job_is_a_second_clock(self) -> None:
+        self.fleet.write_registry()
+        self.fleet.add_skill("good-skill")
+        self.fleet.add_profile("alpha-pm", [job()])
+        artifact = self.artifact(self.run_collect(self.fleet.section()))
+        self.assertEqual(1, artifact["metrics"]["cron_jobs_enabled"])
+        self.assertTrue(any("second clock beside Candybar" in c for c in artifact["caveats"]))
+
+    def candybar_run(self, description: str, jobs: list[dict[str, Any]]):
+        self.fleet.write_registry()
+        self.fleet.add_skill("good-skill")
+        self.fleet.add_profile("alpha-pm", jobs)
+        candybars = [
+            {
+                "id": "cb-1",
+                "name": "nightly-thing",
+                "description": description,
+                "schedule": "0 6 * * *",
+                "timezone": "UTC",
+                "enabled": True,
+            }
+        ]
+        invocations = {"cb-1": {"invocations": [{"result": "success", "trigger": "scheduled"}]}}
+        return self.artifact(
+            self.run_collect(
+                self.fleet.section(candybar_api_url="http://candybar.test"),
+                candybars=candybars,
+                invocations=invocations,
+            )
+        )
+
+    def test_a_candybar_is_linked_to_the_hermes_job_it_runs(self) -> None:
+        artifact = self.candybar_run(
+            "Nightly (was hermes alpha-pm:abc123)",
+            [job(id="abc123", scheduler="external", enabled=False)],
+        )
+        self.assertEqual(0, artifact["metrics"]["candybars_hermes_target_broken"])
+        self.assertTrue(
+            any("candybar-managed by nightly-thing" in line for line in artifact["detail"])
+        )
+
+    def test_a_candybar_aimed_at_a_missing_profile_is_a_target_problem(self) -> None:
+        artifact = self.candybar_run(
+            "Triage (was hermes ghost-pm:abc123)",
+            [job(id="abc123", scheduler="external", enabled=False)],
+        )
+        self.assertEqual(1, artifact["metrics"]["candybars_hermes_target_broken"])
+        self.assertTrue(
+            any("profile ghost-pm does not exist" in line for line in artifact["detail"])
+        )
+        self.assertTrue(any("did nothing" in c for c in artifact["caveats"]))
+
+    def test_a_candybar_aimed_at_a_missing_job_or_an_unpinned_job_is_a_target_problem(self) -> None:
+        missing = self.candybar_run(
+            "x (was hermes alpha-pm:fff999)", [job(id="abc123", scheduler="external")]
+        )
+        self.assertTrue(
+            any("job fff999 is not in alpha-pm" in line for line in missing["detail"])
+        )
+        self.setUp()
+        unpinned = self.candybar_run("x (was hermes alpha-pm:abc123)", [job(id="abc123")])
+        self.assertEqual(1, unpinned["metrics"]["candybars_hermes_target_broken"])
+        self.assertTrue(any("not pinned scheduler=external" in line for line in unpinned["detail"]))
+
+    def test_a_timer_in_candybars_exception_register_is_not_a_second_clock(self) -> None:
+        self.fleet.write_registry()
+        self.fleet.add_profile("alpha-pm", [])
+        policy = self.fleet.write_policy("hermes-alpha-pm-heartbeat.timer")
+        artifact = self.artifact(
+            self.run_collect(self.fleet.section(scheduling_policy_path=str(policy)))
+        )
+        self.assertEqual(0, artifact["metrics"]["timers_outside_candybar"])
+        self.assertTrue(any("Candybar policy exception" in line for line in artifact["detail"]))
+
+    def test_a_timer_outside_the_register_is_a_second_clock(self) -> None:
+        self.fleet.write_registry()
+        self.fleet.add_profile("alpha-pm", [])
+        policy = self.fleet.write_policy("some-other.timer")
+        artifact = self.artifact(
+            self.run_collect(self.fleet.section(scheduling_policy_path=str(policy)))
+        )
+        self.assertEqual(1, artifact["metrics"]["timers_outside_candybar"])
+        self.assertTrue(any("second clock: not in candybar" in line for line in artifact["detail"]))
+
+    def test_an_unreadable_policy_register_classifies_nothing_and_fails_nothing(self) -> None:
+        self.fleet.write_registry()
+        self.fleet.add_profile("alpha-pm", [])
+        artifact = self.artifact(self.run_collect(self.fleet.section()))
+        self.assertEqual("complete", artifact["status"])
+        self.assertEqual(0, artifact["metrics"]["timers_outside_candybar"])
+
     def test_stale_ticker_is_detected_for_profiles_with_jobs(self) -> None:
         self.fleet.write_registry()
         self.fleet.add_skill("good-skill")
@@ -450,11 +670,102 @@ class FleetHealthTest(unittest.TestCase):
         self.assertEqual(1, artifact["metrics"]["gateway_units_inactive"])
 
     def test_a_registry_unit_systemd_has_never_heard_of_is_reported(self) -> None:
+        self.fleet.write_registry(
+            "agents:\n  alpha-pm:\n    profile_name: alpha-pm\n"
+            "    systemd:\n      gateway_unit: custom-relay.service\n"
+        )
+        self.fleet.add_profile("alpha-pm", [])
+        artifact = self.artifact(self.run_collect(self.fleet.section()))
+        self.assertEqual(1, artifact["metrics"]["gateway_units_unknown"])
+        self.assertEqual(0, artifact["metrics"]["registry_retired_gateway_rows"])
+        self.assertTrue(
+            any("custom-relay.service unknown to systemd" in line for line in artifact["detail"])
+        )
+
+    # --- single host gateway (T1) ------------------------------------------ #
+
+    def test_a_retired_per_agent_gateway_row_is_registry_drift_not_an_outage(self) -> None:
+        # The default fixture row names hermes-alpha-pm-gateway.service, which
+        # the single-gateway model never creates. That is the 2026-11 daily
+        # report's "29 of 37 unknown to systemd" -- and it was never an outage.
         self.fleet.write_registry()
         self.fleet.add_profile("alpha-pm", [])
-        artifact = self.artifact(self.run_collect(self.fleet.section(), units=[]))
-        self.assertEqual(1, artifact["metrics"]["gateway_units_unknown"])
-        self.assertTrue(any("unknown to systemd" in line for line in artifact["detail"]))
+        artifact = self.artifact(self.run_collect(self.fleet.section()))
+        metrics = artifact["metrics"]
+
+        self.assertEqual("complete", artifact["status"])
+        self.assertEqual(1, metrics["registry_retired_gateway_rows"])
+        self.assertEqual(0, metrics["gateway_units_unknown"])
+        self.assertEqual(0, metrics["gateway_units_inactive"])
+        self.assertEqual(0, metrics["per_agent_gateway_units_loaded"])
+        self.assertEqual("hermes-gateway.service", metrics["host_gateway_unit"])
+        self.assertTrue(metrics["host_gateway_active"])
+        self.assertEqual(1, metrics["agents_served_by_host_gateway"])
+        self.assertEqual(0, metrics["agents_unserved"])
+        detail = artifact["detail"]
+        self.assertFalse(any("unknown to systemd" in line for line in detail))
+        self.assertTrue(any("Stale projection, not an outage" in line for line in detail))
+        self.assertTrue(any("registry drift, not an outage" in c for c in artifact["caveats"]))
+
+    def test_a_registry_row_naming_the_host_gateway_is_clean(self) -> None:
+        self.fleet.write_registry(
+            "agents:\n  alpha-pm:\n    profile_name: alpha-pm\n"
+            "    systemd:\n      gateway_unit: hermes-gateway.service\n"
+        )
+        self.fleet.add_profile("alpha-pm", [])
+        artifact = self.artifact(self.run_collect(self.fleet.section()))
+        self.assertEqual(0, artifact["metrics"]["registry_retired_gateway_rows"])
+        self.assertEqual(1, artifact["metrics"]["agents_served_by_host_gateway"])
+        self.assertEqual([], [c for c in artifact["caveats"] if "gateway" in c])
+
+    def test_the_registry_gateways_block_names_the_host_gateway_too(self) -> None:
+        self.fleet.write_registry(
+            "gateways:\n  bloodbank:\n    systemd_unit: hermes-fleet.service\n"
+            "agents:\n  alpha-pm:\n    profile_name: alpha-pm\n"
+            "    systemd:\n      gateway_unit: hermes-fleet.service\n"
+        )
+        self.fleet.add_profile("alpha-pm", [])
+        artifact = self.artifact(self.run_collect(self.fleet.section()))
+        self.assertEqual(0, artifact["metrics"]["gateway_units_unknown"])
+        self.assertEqual(0, artifact["metrics"]["registry_retired_gateway_rows"])
+
+    def test_a_loaded_per_agent_gateway_unit_is_a_conflict(self) -> None:
+        self.fleet.write_registry()
+        self.fleet.add_profile("alpha-pm", [])
+        units = UNIT_ROWS + [
+            {
+                "unit": "hermes-alpha-pm-gateway.service",
+                "load": "loaded",
+                "active": "active",
+                "sub": "running",
+            }
+        ]
+        artifact = self.artifact(self.run_collect(self.fleet.section(), units=units))
+        metrics = artifact["metrics"]
+
+        self.assertEqual(1, metrics["per_agent_gateway_units_loaded"])
+        self.assertEqual(0, metrics["registry_retired_gateway_rows"])
+        self.assertTrue(
+            any(
+                line.strip().startswith("CONFLICT hermes-alpha-pm-gateway.service")
+                for line in artifact["detail"]
+            )
+        )
+        self.assertTrue(any("competes for the host role" in c for c in artifact["caveats"]))
+
+    def test_a_down_host_gateway_leaves_every_agent_unserved(self) -> None:
+        self.fleet.write_registry()
+        self.fleet.add_profile("alpha-pm", [])
+        units = [dict(UNIT_ROWS[0], active="failed", sub="failed"), UNIT_ROWS[1]]
+        artifact = self.artifact(self.run_collect(self.fleet.section(), units=units))
+        metrics = artifact["metrics"]
+
+        self.assertFalse(metrics["host_gateway_active"])
+        self.assertEqual(1, metrics["agents_unserved"])
+        self.assertTrue(
+            any("host gateway hermes-gateway.service is not active" in c for c in artifact["caveats"])
+        )
+        self.assertIn("NOT active", artifact["summary"])
 
     def test_a_registered_agent_without_a_profile_directory_is_reported(self) -> None:
         self.fleet.write_registry(
@@ -635,7 +946,11 @@ class FleetHealthTest(unittest.TestCase):
         detail = artifact["detail"]
         self.assertTrue(any(line.startswith("candybar: 2 registered") for line in detail))
         self.assertTrue(
-            any("dev-journal-nightly" in line and "last run succeeded" in line for line in detail)
+            any(
+                "enabled candybar(s) whose last run succeeded" in line
+                and "dev-journal-nightly" in line
+                for line in detail
+            )
         )
         self.assertTrue(
             any("sync-daily-reports-to-s3" in line and "last run failed" in line for line in detail)

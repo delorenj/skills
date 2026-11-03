@@ -73,9 +73,33 @@ Sections are declared in config; each names a module under `scripts/collectors/`
 | Section | Collector | Required | Reads |
 |---|---|---|---|
 | `dev-activity` | `dev_activity` | yes | Candystore `/events` + `/summary/heatmap`, `git log` per configured project root |
-| `fleet-health` | `fleet_health` | no | `~/.hermes/agents-registry.yaml`, `systemctl --user list-timers hermes-*`, each profile's `cron/jobs.json` — verifies the artifact, not `last_status` |
+| `fleet-health` | `fleet_health` | no | `~/.hermes/agents-registry.yaml`, `systemctl --user list-units/list-timers hermes-*`, each profile's `cron/jobs.json` + `config.yaml` `skills:` block, the Candybar API, and Candybar's `deploy/scheduling-policy.json` — judged against the single-host-gateway + Candybar-clock model (below); verifies the artifact, not `last_status` |
 | `pr-maintenance` | `pr_maintenance` | no | `~/.local/state/pr-crusher/repos/*/summary.json` and `runs/tick-*/summary.json` |
 | `report-delivery` | `report_delivery` | yes | this skill's own `archive/*/current.json` for the last N days plus Candystore `reporting.report.completed` events |
+
+### How `fleet-health` reads the fleet
+
+The fleet runs **one** host gateway, `hermes-gateway.service`, which serves
+every profile (2026-10-11), and **Candybar** is the only clock. The collector
+judges every source against that model:
+
+| Observation | Reported as |
+|---|---|
+| registry `systemd.gateway_unit: hermes-<agent>-gateway.service` that systemd never loaded | `registry_retired_gateway_rows`: a stale projection, **not** an outage; the agent counts as served by the host gateway |
+| a per-agent `hermes-<agent>-gateway.service` that **is** loaded | `per_agent_gateway_units_loaded` + a `CONFLICT` line: it competes for the host role |
+| any other unit name systemd does not know | `gateway_units_unknown` |
+| host gateway not active | `host_gateway_active=false`, `agents_unserved`, caveat |
+| cron job pinned `scheduler: external` | `cron_jobs_candybar`; run facts come from the Candybar invocation, never `last_status` |
+| cron job enabled and unpinned | `cron_jobs_enabled`: a second clock beside Candybar |
+| cron job disabled and unpinned | `cron_jobs_dormant`: scheduled by nothing; its `last_status` is history, not a claim, and its skills are moot |
+| candybar described `(was hermes <profile>:<job>)` | linked to that job; a missing profile/job, an unpinned job, or unresolved skills is `candybars_hermes_target_broken` |
+| active `hermes-*` timer | `timers_outside_candybar` unless Candybar's exception register exempts it |
+
+Skills resolve the way Hermes resolves them (`agent/skill_utils.py`): trusted
+project `.hermes/skills`/`.agents/skills` (only for a job whose `workdir` is
+inside a trusted repo), then `<profile>/skills`, `skills.create_dir`,
+`skills.external_dirs`; by directory name, relative path, or frontmatter
+`name`; minus `skills.disabled`.
 
 Every collector module exposes:
 
