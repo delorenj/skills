@@ -52,46 +52,37 @@ python3 ~/code/33GOD/hermes-agent-template/scripts/hermes-single-install-check.p
 
 A gateway is healthy when it logs `Gateway running with N platform(s)`, or
 `No messaging platforms enabled` then `Gateway housekeeping started` for a
-cron-only desk. PM work dispatched over Bloodbank runs inside
-`hermes-fleet-bloodbank-gateway`, so a PM's Hindsight traffic shows up in
-`~/.hermes/profiles/fleet-bloodbank-gateway/logs/agent.log`, not the desk's
-own log. A desk-local `hermes -p <pm> chat` uses that desk's `.env` model
-keys, which can be stale even while the fleet gateway works.
+cron-only desk. PM work dispatched over Bloodbank runs in the host gateway's
+Bloodbank lane (profile `fleet-bloodbank-gateway`), so a PM's Hindsight traffic
+shows up in `~/.hermes/profiles/fleet-bloodbank-gateway/logs/agent.log`, not the
+desk's own log. A desk-local `hermes -p <pm> chat` uses that desk's `.env` model
+keys, which can be stale even while the host gateway works.
 
-The older shared-checkout flow below is kept for the dev checkout:
+There is no second "dev" or "shared" checkout to update (single install, T3).
+`~/.hermes/hermes-agent` is the one install; its `delorenj` remote is the fork it
+tracks and its `origin` remote is NousResearch, so never `git merge origin/main`,
+`git pull origin`, or run `hermes update` there. Never carry local work in the
+install either: land it through the clone in step 1 above, then fast-forward with
+`git -C ~/.hermes/hermes-agent pull --ff-only` (it follows `delorenj/main`). If
+`git status --short` in the install shows local edits, stop and move them into the
+clone first.
 
-```bash
-cd ~/.hermes/hermes-agent
-git status --short
-git pull --ff-only
-```
-
-If the checkout has local Hermes work, do not run `hermes update` or `git pull`
-blindly. Preserve the work with a named stash, fast-forward the shared checkout,
-then apply the stash without dropping it until tests pass:
-
-```bash
-git fetch origin --prune
-git stash push -u -m "pre-core-hermes-update-YYYY-MM-DD-<topic>"
-git merge --ff-only origin/main
-git stash apply stash@{0}
-```
-
-Resolve conflicts against the updated architecture. As of June 2026, many
-`hermes_cli/main.py` parser blocks live in `hermes_cli/subcommands/*`; add new
-CLI flags and subcommands to the extracted parser module, not to the old inline
-block.
+When you land fork work, resolve conflicts against the updated architecture. As
+of June 2026, many `hermes_cli/main.py` parser blocks live in
+`hermes_cli/subcommands/*`; add new CLI flags and subcommands to the extracted
+parser module, not to the old inline block.
 
 Only reinstall dependencies when project dependencies changed. If `pyproject.toml`
 or `uv.lock` changed, inspect the diff and preserve installed optional extras;
 do not run a plain `uv sync` blindly because it can prune extras such as voice
 or messaging integrations. If dependency files did not change, the editable
-checkout makes the new code live without a reinstall.
+install makes the new code live without a reinstall.
 
-For the shared dev checkout, sync the venv with the curated `all` extra, `dev`,
-and any optional extras already present. Include `voice` when `numpy` or
-`sounddevice` were installed even if `faster-whisper` was missing; otherwise the
-sync can silently remove local audio support.
+When dependencies did change, sync the env the gateway actually imports from (see
+"The real import env" below) with the curated `all` extra, `dev`, and any optional
+extras already present. Include `voice` when `numpy` or `sounddevice` were
+installed even if `faster-whisper` was missing; otherwise the sync can silently
+remove local audio support.
 
 ```bash
 UV_PROJECT_ENVIRONMENT="$PWD/.venv" uv sync --locked \
@@ -102,12 +93,15 @@ UV_PROJECT_ENVIRONMENT="$PWD/.venv" uv sync --locked \
 Add any other observed installed extras, such as `exa`, `firecrawl`,
 `parallel-web`, `fal`, `edge-tts`, `honcho`, or `bedrock`.
 
-Restart long-running user services after the code update:
+Restart the one host gateway after the code update, batched with any other
+pending change:
 
 ```bash
-systemctl --user daemon-reload
 hermes-gateway-restart --reason "<why>"   # waits for idle; it serves every profile (never raw systemctl restart)
 ```
+
+`systemctl --user daemon-reload` is needed only when a unit file changed; a code
+update changes none.
 
 Interactive `hermes` commands pick up the new code on their next launch.
 
@@ -119,8 +113,8 @@ import env is not the obvious one:
 
 - The gateway process bootstraps through `hermes_bootstrap`, which redirects
   `sys.path` to a PM-managed env under
-  `~/.hermes/installs/<release-id>/venv` — NOT the repo `.venv` and NOT the
-  dev checkout. A package installed into the wrong env is invisible to the
+  `~/.hermes/installs/<release-id>/venv`, NOT the repo `.venv`. A package
+  installed into the wrong env is invisible to the
   gateway no matter how many times you restart it. Verify before installing:
   read the unit's `ExecStart`, resolve which env `hermes_bootstrap` actually
   enters, and install there.
@@ -139,7 +133,7 @@ import env is not the obvious one:
 For shared non-secret settings, edit only the fleet default profile:
 
 ```bash
-HERMES_HOME="$HOME/.hermes" hermes config set model.default gpt-5.4
+HERMES_HOME="$HOME/.hermes" hermes config set display.<key> <value>
 ```
 
 Hermes has no native profile inheritance. After changing the base, regenerate
@@ -200,8 +194,9 @@ missing generated-desk wiring. Preferred repair targets:
 - `agents/hermes/<title>/runtime/` is ignored/untracked local state, not a
   profile symlink target, submodule, or nested repository.
 - `role.yaml` has `profile: <repo>-<title>`.
-- systemd units set `HERMES_HOME` to the named desk path, not the raw runtime
-  path.
+- the role launcher (`agents/hermes/<title>/hermes`) sets `HERMES_HOME` to the
+  named desk path, not the raw runtime path. No per-agent unit exists; the one
+  host unit, `hermes-gateway.service`, runs with `HERMES_HOME=~/.hermes`.
 
 Use the canonical profile renderer and flume's remediation surface for repairs.
 Do not recreate the old symlink/native-inheritance layout manually.
@@ -269,17 +264,20 @@ flume review --agent <repo>-pm
 flume record
 ```
 
-For daemon-backed agents, also check:
+For gateway-served agents, also check the one host gateway (read only):
 
 ```bash
-systemctl --user status hermes-<repo>-pm-gateway.service
-systemctl --user status hermes-fleet-bloodbank-gateway.service
-journalctl --user -u hermes-<repo>-pm-gateway.service -n 80 --no-pager
+systemctl --user status hermes-gateway.service
+journalctl --user -u hermes-gateway.service -n 200 --no-pager | grep -E '<repo>-pm|Bloodbank gateway connected'
+jq '.served_profiles, .parked_profiles' ~/.hermes/gateway_state.json   # <repo>-pm is served
+curl -s 'http://127.0.0.1:8222/jsz?streams=true&consumers=true'         # bloodbank-hermes-gateway num_pending drains to 0
 ```
 
 Use a bounded stabilization window rather than one `is-active` sample. Check
 systemd `Result`, `ExecMainStatus`, and `NRestarts` repeatedly through the
-deadline.
+deadline. A per-agent `hermes-<repo>-pm-gateway.service` or
+`hermes-fleet-bloodbank-gateway.service` that `status` still finds is a leftover
+to retire, not a unit to check.
 
 `flume review`'s verdict is three-way. `healthy` reads as in good standing,
 `unhealthy` as on notice, and `unproven` as unable to assess — the last one means

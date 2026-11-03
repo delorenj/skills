@@ -265,21 +265,41 @@
     ]
   },
   "service_model": {
-    "per_agent_units": [
-      "hermes-{agent_id}-gateway.service"
+    "host_units": [
+      "hermes-gateway.service"
     ],
-    "fleet_shared_units": [
-      "hermes-fleet-bloodbank-gateway.service"
+    "per_agent_units": [],
+    "host_unit_home": "~/.hermes",
+    "host_gateway_serves": [
+      "every_profile_chat_adapters",
+      "bloodbank_fleet_lane"
     ],
+    "bloodbank_lane_profile": "fleet-bloodbank-gateway",
+    "bloodbank_durable_consumer": "bloodbank-hermes-gateway",
+    "profile_serving": {
+      "control_socket": "~/.hermes/gateway.sock",
+      "serve": "serve-profile",
+      "unserve": "unserve-profile",
+      "served_roster": "~/.hermes/gateway_state.json served_profiles"
+    },
+    "host_restart_command": "hermes-gateway-restart --reason \"<why>\"",
+    "raw_host_restart_forbidden": true,
+    "provisioning_restarts_host_gateway": false,
+    "retired_since": "2026-10-11",
     "retired_units_are_drift": [
+      "hermes-{agent_id}-gateway.service",
+      "hermes-fleet-bloodbank-gateway.service",
       "hermes-{agent_id}-heartbeat.timer",
       "hermes-{agent_id}-heartbeat.service",
       "hermes-{agent_id}-consumer.service",
       "hermes-{agent_id}-checkpoint.timer"
     ],
+    "provisioning_retires_leftover_per_agent_units": true,
+    "registry_systemd_gateway_unit": "stale_projection_strip_never_probe",
+    "channel_deferral": "delta platforms.<platform>.enabled false plus provisioning_status; no unit state",
     "heartbeat_role_yaml_state": "retired",
     "provisioning_removes_retired_heartbeat_units": true,
-    "liveness_owner": "gateway unit Restart=on-failure",
+    "liveness_owner": "hermes-gateway.service Restart=always plus hermes-gateway-watchdog.timer",
     "scheduling_owner": "candybar",
     "persistence_owner": "krebs leases"
   },

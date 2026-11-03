@@ -1,7 +1,7 @@
 ---
 name: agent-fleet-operations
 description: |
-  Operate and maintain the Hermes workforce with `flume`: hire/onboard an employee into a repo, the org chart in `~/.hermes/agents-registry.yaml`, the handbook (`contracts/handbook.yaml`), real named profiles with generated base-plus-delta config, ignored local runtime, the one gateway unit per agent, compliance audits and remediations, credential migration, transactional config recovery, and TTS defaults. Use for `flume hire|onboard|roster|org|record|review|audit|remediate|handbook`, `~/.hermes/*`, `hermes-agent-template`, PM deployment verification, generated profiles, gateway state, MCP drift, template propagation, or voice changes. Do NOT use for project bootstrap/identity requests (→ 33god-projects), Plane ticket operations (→ project-lifecycle), Bloodbank event schemas (→ bloodbank-integration), or generic config fan-out (→ agent-config-fanout).
+  Operate and maintain the Hermes workforce with `flume`: hire/onboard an employee into a repo, the org chart in `~/.hermes/agents-registry.yaml`, the handbook (`contracts/handbook.yaml`), real named profiles with generated base-plus-delta config, ignored local runtime, the single host gateway (`hermes-gateway.service` serves every profile and the Bloodbank lane; an employee owns no unit, and a leftover per-agent `hermes-<agent>-gateway.service` is drift to retire), compliance audits and remediations, credential migration, transactional config recovery, and TTS defaults. Use for `flume hire|onboard|roster|org|record|review|audit|remediate|handbook`, `~/.hermes/*`, `hermes-agent-template`, PM deployment verification, generated profiles, gateway state, MCP drift, template propagation, or voice changes. Do NOT use for project bootstrap/identity requests (→ 33god-projects), Plane ticket operations (→ project-lifecycle), Bloodbank event schemas (→ bloodbank-integration), or generic config fan-out (→ agent-config-fanout).
 ---
 
 # Hermes Workforce Operations
@@ -47,6 +47,7 @@ flume remediate <finding> [repo]   correct one finding
 flume channel list [--employee e]  every employee x platform: status, delta enabled, ref names, live gateway state, active Telegram bot count
 flume channel offline <employee> [--platform p] [--reason ".."] [--apply]   park a channel on purpose (preview unless --apply)
 flume channel online <employee> [--platform p] [--credential-ref op://..] [--apply]   bring it back / rotate to a new bot (getMe-verified)
+flume retire <employee> [--reason ".."] [--apply]   take an employee out of service, keep the row: bloodbank.enabled false AND the plane board claim removed (disabling bloodbank alone still wins the board and drops the ticket), live channels parked via channel offline; prints who gets each ticket per board; the gateway restart stays yours
 ```
 
 `roster`, `record`, `review` and `handbook validate` are strictly read-only, take
@@ -67,7 +68,7 @@ cd <repo>/agents/hermes/pm
 SKIP_TELEGRAM=1 bash .scripts/30-telegram.sh   # record the channel as deferred (or omit SKIP_* to wire a token; it prompts)
 # a bot token already in 1Password is ADOPTED, not pasted (no second vault item):
 #   TELEGRAM_BOT_TOKEN_REF=op://DeLoSecrets/<item-uuid>/<field> TELEGRAM_ALLOWED_USERS=<id> bash .scripts/30-telegram.sh
-bash .scripts/70-systemd.sh                     # unit, heartbeat retired, gateway active|deferred from provisioning_status
+bash .scripts/70-systemd.sh                     # retire leftover per-agent units, ask the host gateway to serve the profile, record service_state.gateway active|deferred|error (template f8da8f0+)
 bash .scripts/80-registry.sh                    # project the row
 ```
 
@@ -88,7 +89,15 @@ projected role.yaml `service_state` into `systemd.gateway_state` and
 not declare (tonnybox-pm picked both up by a verbatim copy on 2026-09-23). Run
 `flume remediate hermes.pm-scaffold <repo> --scripts-only` before you trust a
 simulation or rerun the steps. Gateway and heartbeat state live in role.yaml
-`service_state`; the registry row names the units only.
+`service_state`, and a registry row names no unit. A row's `systemd.gateway_unit`
+(`hermes-<agent>-gateway.service`) or `systemd.heartbeat_timer` is a stale
+projection (older `80-registry.sh`, and the handbook's
+`service_model.per_agent.gateway_unit`), not a real unit: never probe, start or
+reinstall it. Collectors that took it at face value are why the daily report
+listed "gateway units unknown to systemd". A current `80-registry.sh` projects
+no `systemd` block and drops both keys; `hermes.registry-parity` reports a
+leftover `gateway_unit` as retired and `flume remediate hermes.registry-parity`
+strips it.
 
 `flume remediate` keeps `migrate` as a frozen hidden alias. 74 copies of
 `20-runtime-repo.sh` on this machine run
@@ -105,8 +114,9 @@ meaning bytes the template never shipped. Diff each one against its nearest
 template version before you overwrite it by hand, and fold real behaviour into
 the template as configuration (e.g. the extended ticket states are role.yaml
 `ticket_provider:` keys) rather than keeping a per-repo fork. When you copy a
-template file over one, copy its mode too: a 0644 `credential-launch.sh` kills
-its gateway with `status=203/EXEC` on the next restart. A hand-written SOUL.md
+template file over one, copy its mode too: a 0644 script fails with
+`status=203/EXEC` wherever it is an `ExecStart` (that is how retired per-agent
+gateways died on a 0644 `credential-launch.sh`). A hand-written SOUL.md
 (no composer marker, none of the rendered headings) is preserved and audits as
 `soul-authored`; that is the intended steady state, not drift to clear. The
 composed SOUL's `{{ project_bank }}` is the bank the Claude hooks actually write,
@@ -133,56 +143,103 @@ Flume never hard-depends on pjangler being installed.
 
 ## The canonical deployment standard (enforced)
 
-One PM per repo, and exactly **one** per-agent systemd user unit:
+One PM per repo. **An employee owns no systemd unit.** One host unit,
+`hermes-gateway.service` (`~/.hermes/hermes-agent/.hermes/bin/hermes gateway run`,
+`HERMES_HOME=~/.hermes`, `gateway.multiplex_profiles`), multiplexes every
+profile under `~/.hermes/profiles`: each profile's Telegram/Slack adapters AND
+the Bloodbank fleet command lane run inside that one process. On macOS the same
+role is the LaunchAgent `ai.hermes.gateway`. A profile is served or unserved
+through the gateway's control socket, `~/.hermes/gateway.sock` (`serve-profile` /
+`unserve-profile`); the live roster is `served_profiles` (and `parked_profiles`)
+in `~/.hermes/gateway_state.json`. Liveness is `hermes-gateway.service`
+(`Restart=always`) plus `hermes-gateway-watchdog.timer`.
 
-- `hermes-<agent>-gateway.service` — chat-platform ingress (Telegram/Slack).
+**Restart rule.** Never `systemctl --user restart|reload|stop hermes-gateway`,
+`kill -USR1` it, or run `hermes gateway restart`: a restart cuts every profile's
+in-flight turns. Batch your changes and run `hermes-gateway-restart --reason
+"<why>"` once after the last one (it waits for idle, coalesces callers and
+detaches when called from inside the gateway). For one profile, cycle it on the
+control socket (`unserve-profile` then `serve-profile`) instead.
 
-**Per-agent heartbeat timers are retired.** `hermes-<agent>-heartbeat.timer` and
-its `.service` do not exist; `systemctl --user list-unit-files | grep -c heartbeat`
-returns 0. Every agent used to get a one-minute oneshot whose reconciliation pass
-was gated on a `role.yaml` flag that was true in exactly one repo, so ~20,000
-no-op invocations a day is all it did. What took over its three apparent jobs:
+**Retired units are drift, never a deployment style** (both gateway units below
+retired 2026-10-11). Flag and retire them; never start, enable or reinstall one:
 
-- **liveness** — the gateway unit itself (`Restart=on-failure`);
-- **scheduling** — Candybar (it fires Bloodbank commands and Hermes invocations);
-- **persistence** — krebs leases.
+- `hermes-<agent>-gateway.service`, the old per-agent chat gateway. A leftover
+  that starts competes for the host role: on 2026-10-20 `james-brennan-pm`'s unit
+  fought the host gateway and blocked the Bloodbank lane for ~3 h, and on 2026-11-02
+  hiring `tolt-pm` enabled one that took over ~45 profiles while
+  `hermes-gateway.service` restart-looped (~975 restarts).
+- `hermes-fleet-bloodbank-gateway.service`, the old fleet-shared Bloodbank unit.
+  The PROFILE `fleet-bloodbank-gateway` still exists and is live (its `state.db`
+  and `logs/agent.log` are written by the host gateway's Bloodbank lane); only the
+  unit is gone.
+- `hermes-<agent>-heartbeat.timer`/`.service`, `hermes-<agent>-consumer.service`,
+  `hermes-<agent>-checkpoint.timer`.
 
-`70-systemd.sh` now actively *removes* any heartbeat units it finds and records
+`70-systemd.sh` (template f8da8f0+) writes no per-agent unit. It retires the
+leftovers above (disable, delete the file and drop-in, `daemon-reload`; one whose
+process IS the live host gateway is deleted but never stopped, and the step tells
+you to hand over with `hermes-gateway-restart`), installs `hermes-gateway.service`
+through the hermes CLI only when it is missing, asks the host to serve the
+profile, and records `service_state.gateway` `active`, `deferred` or `error`.
+
+**Per-agent heartbeat timers are retired (2026-09-17).** Every agent used to get a
+one-minute oneshot whose reconciliation pass was gated on a `role.yaml` flag that
+was true in exactly one repo, so ~20,000 no-op invocations a day is all it did.
+What took over its three apparent jobs:
+
+- **liveness**: the host gateway, `hermes-gateway.service` (`Restart=always`) plus
+  `hermes-gateway-watchdog.timer`;
+- **scheduling**: Candybar (it fires Bloodbank commands and Hermes invocations);
+- **persistence**: krebs leases.
+
+`70-systemd.sh` removes any heartbeat units it finds and records
 `service_state.heartbeat: retired` in `role.yaml`, so re-running provisioning
-converges a legacy host. `flume audit --rules systemd.sentinel` requires only the
-gateway unit; demanding a timer failed every freshly provisioned agent.
+converges a legacy host. `flume audit --rules systemd.sentinel` should require
+`hermes-gateway.service` loaded and active, the role's profile served, and no
+per-agent gateway unit file. **At flume 1b75896 its Linux branch still reads the
+retired per-agent unit** (`hermes-<agent>-gateway.service should be installed`),
+and `flume remediate systemd.sentinel` would `enable --now` a per-agent unit file
+it finds, which is the hijack above. Treat that finding as a stale rule, and never
+run that remediation on Linux until the rule is fixed.
 
 **Recurring work.** Candybar owns WHEN recurring work runs; Hermes, systemd
 services and webhook workflows only execute what it fires. Never create a
 crontab entry, a new systemd `.timer`, `systemd-run --on-*`, a Hermes recurring
 job (the `cronjob` tool, or `hermes cron create` without `--scheduler external`),
-a workflow-engine Schedule Trigger or a private recurring poll loop for an
-agent or desk; register a Candybar manifest (skill `candybar`) and let it fire
-a `.service`, a Hermes job pinned `scheduler=external` or any exec argv. The
-standing exception is `candybar-watchdog.timer` (AD-22). Rule and audit:
-flume's `docs/scheduling-policy.md` and
+a heartbeat timer, a workflow-engine Schedule Trigger or a private recurring
+poll loop for an agent or desk; register a Candybar manifest (skill `candybar`,
+`~/code/33GOD/candybar`) and let it fire a `.service`, a Hermes job pinned
+`scheduler=external` (Candybar runs `hermes -p <profile> cron run <job_id> --wait`)
+or any exec argv. The standing exception is `candybar-watchdog.timer` (AD-22); the
+exception register is `~/code/33GOD/candybar/deploy/scheduling-policy.json`. Rule
+and audit: flume's `docs/scheduling-policy.md` and
 `flume refresh-scheduling-policy --json`.
 
-Bloodbank command ingress is **fleet-shared**: `hermes-fleet-bloodbank-gateway.service`
-(profile `fleet-bloodbank-gateway`, adapter `bloodbank/services/hermes-gateway`)
-subscribes once to `bloodbank.cmd.agent.invocation.start` and routes
-`data.target_agent_id` → Hermes profile via the registry's `profile_name`. There
-is **no per-agent consumer unit, no checkpoint timer, no filesystem inbox** — any
-of those is drift, not an alternative deployment style. Every registry row
-advertises `bloodbank: {enabled, gateway_scope: fleet, target_agent_id: <id>}`,
+Bloodbank command ingress is the **fleet lane of the host gateway**:
+`hermes-gateway.service` runs the Bloodbank adapter
+(`bloodbank/services/hermes-gateway`, durable consumer `bloodbank-hermes-gateway`),
+which subscribes once to `bloodbank.cmd.agent.invocation.start` and routes
+`data.target_agent_id` → Hermes profile via the registry's `profile_name`. The
+name `fleet-bloodbank-gateway` survives as that lane's profile and the registry
+routing scope, not as a unit. There is **no per-agent consumer unit, no
+checkpoint timer, no filesystem inbox**: any of those is drift. Every registry
+row advertises `bloodbank: {enabled, gateway_scope: fleet, target_agent_id: <id>}`,
 and the registry's top-level `gateways.bloodbank` block records the shared
-contract. Canonical command envelopes need an `actor` object and
-`schemaref: bloodbank.agent.invocation.start.v1` or the gateway terminally
-rejects them. Enforcement: `flume audit` / `flume remediate hermes.registry-parity`
-detects and converges violations. Canon: `hermes-agent-template/docs/architecture.md`
-§ "Bloodbank wiring". The retired scrum-master title's duties folded into the PM.
+contract (`systemd_unit: hermes-gateway.service`). Canonical command envelopes need
+an `actor` object and `schemaref: bloodbank.agent.invocation.start.v1` or the
+gateway terminally rejects them. Enforcement: `flume audit` / `flume remediate
+hermes.registry-parity` detects and converges violations. Canon:
+`hermes-agent-template/docs/architecture.md` § "One host gateway, no per-agent
+unit" and § "Bloodbank wiring". The retired scrum-master title's duties folded
+into the PM.
 
 ### Full command journey
 
 ```text
 producer → bloodbank.cmd.agent.invocation.start
   → BLOODBANK_COMMANDS work-queue stream
-  → fleet-shared durable pull consumer
+  → durable pull consumer bloodbank-hermes-gateway (the host gateway's Bloodbank lane)
   → validate envelope + prompt + actor + schema
   → authorize data.target_agent_id against the org chart
   → journal command state in mode-0600 SQLite
@@ -294,7 +351,7 @@ process control, service changes, board changes, or Bloodbank activation.
   |---|---|---|
   | `hermes.pm-scaffold` | project | `agents/hermes/<title>/` scripts and launcher match the pinned template |
   | `hermes.untracked-runtimes` | project | runtime is untracked + gitignored, no gitlink, no stale `.gitmodules` |
-  | `systemd.sentinel` | host | gateway unit installed and matching each role's declared `service_state` |
+  | `systemd.sentinel` | host | intended: host `hermes-gateway.service` loaded and active, each role's profile served (`gateway_state.json` `served_profiles`) per its declared `service_state`, and no leftover `hermes-<agent>-gateway.service` unit file. At flume 1b75896 the Linux branch still checks the retired per-agent unit (the launchd branch already reads the one host gateway); read its per-agent findings as a stale rule, and do not run its remediation on Linux |
   | `hermes.runtime-singleton` | project | real desk dir, shared links, Skillex projection (a role that declares `skills:` is read against its own selection project: manifest matches the declaration, strict marker, no pending `skillex profile show` change, no legacy `<desk>/.agents/skills`), generated `config.yaml` + present `config.delta.yaml` + pinned memory bank |
   | `hermes.role-declaration` | project | `roles/<role>.md` deployment keys: `skills` resolves in the live Skillex catalog and is one expressible selection, `chain` routes exist in the gateway catalog, `department` and `reports_to` exist, no reporting cycle |
   | `hermes.fleet-config` | host | fleet base: `tts.provider: vox`, a `hooks:` block with all four events calling the canonical publisher `~/.agents/hooks/bb-hook --cli hermes --native <event>` (bloodbank `hooks.master.json`; `publish.py` is a legacy forwarder), `memory.provider` set, `memory` absent from `agent.disabled_toolsets` |
@@ -302,10 +359,11 @@ process control, service changes, board changes, or Bloodbank activation.
   | `hermes.gateway-routing` | host | ALL inference routes through the AutomaticAI gateway, in the base and every member's generated config (members that only inherit a broken base are folded into one count): `model.provider` is `automaticai`/`custom:automaticai` with an `automaticai/<account>/<model>` `model.default` and no non-gateway `model.base_url`; every auxiliary task (vision, web_extract, compression, skills_hub, approval, mcp, title_generation, memory_query_rewrite, tts_audio_tags, triage_specifier, kanban_decomposer, profile_describer, goal_judge, curator, monitor, background_review, moa_reference, moa_aggregator, kanban_estimator) is either pinned to the gateway or follows the main model (absent, `auto` or `main`) -- the owner's design, compliant only when `model.provider` is on the gateway AND `auxiliary.free_only: true` AND `auxiliary.discovery: false` (fork key, default true; without it a failed call falls through OpenRouter/Nous/direct-key discovery, which is how helpers reached direct Gemini, z.ai and Kimi), and the finding names the missing key; `auxiliary.discovery: false` is required even when every task is pinned (a pinned task re-walks discovery when its fallback hits a stale credential); every `auxiliary.<task>.fallback_chain` entry is a gateway route; `auxiliary.free_only: true` (no hidden paid OpenRouter lane); every enabled MoA preset's references and aggregator are gateway routes, read after Hermes' `load_config` deep-merges config.yaml over its built-in `moa.presets.default` (an absent `moa` block, a presets map without `default`, or the legacy flat shape all leave that stock openrouter/openai-codex preset enabled; only `moa.presets.default.enabled: false` or gateway slots in it turn it off; a slot with no provider is filled from the stock slot); of the auxiliary tasks only `title_generation` honors `enabled: false`; `fallback_providers`/`fallback_model` stay on the gateway; `providers.automaticai` with `key_env` and an explicit `extra_body.reasoning_effort`, `delegation.provider: automaticai` with a canonical route, no `delegation.base_url`/`api_key`, the key variable mapped to an `op://` reference |
   | `hermes.dotenv-no-op-refs` | host | neither `~/.hermes/.env` nor any profile `.env` that is its own file holds a literal `op://` value (names only are reported). Hermes reloads `.env` with `override=True` on every import while the 1Password source applies once, so the literal reference is sent as the key (401). `flume remediate hermes.dotenv-no-op-refs` deletes the lines already mapped to the identical reference in that config's `secrets.onepassword.env`; unmapped or conflicting ones need the operator to map them first |
   | `hermes.wake-word-session` | host | an enabled `wake_word` in the base or any member config sets `start_new_session: false`; otherwise every wake (false triggers too) calls `new_session(silent=True)`, which resets the model to `model.default` and silently undoes a `/model` switch |
-  | `hermes.skillex-resync` | host | with at least one Skillex-only desk present, `skillex-hermes-resync.timer` and `.path` are each installed, enabled and active (a path unit that tripped its trigger limit is `failed` and has stopped watching the catalog), `~/.local/state/skillex/hermes-resync.last.json` (schema 1) records a run that finished within 2 h, and that run left no desk `refused` or `error`. The finding names `~/code/skillex/scripts/install-hermes-resync.sh install` for the units and the cutover for a refused desk. It passes quietly when no strict desk exists and is not auto-fixable (host install state: `flume remediate hermes.skillex-resync` is blocked with the same instructions) |
+  | `hermes.skillex-resync` | host | with at least one Skillex-only desk present, the trigger `skillex-hermes-resync.path` is installed, enabled and active (a path unit that tripped its trigger limit is `failed` and has stopped watching the catalog), the periodic fallback is the Candybar `skillex-hermes-resync` (`7,22,37,52 * * * *`, firing `skillex-hermes-resync.service`), `~/.local/state/skillex/hermes-resync.last.json` (schema 1) records a run that finished within 2 h, and that run left no desk `refused` or `error`. `skillex-hermes-resync.timer` is retired (Candybar took the schedule); its absence is correct. At flume 1b75896 the rule still lists the `.timer` among required units, so a "timer missing" finding is the stale rule, never a reason to reinstall the timer. The finding names `~/code/skillex/scripts/install-hermes-resync.sh install` for the units and the cutover for a refused desk. It passes quietly when no strict desk exists and is not auto-fixable (host install state: `flume remediate hermes.skillex-resync` is blocked with the same instructions) |
   | `hermes.delta-list-override` | host | no delta replaces a fleet-base list |
-  | `hermes.profile-wiring` | host | launcher and unit `HERMES_HOME` point at the named desk; no dead `HERMES_OAUTH_FILE` |
-  | `hermes.registry-parity` | host | registry ↔ `role.yaml` ↔ `.project.json` agree; `bloodbank` block present; no legacy `consumer_unit`/`checkpoint_timer` |
+  | `hermes.profile-wiring` | host | each role launcher (`agents/hermes/<title>/hermes`) sets `HERMES_HOME` to the named desk; no dead `HERMES_OAUTH_FILE`. The rule also reads a per-agent unit's `Environment=HERMES_HOME=` when a leftover file exists; that unit is drift whatever its env says. The one host unit runs with `HERMES_HOME=~/.hermes`, which is correct |
+  | `hermes.registry-parity` | host | registry ↔ `role.yaml` ↔ `.project.json` agree; `bloodbank` block present; no legacy `consumer_unit`/`checkpoint_timer`/`gateway_unit` under `systemd` |
+  | `hermes.retired-routing` | host | no row with a `retired` channel still has a `plane` board claim or enabled bloodbank, and no Plane board has two `plane.scope_default: true` rows. Not auto-fixable; each finding names `flume retire <id> --apply` |
 
   `hermes.fleet-config` is deliberately **not** auto-fixable: those are fleet-wide
   operator decisions and a wrong guess changes every agent at once. When you
@@ -316,19 +374,24 @@ process control, service changes, board changes, or Bloodbank activation.
   through `Path.resolve()` + a lowercase id regex, and silently yields the literal
   `custom` for symlinked profile dirs or uppercase names, merging agents' private
   memory. Re-run `memory-pin` after any profile rename.
-- systemd units set `HERMES_HOME` to the named desk path, not the raw runtime path.
-- Gateway health is per-agent and conditional. Without a per-agent channel
-  credential, the gateway must be explicitly deferred, disabled, and inactive —
-  never an enabled crash loop. The profile delta must set
+- The role launcher (`agents/hermes/<title>/hermes`) sets `HERMES_HOME` to the
+  named desk path, not the raw runtime path. The one host unit,
+  `hermes-gateway.service`, runs with `HERMES_HOME=~/.hermes` and scopes each turn
+  to its profile; there is no per-agent unit whose env could be wired.
+- Channel health is per profile and conditional, inside the one host gateway.
+  Without a verified channel credential the profile's platform is deferred, never
+  an enabling crash loop: the profile delta sets
   `platforms.telegram.enabled: false` and `platforms.slack.enabled: false` so a
-  fleet-base enable cannot leak through; only verified credential ownership may
-  flip one true.
+  fleet-base enable cannot leak through, and only verified credential ownership
+  may flip one true. Deferral is a delta pin plus `provisioning_status`; there is
+  no per-agent unit to disable.
 - The deferred state has four parts, and `flume review` passes it:
   `telegram.provisioning_status: deferred` in role.yaml AND in the registry row,
-  `platforms.telegram.enabled: false` in the delta, and the unit disabled +
-  inactive. A gateway left running without a `verified` platform is a finding,
-  not health: `undeclared` when the row names no status (voxxy-pm), and a
-  contract violation when it says `disabled`/`deferred` (deckard-pm). Give the
+  `platforms.telegram.enabled: false` in the delta, and the host gateway not
+  running that platform for the profile. A platform left running without a
+  `verified` status is a finding, not health: `undeclared` when the row names no
+  status (voxxy-pm), and a contract violation when it says `disabled`/`deferred`
+  (deckard-pm). Give the
   role's `telegram:` block all three keys (`provisioning_status`, `bot_username`,
   `bot_id`). Before template 7c3b6b5 the channel writer appended any key the
   block lacked to the LAST block in role.yaml (tonnybox-pm got
@@ -352,13 +415,15 @@ process control, service changes, board changes, or Bloodbank activation.
   token or a bot another profile owns, and records `bot_username`/`bot_id`. A gateway config
   re-scan only STARTS a newly enabled platform; it never stops a running one and skips a bot
   sitting in the reconnect queue. So the command cycles just that profile through the gateway's
-  control socket (`unserve-profile` then `serve-profile` on `~/.hermes/gateway.sock`), falling
-  back to `systemctl --user reload hermes-gateway` (all profiles drain) when the socket does not
-  answer; `--no-reload` writes and says the gateway was not told. `flume channel list` shows
+  control socket (`unserve-profile` then `serve-profile` on `~/.hermes/gateway.sock`). When the
+  socket does not answer, flume (at 1b75896) still falls back to a raw `systemctl --user reload
+  hermes-gateway`, which drains every profile and breaks the restart rule. Pass `--no-reload`
+  instead (it writes and says the gateway was not told), batch any other changes, and run
+  `hermes-gateway-restart --reason "<why>"` once. `flume channel list` shows
   the live state and the active Telegram bot count. `infra-doctor` derives its channel
   expectations from the same registry status and delta pin: OFFLINE is informational, an online
   bot that is fatal with `telegram_auth_error` fails and names rotate-or-park.
-- A disabled PM gateway is usually a dead bot, not a dead project. Test the
+- A PM channel that is down or parked is usually a dead bot, not a dead project. Test the
   vaulted token with getMe, feeding the URL on stdin
   (`printf 'url = "https://api.telegram.org/bot%s/getMe"\n' "$tok" | curl -s --config -`),
   and open `https://t.me/<handle>`. A 401, plus a t.me page with no bot title,
@@ -373,7 +438,8 @@ process control, service changes, board changes, or Bloodbank activation.
   allow-list is the operator's Telegram user id in `runtime/.env`
   `TELEGRAM_ALLOWED_USERS`. Retire a superseded vault item by renaming it
   `RETIRED <date> - <title> (bot <id> @<handle>, <why>)`, never by deleting it.
-  Never re-enable the unit against the dead token. tonnybox-pm was parked this way
+  Never re-enable the platform (`platforms.telegram.enabled` in the delta) against
+  the dead token. tonnybox-pm was parked this way
   on 2026-08-27, and pjangler also listed it in `DEAD_AGENT_IDS` because its role
   pointed at a hard-deleted board while `.project.json` still named the live
   one (PJAN-136). Check the Plane DB before you call a project dead.
@@ -404,12 +470,15 @@ process control, service changes, board changes, or Bloodbank activation.
 - **Catalog commits resync the desks by themselves.** A strict desk's Skillex
   receipt records the `all-skills` HEAD it was synced against, so every catalog
   commit leaves all of them `sync pending` (`skillex profile show` exit 6, one
-  `write-receipt` change) and turns `hermes.runtime-singleton` red. Since
-  2026-10-02 the user units `skillex-hermes-resync.path` (catalog HEAD moved) and
-  `skillex-hermes-resync.timer` (startup, then every 15 min) run
+  `write-receipt` change) and turns `hermes.runtime-singleton` red. The user unit
+  `skillex-hermes-resync.path` (catalog HEAD moved) and the Candybar
+  `skillex-hermes-resync` (`7,22,37,52 * * * *`, the periodic fallback) both fire
+  `skillex-hermes-resync.service`, which runs
   `~/code/skillex/scripts/hermes-skillex-resync.py`: it strict-syncs each desk that
   is merely pending and re-checks it, so do not run per-desk syncs by hand after a
-  commit; give it about 20 seconds. `~/code/skillex/scripts/install-hermes-resync.sh
+  commit; give it about 20 seconds. (`skillex-hermes-resync.timer` did the fallback
+  from 2026-10-02 until Candybar took the schedule; it is retired, do not
+  reinstall it.) `~/code/skillex/scripts/install-hermes-resync.sh
   status` shows the units and the last run. Evidence is
   `~/.local/state/skillex/hermes-resync.jsonl` (a `run` line per run, a `desk` line
   per desk that was synced, refused, errored or busy) and `hermes-resync.last.json`;
@@ -420,14 +489,16 @@ process control, service changes, board changes, or Bloodbank activation.
   hand-edit a strict desk or delete the entry: run
   `~/code/skillex/scripts/hermes-skillex-cutover.py` (preview, then `--apply`),
   which quarantines the content under `~/.hermes/.skill-quarantine/<profile>/<stamp>/`,
-  then run the resync again (`mise run hermes:resync` in the Skillex repo). Contract:
+  then run the resync again (`python3 ~/code/skillex/scripts/hermes-skillex-resync.py`;
+  the Skillex repo has no mise wrapper for it). Contract:
   `~/code/skillex/docs/implementation/hermes-skillex-resync.md`.
   `flume audit --rules hermes.skillex-resync` is the guard on all of this: it fails
-  when strict desks exist and the units are missing, disabled or failed, the last
+  when strict desks exist and the `.path` trigger is missing, disabled or failed, the last
   run is older than 2 h, or that run left a desk `refused` or `error`.
 - `flume roster` / `record` / `review` / `audit` are aggregate claims. Verify their
-  result against `.project.json`, the registry row, real profile files, and exact
-  systemd enabled/active/restart state before declaring success.
+  result against `.project.json`, the registry row, real profile files, the host
+  gateway's `served_profiles` and `hermes-gateway.service` active/restart state before
+  declaring success.
 - Never store literal credentials in `~/.hermes/.env`. Keep nonsecret toggles
   there if needed; store credentials in DeLoSecrets and map them with
   `secrets.onepassword.env` `op://` references. See
@@ -564,9 +635,11 @@ as a turn on the `bloodbank` platform. The toolsets that turn gets come from
     verifies its own delta edits and never restarts anything).
   - **Restart to pick up a new key.** Secrets are applied at process start (`1Password:
     applied N secrets` in `logs/gateway.systemd.log`; `/proc/<pid>/environ` will not
-    show it). The fleet Bloodbank gateway hydrates each target profile's secrets once
-    per process, so a token changed in a delta needs that gateway restarted, as does
-    the desk's own Telegram/Slack gateway.
+    show it). The host gateway hydrates each profile's secrets once per process, for
+    the Bloodbank lane and the chat adapters alike, so a token changed in a delta
+    takes effect only after a host restart. Batch the delta edits, then run ONE
+    `hermes-gateway-restart --reason "<why>"`: it picks up the new keys for every
+    profile. No desk owns a gateway of its own to restart.
   - **The gateway's login is the bottleneck for minting tokens.** `gateway-tokens.py`
     logs in as `delo-relay` on every call and never logs out, which hits three limits:
     a fixed-window login limiter (429, roughly 20 per 20 minutes, so 26 mints span two
@@ -605,11 +678,17 @@ as a turn on the `bloodbank` platform. The toolsets that turn gets come from
       primary `kimi-2.8` 403, then `Fallback activated: kimi-2.8 -> glm-5.3` in
       `agent.log`, and both rows in the gateway ledger under the desk's own consumer.
       To prove a change, force one desk's primary onto a route that is 403 right now.
-    - **Under the multiplexed Bloodbank gateway the chain comes from the GATEWAY
-      PROCESS's own `config.yaml`** (`gateway/run.py` `_refresh_fallback_model` reads the
-      process-level `_hermes_home`), not from the target desk's. After a base chain change
-      re-render `fleet-bloodbank-gateway`; a per-desk chain override only reaches that
-      desk's OWN gateway, not Bloodbank turns. The primary `model:` IS read per target desk.
+    - **The fallback chain is read per routed profile.** In the host gateway,
+      `_refresh_fallback_model` (`gateway/run_config_loaders.py`, hermes-agent
+      819517fbac+) reads the ACTIVE gateway home: the routed profile's home under
+      multiplexing, else the launch home `~/.hermes`. It re-reads that `config.yaml` on
+      each agent create/reuse and keeps one last-known-good chain per home, so a base
+      chain change reaches desks after `render` with no restart, and a per-desk chain
+      override in a delta applies to that desk's turns. (Until that fork change the chain
+      came from the process-level home, which is why older notes said to re-render
+      `fleet-bloodbank-gateway`.) The primary `model:` is read per target desk too. Prove
+      a per-desk chain live, by forcing that desk's primary onto a route that is 403
+      right now, before you rely on it.
     - **Effort differs by path.** Provider `extra_body.reasoning_effort` is not sent on
       the fallback path (ledger `automaticai_effort_defaulted=true`: the route default
       applies, `glm-5.3` = max), and `agent.reasoning_effort: max` in the base applies to
@@ -623,8 +702,7 @@ as a turn on the `bloodbank` platform. The toolsets that turn gets come from
 ## Named agents (posts vs. people)
 
 A role directory is a **post**: `agent_id`/`profile` (`33god-pm`) key the
-gateway unit, the registry row, Bloodbank `target_agent_id`, gitlinks and the
-desk. A **named agent** is a person-like identity holding a post; its name,
+profile/desk, the registry row, Bloodbank `target_agent_id` and gitlinks. A **named agent** is a person-like identity holding a post; its name,
 personal Hindsight bank and chat bot travel with it if it changes posts, while
 the repo, board and project memory stay with the post. The first one is
 **Grolf** (`grolf`, @Gr0lfBot), holding `33god-pm` since 2026-09-23.
@@ -676,8 +754,8 @@ the repo, board and project memory stay with the post. The first one is
 - **SOUL:** `flume remediate hermes.pm-scaffold <repo>` composes a named soul
   (addressed by name, Name row, personal bank, recall list). Unnamed posts
   compose byte-identically, so naming one agent drifts no other soul.
-- **Never rename the post** to name an agent: units, routing, the profile dir
-  and flume's correlation all hang off `agent_id`.
+- **Never rename the post** to name an agent: routing, the profile dir, the
+  registry row and flume's correlation all hang off `agent_id`.
 
 ## Voice / TTS defaults
 
@@ -702,8 +780,11 @@ desk's voice is controlled by `tts.vox.voice` (and the fallback `tts.voice`).
 > ```
 >
 > `x-vox-engine: voxcpm` means Voxxy is healthy and the fault is Hermes-side
-> (wrong provider key). Gateways cache config — `systemctl --user restart
-> hermes-<agent>-gateway` after changing it.
+> (wrong provider key). The host gateway caches config per session and process:
+> after changing it, `/reset` the session, cycle just that profile on the control
+> socket (`unserve-profile` then `serve-profile` on `~/.hermes/gateway.sock`), or batch
+> the change with others and run ONE `hermes-gateway-restart --reason "tts voice
+> change"`. Never a raw `systemctl` restart, and there is no per-agent unit to restart.
 
 To change the default voice instantly, run the bundled script with the voice slug:
 

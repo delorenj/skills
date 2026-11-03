@@ -29,4 +29,4 @@ case "${PROVIDER}" in
 esac
 
 echo "Hermes TTS voice set to '${VOICE}' for provider '${PROVIDER}'."
-echo "Restart Hermes or run /reset for the change to take effect."
+echo "Run /reset for the change to take effect in a session; for the host gateway batch it into one: hermes-gateway-restart --reason \"tts voice change\" (never a raw systemctl restart)."

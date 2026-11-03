@@ -8,16 +8,23 @@ Use this lane when the operator asks for a Hermes workforce self-check,
 especially when employees disagree with other CLIs or when MCP servers fail only
 in repo-backed daemons.
 
-> **Canonical service model:** per agent, ONE unit —
-> `hermes-<agent>-gateway.service` (chat ingress). Bloodbank commands enter
-> through the single fleet-shared `hermes-fleet-bloodbank-gateway.service`.
-> Per-agent heartbeat timers are retired (liveness is the gateway's
-> `Restart=on-failure`, scheduling is Candybar, which fires Bloodbank commands and Hermes
-> invocations; persistence is krebs leases),
-> the scrum-master title is retired, and per-agent consumer/checkpoint units are
-> drift — flag them, don't debug them; `flume remediate hermes.registry-parity`
-> converges the registry side and re-running `70-systemd.sh` deletes leftover
-> heartbeat units.
+> **Canonical service model (since 2026-10-11):** an employee owns NO systemd
+> unit. One host unit, `hermes-gateway.service` (`hermes gateway run`,
+> `HERMES_HOME=~/.hermes`), multiplexes every profile: each profile's
+> Telegram/Slack adapters and the Bloodbank fleet command lane (durable consumer
+> `bloodbank-hermes-gateway`; profile `fleet-bloodbank-gateway`) run inside it.
+> Liveness is `hermes-gateway.service` (`Restart=always`) plus
+> `hermes-gateway-watchdog.timer`; scheduling is Candybar, which fires Bloodbank
+> commands and Hermes invocations; persistence is krebs leases. The scrum-master
+> title is retired. Per-agent `hermes-<agent>-gateway.service` units,
+> `hermes-fleet-bloodbank-gateway.service`, and per-agent heartbeat, consumer and
+> checkpoint units are all drift: flag them and retire them, never debug, start
+> or reinstall them (a leftover per-agent gateway that starts fights the host
+> role: james-brennan-pm 2026-10-20, tolt-pm 2026-11-02). `flume remediate
+> hermes.registry-parity` converges the registry side and re-running
+> `70-systemd.sh` (template f8da8f0+) retires leftover units. A self-check never
+> restarts the host gateway; a needed restart is one batched
+> `hermes-gateway-restart --reason "<why>"`.
 
 ## Goal
 
@@ -81,13 +88,23 @@ follow-up work to the right Plane board.
 - Record each configured server's command/url shape without exposing secrets
 
 3. Check daemon health
-- `systemctl --user status hermes-<repo>-pm-gateway.service`
-- `systemctl --user status hermes-fleet-bloodbank-gateway.service`
-- Any `hermes-<repo>-pm-heartbeat.*`, `*-consumer.service`, or `*-checkpoint.timer`
-  sighting is drift, not something to debug — record it and converge it
-- Record unit-file, enabled, active, failed, and restart state. A gateway
-  intentionally deferred for lack of a channel credential must be disabled and
-  inactive, not classified as broken or left in a crash loop.
+- `systemctl --user status hermes-gateway.service` (the one host gateway; read
+  only, never restart it from a self-check)
+- Confirm the profile is served: `jq '.served_profiles, .parked_profiles'
+  ~/.hermes/gateway_state.json` names `<repo>-pm`, and
+  `journalctl --user -u hermes-gateway.service -n 200 --no-pager | grep <repo>-pm`
+  shows its adapters attaching
+- Scan for leftover per-agent units: `ls ~/.config/systemd/user/ | grep -E
+  '^hermes-.+-(gateway|heartbeat|consumer|checkpoint)\.(service|timer)$'`. Any
+  hit (for example `hermes-<repo>-pm-gateway.service` or
+  `hermes-fleet-bloodbank-gateway.service`) is drift, not something to debug;
+  record it and converge it with `70-systemd.sh`. The pattern needs a segment
+  between `hermes-` and the suffix, so it never matches `hermes-gateway.service`
+  or `hermes-gateway-watchdog.*`, which are the host's own units
+- Record the host unit's active, failed and restart state. A channel
+  intentionally deferred for lack of a credential is a delta pin
+  (`platforms.<x>.enabled: false`) plus `provisioning_status`, not a broken
+  gateway and not a disabled unit.
 - Use a bounded stabilization window over `Result`, `ExecMainStatus`, and
   `NRestarts`. Never close from one `is-active` sample.
 - For each unverified/deferred channel, confirm the desk delta explicitly
@@ -152,33 +169,38 @@ Interpretation:
   - `command: "node"`
   - `args: ["/path/to/server.js"]`
 
-2. Interactive CLI works, systemd daemon fails
-- Usually PATH drift
-- Prefer absolute executable paths for daemon-launched MCP servers, or explicitly
-  export PATH in the unit/runtime env
+2. Interactive CLI works, the host gateway fails
+- Usually PATH drift: `hermes-gateway.service` does not run with your shell's PATH
+- Prefer absolute executable paths for gateway-launched MCP servers, or set the
+  PATH in the server's own `mcp_servers` env; never hand-edit the host unit for
+  one profile's server
 
-3. Chat gateway dead, Bloodbank routing alive
-- Chat ingress may be broken while Bloodbank command routing (the fleet-shared
-  gateway) still reaches the agent — they are independent ingresses
-- Do not claim the agent is healthy if its gateway is down; do not claim it is
-  unreachable without checking the fleet Bloodbank gateway and the agent's
-  registry eligibility (`enabled` absent or `true` -- no key means enabled,
-  explicit `false` quarantines -- `gateway_scope: fleet`, matching
-  `target_agent_id`, nonblank `profile_name`)
+3. Chat adapter dead, Bloodbank routing alive
+- Both are adapters in one process, the host gateway. A profile's Telegram/Slack
+  adapter may fail (dead or parked bot, auth error) while the Bloodbank lane of
+  the same `hermes-gateway.service` still routes commands to that profile
+- Do not claim the agent is healthy if its chat adapter is down; do not claim it
+  is unreachable without checking the host gateway's Bloodbank lane
+  (`Bloodbank gateway connected` in its journal) and the agent's registry
+  eligibility (`enabled` absent or `true` -- no key means enabled, explicit
+  `false` quarantines -- `gateway_scope: fleet`, matching `target_agent_id`,
+  nonblank `profile_name`)
 - First determine whether chat ingress was intentionally deferred because no
-  per-agent channel credential exists. The correct state then is disabled and
-  inactive.
+  per-agent channel credential exists. The correct state then is
+  `platforms.<x>.enabled: false` in the delta plus a deferred/offline
+  `provisioning_status`.
 
 4. Duplicate gateways share one chat token
 - Two gateways consuming one Telegram/Slack credential create startup
   collisions; the second refuses to start
 - One dedicated bot credential per agent desk, always
 
-5. Stale systemd units
+5. Stale systemd units and launchers
 - Timeout and env warnings usually mean template/backfill drift, not repo
   application drift
-- A unit whose `Environment=HERMES_HOME=` does not equal the named desk path is
-  split-brain against its own launcher; that is `hermes.profile-wiring`
+- Any per-agent unit is drift whatever its env says; retire it. A role launcher
+  (`agents/hermes/<title>/hermes`) whose `HERMES_HOME` is not the named desk path
+  is split-brain; that is `hermes.profile-wiring`
 
 ## Board routing rules
 
@@ -226,11 +248,13 @@ Minimum acceptance checks for closure:
   targets, persistent strict policy, bundled opt-out, no local shadows, and
   empty `skills.external_dirs`. Actual Hermes discovery contains only that map.
 - Shared `mcp_servers` entries inspected from `~/.hermes/config.yaml`
-- Gateway and fleet-bloodbank-gateway status checked from systemd
+- `hermes-gateway.service` status checked; the profile is served
+  (`gateway_state.json` `served_profiles`); no per-agent gateway unit present
 - Bounded service window proves successful `Result`, zero `ExecMainStatus`, and a
-  stable restart count
-- Credential-less gateway classified as explicitly deferred (disabled/inactive),
-  never an enabled restart loop
+  stable restart count on the host unit
+- Credential-less channel classified as explicitly deferred (delta
+  `platforms.<x>.enabled: false` plus `provisioning_status`), never an enabled
+  restart loop
 - Shared `.env` inspected only for secret *names/patterns*; any literal
   credential is routed to a separate DeLoSecrets + `secrets.onepassword.env`
   migration without printing or migrating it during the self-check
@@ -246,12 +270,12 @@ Minimum acceptance checks for closure:
 - Do not blame the repo-local server implementation if direct tests pass
 - Do not file all MCP failures on one repo board when ownership spans shared
   config and external services
-- Do not forget gateway health; an MCP fix does not matter if the repo's only
-  chat ingress is dead
+- Do not forget channel health; an MCP fix does not matter if the repo's only
+  chat adapter is dead
 - Do not expose secrets from desk/runtime `.env` or shared config while
   collecting evidence. A literal credential in `~/.hermes/.env` is a finding,
   not an invitation to echo it; nonsecret toggles may remain there.
 - Do not treat `flume audit`, `flume review`, hire summaries, or registry dumps
-  alone as proof; reconcile them with `.project.json`, desk files, and direct
-  systemd state. A `flume review` verdict of `unproven` ("unable to assess")
+  alone as proof; reconcile them with `.project.json`, desk files, the host
+  gateway's `served_profiles`, and direct `hermes-gateway.service` state. A `flume review` verdict of `unproven` ("unable to assess")
   means the observation could not be trusted — it is not a pass.

@@ -69,24 +69,31 @@ Detailed checklist and acceptance criteria:
 - Ticket-provider adapters: canonical in
   `~/code/33GOD/krebs/adapters/tp/{plane,linear,trello}.sh`, vendored into
   `template/.scripts/providers/`
-- Canonical service model: per agent only `hermes-<agent>-gateway.service`;
-  Bloodbank command ingress is the single fleet-shared
-  `hermes-fleet-bloodbank-gateway.service`. Per-agent heartbeat timers,
-  consumers, and checkpoint timers are retired —
+- Canonical service model: one host gateway, `hermes-gateway.service`
+  (`HERMES_HOME=~/.hermes`), serves every profile and the Bloodbank fleet lane;
+  an employee owns no unit. `70-systemd.sh` (template f8da8f0+) writes no
+  per-agent unit and retires leftovers. Per-agent `hermes-<agent>-gateway.service`,
+  `hermes-fleet-bloodbank-gateway.service`, heartbeat, consumer and checkpoint
+  units are retired (2026-10-11) and are drift —
   `flume remediate hermes.registry-parity` converges registry drift and
-  re-running `70-systemd.sh` deletes leftover heartbeat units
+  re-running `70-systemd.sh` retires leftover units. Restart the host only with
+  one batched `hermes-gateway-restart --reason "<why>"`
+- Scheduling: Candybar is the single clock (skill `candybar`); never add a
+  timer, cron line or Hermes recurring job to the template
 - Provisioning/board model (how agents bind to the repo's one board via
   `.project.json`): see the `33god-projects` skill
-- Shared Hermes install: `~/.hermes/hermes-agent`, reached by generated agents
-  through `~/.hermes/fleet.env`
+- Shared Hermes install: the ONE install `~/.hermes/hermes-agent` (tracks
+  `delorenj/main`; launcher `.hermes/bin/hermes`), reached by generated agents
+  through `HERMES_FLEET_BIN` in `~/.hermes/fleet.env`
 - Shared config base: `~/.hermes/config.yaml`; each real named desk owns an
   override-only `config.delta.yaml` and a generated `config.yaml`
 
 ## Procedure
 
 1. Classify `<X>`
-- Hermes core update only: update `~/.hermes/hermes-agent`, restart long-running
-  services, and stop here
+- Hermes core update only: land it through a fork clone, fast-forward
+  `~/.hermes/hermes-agent`, run one `hermes-gateway-restart --reason "<why>"`,
+  and stop here (see [hermes-fleet-updates.md](hermes-fleet-updates.md))
 - shared config/default model only: write `HERMES_HOME="$HOME/.hermes" hermes
   config set ...`, render/check named desks, and stop here
 - rule/behavior prompt change
@@ -122,7 +129,8 @@ Detailed checklist and acceptance criteria:
     nested repository
   - `git check-ignore` succeeds for runtime and `git ls-files` returns no
     runtime paths
-  - systemd units set `HERMES_HOME` to the named desk path
+  - the role launcher sets `HERMES_HOME` to the named desk path; no per-agent
+    unit exists (the host unit runs with `HERMES_HOME=~/.hermes`)
 
 4. Verify
 - Confirm target lines exist in template files
@@ -141,7 +149,8 @@ Detailed checklist and acceptance criteria:
 5. Report
 - What changed
 - Which employees were backfilled
-- Any follow-up (restart gateway/session)
+- Any follow-up (one batched `hermes-gateway-restart --reason`, or `/reset` for a
+  session)
 - For self-checks: which fixes belong to the repo board vs the Hermes Agent PM
   board vs service-specific boards
 

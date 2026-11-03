@@ -19,7 +19,8 @@ must never become a way to overwrite one. In the current build, though, hire
 refuses a non-empty role dir, so `onboard` stops at "Hermes target directory is
 not empty" on every deployed employee. Until that is fixed, converge a deployed
 employee with its own steps from the role dir: `30-telegram.sh` (with
-`SKIP_TELEGRAM=1` to record the channel as deferred), `70-systemd.sh` and
+`SKIP_TELEGRAM=1` to record the channel as deferred), `70-systemd.sh` (asks the
+host gateway to serve the profile; writes no per-agent unit) and
 `80-registry.sh`. Refresh the role's scripts first (`flume remediate
 hermes.pm-scaffold <repo> --scripts-only`): an 80-registry.sh older than
 template 5ee1909 writes `systemd.gateway_state`/`heartbeat_state`, which the
@@ -59,10 +60,12 @@ Before invoking the deployer, capture enough state to prove what it changed:
   `~/.hermes/agents-registry.yaml`;
 - the expected named desk path and whether its `config.yaml`,
   `config.delta.yaml`, `profile.yaml`, and `hindsight/config.json` exist;
-- exact user-unit file, enabled, active, failed, and restart states for
-  `hermes-<agent-id>-gateway.service`;
-- the enabled/active state and unit-file identity of the fleet-shared
-  `hermes-fleet-bloodbank-gateway.service`.
+- the host gateway's state: `hermes-gateway.service` `ExecMainPID`,
+  `NRestarts`, active/failed state and unit-file identity, whether the
+  profile is served (`served_profiles` / `parked_profiles` in
+  `~/.hermes/gateway_state.json`), and the absence of any per-agent
+  `hermes-<agent-id>-gateway.service` unit file (the Bloodbank lane runs inside
+  the same host unit, so this one seal covers it).
 
 These hashes are mandatory before **and** after every run, not best-effort
 diagnostics. Never print credential values. Preserve dirty work exactly as
@@ -138,21 +141,30 @@ check actual pinned Hermes discovery; UI source labels do not establish ownershi
 
 ## Service state is conditional
 
-Per agent there is exactly one unit: `hermes-<agent-id>-gateway.service`, chat
-ingress. Per-agent heartbeat timers are retired and provisioning removes any it
-finds, recording `service_state.heartbeat: retired`. Liveness is the gateway's
-own `Restart=on-failure`; scheduling is Candybar (it fires Bloodbank commands and Hermes
-invocations); persistence is krebs leases.
-A heartbeat timer, a per-agent Bloodbank consumer, a checkpoint timer, or a
-filesystem inbox is drift.
+An agent owns no systemd unit. One host unit, `hermes-gateway.service`
+(`HERMES_HOME=~/.hermes`), serves every profile, including the Bloodbank fleet
+lane; provisioning (`70-systemd.sh`, template f8da8f0+) only asks it to serve the
+new profile through the control socket and records `service_state.gateway`
+`active`, `deferred` or `error`. A per-agent `hermes-<agent-id>-gateway.service`
+is drift (retired 2026-10-11): a leftover that starts fights the host role
+(james-brennan-pm 2026-10-20, tolt-pm 2026-11-02, ~975 host restarts). So is
+`hermes-fleet-bloodbank-gateway.service`. Per-agent heartbeat timers are retired
+and provisioning removes any it finds, recording `service_state.heartbeat:
+retired`. Liveness is `hermes-gateway.service` (`Restart=always`) plus
+`hermes-gateway-watchdog.timer`; scheduling is Candybar (it fires Bloodbank
+commands and Hermes invocations); persistence is krebs leases. A heartbeat timer,
+a per-agent Bloodbank consumer, a checkpoint timer, or a filesystem inbox is drift.
 
-- A per-agent gateway is healthy only when the agent has its own verified
-  chat-channel credential and the service is enabled and stable without
-  restart churn.
+- A profile's chat channel is healthy only when the agent has its own verified
+  chat-channel credential, its platform is enabled in the delta, the host
+  gateway serves the profile, and that adapter is stable without reconnect
+  churn.
 - If no channel credential was supplied, provisioning must explicitly defer
-  chat ingress and leave `hermes-<agent-id>-gateway.service` disabled and
-  inactive. Missing credentials must never produce an enabled crash loop, and
-  a deferred gateway must not be reported as a healthy chat channel.
+  chat ingress: the delta pins the platform off (below),
+  `provisioning_status` records `deferred`, and the host gateway does not run
+  that platform for the profile. Missing credentials must never produce an
+  enabled crash loop, and a deferred channel must not be reported as a healthy
+  chat channel. There is no per-agent unit to disable.
 - Deferred Telegram or Slack must also override any fleet-base enablement in
   the profile delta:
 
@@ -166,14 +178,17 @@ filesystem inbox is drift.
 
   Only verified ownership of that agent's dedicated credential may flip the
   corresponding value to `true`.
-- The fleet-shared Bloodbank gateway is not part of per-agent provisioning. Its
-  unit file, state, and config must remain unchanged.
+- Provisioning never restarts, reloads, stops or edits `hermes-gateway.service`;
+  it only asks the host to serve the profile. Its unit file and config must
+  remain unchanged. If new keys need a process restart, the operator batches it
+  into one `hermes-gateway-restart --reason "<why>"`.
 
 Service success requires a bounded stabilization window, not one
 `is-active` sample. Through the deadline, inspect systemd `Result`,
 `ExecMainStatus`, and `NRestarts`; require success/zero and no restart growth.
-A deferred gateway is judged by its required disabled/inactive state, not by
-forcing it active for the probe.
+These observations are of the host unit. A deferred channel is judged by its
+delta pin and `provisioning_status`, not by forcing the platform on for the
+probe.
 
 ## Credential boundary
 
@@ -188,8 +203,10 @@ startup. The safe migration is:
 3. render affected profiles and remove the literal from `.env`;
 4. verify `hermes secrets onepassword status` and dry-run `sync` without
    printing values;
-5. restart only the explicitly in-scope processes and verify their environment
-   contains the variable name while logs/output do not expose its value.
+5. apply it with ONE batched `hermes-gateway-restart --reason "<why>"` (the host
+   gateway hydrates every profile's secrets at process start; never a raw
+   `systemctl` restart), then verify the process environment contains the
+   variable name while logs/output do not expose its value.
 
 Do not migrate or display a live secret as an incidental part of a deployment.
 That is a separate, approval-gated operation. The 1Password authentication
@@ -225,7 +242,8 @@ cleaning tracked backups.
 ## Verify and prove convergence
 
 After the command, directly re-read `.project.json`, the registry row, profile
-files, and systemd state. `flume hire` already runs its own postcondition pass —
+files, the host gateway's state and `served_profiles`, and the user-unit directory
+(no per-agent unit file). `flume hire` already runs its own postcondition pass —
 the employee rules, plus a `pj audit --rules mise.config-root,sot.project-json
 --json` probe for the two project contracts it changes or depends on. A probe
 that cannot reach `pj` reports **unable to assess**, is surfaced, and does not
@@ -246,8 +264,8 @@ evidence above still has to agree. A `flume review` verdict of `unproven`
 Then rerun `flume onboard pm` (or, on a deployed employee, the 30/70/80 steps
 above). The second run must not duplicate registry or
 project entries, replace a real desk with a symlink, dirty tracked repo content,
-enable a credential-less gateway, alter the shared fleet gateway, or create
-retired units. Stable files should be byte-identical except for documented
+enable a credential-less channel, restart or alter `hermes-gateway.service`, or
+create retired units. Stable files should be byte-identical except for documented
 runtime timestamps/logs.
 
 With unchanged inputs, the registry must be byte-identical across the rerun. In
@@ -263,9 +281,9 @@ The deployment is complete only when all of these assertions hold:
 | Org chart | one matching row with the `bloodbank` block; rerun byte-identical; `provisioned_at` and extension metadata preserved |
 | Desk | real directory; generated config with render marker + real delta + identity metadata + explicit memory pin |
 | Skills | strict Skillex-only global/project projection; no local shadows or external roots; bundled seeding disabled |
-| Gateway | delta explicitly disables unverified channels; verified channel is stable across the bounded window |
-| Retired units | no `hermes-<agent>-heartbeat.*`, `-consumer.service`, or `-checkpoint.timer` exists |
-| Shared gateway | file/config/enabled/active state unchanged |
+| Channels | delta explicitly disables unverified channels; the host gateway serves the profile; a verified channel is stable across the bounded window |
+| Retired units | no `hermes-<agent>-gateway.service`, `hermes-fleet-bloodbank-gateway.service`, `hermes-<agent>-heartbeat.*`, `-consumer.service`, or `-checkpoint.timer` exists |
+| Host gateway | `hermes-gateway.service` file/config unchanged, never restarted by provisioning, `NRestarts` not growing |
 | Rerun | no duplicate entries, retired units, new tracked dirt, or stable-state drift |
 
 If a required deployment skill is absent, repair its Skillex manifest/projection
