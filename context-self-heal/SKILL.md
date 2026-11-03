@@ -13,7 +13,7 @@ Provide a reusable, non-agent-specific package for context monitoring and determ
 ## Files
 - `files/god-13-context-monitor.sh`
 - `files/god-13-lenoon-monitor.service`
-- `files/god-13-lenoon-monitor.timer` (legacy reference only; do not install it, see Deployment Pattern)
+- `files/candybar.toml` (Candybar manifest template; the `.timer` that used to ship here was retired)
 
 ## Standard Behavior
 - Warning zone: >=80% context
@@ -28,9 +28,13 @@ Provide a reusable, non-agent-specific package for context monitoring and determ
     5) Handoff context
 
 ## Deployment Pattern
-1. Copy script + units from `files/` to target workspace.
+1. Copy the script and the `.service` from `files/` to the target workspace.
 2. Parameterize `AGENT_NAME` and workspace path.
-3. Schedule it with a Candybar (`candybar` skill; the `.service` is the execution unit, runner `systemd` or `exec`). Do not enable the shipped `.timer` or add a crontab line.
+3. Schedule it with Candybar, the single clock (`candybar` skill): fill in
+   `files/candybar.toml` (runner `systemd` starting the `.service`, or `exec`
+   with the script's argv), register it from `~/code/33GOD/candybar`, read the
+   registration back, and prove one terminal invocation. Never add a `.timer`,
+   a crontab line or an agent-side poll loop.
 4. Verify artifact write + restart path on threshold breach.
 
 ## Notes

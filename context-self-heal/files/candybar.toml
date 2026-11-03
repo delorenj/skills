@@ -1,0 +1,16 @@
+# Candybar manifest template for the GOD-13 context monitor (Candybar is the
+# single clock; this replaces the retired 5-minute god-13-*-monitor.timer).
+# Copy next to the agent's workspace, replace <agent>, then register it from
+# ~/code/33GOD/candybar with `uv run candybar register <path>/candybar.toml`
+# and read it back (`uv run candybar show god-13-<agent>-context-monitor`).
+[candybar]
+name = "god-13-<agent>-context-monitor"
+description = "GOD-13 context self-heal monitor for <agent>: writes the compaction artifact and restarts at the threshold"
+tags = ["context-self-heal", "god-13"]
+schedule = "*/5 * * * *"
+timezone = "UTC"
+noise = true
+
+[candybar.runner]
+kind = "systemd"
+unit = "god-13-<agent>-monitor.service"

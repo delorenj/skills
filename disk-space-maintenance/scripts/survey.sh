@@ -234,6 +234,27 @@ else
   systemctl list-timers --all --no-pager 2>/dev/null | grep -iE 'prune|clean|logrotate|tmpfiles|fstrim' | awk '{print "- system timer: " $(NF-1)}'
   crontab -l 2>/dev/null | grep -iE 'prune|clean|sweep|rotate|rm ' | sed 's/^/- cron: /'
 fi
+# Candybar is the single clock: migrated cleanup jobs keep their .service but
+# their .timer is retired, so list-timers alone shows them as dead. Ask the
+# Candybar API (read-only); a cleanup timer above that has no candybar and no
+# entry in candybar/deploy/scheduling-policy.json is a bypass to report.
+if command -v curl >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+  curl -fsS --max-time 5 "${CANDYBAR_API:-http://127.0.0.1:8700}/candybars" 2>/dev/null | python3 -c '
+import json, re, sys
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+items = data if isinstance(data, list) else data.get("candybars") or data.get("items") or []
+pat = re.compile(r"prune|clean|sweep|rotate|maintain|tmpfiles|logrotate|trim", re.I)
+for c in items:
+    name = str(c.get("name") or "")
+    if pat.search(name):
+        state = "enabled" if c.get("enabled") else "paused"
+        sched, tz = c.get("schedule"), c.get("timezone") or ""
+        print(f"- candybar: {name}  schedule: {sched} {tz}  ({state})")
+' || true
+fi
 echo
 # A cron/cleanup `rm` whose target runs through a symlink is a loaded gun: while
 # the link dangles it deletes nothing, and the day someone repoints the link it

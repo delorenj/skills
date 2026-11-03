@@ -19,6 +19,12 @@ Setup concerns shared by all six patterns: triggers, credentials, timezones, wor
 - **`responseMode`**: see decision in [api.md](./api.md). Use `lastNode` when caller needs the workflow result; `onReceived` for fire-and-forget; `streaming` for chat trigger.
 - **URL**: production webhook URL is `https://<host>/webhook/<path>`; test URL is `https://<host>/webhook-test/<path>` (active only while editor's "Listen for Test Event" is on).
 
+> **Candybar owns the clock on this host.** Do not put a Schedule Trigger in a
+> workflow here. Build the same pipeline behind a Webhook trigger (respond when the
+> last node finishes), activate it, and register a Candybar `n8n` runner for it (see
+> the `candybar` skill). The Schedule Trigger patterns below are upstream n8n
+> reference only; cron syntax applies to the `schedule` field of the `candybar.toml`.
+
 ### Schedule Trigger: Interval Mode
 
 For simple recurring jobs.

@@ -5,7 +5,8 @@
 # Checks agent session context usage via OpenClaw CLI.
 # If >=90%, writes compaction artifact and triggers restart.
 #
-# Installation: Run from agent workspace cron or systemd timer
+# Installation: fire its .service from a Candybar candybar (files/candybar.toml);
+# never a cron line or a systemd timer
 # Usage: ./god-13-context-monitor.sh [AGENT_NAME] [THRESHOLD_PERCENT]
 #
 # Env vars:

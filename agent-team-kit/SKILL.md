@@ -7,6 +7,14 @@ description: Framework for self-sustaining AI agent teams with self-service work
 
 *A framework for self-sustaining AI agent teams.*
 
+> **DeLoNET:** this kit is OpenClaw-era. Its "heartbeat" sections assume an agent
+> runtime that polls `HEARTBEAT.md` on its own clock. On this host Candybar is the
+> single clock (`candybar` skill): anything that must run hourly or on a cadence is
+> a Candybar manifest, and a Hermes job it fires is pinned `scheduler: external`.
+> Use the process files (INTAKE/ROLES/BACKLOG/STATUS) as-is; treat the
+> `HEARTBEAT.md` checklist as the prompt a candybar fires, never as a native
+> heartbeat timer or a Hermes recurring job.
+
 ---
 
 ## What This Is
@@ -35,7 +43,7 @@ This creates:
 - `process/BACKLOG.md` — Triaged work queue
 - `process/STATUS.md` — Who's working on what
 
-### 2. Add Heartbeat Config
+### 2. Add Heartbeat Config (OpenClaw only; on DeLoNET schedule it via Candybar)
 
 Merge `templates/HEARTBEAT.md` into your existing `HEARTBEAT.md`:
 
@@ -124,7 +132,7 @@ HEARTBEAT.md          # Proactive check triggers
 Add to your heartbeat checks:
 
 ```markdown
-### Team Health (run hourly)
+### Team Health (run hourly — on DeLoNET, an hourly candybar)
 - [ ] OPPORTUNITIES.md stale? → Spawn Scout
 - [ ] Ready queue empty? → Alert Rhythm  
 - [ ] Active work stuck >2h? → Nudge owner

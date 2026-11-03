@@ -38,8 +38,8 @@ reportctl run --date <yesterday>
 ```
 
 Exit code: 0 for `complete` and `partial`, 3 for `failed` (no section completed,
-or a required section did not run), 2 when the publish itself failed. A cron
-agent cannot record success over a dead run — and, equally, a run that
+or a required section did not run), 2 when the publish itself failed. Whatever
+fires the run (its candybar) cannot record success over a dead run — and, equally, a run that
 accurately reports bad news exits 0, so the document naming the problem is not
 itself suppressed as a failure.
 
@@ -59,9 +59,15 @@ the run owns the manifest and report, `publish_archive_pair` owns the pointer.
 | `narrate.py` | the single provider call, output parsing, the deterministic render |
 | `reportctl_cli.py` / `reportctl` | argument surface, exit codes |
 
-Nothing here inspects the scheduler. Hermes profile parsing, timezone and
-inference preflight, and cron reconciliation were removed with the multi-job
-design: correctness is proven by reading the published artifact instead.
+The run's own correctness is never taken from a scheduler: it is proven by
+reading the published artifact. Hermes profile parsing, timezone and inference
+preflight, and cron reconciliation for the report's own job were removed with
+the multi-job design. The `fleet_health` collector is the one module that does
+look at schedulers, as a report *section*: it reads the host
+`hermes-gateway.service` and any leftover `hermes-*` units/timers (systemd), each
+profile's `cron/jobs.json` (ledger only; a `last_status` is a claim, never
+evidence), the Candybar API (`127.0.0.1:8700`, the single clock) and
+`candybar/deploy/scheduling-policy.json`, and reports second clocks and drift.
 
 ## Filesystem contract
 

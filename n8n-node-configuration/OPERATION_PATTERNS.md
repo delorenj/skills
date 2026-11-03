@@ -977,6 +977,12 @@ AI operations - 234 templates
 
 ## Schedule Nodes
 
+> **Candybar owns the clock on this host.** Do not put a Schedule Trigger in a
+> workflow here. Build the same pipeline behind a Webhook trigger (respond when the
+> last node finishes), activate it, and register a Candybar `n8n` runner for it (see
+> the `candybar` skill). The Schedule Trigger patterns below are upstream n8n
+> reference only; cron syntax applies to the `schedule` field of the `candybar.toml`.
+
 ### Schedule Trigger (nodes-base.scheduleTrigger)
 
 Time-based workflows - 28% have schedule triggers

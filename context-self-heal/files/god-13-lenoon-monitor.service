@@ -1,7 +1,6 @@
 [Unit]
 Description=GOD-13 Context Monitor Job (Lenoon)
 Documentation=file://%h/.openclaw/workspace-lenoon/god-13-context-monitor.sh
-PartOf=god-13-lenoon-monitor.timer
 
 [Service]
 Type=oneshot

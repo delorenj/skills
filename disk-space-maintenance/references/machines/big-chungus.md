@@ -208,7 +208,7 @@ Per the skill's rule, fix the accumulator not the pile. In priority order, all i
 
 ## Installed automation
 
-All cache/state/log sweep scripts live in `~/code/infra` and ran green in the last day. **Scheduling moved to candybar on 2026-10-26 (wave 7.7):** the old `.timer` units are retired (`not-found`, do not `enable` them; that double-schedules), but the `.service` units remain and candybar's systemd runner fires them with `systemctl --user start --wait`. So `systemctl --user list-timers` will NOT show them (the survey's "Cleanup automation" section lists the dead timers as `next: -`); check candybar instead.
+All cache/state/log sweep scripts live in `~/code/infra` and ran green in the last day. **Scheduling moved to candybar on 2026-10-26 (wave 7.7):** the old `.timer` units are retired (`not-found`, do not `enable` them; that double-schedules), but the `.service` units remain and candybar's systemd runner fires them with `systemctl --user start --wait`. So `systemctl --user list-timers` will NOT show them as scheduled (the dead timers print `next: -`); the survey's "Cleanup automation" section now also lists the matching candybars from the API.
 
 | Job | Schedule (America/New_York) | What | Last verified run | Notes |
 |---|---|---|---|---|
@@ -222,7 +222,7 @@ All cache/state/log sweep scripts live in `~/code/infra` and ran green in the la
 | system `systemd-tmpfiles-clean` | 21:28 daily | `/tmp` 10d, `/var/tmp` 30d | ok | |
 | root `logrotate` | daily | `/etc/logrotate.d/{rsyslog,delonet-logs}`, installed by `logrotate/install-system.sh` | 2026-10-28 00:42 ok | the duplicate `cloud-init-base` conffile that made it exit 1 was removed |
 | journald | n/a | `SystemMaxUse=1G`, 3 weeks | 1.0 GiB | `/etc/systemd/journald.conf.d/99-delonet.conf` |
-| `docker-stack-ssbnk-cleanup.timer` | 02:00 daily | ssbnk retention | | system timer |
+| `docker-stack-ssbnk-cleanup.timer` | 02:00 daily | ssbnk retention | | **non-Candybar clock**: system timer with no candybar and no entry in `candybar/deploy/scheduling-policy.json` (checked 2026-11-03). `candybar doctor` flags it; report it, register a candybar, do not auto-disable |
 | `fstrim.timer` | weekly | discard | | |
 | apt `Keep-Downloaded-Packages false` | n/a | `/etc/apt/apt.conf.d/99-no-keep-debs` | **not effective** | 5.4 GiB of debs present |
 | snap `refresh.retain=2` | n/a | | | |
@@ -245,7 +245,7 @@ All cache/state/log sweep scripts live in `~/code/infra` and ran green in the la
 - **G versus GiB, Prometheus versus df.** Prometheus `node_filesystem_avail_bytes` is bytes in decimal GB (937 GB) while `df -B1G` is GiB (873). They agree; the factor is 1.0737. The alert thresholds are ratios so they are unaffected. Sizing a cleanup target in the wrong unit is a 7% error.
 - **`df` Use% runs about 4 points high** because of the 5% root reserve. 75% shown is ~71% real; do not compare with the pre-2026 "98%" language without checking Avail.
 - **Deleted-but-open files:** `lsof +L1` shows real ones at 100-220 MiB (old `opencode`, `orca-ide`, hermes python after an update; restart the owner to release). The **2048 G entries `survey.sh` prints for `Runner.Li` (GitHub runner .NET), `jellyfin` and `marksman` are false positives**: sparse mmap'd files whose SIZE/OFF is the 2 TiB mapping, not disk usage. Ignore them; `survey.sh` should filter SIZE/OFF above 1 TiB.
-- **The survey's automation section is blind to candybar.** The retired timers print `next: -`; the jobs are alive. Trust `journalctl --user -u cache-prune* -u docker-prune -u state-maintain -u user-logrotate --since -2d` and the candybar ledger (`~/code/33GOD/candybar/deploy/migration/ledger.yaml`), not `list-timers`.
+- **`list-timers` is blind to candybar.** The retired timers print `next: -`; the jobs are alive. `survey.sh` now prints `- candybar:` lines from `127.0.0.1:8700/candybars` beside them; beyond that, trust `journalctl --user -u cache-prune* -u docker-prune -u state-maintain -u user-logrotate --since -2d` and the candybar ledger (`~/code/33GOD/candybar/deploy/migration/ledger.yaml`), not `list-timers`.
 - **`systemd-tmpfiles` ages on max(atime, mtime, ctime).** A top-level directory touched constantly (`~/.claude/tmp/opencode`) never ages under a top-level rule; it needs its own glob (done). Also `e` on a glob cleans the contents, not the directory.
 - **Check the Prometheus history before blaming a nightly job.** The loss of 2026-10-14..24 was agent project writes during the day, not a failed sweep. Free-space deltas inside one run include concurrent writes (the "freed~5 MiB" lines).
 - **Concurrent cleanup sessions collide on locks** (uv, docker, journal). Check for another session first; the scripts use `flock` on `$XDG_RUNTIME_DIR/*.lock` and exit 0 if another copy runs.

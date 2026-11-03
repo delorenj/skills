@@ -2146,9 +2146,9 @@ Compose this skill with other Hermes skills for specific phases:
 | **`delegate_task`** | **Parallel section drafting** — spawn isolated subagents for each section. Also for concurrent citation verification. |
 | **`todo`** | Primary state tracker across sessions. Update after every phase transition. |
 | **`memory`** | Persist key decisions across sessions: contribution framing, venue choice, reviewer feedback. |
-| **`cronjob`** | Schedule experiment monitoring, deadline countdowns, automated arXiv checks. |
+| **`cronjob`** | One-shot experiment checks and reminders; recurring monitoring/deadline/arXiv checks are jobs pinned `scheduler: external` that a Candybar candybar fires (DeLoNET: Candybar is the single clock). |
 | **`clarify`** | Ask the user targeted questions when blocked (venue choice, contribution framing). |
-| **cron `deliver:`** | Notify the user when experiments complete or drafts are ready even if they're not in chat — schedule the check as a cron job with a messaging `deliver:` target (the agent no longer has a `send_message` tool; outbound delivery is handled by cron/`hermes send`). |
+| **cron `deliver:`** | Notify the user when experiments complete or drafts are ready even if they're not in chat — schedule the check as a cron job with a messaging `deliver:` target (recurring: pinned `scheduler: external` and fired by a candybar) (the agent no longer has a `send_message` tool; outbound delivery is handled by cron/`hermes send`). |
 
 ### Tool Usage Patterns
 
@@ -2232,11 +2232,13 @@ todo("update", id=1, status="completed")
 > checks or a job a registered candybar fires (pinned `scheduler=external`). For a
 > recurring check, register a candybar (`candybar` skill) instead.
 
-Use the `cronjob` tool to schedule experiment checks:
+Create the Hermes job pinned to the external scheduler, then let a candybar own the
+cadence. The job's own `schedule` is only a ledger value; Candybar fires it:
 
 ```
 cronjob("create", {
-  "schedule": "*/30 * * * *",  # Every 30 minutes
+  "schedule": "*/30 * * * *",  # Ledger only; Candybar owns the clock
+  "scheduler": "external",
   "prompt": "Check experiment status:
     1. ps aux | grep run_experiment
     2. tail -30 logs/experiment_haiku.log
@@ -2248,12 +2250,30 @@ cronjob("create", {
 })
 ```
 
+Then register the cadence in `~/code/33GOD/candybar` (see the `candybar` skill) and
+read it back; the candybar runs `hermes -p <profile> cron run <job_id> --wait`:
+
+```toml
+[candybar]
+name = "paper-experiment-check"
+description = "Every 30 min: check experiment status for the paper"
+schedule = "*/30 * * * *"
+timezone = "America/New_York"
+
+[candybar.runner]
+kind = "hermes"
+profile = "<profile>"
+job_id = "<job_id from cronjob create>"
+timeout_s = 900
+```
+
 **[SILENT] protocol**: When nothing has changed since the last check, respond with exactly `[SILENT]`. This suppresses notification delivery to the user. Only report when there are genuine changes worth knowing about.
 
 **Deadline tracking**:
 ```
 cronjob("create", {
-  "schedule": "0 9 * * *",  # Daily at 9am
+  "schedule": "0 9 * * *",  # Daily at 9am (ledger; a candybar fires it)
+  "scheduler": "external",
   "prompt": "NeurIPS 2025 deadline: May 22. Today is {date}. 
     Days remaining: {compute}. 
     Check todo list — are we on track? 

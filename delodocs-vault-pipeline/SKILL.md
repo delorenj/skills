@@ -32,8 +32,8 @@ The vault runs a three-stage Inbox triage pipeline plus downstream wiki passes:
 
 ```
 Inbox/  →  cleanup (candybar, 10m)  →  watchdog (service) + Hermes enrichment
-        →  router (service, 10m)    →  {Category}/_triage/{file}.md
-                                  →  (no secondary pass — known gap)
+        →  router (service; no candybar)  →  {Category}/_triage/{file}.md
+        →  second pass (candybar delodocs-triage-second-pass, daily 09:00)
 ```
 
 > Scheduling: Candybar owns WHEN each stage runs (see the `candybar` skill). The
@@ -53,7 +53,7 @@ Uploads non-markdown attachments to MinIO. Runs first, before enrichment.
 Script: `_vault/scripts/inbox_watchdog.py`
 Prompt: `_vault/Workflows/prompts/inbox-frontmatter-watchdog.md`
 
-Continuous poller. Spots new/changed `.md` files in `Inbox/` recursively.
+Long-running service (execution, not a clock: no schedule of its own). Spots new/changed `.md` files in `Inbox/` recursively.
 Waits 20s for file stability, then wakes Delodocs PM Hermes profile with
 a manifest. Hermes adds YAML frontmatter (source, captured, category,
 tags, route-path, route-confidence) and sets `pipeline-status: [ready]`.
@@ -61,6 +61,11 @@ tags, route-path, route-confidence) and sets `pipeline-status: [ready]`.
 State: `~/.local/state/delodocs/inbox-watchdog/state.json`
 
 ### Stage 3: Router — `delodocs-inbox-router.service`
+
+> Not scheduled (checked 2026-11-03): no candybar is registered for the router and
+> the unit is not installed in `~/.config/systemd/user`. Its old 10-minute cadence
+> came from the retired `delodocs-inbox-router.timer`. To schedule it, register a
+> candybar (`systemd` runner for the `.service`); never re-enable the timer.
 
 Script: `_vault/scripts/inbox_router.py`
 
@@ -176,11 +181,13 @@ retry automatically. Options:
 - Set `"attempts"` to 0
 - Run a one-shot backfill: `python3 _vault/scripts/inbox_watchdog.py --vault "$PWD" --scan-existing --once`
 
-### _triage folders accumulating (no secondary pass)
+### _triage folders accumulating
 
-Known gap: the pipeline routes to `{Category}/_triage/` but nothing moves
-files from `_triage/` to their final home. Solution: a secondary triage
-Hermes job scanning `_triage/` directories and routing to final destinations.
+The router lands files in `{Category}/_triage/`; the candybar
+`delodocs-triage-second-pass` (daily 09:00, <=10 files/day, was Hermes job
+delodocs-pm:fc39bd8b33c8) drains that backlog to final destinations. If
+`_triage/` keeps growing, check its last invocations:
+`(cd ~/code/33GOD/candybar && uv run candybar show delodocs-triage-second-pass -n 5)`.
 
 ## Key File Paths
 
