@@ -80,9 +80,16 @@ class InstallTimer(unittest.TestCase):
             rc = schedule.install_timer_cmd(types.SimpleNamespace(project="james-brennan", json=False))
         return rc, calls, buf.getvalue()
 
-    def test_installs_dropin_and_enables(self):
+    def test_default_scheduler_is_candybar_and_never_enables(self):
         with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as cfg:
             rc, calls, out = self.run_install(home, cfg)
+            self.assertEqual(rc, 0)
+            self.assertNotIn(("enable", "--now", "activity-report@james-brennan.timer"), calls)
+            self.assertIn("NOT enabled activity-report@james-brennan.timer", out)
+
+    def test_explicit_systemd_installs_dropin_and_enables(self):
+        with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as cfg:
+            rc, calls, out = self.run_install(home, cfg, proj=project(scheduler="systemd"))
             self.assertEqual(rc, 0)
             user_dir = os.path.join(cfg, "systemd", "user")
             self.assertTrue(os.path.exists(os.path.join(user_dir, "activity-report@.service")))

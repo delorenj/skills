@@ -140,7 +140,8 @@ how each block renders: `references/portal-grammar.md`.
 4. Schedule it with Candybar, the single clock: register a `candybar.toml`
    (runner `exec`, argv `~/.local/bin/activity-report run --project <slug>`,
    schedule at `schedule.at` in the project zone, register disabled first) and set
-   `schedule.scheduler: "candybar"` in the config block. Follow the `candybar`
+   `schedule.scheduler: "candybar"` in the config block (also the default when the
+   key is absent, so a bare `schedule.at` never yields a native timer). Follow the `candybar`
    skill for the manifest, readback and proof of the first scheduled night. Never
    add a new `.timer`. `install-timer` and `timer-status` are migration and
    rollback tools for the native schedule only: with `scheduler: "candybar"`

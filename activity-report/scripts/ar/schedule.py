@@ -3,10 +3,12 @@
 `assets/systemd/activity-report@.service` and `.timer` are copied verbatim to
 `~/.config/systemd/user/`; the project's time and zone go in
 `activity-report@<slug>.timer.d/schedule.conf`, which resets OnCalendar and
-sets it again. `install-timer` is the only place that enables anything —
-unless the project sets `activity_report.schedule.scheduler: "candybar"`,
-in which case the units and drop-in are written but the timer is never
-enabled: candybar owns the schedule (candybar migration wave 7.14).
+sets it again. Candybar is the single clock, so the default scheduler is
+"candybar": install-timer writes the units and drop-in but never enables the
+timer, and the candybar (e.g. `activity-report-<slug>`) fires
+`activity-report run`. Only an explicit `activity_report.schedule.scheduler:
+"systemd"` enables a native timer, and that needs an approved exception in
+~/code/33GOD/candybar/deploy/scheduling-policy.json.
 """
 from __future__ import annotations
 
@@ -42,13 +44,16 @@ def dropin_path(slug: str, user_dir: str | None = None) -> str:
 
 
 SCHEDULERS = ("systemd", "candybar")
+DEFAULT_SCHEDULER = "candybar"
 
 
 def scheduler_of(project) -> str:
-    """Who fires the job. Default systemd; 'candybar' means install-timer writes
-    the units and drop-in but never enables the timer (a re-install must not
-    resurrect a timer the candybar migration retired)."""
-    return ((project.config or {}).get("schedule") or {}).get("scheduler", "systemd")
+    """Who fires the job. Default candybar: install-timer writes the units and
+    drop-in but never enables the timer (a re-install must not resurrect a timer
+    the candybar migration retired, and a project with only `schedule.at` must
+    not silently get a native clock). 'systemd' is an explicit, exception-only
+    opt-in that enables the timer."""
+    return ((project.config or {}).get("schedule") or {}).get("scheduler", DEFAULT_SCHEDULER)
 
 
 def render_dropin(project) -> str:

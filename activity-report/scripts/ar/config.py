@@ -22,7 +22,7 @@ DEFAULTS: dict = {
     "audiences": ["internal", "external"],
     "timezone": "America/New_York",
     "extra_repo_paths": [],
-    "schedule": {"at": "03:00"},
+    "schedule": {"at": "03:00", "scheduler": "candybar"},
     "window": {"cap_hours": 24, "min_minutes": 60},
     "hindsight": {"bank": None, "recall": True, "retain": True, "retain_audiences": ["internal"]},
     "board": {
@@ -169,7 +169,8 @@ def validate_config(config: dict) -> None:
     at = (config.get("schedule") or {}).get("at")
     if not isinstance(at, str) or not _TIME_RE.match(at):
         raise ConfigError(f"{CONFIG_KEY}.schedule.at must be HH:MM (24 h), got {at!r}")
-    scheduler = (config.get("schedule") or {}).get("scheduler", "systemd")
+    # Candybar is the single clock: no scheduler key means candybar, never a native timer.
+    scheduler = (config.get("schedule") or {}).get("scheduler", "candybar")
     if scheduler not in ("systemd", "candybar"):
         raise ConfigError(
             f"{CONFIG_KEY}.schedule.scheduler must be 'systemd' or 'candybar', got {scheduler!r}"

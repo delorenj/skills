@@ -6,7 +6,7 @@
     "audiences: which reports to produce, in run order. internal first is the convention: the external pass reads the internal body.",
     "timezone: an IANA zone. The window label (YYYY-MM-DDTHHMM) and the timer's OnCalendar use it.",
     "extra_repo_paths: absolute paths of other checkouts whose commits belong to this project. The .project.json repo is always included; worktrees are found automatically.",
-    "schedule.at: HH:MM local time for the nightly timer. install-timer writes it into activity-report@<slug>.timer.d/schedule.conf.",
+    "schedule.at: HH:MM local time for the nightly run; mirror it in the project's Candybar manifest. schedule.scheduler: who fires the run, default candybar (install-timer never enables a native timer); systemd is an exception-only opt-in that needs an entry in ~/code/33GOD/candybar/deploy/scheduling-policy.json.",
     "window.cap_hours: the longest window one report covers; when the previous report is older than this, basis becomes cap_24h. window.min_minutes: a window shorter than this makes collect exit 4 (nothing to do) unless --force.",
     "hindsight.bank: the memory bank name, null = the repo basename. hindsight.recall: read facts about the window into the digest. hindsight.retain: store the report (as prose, verified by memory_unit_count, retried on an empty extraction) after a successful emit. hindsight.retain_audiences: which audiences are written to memory; internal only by default, the client-facing text being spin rather than the record.",
     "board.api_key_ref: an op:// reference for the board API key, never a value. board.exposure_labels: the two labels that mark a ticket client-visible (always surfaced) or internal-only (never named to the client). board.max_live_fetches: cap on per-ticket lookups per run.",
@@ -20,7 +20,7 @@
     "audiences": ["internal", "external"],
     "timezone": "America/New_York",
     "extra_repo_paths": [],
-    "schedule": {"at": "03:00"},
+    "schedule": {"at": "03:00", "scheduler": "candybar"},
     "window": {"cap_hours": 24, "min_minutes": 60},
     "hindsight": {"bank": null, "recall": true, "retain": true, "retain_audiences": ["internal"]},
     "board": {

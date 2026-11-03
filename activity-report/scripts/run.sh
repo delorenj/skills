@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The unattended entry point: one project, every configured audience, internal
-# first. `activity-report run` execs this file; the systemd timer runs that.
+# first. `activity-report run` execs this file; its Candybar candybar runs that.
 #
 # Per audience, in order:
 #

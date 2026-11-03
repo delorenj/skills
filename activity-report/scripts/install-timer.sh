@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Install (or refresh) the systemd user timer for one project.
+# Install (or refresh) the systemd user units for one project.
 #
 # A thin wrapper: the implementation is `activity-report install-timer`
 # (scripts/ar/schedule.py), which copies the two template units from
 # assets/systemd/ to ~/.config/systemd/user/, writes the project's time and
-# zone into activity-report@<slug>.timer.d/schedule.conf, reloads, and
-# enables the timer. This file only checks the two things Python cannot
-# fix: that systemd is here at all, and that the user lingers.
+# zone into activity-report@<slug>.timer.d/schedule.conf, and reloads.
+# Candybar is the single clock: with the default scheduler ("candybar") the
+# timer is NEVER enabled; a candybar fires `activity-report run`. Only an
+# explicit schedule.scheduler: "systemd" (an approved scheduling-policy
+# exception) enables the timer. This file only checks the two things Python
+# cannot fix: that systemd is here at all, and that the user lingers.
 #
 # Usage:
 #   scripts/install-timer.sh --project SLUG

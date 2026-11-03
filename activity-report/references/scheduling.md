@@ -1,13 +1,19 @@
 # Scheduling
 
 > Candybar is the single clock. A project's nightly run is a registered
-> candybar (`schedule.scheduler: "candybar"`; see the `candybar` skill), never a
-> new timer. What follows documents the native systemd timer that Candybar
-> replaced. Use it only to migrate a project off it or to roll back, and keep
-> the timers disabled for any project whose scheduler is `candybar`.
+> candybar (see the `candybar` skill), never a new timer. `schedule.scheduler`
+> defaults to `"candybar"`: `install-timer` writes the units and drop-in but
+> never enables the timer. The candybar uses an `exec` runner
+> (`~/.local/bin/activity-report run --project <slug>`; SKILL.md step 4) or, as
+> james-brennan does, a `systemd` runner that starts
+> `activity-report@<slug>.service` (manifest:
+> `~/code/33GOD/candybar/deploy/migration/manifests/activity-report-james-brennan/candybar.toml`).
+> `schedule.scheduler: "systemd"` (enable the native timer) is an
+> exception-only opt-in that needs an entry in
+> `~/code/33GOD/candybar/deploy/scheduling-policy.json`.
 
-The native schedule was one systemd user timer per project, from two template
-units and one drop-in.
+The service unit stays; only its timer is retired. The template units and the
+drop-in below are what the service and the (disabled) timer are built from.
 
 ## Units
 
@@ -40,9 +46,13 @@ the run near the minute the label is computed from.
 
 - `activity-report install-timer --project <slug>` (or
   `scripts/install-timer.sh --project <slug>`): copies the units if absent or
-  changed, writes the drop-in, `daemon-reload`, `enable --now` the timer, checks
-  lingering, prints `list-timers`. Needs the `~/.local/bin/activity-report` shim
-  (`activity-report init`) because the unit's `ExecStart` points at it.
+  changed, writes the drop-in, `daemon-reload`, checks lingering, prints
+  `list-timers`. With the default `scheduler: "candybar"` it prints
+  `NOT enabled ...` and leaves the timer off; then register the candybar
+  (`uv run candybar register <manifest>` from `~/code/33GOD/candybar`) and read
+  it back. Only an explicit `scheduler: "systemd"` makes it `enable --now` the
+  timer. Needs the `~/.local/bin/activity-report` shim (`activity-report init`)
+  because the unit's `ExecStart` points at it.
 - `activity-report timer-status --project <slug>`: `list-timers` for the
   timer, the drop-in as installed versus what the config says, and the last 20
   journal lines of the service.
@@ -68,7 +78,13 @@ skipped. `raw.txt`, `.md`, `.html` and `.event.json` are all written under
 `runtime/activity-report/<slug>/` for reading the next morning. Remove the
 drop-in and reload to go live.
 
-## The james-brennan cutover
+## The james-brennan cutover (historical)
+
+> Done. Both james-brennan jobs are candybars now: `activity-report-james-brennan`
+> (03:30) and `james-brennan-daily-update` (03:00), each starting its service
+> through a `systemd` runner. Neither `.timer` is enabled. Do not follow the
+> steps below to install or re-enable a timer; they record how the cutover was
+> run, with the native-timer steps now replaced by the candybars.
 
 The old job (`james-brennan-daily-update.timer` at 03:00, `scripts/daily-update-*`
 in the repo, the repo-local `daily-update` skill) keeps writing the two portal
@@ -101,7 +117,10 @@ adds a row rather than overwriting the old job's.
 ## intelliforia
 
 The `team-update-*` user timers on this host are dead (their scripts moved
-under the repo's skill and were never re-pointed). Migration when it is wanted:
+under the repo's skill and were never re-pointed). Migration when it is wanted
+schedules the run as a candybar (keep the default `scheduler: "candybar"`,
+`install-timer` for the units, then a `systemd`-runner candybar manifest for
+`activity-report@intelliforia.service`), never a timer:
 
 - `activity_report` block with `audiences: ["external"]` only; there is no
   team-only reader for that project.
@@ -112,4 +131,5 @@ under the repo's skill and were never re-pointed). Migration when it is wanted:
   dedicated `output.site_dir` key is the natural follow-up if the site wants a
   different name or an index).
 - `portal: null`; the html is the deliverable.
-- Then delete the four `team-update-*` units and their timers.
+- Then retire the four `team-update-*` units and their timers (through
+  `candybar migrate ... decommission` so the ledger records it).
