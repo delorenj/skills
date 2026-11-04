@@ -40,13 +40,13 @@ Run from `~/code/33GOD/candybar`. API default `http://127.0.0.1:8700`; off-box
 `export CANDYBAR_API_URL=https://candybar.delo.sh`.
 
 1. Put the script or `.service` in its own repo, committed and pushed. Never add a `.timer`.
-2. Write `candybar.toml` next to the job source. Required: `name` (lowercase slug), a 5-field `schedule`, and exactly one of `entrypoint` or `[candybar.runner]`. Optional: `description`, `tags`, `timezone` (IANA, default UTC), `noise`, `enabled`. Unknown keys are rejected.
-3. For anything with side effects set `enabled = false`, then `uv run candybar register <dir-or-file>`. Register is create-only: duplicate name is 409. Later changes use `uv run candybar edit <name> [--schedule --timezone --description --tags --noise]`; a runner change needs `curl -X PATCH $API/candybars/<id> -H 'content-type: application/json' -d '{"runner":{...}}'`.
+2. Make it a **project candybar** in that repo (README "Project candybars"): from the repo, `candybar create --no-tui --name <slug> --schedule "<cron>" --exec "./scripts/job.sh args" --disabled` (or `--systemd UNIT`, `--hermes PROFILE:JOB_ID`, `--n8n PATH_OR_URL`, `--entrypoint SCRIPT`; `--timezone` defaults to the host zone; `--print` previews). It writes `.candybars/<name>.candybar.toml` (`--project-file` appends a `[candybars.<name>]` table to `.candybar.toml`), validated by the same loader `register` uses. Relative paths resolve against the repo root, exec jobs start in the repo root, and the `project:<repo>` tag is added for you (never write a `project:` tag yourself). `candybar create` without `--no-tui` is the human TUI. A job with no repo can still use a plain `candybar.toml` (required `name`, 5-field `schedule`, exactly one of `entrypoint` or `[candybar.runner]`; unknown keys rejected).
+3. From the repo: `candybar register --dry-run`, then `candybar register` (registers every project candybar; `-n NAME` for one). Changing the file later and rerunning `candybar register --update` PATCHes the drift (runner included); `--prune` archives registered candybars the repo no longer defines; `candybar ls` in the repo shows STATE and SYNC. A plain `candybar.toml` is `candybar register <dir>`, create-only (409 on duplicate; change it with `candybar edit` or PATCH). Side-effect jobs are created disabled (`--disabled` / `enabled = false`); `enabled` is never synced.
 4. Read back: `uv run candybar show <name> -n 5` and `uv run candybar next`. Check state, runner, schedule, timezone.
 5. Prove a terminal invocation: `uv run candybar run <name> --wait` for side-effect-free jobs. For jobs with side effects do not test-run; wait for the first scheduled fire and read `uv run candybar history <name> -n 5`. Then confirm the job's actual effect.
 6. `uv run candybar resume <name>` to enable.
 7. `uv run candybar doctor --repo . --live --json` (read-only). Confirm no new bypass and no competing native clock.
-8. Commit and push the manifest.
+8. Commit and push the candybar file(s) in the job's repo.
 
 ## Minimal manifests
 
