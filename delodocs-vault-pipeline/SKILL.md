@@ -33,7 +33,7 @@ The vault runs a three-stage Inbox triage pipeline plus downstream wiki passes:
 ```
 Inbox/  →  cleanup (candybar, 10m)  →  watchdog (service) + Hermes enrichment
         →  router (service; no candybar)  →  {Category}/_triage/{file}.md
-        →  second pass (candybar delodocs-triage-second-pass, daily 09:00)
+        →  (no second pass: delodocs-triage-second-pass decommissioned 2026-11-04)
 ```
 
 > Scheduling: Candybar owns WHEN each stage runs (see the `candybar` skill). The
@@ -183,11 +183,12 @@ retry automatically. Options:
 
 ### _triage folders accumulating
 
-The router lands files in `{Category}/_triage/`; the candybar
-`delodocs-triage-second-pass` (daily 09:00, <=10 files/day, was Hermes job
-delodocs-pm:fc39bd8b33c8) drains that backlog to final destinations. If
-`_triage/` keeps growing, check its last invocations:
-`(cd ~/code/33GOD/candybar && uv run candybar show delodocs-triage-second-pass -n 5)`.
+The router lands files in `{Category}/_triage/`. Nothing drains that backlog
+today: the `delodocs-triage-second-pass` candybar (was Hermes job
+delodocs-pm:fc39bd8b33c8) was decommissioned and archived on 2026-11-04 because
+its profile `delodocs-pm` was retired. Triage `_triage/` by hand, or register a
+new candybar (see the `candybar` skill) against a live profile if the drain is
+still wanted.
 
 ## Key File Paths
 
