@@ -42,4 +42,4 @@ Use when a task requires mutating or debugging the AutomaticAI gateway at `api.a
 
 - Live call through the new token/route: `POST /v1/chat/completions` with `model: automaticai/auto/fast` etc.
 - Ledger proof of who served: `SELECT model_name, to_timestamp(created_at) FROM logs WHERE token_name='<n>' ORDER BY created_at DESC LIMIT 5`.
-- Auto-router internals: `GET /v1/automaticai/auto/state` (needs an allowed-group auto-scoped token).
+- Auto-router internals: the operator API `GET /api/automaticai/{overview,accounts,decisions,ratchet,pins,guards}` (admin PAT; `tokies auto`, `tokies auto accounts`, `tokies auto decisions`). The token-scoped `/v1/automaticai/auto/state` was retired on 2026-11-05.
