@@ -105,12 +105,14 @@ the same normalizer (`data.trigger_source: plane-reconcile`, same event id and
 `Nats-Msg-Id`, at most 20 per sweep). Updates, transitions and comments made
 during an outage are not recovered.
 
-### The n8n ticket lanes (n8n-nodes-bloodbank 0.7.2)
+### The n8n ticket lanes (n8n-nodes-bloodbank 0.7.5)
 
 ```text
 bloodbank.evt.repo.task.created / .updated
-  ▼ Bloodbank Trigger (alias plane.ticket.created / plane.ticket.transitioned;
-  │   durable JetStream pull consumer, acked after the execution)
+bloodbank.evt.agent.invocation.completed (reason ticket-grooming, phase Todo)
+  ▼ Bloodbank Trigger (alias plane.ticket.created / plane.ticket.transitioned,
+  │   or the grooming completion + a live Plane re-read; durable JetStream pull
+  │   consumer per workflow+node, acked after the execution)
 33GOD Agent Fleet node (Groom Ticket / Delegate Ticket)
   ├─ Dispatched → bloodbank.cmd.agent.invocation.start
   │    command_id = uuid5(causing event id, operation, agent) → redelivery dedups
@@ -131,8 +133,32 @@ groom this ticket?" is answered by querying Candystore for
 | Plane Ingress Reconcile (`U4hYm3BYPPeZNDHQ`) | every 10 min | Recovered missed ticket |
 | Ticket Grooming (`6wAGA5pdrmHLyhs2`) | `plane.ticket.created` | Triage Started / Triage Skipped |
 | Ticket Delegation (`8mmqdMwQYA28ZwUj`) | `plane.ticket.transitioned` into Todo | Delegation Started / Skipped (not `phase_guard`, `provider_event_guard`) |
+| Ticket Delegation — Groomed in Todo (`l0J53w0TsS5PwETk`) | `agent.invocation.completed` with `data.context.reason = ticket-grooming` and `data.context.phase = Todo` (a ticket *created* in Todo, which never transitions); delegates only if the live Plane state name is exactly `Todo` and the ticket carries `lifecycle:triaged` | Delegation Started / Skipped, tagged `groomed-in-todo` |
 | Ticket Pickup Chip (`wWXgCZiiIBWaRRzE`) | `agent.invocation.started/completed/failed` with `data.context.reason` in the two lanes; hourly stale-chip sweep | none |
 
+- **Two ways into delegation.** A ticket created in Backlog is groomed there,
+  and the transition lane delegates it when a person promotes it to Todo. A
+  ticket created straight into Todo never transitions, so the groomed lane
+  starts on its grooming turn's completion instead. The echoed `phase` is
+  the state when grooming was *dispatched* and can be stale (PJAN-202 was
+  claimed In Progress mid-grooming and its completion still said Todo), so
+  the lane re-reads Plane and stops quietly unless the ticket is in Todo and
+  labelled `lifecycle:triaged` (grooming withholds the label when it stopped to
+  ask a question). Its command's cause is the completion event, so a
+  redelivered completion dedupes at the gateway. It cannot trigger itself,
+  because its own turn completes with `reason = ticket-delegation`. Both lanes
+  send the same prompt, and its first step is a live re-read that stops on a
+  ticket that is no longer in Todo, is In Progress, or is held by another
+  worker.
+- **Each trigger has its own durable**, `n8n-<workflow id>-<node id>`, on
+  `BLOODBANK_EVENTS`. That stream uses limits retention, so the Pickup Chip
+  and the groomed lane both see every `invocation.completed` and neither
+  takes events from the other.
+- **Finding: `unstarted` in Ticket Delegation's phase guard
+  (`Todo,unstarted`) never matches.** The guard compares state *names*
+  (`data.phase`), and the fact carries no state group, so `unstarted` matches
+  only a state literally named that. The entry is harmless, and that workflow
+  is unchanged.
 - **Fleet node:** outputs Dispatched and Skipped; mapping params are visible
   expressions over the envelope; the registry path is `HERMES_AGENTS_REGISTRY`
   (default `~/.hermes/agents-registry.yaml`); `providerEventGuard` is strict (set
