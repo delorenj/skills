@@ -46,7 +46,7 @@ px backlog list                                                                 
 px task list [--group GROUP] [--scope LABEL]                                             # every issue on the board, with its state
 px show <ref>                                                                            # print one ticket: lane, labels, people, description, checklists, sub-issues, comments
 px task get <ref>                                                                        # one ticket as data: on a legacy board what px show prints; managed: the Krebs snapshot
-px task create "<title>" [--state NAME]                                                  # create a ticket; no --state: Backlog (managed: Krebs create, lands in Backlog)
+px task create "<title>" [--state NAME] [--marker TEXT]                                  # create a ticket; no --state: Backlog (managed: Krebs create, lands in Backlog)
 px claim <ref>                                                                           # take a ticket: In Progress, assigned to you, labelled agent:working
 px release <ref> [-m MSG]                                                                # give it back: Todo, agent:working and your assignment removed
 px close <ref> [-m MSG]                                                                  # finish it: Done, agent:working removed (managed: Krebs complete)
@@ -188,6 +188,12 @@ receipt, and on a legacy board `px task get` prints the same.
 An epic's stories hang off it as sub-issues: `px task create "Story" --parent
 FLUME-16 --priority high` files one under FLUME-16 on the same board, and
 `px show FLUME-16` lists them with their lanes.
+
+A script that may run twice files with `--marker TEXT` (legacy boards only):
+`px task create "T" --marker wax-failure:run-7 --json` creates once, and the
+repeat returns the same ticket (`adopted: true`, nothing created). The ticket
+carries `[TEXT]` in its description; `--json` gives `created` (the ticket) plus
+top-level `ref`, `id`, `adopted`, `was_created`.
 
 Lanes resolve strictly. `in_progress` finds "In Progress", and a Plane group
 name (`cancelled`) works only when the board has exactly one state in it; a
