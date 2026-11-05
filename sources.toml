@@ -78,3 +78,13 @@ version = "ff97cb0e2a4d8ae0b000399325d7387f633af262"
 checkout = "obsidian-plugin-skill"
 subdir = ".agents/skills"
 skills = [{ name = "obsidian-plugin-development", dir = "obsidian" }]
+
+# Repo-owned hub skills (ADR-0002): the owning repo's working tree IS the
+# definition; nothing is copied here. Map the checkout per machine in
+# ~/.config/skillex/sources.local.toml when it is not ~/code/<checkout>.
+[[source]]
+name = "heyma"
+repo = "git@github.com:delorenj/HeyMa.git"
+checkout = "HeyMa"
+mode = "link"
+skills = ["heyma"]
