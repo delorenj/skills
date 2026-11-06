@@ -33,7 +33,7 @@ changelog, skill routing, and backfill coordination.
 | Compact MCP tool gateway | Pipeline MCP Hub |
 | Recurring/scheduled work (cron, timers, nightly jobs, poll loops) | Candybar (the single clock; never cron or a new `.timer`) via the `candybar` skill |
 | Metrics, logs and operator observability | Monitoring stack + Prometheus/Loki/Grafana |
-| Audio and document enrichment pipelines; voice/transcription interface | HeyMa / Wax (`wax-pipeline`); TTS via Vox |
+| Audio and document enrichment pipelines; voice/transcription interface | HeyMa / Wax (the `heyma` hub); TTS via Vox |
 
 ## Platform skills
 
@@ -47,9 +47,9 @@ matching one rather than re-deriving its decisions here.
 | Landing a change forward across the component repos | `merge-forward` |
 | Publishing or composing skill packs | `skillex-skill-registry` |
 | UX ideation from captured intent, Stitch screen/variant exploration, and a selected design handoff into BMAD UX | [stitch](../stitch/SKILL.md); `bmad-ux` owns Discovery and final DESIGN.md / EXPERIENCE.md |
-| Wax audio/document provenance, CLI discovery, folder bindings, n8n EP graph authoring and the read-only Holocene Wax tab | [wax-pipeline](../wax-pipeline/SKILL.md) |
-| Wax recording, diarization, archive or execution incident | `heyma-pipeline-doctor` |
-| Implementing a reusable text/frontmatter enrichment pass | [create-enrichment-pass](../create-enrichment-pass/SKILL.md) |
+| Anything HeyMa/Wax: provenance, CLI, folder bindings, passes, calls, n8n EP graphs, the read-only Holocene Wax tab | the `heyma` hub (`~/HeyMa/skills/heyma/SKILL.md`; `skillex skill show heyma`) |
+| Wax recording, diarization, archive or execution incident | the `heyma` hub's doctor sub-skill (`~/HeyMa/skills/heyma/subskills/doctor/SUBSKILL.md`) |
+| Implementing a reusable text/frontmatter enrichment pass | the `heyma` hub's create-enrichment-pass sub-skill (`~/HeyMa/skills/heyma/subskills/create-enrichment-pass/SUBSKILL.md`) |
 | Designing or changing metrics, logs, traces, dashboards or cross-system observability | `monitoring-stack` |
 | Simplifying repository ignores or reconciling already-tracked paths against the effective global ignore | `gitignore-maintenance` |
 
