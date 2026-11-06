@@ -88,3 +88,10 @@ repo = "git@github.com:delorenj/HeyMa.git"
 checkout = "HeyMa"
 mode = "link"
 skills = ["heyma"]
+
+[[source]]
+name = "vinyl"
+repo = "git@github.com:delorenj/vinyl.git"
+checkout = "vinyl"
+mode = "link"
+skills = ["vinyl"]
