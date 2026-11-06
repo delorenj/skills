@@ -8,9 +8,11 @@ Hermes sentinel's continuous-orchestration protocol. **Do not invent a different
 ## Invariant
 
 If a ready ticket exists, exactly one implementation worker is actively moving it, or Momo
-records why none can. One live thread beats a quiet backlog (pillar
-`keep-the-pipeline-unblocked`). WIP = 1, shared with Hermes via the driver lease
-(`scripts/momo-wip-lock.py`; see *One loop pass* → Coexistence lock).
+records why none can. Live threads beat a quiet backlog (pillar
+`keep-the-pipeline-unblocked`). Momo orchestrates many tickets in parallel: every ready
+ticket in scope may have its own worker at once, with no default cap. The driver lease
+(`scripts/momo-wip-lock.py`) is only a mutex on board writes shared with Hermes, not a
+work limit (see *One loop pass* → Coexistence lock).
 
 ## State machine (mirror of the one versioned Lifecycle spec)
 
@@ -45,8 +47,9 @@ completion/summary step; and run the staleness watchdog yourself (no step file e
 
 ## One loop pass
 
-**Coexistence lock (WIP=1, shared with Hermes).** Before driving, acquire the shared driver
-lease so you and the Hermes sentinel never double-drive one board:
+**Coexistence lock (board-write mutex, shared with Hermes).** Before a short selection or
+transition pass, acquire the shared driver lease so you and the Hermes sentinel never
+write the board in the same instant (it limits nothing about how many workers run):
 `python3 scripts/momo-wip-lock.py acquire <runtime>/wip-driver.lock momo` (`<runtime>` =
 `<role_dir>/runtime`). **Exit 1** = Hermes holds it fresh → **do not drive** this pass;
 monitor its work and back off. **Exit 0** = you hold it → drive, `refresh` it during a long
@@ -55,24 +58,29 @@ holder's lease expires after its ttl (default 300s), so the board is never wedge
 
 1. **Awareness** (see `board-awareness.md`): active milestone, `list_issues`, Hermes state,
    evidence dir, event trail, live workers/worktrees.
-2. **Is a worker already active and healthy?** (yours or Hermes'). Yes → monitor it, record
-   state, and go to step 6 (this pass adds no new worker). WIP=1 (you already hold the lease).
+2. **Which workers are active and healthy?** (yours or Hermes'). Monitor each, record
+   state, and leave each ticket to its owner. Active workers on other tickets do not stop
+   step 4; only a worker on the same ticket does.
 3. **Clear the review lane first.** For any `in_review` ticket with complete evidence and an
    available independent reviewer, run the autonomous adversarial review
    (`review-and-closure.md`) and act on the verdict immediately — accept (treat as done) or
    hold (back to active). A ticket blocked *only* on human review is NOT a stop.
-4. **If no worker is active, pick exactly one ticket** (selection policy below), move it to
-   `started`, create/refresh its evidence file, and delegate one implementer
-   (`delegation.md`). Never self-accept a review in the same pass you implemented it.
-5. **Advance the picked ticket** through the per-ticket pipeline (triage→…→gates→review).
+4. **Dispatch every ready ticket nobody holds** (selection policy below): for each, move it
+   to `started`, create/refresh its evidence file, and delegate one implementer
+   (`delegation.md`). Never dispatch a ticket that already has a worker or another owner,
+   and sequence tickets whose file scopes clearly collide with a `--blocks` relation.
+   Honour an explicit positive `.project.json` `automation.implementation.wip_limit` if
+   one is set; absent means unlimited. Never self-accept a review in the same pass you
+   implemented it.
+5. **Advance each dispatched ticket** through the per-ticket pipeline (triage→…→gates→review).
 6. **Staleness sweep** — any ticket past its state's threshold: record it, emit a stale
    signal, and either re-drive or flag as a blocker. Nothing rots silently.
 7. **Update your read of the world** and decide: continue, wait (timer), or stop. On
-   stop/exit, `release` the WIP lease (or let it expire) so Hermes can resume.
+   stop/exit, `release` the driver lease (or let it expire) so Hermes can resume.
 
-## Selection policy (when no worker is active)
+## Selection policy (per ticket nobody holds)
 
-Pick the first that applies:
+Work the list in order, dispatching every item that applies and is not already held:
 
 1. A `blocked`/`in_review` ticket needing only agent-doable evidence/AC repair.
 2. An **unblocked ticket in the active milestone** that is `ready`/`unstarted`.
@@ -146,8 +154,11 @@ Cron contains no product implementation and creates no second PM/board driver.
 The versioned invocation, runtime gate, receipt and recovery contract is
 [`../contracts/board.crank.v1.md`](../contracts/board.crank.v1.md). Inspect/dry-run
 does not write. Execute reuses the existing shared driver lease. A fresh lease or
-board/runtime implementation WIP is busy; stale driver TTL does not free WIP.
-No evidenced candidate is idle. Managed/shadow ownership, missing prerequisites,
+a ticket another worker or in-flight command holds is fenced on its own, and no other
+ticket is, so a pass dispatches the best ready ticket nobody holds even while others
+are In Progress. Stale driver TTL never frees a held ticket. Ready tickets that are all
+held are busy; no evidenced candidate is idle. An explicit positive `wip_limit` in the
+manifest's `automation.implementation` is an opt-in cap; absent means unlimited. Managed/shadow ownership, missing prerequisites,
 ambiguous/ineligible routes and unknown readiness refuse explicitly.
 Every written prerequisite must match completed native truth. Cycle configuration
 is explicitly boolean, and enabled membership must be observed. Downstream
@@ -161,9 +172,9 @@ started receipts permit the initial exact In Progress transition and missing sta
 date. Preserve existing dates, assignees, labels and unrelated content. An uncertain
 dispatch retains its command and ready state; explicit replay sends identical
 bytes. An uncertain write is read back, never blindly repeated or compensated.
-The durable execution fence survives driver TTL and process restarts.
-Only a worker with the exact saved command AND ticket is exempt during recovery;
-another or unidentified command on that ticket remains WIP. The saved prompt
+The durable execution fence survives driver TTL and process restarts and binds its
+own ticket and command only. Only a worker with the exact saved command AND ticket is
+exempt during recovery; another or unidentified command on that ticket fences it. The saved prompt
 binds ticket content and cannot dispatch or claim after that content changes.
 Runtime and lease freshness are refreshed after hydration before external effects.
 
@@ -174,9 +185,9 @@ identity fails closed; inspect/dry-run never creates the binding. Configuration
 digests sort keys, while exact saved command bytes remain unchanged.
 
 The same Momo runtime owner reconciles a completed execution: matching completed
-receipt AND fresh post-completion no-worker supervision AND fresh final Done state
-are all required. Reconciliation archives proof and lets a later hourly pass
-advance one ticket. An empty snapshot, board claim or expired TTL cannot clear
+receipt AND fresh post-completion supervision showing no worker on that ticket AND
+fresh final Done state are all required. Reconciliation archives proof per ticket; each in-flight execution is retired
+independently of the others. An empty snapshot, board claim or expired TTL cannot clear
 the fence. Mutation conflicts remain for explicit owner investigation.
 
 Live activation requires an independently accepted, explicit deployed

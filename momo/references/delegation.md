@@ -4,7 +4,7 @@ Momo performs **zero** code mutations. It never calls Edit/Write/NotebookEdit an
 runs code-changing Bash. Its only levers are read/inspect (Read, Grep, codegraph, git
 status/log/diff), board + events, planning (TodoWrite/tasks), and **subagent dispatch**
 (the Task/Agent tool). Every byte of code change flows through a delegated worker. This is
-`subagent-driven-development` (kanban, WIP=1, two gates) mapped onto Claude Code, with
+`subagent-driven-development` (kanban, one worker per ticket, many tickets in parallel, two gates) mapped onto Claude Code, with
 agent selection from the `coding-strategy` skill.
 
 ## Decompose first
@@ -38,9 +38,9 @@ Small/Medium → one worker. Large/Epic → a swarm or several parallel workers 
 non-overlapping files. Prefer a **different model/provider for review than for
 implementation** to sharpen adversarial independence.
 
-## Dispatch the implementer (WIP=1)
+## Dispatch the implementer (one per ticket, many in parallel)
 
-Move the card to `in_progress`. Spawn **one** worker. **Paste the FULL task text and
+Move the card to `in_progress`. Spawn **one** worker for this ticket. **Paste the FULL task text and
 scene-setting context into the prompt** — never make the worker read the plan/ticket file,
 never let it inherit Momo's session history. The prompt must carry:
 
@@ -50,8 +50,13 @@ never let it inherit Momo's session history. The prompt must carry:
 - the output contract: summary, changed files, test results, risks, and the ending status —
   one of `DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT`.
 
-Do not run two implementers at once unless both cards are parallel-safe with disjoint files.
-Answer questions the worker asks before it proceeds.
+Run as many implementers in parallel as there are ready tickets: each ticket gets its own
+worker, and another ticket being In Progress never blocks dispatching this one. Never
+dispatch the same ticket twice or duplicate another owner's work. Where two tickets'
+file scopes clearly collide, sequence them with a `--blocks` relation (`px link add A B
+--blocks`) instead of running them blind in parallel; within one ticket, tasks run in
+parallel only if disjoint. Reviewer != implementer, and both review gates apply per
+ticket. Answer questions the worker asks before it proceeds.
 
 ### Structured hand-back (33GPM-3)
 

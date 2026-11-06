@@ -27,8 +27,9 @@ node skill/scripts/momo-board-crank.mjs reconcile \
 ```
 
 `inspect` and `--dry-run` perform no lease, journal, bus or ticket writes.
-`execute` selects at most one ticket, waits only for its matching started
-lifecycle, and exits. It first attempts reconciliation of an active prior journal.
+`execute` dispatches at most one ticket per pass, waits only for its matching started
+lifecycle, and exits; successive passes dispatch further tickets while earlier ones are
+still in progress. It first attempts reconciliation of every in-flight execution.
 `reconcile` retires a proven completed fence without dispatch or ticket changes.
 Exit 78 means refused/uncertain, 124 means the 45-second budget expired.
 Busy and idle are normal exit-zero outcomes, distinguished in JSON.
@@ -130,10 +131,19 @@ observed predecessors and written requirements showing this ticket would resolve
 every remaining blocker; unknown relations or additional blockers earn no credit.
 Scores, rubric, rationale and exclusions persist in the journal.
 
-Any exact In Progress ticket, agent:working ticket or fresh runtime execution
-blocks new dispatch. During recovery only a worker with both the saved ticket
-and exact command ID is exempt; foreign/missing command IDs on the same ticket
-still fence replay and writes. Expired driver TTL never frees implementation WIP.
+There is no board-wide implementation cap: tickets run in parallel, and another
+ticket being In Progress, agent:working or having a runtime worker never blocks
+dispatching a different ready ticket. Fences are per ticket. A candidate is skipped
+when it is held: a runtime worker, an agent:working label or a journaled
+in-flight command already exists for that same ticket. During recovery only a worker
+with both the saved ticket and exact command ID is exempt; foreign/missing command
+IDs on the same ticket still fence replay and writes. Expired driver TTL never frees a
+held ticket. Ready candidates that are all held yield `busy`; none yields `idle`.
+A project may opt into a cap with a positive integer
+`automation.implementation.wip_limit` in its `.project.json` manifest: when that many
+other tickets are In Progress, agent:working, have a worker or an in-flight command,
+dispatch is `busy`. Absent or null is unlimited; any other value refuses. The
+driver lease below is a board-write mutex, not a work limit.
 A pass caps Todo hydration at 100 items. Native relations, downstream target
 relations and enabled cycle membership share a 5-second hydration deadline with
 at most eight concurrent reads, retaining dispatch/readback time within the
@@ -201,21 +211,36 @@ There is no force-clear flag and no TTL expiry for an implementation fence.
 
 The existing Momo runtime owner invokes reconciliation, explicitly or at the
 start of a later execute pass, under the SAME driver lease. Only an active fence
-can be retired, after all three agree:
+can be retired, each independently of the others, after all three agree:
 
 1. A schema-valid invocation.completed matches the saved command, idempotency,
    target/profile, full context and exact started-event causation.
 2. A worker observation at or after completion reports zero pending/active/review
-   workers anywhere on this board and is no older than 60 seconds.
-3. Fresh board/ticket reads show the original ticket in unique Done/completed,
-   no other In Progress/agent:working WIP, unchanged route and binding.
+   workers for this ticket (workers on other tickets are ignored) and is no older
+   than 60 seconds.
+3. Fresh board/ticket reads show the original ticket in unique Done/completed
+   without an agent:working label, unchanged route and binding.
 
 Completion and original command/start/terminal/readback evidence are durably
-archived in `completed/<command_id>.json`. The next pass can dispatch at most one
-later ticket. A crash between completion persistence and archive creation is
-recoverable: reconciliation repairs the archive, and execute confirms it before
-replacing the completed journal. Archive failure prevents advancing a later ticket.
-Inspect cannot retire a fence. PM completion alone, board state
+archived in `completed/<command_id>.json`. A crash between completion persistence
+and archive creation is recoverable: reconciliation repairs the archive, and execute
+confirms it before replacing the completed journal. Archive failure prevents
+advancing a later ticket.
+
+## In-flight executions
+
+The per-board journal `<board_id>.json` is the single dispatch slot: one command at a
+time is persisted, published and proven started. A saved intent in any phase other
+than `active`, `mutation_conflict` or `completed` owns the slot, and no second ticket is
+dispatched until it resolves (replay safety, exact command bytes and the one-command
+guarantee are unchanged). Once a dispatch is `active` (started and read back), or is a
+terminal `mutation_conflict` that is never replayed or compensated, it stops needing
+the slot: before the slot is overwritten for another ticket its record is copied to
+`active/<command_id>.json` and stays an execution fence for its own ticket and command.
+Only that execution's completion proof retires it (archive first, then the in-flight
+record is removed; a crash between the two is repaired on the next reconcile). A held
+ticket is never dispatched again, even if a human moves it back to Todo.
+Inspect cannot retire a fence. `inspect` lists `in_flight` ticket IDs. PM completion alone, board state
 alone, an empty snapshot alone, TTL, failure events and ambiguous mutation phases
 never retire it. The post-completion worker-status producer and retained gateway
 receipts are explicit runtime prerequisites; this change enables neither.

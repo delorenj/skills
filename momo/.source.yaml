@@ -1,11 +1,12 @@
+# Provenance for this skill. Managed by `skillex vendor`; do not hand-edit.
 origin:
   type: vendored
   source: momo
   upstream: git@github.com:delorenj/momo.git
   upstream_version: main
-  upstream_commit: ec2ea9729764020a9cd8066c17121e452cbf4ddf
-  upstream_tree: 19d3608afa53dd1d2882750c5345f9bd771d0f46
+  upstream_commit: 05469cdbb185d0068787a7b15dcec707829bded3
+  upstream_tree: fc3bae10464299e47a45bc776dfbeba4a5f303be
   upstream_path: skill
-  extracted_at: 2026-11-03T22:55:18.444Z
-  digest: sha256:8dcd4eb4580a34572676c3341a0158ae11755a17e50eab5b78273611f090f5a2
+  extracted_at: "2026-11-06T00:13:35+00:00"
+  digest: sha256:ba8fce56b2e8b09814a295f332806d284115d2c0734cab6df496b0de062a843d
 modified_locally: false

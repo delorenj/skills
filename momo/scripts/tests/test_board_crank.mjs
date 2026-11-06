@@ -153,20 +153,92 @@ test('fresh shared lease refuses zero writes and preserves its owner', async t =
   assert.deepEqual(JSON.parse(readFileSync(f.c.runtime.driver_lease)), held);
 });
 
-test('STALE driver TTL never frees implementation capacity claimed on the board', async t => {
-  const f = fixture(t, [ticket(1), ticket(79, { state: 'started' })]);
+test('STALE driver TTL never frees a ticket another worker already holds', async t => {
+  const f = fixture(t, [ticket(1, { labels: ['triaged', 'working'] }), ticket(79, { state: 'started' })]);
   const held = { owner: 'hermes:33god-pm:bmad-bridge', heartbeat_at: Date.now() / 1000 - 27498, ttl: 1800 };
   writeFileSync(f.c.runtime.driver_lease, JSON.stringify(held));
   assert.equal((await f.run()).status, 'busy'); f.zero(); assert.equal(f.acquireCalls, 0);
   assert.deepEqual(JSON.parse(readFileSync(f.c.runtime.driver_lease)), held);
 });
 
-test('fresh runtime implementation and working-label WIP independently fence dispatch', async t => {
+test('a ticket another worker holds is fenced; every OTHER ticket is dispatchable beside it', async t => {
+  // Runtime worker or working label on ticket 1 fences ticket 1 alone; ticket 2 still goes out.
   for (const kind of ['runtime', 'label']) {
     const f = fixture(t);
-    if (kind === 'runtime') f.workers.active.push({ ticket_id: ticketId(9) });
-    else f.board.issues[1].labels.push('working');
-    assert.equal((await f.run()).status, 'busy'); f.zero();
+    if (kind === 'runtime') f.workers.active.push({ ticket_id: ticketId(1), command_id: crypto.randomUUID(), status: 'active' });
+    else f.board.issues[0].labels.push('working');
+    const result = await f.run();
+    assert.equal(result.status, 'started', kind); assert.equal(f.commands.length, 1);
+    assert.equal(f.journal.load().ticket_id, ticketId(2), kind);
+    assert.deepEqual(f.patches.map(p => p.id), [ticketId(2)], kind);
+    assert.equal(f.board.issues[0].state, 'todo', 'the held ticket is untouched');
+  }
+  // When the only ready ticket is held, nothing is dispatched.
+  const only = fixture(t, [ticket(1)]); only.workers.active.push({ ticket_id: ticketId(1), command_id: null, status: 'pending' });
+  assert.equal((await only.run()).status, 'busy'); only.zero();
+});
+
+test('workers and In Progress tickets elsewhere on the board never block dispatch', async t => {
+  const f = fixture(t, [ticket(1), ticket(2, { state: 'started' }), ticket(3, { labels: ['triaged', 'working'] })]);
+  f.workers.active.push({ ticket_id: ticketId(2), command_id: crypto.randomUUID(), status: 'active' },
+    { ticket_id: ticketId(3), command_id: crypto.randomUUID(), status: 'review' });
+  const result = await f.run();
+  assert.equal(result.status, 'started'); assert.equal(f.journal.load().ticket_id, ticketId(1));
+  assert.equal(f.commands.length, 1); assert.deepEqual(f.patches.map(p => p.id), [ticketId(1)]);
+});
+
+test('two different ready tickets are each dispatched while the other is in progress', async t => {
+  const f = fixture(t, [ticket(1), ticket(2), ticket(3, { priority: 'low' })]);
+  const first = await f.run();
+  assert.equal(first.status, 'started'); assert.equal(f.journal.load().ticket_id, ticketId(1));
+  assert.equal(f.board.issues[0].state, 'started');
+  // Ticket 1 is now In Progress with a running worker; ticket 2 still dispatches.
+  f.workers.active.push({ ticket_id: ticketId(1), command_id: first.command_id, status: 'active' });
+  const second = await f.run();
+  assert.equal(second.status, 'started'); assert.equal(f.journal.load().ticket_id, ticketId(2));
+  f.workers.active.push({ ticket_id: ticketId(2), command_id: second.command_id, status: 'active' });
+  const third = await f.run();
+  assert.equal(third.status, 'started'); assert.equal(f.journal.load().ticket_id, ticketId(3));
+  assert.equal(f.commands.length, 3); assert.equal(new Set(f.commands.map(c => c.command_id)).size, 3);
+  assert.deepEqual(f.patches.map(p => p.id), [ticketId(1), ticketId(2), ticketId(3)]);
+  assert.deepEqual(f.board.issues.map(i => i.state), ['started', 'started', 'started']);
+  // Each finished dispatch is kept as its own durable in-flight fence; the slot holds the latest.
+  assert.deepEqual(f.journal.inflight().map(j => j.ticket_id).sort(), [ticketId(1), ticketId(2)]);
+  // Nothing is left to dispatch, and no ticket is ever dispatched twice.
+  assert.equal((await f.run()).status, 'idle'); assert.equal(f.commands.length, 3);
+});
+
+test('a reset in-flight ticket is never dispatched twice, even though another is ready', async t => {
+  const f = fixture(t);
+  assert.equal((await f.run()).status, 'started');
+  f.board.issues[0].state = 'todo'; // human puts it back while its worker still runs
+  const second = await f.run();
+  assert.equal(second.status, 'started'); assert.equal(f.journal.load().ticket_id, ticketId(2));
+  f.board.issues[1].state = 'todo';
+  const third = await f.run();
+  assert.equal(third.status, 'busy'); assert.match(third.reason, /every ready ticket is already held/);
+  assert.equal(f.commands.length, 2);
+  assert.deepEqual(f.commands.map(c => c.data.context.ticket_id), [ticketId(1), ticketId(2)]);
+});
+
+test('an explicit wip_limit is an opt-in cap; absent means unlimited', async t => {
+  const f = fixture(t, [ticket(1), ticket(2), ticket(3)]);
+  const manifest = f.ports.runtime;
+  const withLimit = limit => { f.ports.runtime = async c => ({ ...(await manifest(c)),
+    manifest: { project_id: 'test', ticket_provider: { type: 'plane', board_id: boardId, workspace: '33god' },
+      ...(limit === undefined ? {} : { automation: { implementation: { wip_limit: limit } } }) } }); };
+  withLimit(2);
+  assert.equal((await f.run()).status, 'started');
+  assert.equal((await f.run()).status, 'started'); // one in flight, cap 2: room for one more
+  const capped = await f.run();
+  assert.equal(capped.status, 'busy'); assert.match(capped.reason, /wip_limit/);
+  assert.equal(f.commands.length, 2);
+  withLimit(undefined); // no cap configured: unlimited
+  assert.equal((await f.run()).status, 'started'); assert.equal(f.commands.length, 3);
+  f.board.issues.push(ticket(9)); f.board.relations[ticketId(9)] = emptyRelations();
+  for (const bad of [0, -1, 1.5, '2']) {
+    withLimit(bad);
+    assert.equal((await f.run()).status, 'refused', String(bad)); assert.equal(f.commands.length, 3);
   }
 });
 
@@ -261,7 +333,20 @@ test('unacknowledged restart replay reuses command ID AND exact envelope bytes',
   assert.equal(JSON.stringify(f.commands[1]), original); assert.equal(f.patches.length, 0);
   f.acknowledge = true;
   assert.equal((await f.run()).status, 'started'); assert.equal(f.commands.length, 2);
-  assert.equal((await f.run()).status, 'busy'); assert.equal(f.commands.length, 2);
+  // Ticket 1 is never re-sent; the next ready ticket gets its own, different command.
+  assert.equal((await f.run()).status, 'started'); assert.equal(f.commands.length, 3);
+  assert.equal(f.journal.load().ticket_id, ticketId(2));
+  assert.equal(f.commands[2].command_id !== f.commands[0].command_id, true);
+  assert.equal((await f.run()).status, 'idle'); assert.equal(f.commands.length, 3);
+});
+
+test('a pending dispatch transaction owns the slot: no second ticket is dispatched until it resolves', async t => {
+  const f = fixture(t); f.acknowledge = false;
+  assert.equal((await f.run()).status, 'uncertain');
+  const preserved = readFileSync(f.journal.path, 'utf8');
+  assert.equal((await f.run()).status, 'uncertain');
+  assert.equal(f.commands.length, 1); assert.equal(readFileSync(f.journal.path, 'utf8'), preserved);
+  assert.equal(f.board.issues[1].state, 'todo');
 });
 
 test('transport ACK, wrong target, command, causation, profile, context and service never count as started', async t => {
@@ -285,17 +370,31 @@ test('ambiguous PATCH applied fully is confirmed by readback without repeating w
   const f = fixture(t); f.patchFails = true;
   assert.equal((await f.run()).status, 'started'); assert.equal(f.patches.length, 1);
   assert.ok(f.journal.load().receipts.some(r => r.kind === 'mutation' && r.status === 'uncertain'));
-  assert.equal((await f.run()).status, 'busy'); assert.equal(f.patches.length, 1);
+  assert.equal((await f.run()).status, 'started'); // the NEXT ticket; ticket 1's write is never repeated
+  assert.equal(f.patches.length, 2); assert.equal(f.patches.filter(p => p.id === ticketId(1)).length, 1);
 });
 
 test('partial write is journaled honestly and never overwritten or compensated blindly', async t => {
-  const f = fixture(t); f.partial = true; f.patchFails = true;
+  const f = fixture(t, [ticket(1)]); f.partial = true; f.patchFails = true;
   assert.equal((await f.run()).status, 'uncertain');
   assert.equal(f.board.issues[0].state, 'started'); assert.equal(f.board.issues[0].start_date, null);
   assert.equal(f.journal.load().phase, 'mutation_conflict');
   f.board.issues[0].state = 'blocked'; f.board.issues[0].start_date = '2026-08-15';
-  assert.equal((await f.run({ replay: true })).status, 'busy'); assert.equal(f.patches.length, 1);
+  assert.equal((await f.run({ replay: true })).status, 'idle'); assert.equal(f.patches.length, 1);
   assert.equal(f.board.issues[0].state, 'blocked'); assert.equal(f.board.issues[0].start_date, '2026-08-15');
+  assert.equal(f.commands.length, 1);
+});
+
+test('a terminal mutation_conflict fences its own ticket only; another ticket still dispatches', async t => {
+  const f = fixture(t); f.partial = true; f.patchFails = true;
+  assert.equal((await f.run()).status, 'uncertain'); assert.equal(f.journal.load().phase, 'mutation_conflict');
+  f.partial = false; f.patchFails = false;
+  assert.equal((await f.run({ replay: true })).status, 'started');
+  assert.equal(f.journal.load().ticket_id, ticketId(2));
+  assert.deepEqual(f.journal.inflight().map(j => [j.ticket_id, j.phase]), [[ticketId(1), 'mutation_conflict']]);
+  assert.equal(f.patches.filter(p => p.id === ticketId(1)).length, 1, 'no compensation for the conflicted ticket');
+  f.board.issues[0].state = 'todo';
+  assert.equal((await f.run()).status, 'busy'); assert.equal(f.commands.length, 2);
 });
 
 test('crash after PATCH with no readback recovers from stored fields and never PATCHes again', async t => {
@@ -314,11 +413,11 @@ test('human changes immediately before PATCH are preserved with zero writes', as
 });
 
 test('a conflicting readback date remains uncertain and is never corrected automatically', async t => {
-  const f = fixture(t);
+  const f = fixture(t, [ticket(1)]);
   f.onTicket = () => { if (f.patches.length) f.board.issues[0].start_date = '2026-09-01'; };
   assert.equal((await f.run()).status, 'uncertain');
   assert.equal(f.journal.load().phase, 'mutation_conflict');
-  assert.equal((await f.run({ replay: true })).status, 'busy');
+  assert.equal((await f.run({ replay: true })).status, 'idle');
   assert.equal(f.board.issues[0].start_date, '2026-09-01'); assert.equal(f.patches.length, 1);
 });
 
@@ -333,9 +432,23 @@ test('eligibility is reloaded immediately before publication and after acknowled
   }
 });
 
-test('WIP appearing after acquire aborts before journal or dispatch', async t => {
+test('another ticket going In Progress after acquire does not abort dispatch', async t => {
   const f = fixture(t); f.onBoard = n => { if (n === 2) f.board.issues[1].state = 'started'; };
-  assert.equal((await f.run()).status, 'refused'); f.zero();
+  const result = await f.run();
+  assert.equal(result.status, 'started'); assert.equal(f.journal.load().ticket_id, ticketId(1));
+});
+
+test('the chosen ticket claimed by someone else after acquire is never dispatched', async t => {
+  for (const claim of ['state', 'label', 'worker']) {
+    const f = fixture(t, [ticket(1)]);
+    f.onBoard = n => {
+      if (n !== 2) return;
+      if (claim === 'state') f.board.issues[0].state = 'started';
+      if (claim === 'label') f.board.issues[0].labels.push('working');
+      if (claim === 'worker') f.workers.active.push({ ticket_id: ticketId(1), command_id: crypto.randomUUID(), status: 'active' });
+    };
+    assert.notEqual((await f.run()).status, 'started', claim); f.zero(); assert.equal(existsSync(f.journal.path), false, claim);
+  }
 });
 
 test('managed/shadow, disabled, missing prerequisites, stale worker status and reviewer aliasing refuse', async t => {
@@ -352,21 +465,43 @@ test('managed/shadow, disabled, missing prerequisites, stale worker status and r
   }
 });
 
-test('expired TTL and process restart cannot start a second worker with durable active journal', async t => {
-  const f = fixture(t);
+test('expired TTL and process restart cannot start a second worker on a ticket with a durable active journal', async t => {
+  const f = fixture(t, [ticket(1)]);
   assert.equal((await f.run()).status, 'started');
-  f.board.issues[0].state = 'done'; f.clock += 3600000;
+  f.board.issues[0].state = 'todo'; f.clock += 3600000;
   f.workers.observed_at = new Date(f.clock).toISOString();
   f.ports.journal = new Journal(f.dir, boardId);
   assert.equal((await f.run()).status, 'busy'); assert.equal(f.commands.length, 1);
+  assert.equal(f.journal.load().phase, 'active');
 });
 
-test('two concurrent processes share the actual WIP lease and dispatch one command', async t => {
+test('the driver lease serializes concurrent passes; each pass dispatches a different ticket', async t => {
   const f = fixture(t);
-  const result = await Promise.all([f.run(), f.run()]);
-  assert.equal(result.filter(r => r.status === 'started').length, 1);
-  assert.equal(result.filter(r => r.status === 'busy').length, 1);
-  assert.equal(f.commands.length, 1); assert.equal(f.patches.length, 1);
+  let release; const gate = new Promise(resolve => { release = resolve; });
+  let inside; const reached = new Promise(resolve => { inside = resolve; });
+  f.onPublish = async () => { inside(); await gate; }; // first pass holds the real lease mid-dispatch
+  const first = f.run();
+  await reached;
+  // A second concurrent process cannot enter while the lease is held: zero writes from it.
+  const blocked = await f.run();
+  assert.equal(blocked.status, 'busy'); assert.equal(f.commands.length, 1); assert.equal(f.patches.length, 0);
+  release();
+  assert.equal((await first).status, 'started');
+  f.onPublish = undefined;
+  // Released, the same process may now dispatch the OTHER ticket: parallel, never duplicate.
+  assert.equal((await f.run()).status, 'started');
+  assert.deepEqual(f.commands.map(c => c.data.context.ticket_id).sort(), [ticketId(1), ticketId(2)]);
+  assert.deepEqual(f.patches.map(p => p.id).sort(), [ticketId(1), ticketId(2)]);
+});
+
+test('two racing passes never dispatch one ticket twice', async t => {
+  const f = fixture(t);
+  const result = await Promise.all([f.run(), f.run(), f.run()]);
+  const tickets = f.commands.map(c => c.data.context.ticket_id);
+  assert.equal(new Set(tickets).size, tickets.length, 'no ticket is dispatched twice');
+  assert.equal(result.filter(r => r.status === 'started').length, f.commands.length);
+  assert.ok(f.commands.length >= 1 && f.commands.length <= 2);
+  assert.equal(f.patches.length, f.commands.length);
 });
 
 test('journal created after a contender reads null and before lease acquisition is never overwritten', async t => {
@@ -582,8 +717,49 @@ test('worker activity discovered after terminal lookup preserves the completion 
     return terminal;
   };
   const before = readFileSync(f.journal.path, 'utf8');
-  assert.equal((await f.run()).status, 'busy');
-  assert.equal(readFileSync(f.journal.path, 'utf8'), before); assert.equal(f.commands.length, 1);
+  // The fence on ticket 1 is preserved; the independent ticket 2 proceeds beside it.
+  assert.equal((await f.run()).status, 'started'); assert.equal(f.commands.length, 2);
+  assert.equal(f.journal.load().ticket_id, ticketId(2));
+  assert.deepEqual(f.journal.inflight().map(j => [j.ticket_id, j.phase]), [[ticketId(1), 'active']]);
+  assert.equal(JSON.stringify(f.journal.inflight()[0].intent), JSON.stringify(JSON.parse(before).intent));
+  assert.equal(existsSync(join(f.dir, 'completed', `${JSON.parse(before).intent.envelope.command_id}.json`)), false);
+});
+
+test('each in-flight execution is retired by its own completion proof, independently', async t => {
+  const f = fixture(t); await f.run(); await f.run();
+  const [a, b] = [ticketId(1), ticketId(2)]; // ticket 1 stashed, ticket 2 in the slot
+  assert.equal(f.journal.load().ticket_id, b); assert.deepEqual(f.journal.inflight().map(j => j.ticket_id), [a]);
+  const commandOf = id => f.commands.find(c => c.data.context.ticket_id === id).command_id;
+  f.completed = true; f.board.issues[0].state = 'done';
+  const terminal = f.ports.completed;
+  f.ports.completed = async (c, j, route) => j.ticket_id === a ? terminal(c, j, route) : null; // only ticket 1 finished
+  f.workers.active.push({ ticket_id: b, command_id: commandOf(b), status: 'active' }); // ticket 2 still running
+  const first = await reconcile(f.c, f.ports, { execute: true });
+  assert.equal(first.status, 'reconciled');
+  assert.deepEqual(f.journal.inflight(), []); assert.equal(f.journal.load().phase, 'active');
+  assert.equal(existsSync(join(f.dir, 'completed', `${commandOf(a)}.json`)), true);
+  assert.equal(existsSync(join(f.dir, 'completed', `${commandOf(b)}.json`)), false);
+  // Ticket 2's worker never blocked ticket 1's retirement; ticket 2 stays fenced.
+  assert.equal(f.commands.length, 2);
+});
+
+test('a worker on another ticket never blocks completion reconciliation, a worker on this one does', async t => {
+  const f = fixture(t); await f.run(); f.completed = true; f.board.issues[0].state = 'done';
+  f.workers.active.push({ ticket_id: ticketId(2), command_id: crypto.randomUUID(), status: 'active' });
+  f.board.issues[1].state = 'started';
+  assert.equal((await reconcile(f.c, f.ports, { execute: true })).status, 'reconciled');
+});
+
+test('a crash after the completion archive but before removing the in-flight record is repaired', async t => {
+  const f = fixture(t); await f.run(); await f.run();
+  const stashed = f.journal.inflight()[0]; f.completed = true; f.board.issues[0].state = 'done';
+  const unstash = f.journal.unstash.bind(f.journal); f.journal.unstash = () => { throw new Error('fixture crash'); };
+  assert.equal((await reconcile(f.c, f.ports, { execute: true })).status, 'uncertain');
+  assert.equal(existsSync(join(f.dir, 'completed', `${stashed.intent.envelope.command_id}.json`)), true);
+  assert.equal(f.journal.inflight().length, 1);
+  f.journal.unstash = unstash;
+  assert.equal((await reconcile(f.c, f.ports, { execute: true })).status, 'reconciled');
+  assert.deepEqual(f.journal.inflight(), []);
 });
 
 async function productionFixture(t, issues, bloodbank) {

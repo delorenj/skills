@@ -24,7 +24,7 @@ anchored by **pillars** (your decision compass) and made auditable by emitting a
 
 Before selecting an adapter, read `.project.json.execution`. Managed or shadow
 boards use [the execution v2 playbook](references/managed-execution.md), which
-supersedes direct tp writes, local WIP locks and legacy automatic closeout.
+supersedes direct tp writes, local driver leases and legacy automatic closeout.
 Enrollment failures stop managed work. Existing non-Plane playbooks still apply.
 
 ## Prime directives (non-negotiable)
@@ -88,8 +88,12 @@ and provider labels come from the `tp` adapter). Per ticket:
    testable, enumerated, FR-coverage; all four, no short-circuit). Sufficient → ready;
    any fail → refine.
 2. **Refine** — delegate AC repair (or route to `33god-task-triage`); re-evaluate.
-3. **Implement** — WIP=1: move the ticket to `started`, create/refresh its evidence file,
-   delegate exactly one implementer worker (`references/delegation.md`). You never code.
+3. **Implement** — move the ticket to `started`, create/refresh its evidence file,
+   delegate exactly one implementer worker for it (`references/delegation.md`). You never
+   code. You orchestrate many tickets in parallel: every ready ticket in your scope may
+   have its own worker at the same time (no default cap; an explicit positive
+   `.project.json` `automation.implementation.wip_limit` is an opt-in cap you honour).
+   Another ticket being In Progress never stops you starting this one.
 4. **Gate 1 — spec compliance** — fresh reviewer subagent, distrusts the report, reads the
    actual diff. ❌ → same implementer fixes → fresh reviewer re-reviews. Loop to ✅.
 5. **Gate 2 — code quality** — only after spec ✅; fresh reviewer subagent.
@@ -132,9 +136,12 @@ tenant slug on the same self-hosted personal infrastructure.
 - **Same bank, distinct actor.** Retain/recall against that bank (Hermes writes here
   too). Sign board comments and decision events as **momo** so the two frameworks are
   attributable in the shared history.
-- **WIP=1 is shared.** Before you take a ticket, confirm no active worker (yours or
-  Hermes'). Its `runtime/` dir (ignored local state, not a submodule) is single-writer — do not edit it; coordinate
-  via its flock file.
+- **One owner per ticket; parallel across tickets.** Before you take a ticket, confirm no
+  worker (yours or Hermes') already holds *that* ticket; never double-dispatch it or
+  duplicate another owner's work. Other tickets' workers never block you. The driver
+  lease (`momo-wip-lock.py`) is only a short mutex on board selection/transition
+  passes, not a work limit. Hermes' `runtime/` dir (ignored local state, not a submodule)
+  is single-writer — do not edit it; coordinate via its flock file.
 - **You are the manual hand; Hermes is the reflex.** When the operator is in the room, you
   drive. Leave the autonomous pass to Hermes.
 
@@ -143,7 +150,7 @@ tenant slug on the same self-hosted personal infrastructure.
 - `references/pillars.md` — the decision compass: universal pillars + per-repo pillars convention.
 - `references/board-awareness.md` — resolving `.project.json`, the `tp` adapter, board+Hermes+evidence+events, board_id self-heal.
 - `references/board-clearing-loop.md` — the loop: state machine, selection policy, stop conditions, CI-wait 10-min timer.
-- `references/delegation.md` — delegating every code change: Task-tool workers, coding-strategy, WIP=1, spec + quality gates, reviewer independence, evidence capture.
+- `references/delegation.md` — delegating every code change: Task-tool workers, coding-strategy, parallel per-ticket workers, spec + quality gates, reviewer independence, evidence capture.
 - `references/decisions.md` — the decision-event contract and the `record-decision.py` mechanism.
 - `references/review-and-closure.md` — close gate, autonomous adversarial review, accept/hold/rollback, evidence + report shapes.
 - `templates/` — `pillars.md`, `issue-evidence.md`, `review-report.md` (match the gate validators exactly).

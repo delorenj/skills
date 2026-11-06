@@ -6,7 +6,7 @@ close gate plus the autonomous adversarial review verdict. The library shells ou
 to the existing sentinel scripts and `momo-board.sh` so no contract is duplicated.
 
 Design pattern: Chain of Responsibility — each gate (close gate, autonomous review,
-tree-lock guard, WIP lease) inspects the request and short-circuits on failure.
+tree-lock guard, driver lease) inspects the request and short-circuits on failure.
 """
 from __future__ import annotations
 

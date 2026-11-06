@@ -139,7 +139,9 @@ for (const args of [['inspect'], ['execute', '--dry-run'], ['reconcile', '--dry-
       const r = await run(f, args);
       assert.equal(r.code, 0, r.stdout); assert.equal(r.stderr, '');
       assert.equal(r.result.live_execution_proof, false);
-      assert.equal(r.result.status, saved ? 'busy' : args[0] === 'reconcile' ? 'idle' : 'ready');
+      // A saved active execution is an in-flight fence on its own ticket only: with nothing else
+      // ready the pass is idle (reconcile --dry-run still reports the preserved fence as busy).
+      assert.equal(r.result.status, saved ? (args[0] === 'reconcile' ? 'busy' : 'idle') : args[0] === 'reconcile' ? 'idle' : 'ready');
       assert.deepEqual(storageSnapshot(f.repo, f.state), before);
       const events = existsSync(f.audit) ? readFileSync(f.audit, 'utf8').trim().split('\n').map(JSON.parse) : [];
       assert.ok(events.every(event => event.kind === 'http' && event.method === 'GET'), JSON.stringify(events));

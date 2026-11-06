@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, openSync, closeSync, fsyncSync,
-  readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
+  readFileSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 
@@ -122,13 +122,59 @@ function exactLane(states, name) {
   return rows[0].id;
 }
 
-export function boardWip(board, workers, execution = null) {
-  const ownId = execution?.ticket_id;
-  const commandId = execution?.intent?.envelope.command_id;
-  const started = exactLane(board.states, 'In Progress');
-  const working = new Set(board.labels.filter(l => l.name === 'agent:working').map(l => l.id));
-  return workers.active.some(w => !ownId || !commandId || w.ticket_id !== ownId || w.command_id !== commandId) || board.issues.some(i =>
-    i.id !== ownId && (idOf(i.state) === started || (i.labels ?? []).some(l => working.has(idOf(l)))));
+// Parallel orchestration: there is NO board-wide implementation cap. Dispatch is
+// fenced per TICKET (one worker, one owner, one command per ticket) and, only when
+// the project opts in with a positive `automation.implementation.wip_limit`, by
+// that explicit cap. Another ticket being In Progress never blocks dispatch.
+const workingLabels = board => new Set(board.labels.filter(l => l.name === 'agent:working').map(l => l.id));
+const isClaimed = (i, started, working) => idOf(i.state) === started || (i.labels ?? []).some(l => working.has(idOf(l)));
+
+/** Optional opt-in cap. Absent/null means unlimited; anything else must be a positive integer. */
+export function wipLimit(manifest) {
+  const value = manifest?.automation?.implementation?.wip_limit;
+  if (value === undefined || value === null) return null;
+  require(Number.isInteger(value) && value > 0, 'automation.implementation.wip_limit must be a positive integer');
+  return value;
+}
+
+/** Tickets with an implementation in flight: In Progress, agent:working, a runtime
+ * worker or a journaled dispatch. `ownId` is the ticket being driven; it never counts. */
+export function implementationLoad(board, workers, inflight = new Set(), ownId = null) {
+  const started = exactLane(board.states, 'In Progress'), working = workingLabels(board);
+  const load = new Set([...inflight, ...workers.active.map(w => w.ticket_id),
+    ...board.issues.filter(i => isClaimed(i, started, working)).map(i => i.id)]);
+  load.delete(ownId);
+  return load;
+}
+export const capReached = (manifest, board, workers, inflight, ownId) => {
+  const limit = wipLimit(manifest);
+  return limit !== null && implementationLoad(board, workers, inflight, ownId).size >= limit;
+};
+
+/** The ticket we already hold a saved command for: fenced only by a worker on THIS
+ * ticket that is not that exact command (foreign or unidentified). */
+export const ownTicketFenced = (workers, execution) => {
+  const ticketId = execution?.ticket_id, commandId = execution?.intent?.envelope.command_id;
+  return workers.active.some(w => w.ticket_id === ticketId && (!commandId || w.command_id !== commandId));
+};
+
+/** A ticket nobody holds yet: any worker, claim or journaled dispatch on it fences it. */
+export function ticketHeld(board, workers, ticketId, inflight = new Set()) {
+  const started = exactLane(board.states, 'In Progress'), working = workingLabels(board);
+  return inflight.has(ticketId) || workers.active.some(w => w.ticket_id === ticketId) ||
+    board.issues.some(i => i.id === ticketId && isClaimed(i, started, working));
+}
+
+/** Move candidates another owner already holds out of the ranking. The ticket we
+ * are already driving is never filtered. */
+export function fenceCandidates(plan, board, workers, inflight, own = null) {
+  const ranked = [], excluded = [...plan.excluded];
+  for (const r of plan.ranked) {
+    if (r.ticket_id !== own?.ticket_id && ticketHeld(board, workers, r.ticket_id, inflight)) {
+      excluded.push({ ticket_id: r.ticket_id, reason: 'held by another worker or in-flight command' });
+    } else ranked.push(r);
+  }
+  return { ...plan, ranked, excluded, fenced: plan.ranked.length - ranked.length };
 }
 
 const predecessorsOf = relations => relations && ['blocked_by', 'blocking', 'start_after', 'finish_after']
@@ -233,11 +279,12 @@ export function rankCandidates(board, now) {
 }
 
 export class Journal {
-  constructor(directory, boardId) { this.directory = directory; this.path = join(directory, `${boardId}.json`); }
-  load() {
-    if (!existsSync(this.path)) return null;
-    require(!lstatSync(this.path).isSymbolicLink(), 'journal must not be a symlink');
-    const j = JSON.parse(readFileSync(this.path, 'utf8'));
+  constructor(directory, boardId) { this.directory = directory; this.boardId = boardId; this.path = join(directory, `${boardId}.json`); }
+  load() { return this.read(this.path); }
+  read(path) {
+    if (!existsSync(path)) return null;
+    require(!lstatSync(path).isSymbolicLink(), 'journal must not be a symlink');
+    const j = JSON.parse(readFileSync(path, 'utf8'));
     require(j.contract === CONTRACT && j.intent?.envelope && ['uncertain', 'started', 'active', 'completed',
       'mutation_uncertain', 'mutation_conflict'].includes(j.phase), 'journal corrupt: explicit reconciliation required');
     require(digest(JSON.stringify(j.intent.envelope)) === j.intent.sha256, 'saved command body digest mismatch');
@@ -247,6 +294,30 @@ export class Journal {
       j.completion.final_ticket?.id === j.ticket_id && nonblank(j.completion.final_ticket.state)),
     'completed journal lacks matching evidence; explicit reconciliation required');
     return j;
+  }
+  // The board journal above is the single DISPATCH slot: one command at a time is
+  // being sent and proven started. Once a dispatch is fully confirmed ('active') or
+  // is a terminal conflict that never replays, its record moves here so the slot is
+  // free for a DIFFERENT ticket. Each entry is still an execution fence for its own
+  // ticket and command; only its completion proof retires it.
+  get activeDirectory() { return join(this.directory, 'active'); }
+  inflight() {
+    if (!existsSync(this.activeDirectory)) return [];
+    return readdirSync(this.activeDirectory).filter(name => name.endsWith('.json')).sort()
+      .map(name => this.read(join(this.activeDirectory, name)))
+      .filter(j => j && j.project.board_id === this.boardId);
+  }
+  stash(j) {
+    const path = join(this.activeDirectory, `${j.intent.envelope.command_id}.json`);
+    if (existsSync(path)) require(isDeepStrictEqual(JSON.parse(readFileSync(path, 'utf8')), j), 'in-flight record differs from journal');
+    else this.write(path, j);
+  }
+  archived(j) {
+    const path = join(this.directory, 'completed', `${j.intent.envelope.command_id}.json`);
+    return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null;
+  }
+  unstash(j) {
+    rmSync(join(this.activeDirectory, `${j.intent.envelope.command_id}.json`), { force: true });
   }
   save(j) {
     this.write(this.path, j);
@@ -342,58 +413,86 @@ export function matchCompleted(j, event, route) {
 /** The existing Momo runtime owner reconciles completion. Never retire a fence
  * on TTL, a PM turn's completion alone, an empty worker list alone, or a board
  * claim alone. All three observations must agree after terminal publication.
+ * Every in-flight execution (the dispatch slot's active journal and each stashed
+ * one) is retired independently; only its OWN ticket's workers and claims matter.
  */
 export async function reconcile(c, ports, { execute = false } = {}) {
   let held = false;
   const owner = `momo:board-crank:reconcile:${randomUUID()}`;
-  const result = (status, reason) => ({ contract: CONTRACT, status, reason, live_execution_proof: false });
+  const result = (status, reason, extra = {}) => ({ contract: CONTRACT, status, reason, live_execution_proof: false, ...extra });
   try {
     validateInput(c);
     let facts = validateRuntime(c, await ports.runtime(c), ports.now());
     journalBinding(c);
     const journal = ports.journal ?? new Journal(c.runtime.state_dir, c.project.board_id);
-    const original = journal.load();
-    if (!original) return result('idle', 'no execution fence to reconcile');
-    sameExecution(c, original);
-    if (!['active', 'completed'].includes(original.phase)) return result('busy', 'uncertain execution or mutation requires explicit investigation');
+    const slot = journal.load();
+    const entries = () => [...(slot ? [{ stashed: false, j: journal.load() }] : []),
+      ...journal.inflight().map(j => ({ stashed: true, j }))].filter(e => e.j);
+    const original = entries();
+    if (!original.length) return result('idle', 'no execution fence to reconcile');
+    for (const e of original) sameExecution(c, e.j);
+    const settleable = e => ['active', 'completed'].includes(e.j.phase);
+    if (!original.some(settleable)) return result('busy', 'uncertain execution or mutation requires explicit investigation');
     if (await ports.leaseBusy(c.runtime.driver_lease)) return result('busy', 'shared driver lease occupied');
     if (!execute) return result('busy', 'inspect only; execution fence is preserved');
     if (!await ports.lease('acquire', c.runtime.driver_lease, owner)) return result('busy', 'shared driver lease occupied');
     held = true;
     journalBinding(c);
-    const j = journal.load();
-    require(isDeepStrictEqual(j, original), 'journal changed before reconciliation');
-    if (j.phase === 'completed') {
-      require(matchCompleted(j, j.completion?.terminal, j.route), 'saved completion proof is invalid');
-      journal.archive(j); // recover a crash after completion fsync but before archival
-      return result('reconciled', 'completion was already durably recorded; archive confirmed');
+    const locked = entries();
+    require(isDeepStrictEqual(locked.map(e => e.j), original.map(e => e.j)), 'journal changed before reconciliation');
+    const settle = async ({ stashed, j }) => {
+      const retire = () => { if (stashed) journal.unstash(j); };
+      if (j.phase === 'completed') {
+        require(matchCompleted(j, j.completion?.terminal, j.route), 'saved completion proof is invalid');
+        journal.archive(j); // recover a crash after completion fsync but before archival
+        retire();
+        return result('reconciled', 'completion was already durably recorded; archive confirmed', { ticket_id: j.ticket_id });
+      }
+      const prior = stashed ? journal.archived(j) : null; // crash after archive, before the in-flight record was removed
+      if (prior) {
+        require(prior.phase === 'completed' && matchCompleted(prior, prior.completion?.terminal, prior.route) &&
+          isDeepStrictEqual(prior.intent, j.intent), 'completed archive differs from in-flight record');
+        journal.unstash(j);
+        return result('reconciled', 'completion archive already durable; in-flight record retired', { ticket_id: j.ticket_id });
+      }
+      facts = validateRuntime(c, await ports.runtime(c), ports.now());
+      require(facts.route.agentId === j.route.agentId && facts.route.profileName === j.route.profileName,
+        'completion route differs from the dispatched route');
+      const terminal = await ports.completed(c, j, facts.route);
+      if (!matchCompleted(j, terminal, facts.route)) return result('busy', 'matching completed receipt unavailable; fence preserved', { ticket_id: j.ticket_id });
+      // Worker truth must have been observed AFTER terminal publication. Re-read
+      // it and provider state after the receipt lookup, under the shared lease.
+      facts = validateRuntime(c, await ports.runtime(c), ports.now());
+      const board = await ports.board(c);
+      const final = await ports.ticket(c, j.ticket_id);
+      facts = validateRuntime(c, await ports.runtime(c), ports.now());
+      require(board.id === c.project.board_id && final.id === j.ticket_id, 'completion board/ticket identity differs');
+      const done = board.states.filter(s => s.name === 'Done' && s.group === 'completed');
+      if (done.length !== 1 || idOf(final.state) !== done[0].id || facts.workers.active.some(w => w.ticket_id === j.ticket_id) ||
+        ticketClaimed(board, j.ticket_id) || Date.parse(facts.workers.observed_at) < Date.parse(terminal.time)) {
+        return result('busy', 'final Done state and post-completion no-worker truth for this ticket do not agree; fence preserved', { ticket_id: j.ticket_id });
+      }
+      require(facts.route.agentId === j.route.agentId && facts.route.profileName === j.route.profileName,
+        'completion route changed during readback');
+      require(await ports.lease('refresh', c.runtime.driver_lease, owner), 'shared driver lease lost');
+      j.phase = 'completed';
+      j.completion = { terminal, worker_observed_at: facts.workers.observed_at,
+        final_ticket: { id: final.id, state: idOf(final.state), updated_at: final.updated_at },
+        reconciled_at: new Date(ports.now()).toISOString(), owner };
+      if (stashed) { journal.archive(j); journal.unstash(j); } else { journal.save(j); journal.archive(j); }
+      return result('reconciled', 'matching completion, final Done state and fresh no-worker truth archived; fence retired', { ticket_id: j.ticket_id });
+    };
+    const outcomes = [];
+    for (const entry of locked.filter(settleable)) {
+      try { outcomes.push(await settle(entry)); }
+      catch (error) {
+        outcomes.push(result('uncertain', error instanceof ControlRefusal ? error.message :
+          `completion observation unavailable (${error.name}); fence preserved`, { ticket_id: entry.j.ticket_id }));
+      }
     }
-    facts = validateRuntime(c, await ports.runtime(c), ports.now());
-    require(facts.route.agentId === j.route.agentId && facts.route.profileName === j.route.profileName,
-      'completion route differs from the dispatched route');
-    const terminal = await ports.completed(c, j, facts.route);
-    if (!matchCompleted(j, terminal, facts.route)) return result('busy', 'matching completed receipt unavailable; fence preserved');
-    // Worker truth must have been observed AFTER terminal publication. Re-read
-    // it and provider state after the receipt lookup, under the shared lease.
-    facts = validateRuntime(c, await ports.runtime(c), ports.now());
-    const board = await ports.board(c);
-    const final = await ports.ticket(c, j.ticket_id);
-    facts = validateRuntime(c, await ports.runtime(c), ports.now());
-    require(board.id === c.project.board_id && final.id === j.ticket_id, 'completion board/ticket identity differs');
-    const done = board.states.filter(s => s.name === 'Done' && s.group === 'completed');
-    if (done.length !== 1 || idOf(final.state) !== done[0].id || facts.workers.active.length ||
-      boardWip(board, facts.workers) || Date.parse(facts.workers.observed_at) < Date.parse(terminal.time)) {
-      return result('busy', 'final Done state and post-completion no-worker truth do not agree; fence preserved');
-    }
-    require(facts.route.agentId === j.route.agentId && facts.route.profileName === j.route.profileName,
-      'completion route changed during readback');
-    require(await ports.lease('refresh', c.runtime.driver_lease, owner), 'shared driver lease lost');
-    j.phase = 'completed';
-    j.completion = { terminal, worker_observed_at: facts.workers.observed_at,
-      final_ticket: { id: final.id, state: idOf(final.state), updated_at: final.updated_at },
-      reconciled_at: new Date(ports.now()).toISOString(), owner };
-    journal.save(j); journal.archive(j);
-    return result('reconciled', 'matching completion, final Done state and fresh no-worker truth archived; fence retired');
+    const worst = ['uncertain', 'reconciled', 'busy'].find(status => outcomes.some(o => o.status === status));
+    const chosen = outcomes.find(o => o.status === worst);
+    return outcomes.length === 1 ? chosen : { ...chosen, settled: outcomes.map(({ ticket_id, status, reason }) => ({ ticket_id, status, reason })) };
   } catch (error) {
     return result('uncertain', error instanceof ControlRefusal ? error.message :
       `completion observation unavailable (${error.name}); fence preserved`);
@@ -402,8 +501,17 @@ export async function reconcile(c, ports, { execute = false } = {}) {
   }
 }
 
+// Does a ticket still carry the agent:working label? (Its own claim, not the board's.)
+const ticketClaimed = (board, ticketId) => {
+  const working = workingLabels(board);
+  return board.issues.some(i => i.id === ticketId && (i.labels ?? []).some(l => working.has(idOf(l))));
+};
+
 // Inject provider, registry, bus, clock and lease ports. Only the production ports
-// may touch Plane/Bloodbank. Every unresolved journal is a durable WIP fence.
+// may touch Plane/Bloodbank. Every unresolved journal is a durable fence on ITS OWN
+// ticket and command. Many tickets run in parallel: a pass dispatches the best ready
+// ticket nobody holds, whatever else is in progress, unless the project opted into
+// an explicit wip_limit.
 export async function crank(c, ports, { execute = false, replay = false } = {}) {
   let leaseHeld = false, owner = `momo:board-crank:${randomUUID()}`, journal, j, observedFence;
   const answer = (status, reason, extra = {}) => ({ contract: CONTRACT, status, reason,
@@ -411,6 +519,10 @@ export async function crank(c, ports, { execute = false, replay = false } = {}) 
   const save = () => journal.save(j);
   const fresh = async () => validateRuntime(c, await ports.runtime(c), ports.now());
   const refresh = async () => require(await ports.lease('refresh', c.runtime.driver_lease, owner), 'shared driver lease lost');
+  // The dispatch slot is the board journal. A finished dispatch or a terminal conflict
+  // no longer needs the slot; it stays an in-flight fence for its own ticket.
+  const settled = x => ['active', 'mutation_conflict'].includes(x?.phase);
+  const inflightIds = (slot) => new Set([...journal.inflight(), ...(settled(slot) ? [slot] : [])].map(x => x.ticket_id));
   try {
     validateInput(c);
     let facts = await fresh();
@@ -418,26 +530,35 @@ export async function crank(c, ports, { execute = false, replay = false } = {}) 
     const board = await ports.board(c);
     facts = await fresh();
     require(board.id === c.project.board_id, 'provider board identity mismatch');
-    const plan = rankCandidates(board, ports.now());
     journal = ports.journal ?? new Journal(c.runtime.state_dir, c.project.board_id);
     j = journal.load();
-    observedFence = j;
     if (j) sameExecution(c, j);
     if (j?.phase === 'completed') j = null;
-    if (await ports.leaseBusy(c.runtime.driver_lease) || boardWip(board, facts.workers, j) ||
-      (!j && facts.workers.active.length)) return answer('busy', 'shared driver lease or implementation WIP occupied');
-    if (j?.phase === 'active' && execute) {
+    let slot = settled(j) ? j : null; // a finished dispatch occupies nothing
+    if (slot) j = null;
+    observedFence = j;
+    if (execute && (slot || journal.inflight().length)) {
       const completion = await reconcile(c, ports, { execute: true });
       if (completion.status === 'reconciled') return crank(c, ports, { execute, replay });
-      return completion;
+      if (completion.status === 'uncertain') return completion;
     }
-    if (j && ['active', 'mutation_conflict'].includes(j.phase)) {
-      return answer('busy', `durable execution ${j.phase}; pipeline reconciliation required`, { ticket_id: j.ticket_id });
+    if (await ports.leaseBusy(c.runtime.driver_lease)) return answer('busy', 'shared driver lease occupied');
+    const held = inflightIds(slot);
+    if (j && ownTicketFenced(facts.workers, j)) {
+      return answer('busy', 'another worker holds the dispatched ticket', { ticket_id: j.ticket_id });
+    }
+    const plan = fenceCandidates(rankCandidates(board, ports.now()), board, facts.workers, held, j);
+    if (capReached(facts.manifest, board, facts.workers, held, j?.ticket_id)) {
+      return answer('busy', 'explicit implementation wip_limit reached');
     }
     const selection = j ? plan.ranked.find(r => r.ticket_id === j.ticket_id) : plan.ranked[0];
-    if (!j && !selection) return answer('idle', 'no evidenced ready Todo candidate', { excluded: plan.excluded });
+    if (!j && !selection) {
+      return answer(plan.fenced ? 'busy' : 'idle', plan.fenced ? 'every ready ticket is already held by a worker or in-flight command' :
+        'no evidenced ready Todo candidate', { excluded: plan.excluded, in_flight: [...held] });
+    }
     if (!execute) return answer(j ? 'pending' : 'ready', j ? 'durable execution pending' : 'inspect only', {
-      selected: selection?.ticket_id ?? j.ticket_id, ranked: plan.ranked.map(({ ticket, criteria, ...r }) => r), excluded: plan.excluded });
+      selected: selection?.ticket_id ?? j.ticket_id, ranked: plan.ranked.map(({ ticket, criteria, ...r }) => r),
+      excluded: plan.excluded, in_flight: [...held] });
     if (!await ports.lease('acquire', c.runtime.driver_lease, owner)) return answer('busy', 'shared driver lease acquisition refused');
     leaseHeld = true;
     journalBinding(c);
@@ -447,35 +568,33 @@ export async function crank(c, ports, { execute = false, replay = false } = {}) 
     j = journal.load();
     observedFence = j ?? observedFence;
     if (j) sameExecution(c, j);
-    if (j?.phase === 'active') {
-      await ports.lease('release', c.runtime.driver_lease, owner);
-      leaseHeld = false;
-      const completion = await reconcile(c, ports, { execute: true });
-      if (completion.status === 'reconciled') return crank(c, ports, { execute, replay });
-      return completion;
-    }
-    if (j?.phase === 'mutation_conflict') {
-      return answer('busy', 'durable execution mutation_conflict; pipeline reconciliation required', { ticket_id: j.ticket_id });
-    }
     if (j?.phase === 'completed') { journal.archive(j); j = null; }
+    slot = settled(j) ? j : null;
+    if (slot) j = null;
+    observedFence = j ?? observedFence;
     // Re-read all mutable prerequisites after acquisition, and again before publication.
     let current = await fresh();
     let latest = await ports.board(c);
     current = await fresh(); await refresh();
-    require(!boardWip(latest, current.workers, j), 'implementation WIP changed after acquisition');
-    let currentPlan = rankCandidates(latest, ports.now());
+    let heldNow = inflightIds(slot);
+    require(!(j && ownTicketFenced(current.workers, j)), 'another worker holds the dispatched ticket after acquisition');
+    require(!capReached(current.manifest, latest, current.workers, heldNow, j?.ticket_id), 'explicit implementation wip_limit reached after acquisition');
+    let currentPlan = fenceCandidates(rankCandidates(latest, ports.now()), latest, current.workers, heldNow, j);
     let chosen = j ? currentPlan.ranked.find(r => r.ticket_id === j.ticket_id) : currentPlan.ranked[0];
     if (!j && !chosen) return answer('idle', 'readiness changed after acquisition', { excluded: currentPlan.excluded });
     if (!j) {
       journalBinding(c, true);
       const intent = await ports.command(c, chosen, current.route);
-      j = { contract: CONTRACT, phase: 'uncertain', project: c.project,
+      const created = { contract: CONTRACT, phase: 'uncertain', project: c.project,
         contractor_digest: configDigest(c.contractor), ticket_id: chosen.ticket_id,
         runtime_digest: configDigest(c.runtime), ticket_content_sha256: ticketRevision(chosen.ticket),
         selected: { score: chosen.score, rationale: chosen.rationale, rubric: chosen.rubric },
         ranking: currentPlan.ranked.map(({ ticket, criteria, ...r }) => r), exclusions: currentPlan.excluded,
         intent: { envelope: intent, sha256: digest(JSON.stringify(intent)) },
         route: current.route, receipts: [], patch: null, created_at: new Date(ports.now()).toISOString() };
+      // Keep the finished dispatch's record before the slot is overwritten.
+      if (slot) journal.stash(slot);
+      j = created;
       save(); // fsync the exact command BEFORE any transport call.
     }
     require(current.route.agentId === j.route.agentId && current.route.profileName === j.route.profileName,
@@ -492,8 +611,9 @@ export async function crank(c, ports, { execute = false, replay = false } = {}) 
       const prompted = await ports.ticket(c, j.ticket_id);
       require(ticketRevision(prompted) === j.ticket_content_sha256, 'prompted ticket content changed; exact intent remains fenced');
       current = await fresh(); await refresh();
-      require(!boardWip(latest, current.workers, j) && currentPlan.ranked.some(r => r.ticket_id === j.ticket_id),
-        'board WIP/readiness changed before publication');
+      heldNow = inflightIds(slot);
+      require(!ownTicketFenced(current.workers, j) && !capReached(current.manifest, latest, current.workers, heldNow, j.ticket_id) &&
+        currentPlan.ranked.some(r => r.ticket_id === j.ticket_id), 'ticket ownership/readiness changed before publication');
       require(current.route.agentId === j.route.agentId && current.route.profileName === j.route.profileName,
         'route changed before publication');
       j.publications = (j.publications ?? 0) + 1;
@@ -513,13 +633,13 @@ export async function crank(c, ports, { execute = false, replay = false } = {}) 
     j.started = pair;
     j.phase = 'started'; save();
     await refresh();
-    // The state/date write is guarded by fresh binding, lane, WIP and ticket reads.
+    // The state/date write is guarded by fresh binding, lane, ticket-ownership and ticket reads.
     current = await fresh();
     latest = await ports.board(c);
     current = await fresh(); await refresh();
     require(current.route.agentId === j.route.agentId && current.route.profileName === j.route.profileName,
       'route changed after started acknowledgement');
-    require(!boardWip(latest, current.workers, j), 'another implementation appeared after started receipt');
+    require(!ownTicketFenced(current.workers, j), 'another worker appeared on the dispatched ticket after started receipt');
     const inProgress = exactLane(latest.states, 'In Progress');
     const todo = exactLane(latest.states, 'Todo');
     let ticket = await ports.ticket(c, j.ticket_id);
@@ -562,7 +682,7 @@ export async function crank(c, ports, { execute = false, replay = false } = {}) 
       }
       current = await fresh(); await refresh();
       require(current.route.agentId === j.route.agentId && current.route.profileName === j.route.profileName &&
-        !boardWip(latest, current.workers, j), 'execution eligibility changed immediately before PATCH');
+        !ownTicketFenced(current.workers, j), 'execution eligibility changed immediately before PATCH');
       try { await ports.patch(c, ticket.id, fields); }
       catch { j.receipts.push({ kind: 'mutation', status: 'uncertain' }); save(); }
     }

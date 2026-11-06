@@ -135,8 +135,9 @@ beyond a binding repair still goes through a delegated worker.
   `role.yaml` carries a `reconcile: {enabled: true}` block, and no repo has it on today.
 - Tail `<role_dir>/runtime/logs/agent.log` and read `<role_dir>/runtime/memories/MEMORY.md`
   ("Recent context") for Hermes' mental model.
-- Honor **WIP=1**: if Hermes shows an active worker, do not start a second. If you take a
-  ticket, you own the WIP slot until it clears.
+- Parallel work is normal: if Hermes shows an active worker on ticket X, leave X to it
+  (one owner per ticket, never duplicate it) and take a different ready ticket. If you
+  take a ticket you own it until it clears. Another ticket's worker never blocks you.
 
 ## Local truth surfaces (proof, not the board)
 
