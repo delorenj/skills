@@ -87,6 +87,8 @@ name = "heyma"
 repo = "git@github.com:delorenj/HeyMa.git"
 checkout = "HeyMa"
 mode = "link"
+# Optional: only machines with this checkout use the hub; selecting it elsewhere is E_SKILL_MISSING.
+optional = true
 skills = ["heyma"]
 
 [[source]]
@@ -94,4 +96,6 @@ name = "vinyl"
 repo = "git@github.com:delorenj/vinyl.git"
 checkout = "vinyl"
 mode = "link"
+# Optional: only machines with this checkout use the hub; selecting it elsewhere is E_SKILL_MISSING.
+optional = true
 skills = ["vinyl"]
