@@ -9,9 +9,16 @@ that file and this one disagree, `SKILL.md` wins.
 
 ## The repo
 
-A feature is a formal repo (rule F1): its own GitHub repo, `.project.json`, Plane
-board, BMAD, registered in pjangler, and added as a 33GOD submodule. Its root holds
-`feature.toml`. Directory conventions mean the manifest never lists files:
+A single-repo capability is a **component**. A cross-repo capability becomes a
+feature candidate when maintaining or extending its scattered parts becomes hard.
+Promotion creates a dedicated formal **hub repo** (F1): GitHub, board, BMAD,
+pjangler registration, a 33GOD submodule and root `feature.toml`. The hub owns the
+feature domain and integration contracts; participant code stays in its component
+repo. For crank, registry/engine belong to crank; the pj control-surface integration
+belongs to pjangler and is tracked as part of the crank feature.
+
+The manifest's participant links are part of the architecture to define, not an
+already-implemented schema. The conventions below cover hub-owned payloads only:
 
 | Path | Meaning |
 |---|---|
