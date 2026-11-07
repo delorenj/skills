@@ -88,7 +88,7 @@ Standing rules carried by the design:
 |---|---|---|
 | L0 Host: zellij, /proc, Redis, NATS, systemd | Raw machinery | Hold 33GOD logic |
 | L1a **bloodbank** | Hook intake (`hooks.master.json`, bb-hook, hook-hub), event schemas, transport | Hold a state fold, import the ASM in-process (it does today: `publisher.py:136`), name a product in a subject (`deckard.evt.attention`) |
-| L1b **zellij-driver** (repurposed) | Every zellij call: topology by tab/pane id, readiness, focus, rename, verified pane input | Know what an agent is |
+| L1b **terminal-driver** (new; Zellij backend first) | Every zellij call: topology by tab/pane id, readiness, focus, rename, verified pane input | Know what an agent is |
 | L2 **asm** (new, out of bloodbank) | Agent process detection, identity (pid + start time; Hermes profile when headless), native session id, live state, attention/ack | Type into a pane, focus, rename, or use a pane as identity |
 | L2' Peer owners: pjangler (project identity), Candybar (clock), Krebs (ticket lifecycle) | One fact each | Re-derive agent or terminal state |
 | L3 Features: crank, hindsight-hooks… | Their own state (`zcrank:*`), jobs and schedules | Keep a private copy of topology, detection or state |
@@ -102,8 +102,12 @@ land; do not assume planned commands exist or add new copies.
 
 Deckard **requires the ASM** (operator decision 2026-11-07). Retire its duplicate
 state fold on cutover; do not preserve a no-Redis fallback state machine.
-Terminal repo selection was delegated to the implementing architect; record the
-choice and evidence in I-9 rather than asking the operator again.
+Terminal ownership belongs to a new `delorenj/terminal-driver` component (choice
+delegated by the operator, recorded 2026-11-07). Do not repurpose the existing
+`zellij-driver`/Perth repo or reuse `zdrive`: it has implemented intent/snapshot
+functionality, an installed CLI and an Agentboard bridge contract. Extract neutral
+terminal code from deckard-mux, removing its dependency on deckard-core and leaving
+agent classification in ASM. Start with Zellij only, not a multi-backend project.
 
 ## Not yours to decide (open operator decisions)
 
@@ -152,7 +156,7 @@ explicit secondary goal, not a separate training project.
 |---|---|
 | `pj crank panes --json` (agent panes, provisional) | `asmctl agents --json --topology`† |
 | `asmctl` (human output) | `asmctl state|watch|doctor --json`† |
-| `deckard status` | `zdrive tabs|panes|focus|rename|send --json`† |
+| `deckard status` | terminal-driver JSON CLI† (name/interface to finalize; do not reuse `zdrive`) |
 | `uv run candybar show|history|doctor` | `pj feature check|plan|apply|remove|why`† |
 | `px` on the owning board | `GET :8764/v1/resolve?cwd=`† |
 
