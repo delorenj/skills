@@ -99,3 +99,11 @@ mode = "link"
 # Optional: only machines with this checkout use the hub; selecting it elsewhere is E_SKILL_MISSING.
 optional = true
 skills = ["vinyl"]
+
+[[source]]
+name = "lost-things-forge"
+repo = "git@github.com:delorenj/lost-things-forge.git"
+checkout = "lost-things-forge"
+mode = "link"
+optional = true
+skills = ["ltf-art", "ltf-banks", "ltf-comedy", "ltf-feedback", "ltf-framework", "ltf-incubate", "ltf-items", "ltf-make-game", "ltf-setup"]
