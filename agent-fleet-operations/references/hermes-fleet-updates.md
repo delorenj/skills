@@ -43,8 +43,12 @@ force-with-lease publication, and guarded live reset. Preserve untracked files,
 stashes, and local-only commits before any reset; clean tracked files alone are
 not sufficient. Use native `hermes_cli.venv_sync` to preserve the install's
 recorded extras and plugin members, then `source_completion.py --finish-update`
-before the single idle-aware gateway restart. Do not apply the historical plain
-`uv sync` example below to the current generation-managed production install.
+before the single idle-aware gateway restart. Native sync also collects old
+generations and can evict incompatible plugins: preserve unique copied plugin
+sources first and block on unexpected enabled/disabled-list changes. Require
+`venv_sync --check` to report `current`; `would-sync` also exits zero. Do not
+apply the historical plain `uv sync` example below to the current
+generation-managed production install.
 The command also documents registry SHA repair and dashboard restart. A
 prepare-only `/hermes-sync` run must not publish rebased main or touch services.
 

@@ -1,6 +1,6 @@
 # big-chungus — disk profile
 
-**Last verified:** 2026-10-28 (initial survey) — if a run contradicts this file, the run wins: fix the file.
+**Last verified:** 2026-11-08 — if a run contradicts this file, the run wins: fix the file.
 
 Sizes are GiB unless marked GB. `df -B1G` is GiB; Prometheus and `docker system df` print decimal GB (x1.0737 to get GiB). Measured with `survey.sh`, `gdu`, `sudo du -x`, `docker system df`, and Prometheus on 2026-10-28 05:10-05:30 EDT.
 
@@ -261,4 +261,5 @@ All cache/state/log sweep scripts live in `~/code/infra` and ran green in the la
 
 ## Run log
 
+- 2026-11-08 — free 214.48 GiB → 214.25 GiB. Scoped Hermes cleanup only: uv native prune reported 220.8 MiB removed; cache allocated bytes fell 0.585 GiB, but concurrent filesystem writes exceeded savings (no net-space claim). Preserved scratch Git WIP, nine install stashes and live generation. Generation GC deferred: copied plugin-source uniqueness unproven; upgrade venv_sync also collects generations and can evict plugins. No restart or new retention schedule; other machine-profile sections remain 2026-10-28 observations.
 - 2026-10-28 — initial profile (read-only survey). Free: 873 GiB (937 GB, 75% shown). Nothing deleted. Found: tmpfiles unit failing nightly, apt keep-debs setting not working, docker build cache 245-260 GB plateau, `/mnt/TheChung` 451 GiB, `~/.cache/gruvato` 63 GiB, vinyl traces 18 GiB, k3s 24 GiB, lemonade 61 GiB.
