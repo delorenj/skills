@@ -27,9 +27,9 @@ come out right** — not whether a metric on a synthetic set moved.
 1. **The drummer is the ground truth.** The owner is sitting right there and
    is the best judge of whether it works or sounds bad. No benchmark replaces
    a human listening pass. Metrics support; they never conclude alone.
-2. **Never route spec/tuning work to free LLM models** — they fabricate
-   results and invalidate tuning. Pin analysis agents to
-   `automaticai/personal/sol-6.1`, evaluators to `glm-5.3`.
+2. **Use automatic model routing.** Do not pin provider or model IDs unless
+   the user requests it. Treat generated claims as unverified until checked
+   against primary sources, code, tests or the owner's listening evidence.
 3. **GMD is not proof of live-band performance.** Groove MIDI Dataset clips
    are correlated, click-locked and drums-only. A result there is a hypothesis
    input, not evidence about a sax-led live recording.
