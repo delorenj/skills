@@ -40,24 +40,38 @@ observation was made: Solo Drums. Tracker: beat-track/5.
 2. H2 — **Tempo octave or bar-phase error**, independent of source: the tracker
    found the beats but counted from the wrong one. Test: meter chips (½×/2×
    and phase) fix the feel without changing analysis source.
-3. H3 — **Ambiguous ensemble**: even the full mix's strong beats conflict with
-   the sax line; no onset-based method will agree with the human count.
-   Test: full mix still wrong → the gap is representational (phrase-level),
-   not acoustic.
+3. H3 — **Ambiguous ensemble**: even the full mix's strong beats could conflict
+   with the sax line. A poor full-mix result alone does not distinguish missing
+   acoustic information, an incorrect pulse, a bar-phase error or a mixed-meter
+   representation limit.
 4. H4 — **Decode/placement bug**: the analysis core is right but the decode
    or rendering shifts bars (cf. the pickup44 class of bugs, fixed
    2026-11-06). Test: compare stored core beats against rendered bars at the
    wrong passage.
 
-**Experiment running:** GRUV-152 (shipped 2026-11-08 as v0.2.41-pending):
-in-player Drums / Full mix analysis choice with isolated maps and corrections.
-Owner A/B listening on the S26 is the decision step. No benchmark campaign.
+**Historical pre-listening plan:** GRUV-152 provides an in-player Drums / Full
+mix analysis choice with isolated maps and corrections. No benchmark campaign.
 
-**Decision rule:** If H1 confirmed → full-mix becomes the default analysis
-source where the drums stem is sparse, and the phrase-map grid
-(2026-10-22 decision) uses ensemble evidence for bar location while keeping
-drum-stem identity for phrase equivalence — exactly the owner's framing:
-"whole ensemble locates bars; drum stem decides phrase equivalence."
+**Owner listening result, 2026-11-08:** “It Kinda worked really good! It wasn't
+perfect, but Ithink it was Acceptable. all of the tracks were pretty much
+perfect except for The jazz And Tom Sawye because I don't think it understands
+when it switches to 5/4”. Version 0.2.41 / 2041 was installed in place and read
+back on the S26 via hub catch-up. This is positive qualitative product feedback,
+not a numerical accuracy measure or a verified meter/source-per-track label.
+The user suspects a switch to 5/4; exact transition and count remain unverified.
+
+**Current finding:** The normal player stores one bar-count version for the
+whole song and selected analysis source. Exact synthetic 4→5→4 and 4→7→4
+fixtures, with every true one pinned, show that a single global count still
+mislabels beats. A representation-only experiment with manually supplied
+section boundaries and counts preserves the beat timestamps and returns the
+planted labels. It detects neither meter nor transition; see
+`scripts/analysis/mixed-meter-probe.mjs` and GRUV-155.
+
+**Decision:** Keep the working source comparison. GRUV-156 proposes a bounded,
+reversible manual local-count audition; it is a draft, not an approved change.
+Whether to change the default source or add automatic meter-change detection
+remains undecided. Do not treat the earlier proposed decision rule as adopted.
 
 ## Resolved / historical
 
