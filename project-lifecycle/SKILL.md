@@ -155,8 +155,10 @@ interpreter (MILK-2, 2026-10-22). The stdio server reads `PLANE_API_KEY`
 resolves an `op://` reference at use time, the spawned server sees only what
 you export. A Hermes agent shell does not export these, so materialize them
 before the run and never print the key: source the workspace's plane env file
-(`~/DevCloud/plane.<slug>.env` on this host), then
-`export PLANE_PROJECT_ID=<board uuid>` bound to the board. If the key is still
+(`~/DevCloud/plane.<slug>.env` on this host) under `set -a` — the file assigns
+without `export`, so a plain `source` leaves the key a shell variable the child
+never sees and the script dies with `PLANE_API_KEY not set` (TOLT, 2026-11-08) —
+then `export PLANE_PROJECT_ID=<board uuid>` bound to the board. If the key is still
 unset, run `px whoami --json` from the bound repo and resolve the credential
 the same way `px` does rather than guessing at config paths. The script honors
 `PLANE_PROJECT_ID` / `PLANE_WORKSPACE_SLUG` as overrides, and the fleet shell
