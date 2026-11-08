@@ -22,4 +22,10 @@ origin:
       sha: 97298b22fee1c7e482710d3a8414adb5cfccccd9
     - name: core
       version: 6.12.1-next.1
+  local_overlay:
+    base_commit: 83658e49fff1ababbf4b1ded4ba86bb0b737d410
+    base_digest: sha256:2973e5dda9ceb57d07c6d4e605d43fd38c571e8f023957a40efb99a0e8cb367e
+    patch_digest: sha256:00bd192aa9aa26c8b03c1290e3eb01e2044b64e9741906ffc55eba27a810bd54
+    effective_digest: sha256:a556e7162f5823e02586e8309501f7de59bef9cbb2dde5df0f214bf0bf22d4b6
 modified_locally: true
+
