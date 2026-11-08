@@ -79,7 +79,7 @@ Class: A = rebuildable/safe to delete without asking, B = needs an owner decisio
 | `~/fireflies-archive` | 29.1 | C | |
 | `~/.config/Claude` | 14.6 | C | `vm_bundles` 12.7, in use. |
 | `~/Android` + `~/.android` | 23.6 + 12.2 | B | `Sdk/system-images` 11 GiB, AVDs: `HOLOC_9_Honda_API33`, `Medium_Phone`, `towe16crank`, `Holocene_API32_Compatibility`; each has a 2-3 GiB `snapshots/default_boot/ram.img` and a 2.5-6 GiB qcow2. |
-| `~/.hermes` | 17.5 | C | profiles 8.4, hermes-agent 4.0, installs 2.8. |
+| `~/.hermes` | ~59 | mixed | Scoped inspection 2026-11-08: profiles ~40 (scratch 25-27, session DBs 7, checkpoints 4.1), installs ~11, live checkout 3.85. Scratch includes active/dirty/local-only Git work; do not blanket-prune. Installation generations share hardlinks; use lease-aware native GC only after source/workspace safety review. |
 | `~/HeyMa`, `~/DeLoDrive`, `~/backups`, `~/gd`, `~/Downloads` | 17, 16, 15.4, 8.4, 9.8 | C (Downloads B) | `backups/postgres` 14 GiB is bounded rotation. |
 | `/swapfile64` (+ inactive `/swapfile` 8 GiB) | 64 (+8) | C (`/swapfile` B) | `/swapfile` is not in fstab and not active; deleting it frees 8 GiB if Jarad agrees. |
 | `/tmp` | 37.4 | A (stale part) | 8,573 entries, only 5 older than 10 days (the system 10d rule holds), so the bytes are fresh agent builds: `gib-p5-target` 4.5, `rev-pool51-target` 4.4, `gib-direv-r1-target` 3.9, `r2-target` 2.6, `tokies-drift` 2.0, `ci-fix` 1.4. Cargo targets in `/tmp` are outside cache-prune's `~/code` scope. |
@@ -130,6 +130,9 @@ Class: A = rebuildable/safe to delete without asking, B = needs an owner decisio
 | **Claude desktop vm_bundles** | `~/.config/Claude/vm_bundles` | 12.7 GiB (22 on Oct 15) | Claude desktop VM images | none (in use) | none; leave |
 | **Android AVDs** | `~/.android/avd/*` | 12.2 GiB | emulator snapshots `ram.img` 2-3 GiB each | none | delete `snapshots/default_boot` when emulator is closed (B) |
 | **tmpfiles unit failing** | user `systemd-tmpfiles-clean` | n/a | root-owned `__pycache__`/read-only dirs under `~/.claude/tmp` | unit **failed** nightly | `sudo chown -R delorenj:delorenj ~/.claude/tmp` once; find what runs python/test fixtures as root |
+| **Hermes profile scratch** | `~/.hermes/profiles/*/cache/scratch` | 25-27 GiB (2026-11-08) | isolated clones, tool downloads, test environments | native 24h inactivity prune, process/worktree checks; fleet execution unproven and no dirty/stash/unpushed Git gate | preserve active and local-only work; repair native Git-aware retention before broad pruning; no second clock |
+| **Hermes dependency generations** | `~/.hermes/installs/*/environments` | main checkout parent ~10 GiB, 48 generations | dependency builds publish generations; young generations survive immediate post-sync GC | lease-aware native `hermes pm gc`, selected/live generations protected, minimum age 24h | inspect workspace/local-source preservation before native collection; do not sum hardlinked generation sizes as savings |
+| **Hermes config recovery files** | `~/.hermes/.profile-config-backups` | 47 MiB, 2,011 files | profile config renders and recovery snapshots | none verified | retain existing copies pending recovery decision; source-level keep-newest/age policy, not indiscriminate backup deletion |
 | Postgres dumps | `~/backups/postgres/dbs` | 14 GiB (candystore dump 1.3 GiB/day) | nightly dump | rotation of ~9 + restic offsite | none |
 
 ## Targeted playbook
