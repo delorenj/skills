@@ -34,6 +34,20 @@ write solves the problem.
 
 ## Update Hermes core
 
+**Upstream-sync exception (rechecked 2026-11-08):** the fast-forward example
+below is for ordinary, non-rewritten fork commits only. For an upstream rebase,
+load `/hermes-sync` (canonical command:
+`~/.config/zshyzsh/claude/commands/hermes-sync.md`): it owns the fork behavior
+inventory, old-tip backup ref, range-diff and regression gates, explicit
+force-with-lease publication, and guarded live reset. Preserve untracked files,
+stashes, and local-only commits before any reset; clean tracked files alone are
+not sufficient. Use native `hermes_cli.venv_sync` to preserve the install's
+recorded extras and plugin members, then `source_completion.py --finish-update`
+before the single idle-aware gateway restart. Do not apply the historical plain
+`uv sync` example below to the current generation-managed production install.
+The command also documents registry SHA repair and dashboard restart. A
+prepare-only `/hermes-sync` run must not publish rebased main or touch services.
+
 **What actually runs (2026-10-17).** One install, `~/.hermes/hermes-agent`, tracking `delorenj/main` (not Nous
 `origin/main`; never run `hermes update`). Land fork changes through a clone, never by editing the install:
 
