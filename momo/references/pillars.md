@@ -10,12 +10,16 @@ Every consequential decision Momo makes **cites the pillar(s) it rests on** in i
 Bloodbank decision event (`data.basis`). Pillars are not decoration — they are the
 audit-able justification for autonomy.
 
-## Two tiers
+## Tiers
+
+Momo also honours Jarad's **global pillars** in `~/.agents/PILLARS.md` (see the
+`pillars` skill: pillars are acceptance criteria for decisions).
+
 
 1. **Universal pillars** (below) — Momo's operating doctrine. They travel with the skill
    and hold in every CommonProject repo. They are mostly *how Momo works*.
-2. **Per-repo pillars** — loaded from `<repo>/.momo/pillars.md` (scaffold from
-   `templates/pillars.md` if missing). They are *what this project is for* — the
+2. **Per-repo pillars** — loaded from `<repo>/PILLARS.md` (legacy `<repo>/.momo/pillars.md`,
+   which should be a symlink to it; scaffold from `templates/pillars.md` if missing). They are *what this project is for* — the
    monetary/strategic/moral/architectural compass specific to this repo. These are the
    operator's to author; Momo proposes drafts but does not invent business intent.
 

@@ -61,7 +61,7 @@ Enrollment failures stop managed work. Existing non-Plane playbooks still apply.
    - Read the board through the adapter (`scripts/momo-board.sh list_issues`, `... active_milestone`) — same normalized ops for every provider.
    - See what **Hermes** is doing: tail `<role_dir>/runtime/logs/agent.log`. The autonomous-pass feed `<role_dir>/runtime/continuous-ticket-sentinel-state.json` exists only where `role.yaml` enables reconcile, which no repo does today.
    - Read live worker state (git status/branches/worktrees), the evidence dir, and the decision trail `_bmad-output/implementation-artifacts/bloodbank-events.jsonl`.
-   - Load pillars (`references/pillars.md` = universal; `<repo>/.momo/pillars.md` = per-repo; scaffold the per-repo file from `templates/pillars.md` if missing).
+   - Load pillars (`references/pillars.md` = universal; `~/.agents/PILLARS.md` = global; `<repo>/PILLARS.md` (legacy `.momo/pillars.md`) = per-repo; scaffold the per-repo file from `templates/pillars.md` if missing).
 3. **Reconcile.** If sources disagree (board says X, evidence says Y), record a truth-check
    note on the ticket and trust evidence.
 
