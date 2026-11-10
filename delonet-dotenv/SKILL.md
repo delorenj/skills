@@ -22,6 +22,7 @@ description: Fill .env and .env.op for Docker Compose stacks on DeLoNET hosts. S
 | any env value (lookup the magic numbers: IPs, hostnames, paths, vault) | [references/constants.md](references/constants.md) |
 | DB url, port, email host, S3 bucket, OAuth, brand strings | [references/decisions.md](references/decisions.md) |
 | anything that looks like a secret/key/token/password | [references/secrets-vault.md](references/secrets-vault.md) |
+| a peer host with NO DeLoSecrets service account (resolve `.env.op` without `op run`) | [references/interim-store.md](references/interim-store.md) |
 | `NEXT_PUBLIC_WEBAPP_URL`, `*_URL`, `ALLOWED_HOSTNAMES`, port binding, traefik labels | [references/traefik-routing.md](references/traefik-routing.md) |
 | stack won't start, 502, db connection refused, op resolves to empty | [references/gotchas.md](references/gotchas.md) |
 
