@@ -17,6 +17,12 @@ finding. Distinguish pre-existing defects and failures from regressions.
 Report actionable findings first, ordered by impact, with file/line evidence,
 a concrete trigger, the consequence, and a narrow correction. Separate confirmed
 findings from hypotheses. Do not manufacture findings from stylistic preference.
+Reproduce through the real entrypoint: drive the actual CLI/helper/server over
+private fixtures and assert the wrong outcome — a mock harness re-implements
+the reviewer's assumption of the code's behavior and finds nothing. A fully
+green suite does not disprove a finding; complete passing gates have coexisted
+with every confirmed defect of this class, so weigh an adversarial repro above
+test counts.
 State when no actionable findings were found and describe the verification limit.
 Review does not imply permission to repair, commit, or publish changes unless
 that work is already in scope.

@@ -44,9 +44,23 @@ Env the server needs: `PLANE_API_KEY`, `PLANE_WORKSPACE_SLUG` (the bound
 workspace, e.g. `automaticai`), `PLANE_BASE_URL` (`https://plane.delo.sh`),
 plus `PATH` and `HOME` (a stdio server without them cannot find anything).
 
+**Source the workspace env file under `set -a`** — the file assigns without
+`export`, so a plain `source` leaves the key a shell variable the child never
+sees and the script dies with `PLANE_API_KEY not set`:
+
+    set -a; source ~/DevCloud/plane.<slug>.env; set +a
+
+Then `export PLANE_PROJECT_ID=<board uuid>` bound to the board. Prefix every
+run with the bound board's values rather than trusting the script's default.
+
 Call shape: tool `workitem`, `action="manage_label"`, `project_id`,
 `workitem_id`, `add_label_id`/`remove_label_id` — one label per call.
 Ready-to-run client: `scripts/plane_stdio_label.py`.
+
+**Legacy boards (Plane)**: `px` has NO per-label or description-edit verbs.
+Any label add/remove or description update on a legacy-board ticket MUST use
+this local plane-mcp route. `px task create` accepts `--labels` at create time
+only; `px move` changes state only; `px comment` adds a comment only.
 
 For description or start-date updates on a legacy-board ticket (no `px` verb
 exists), use the same stdio route with `action="update"` and
@@ -93,6 +107,9 @@ Behavior worth knowing:
   (`PLANE_RESERVED_LABELS`), which is a feature.
 - Retrieve with `expand="labels,state,assignees"` — unexpanded reads return
   UUID strings for relations, which is exactly what breaks the hub.
+- **Label list returns a paginated object** (`{"results": [...]}`) not a bare
+  array. When resolving a label name to UUID via the local server's
+  `label(action="list", project_id=...)`, unwrap `data.get("results", data)`.
 - `description_stripped` can come back empty/None in the local server's
   retrieve shape while `description_html` is intact — verify against
   `description_html`, not the stripped field.

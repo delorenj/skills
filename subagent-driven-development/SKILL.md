@@ -38,6 +38,15 @@ maintaining it instead of polling the worker's transcript:
 - **Steer, never respawn.** Push verified facts to the running worker (fresh
   gate exits, rig endpoints and env, remaining critical path) so it never
   duplicates green gates or infrastructure setup.
+- **Separate worker completion from carrier completion.** A worker turn can
+  fail (provider quota) after it already staged source or left a long gate
+  running; the gate child is reparented and keeps running past the dead
+  launcher. A supervised carrier may finish the bounded verification (rerun
+  the unchanged gate, commit, push the same authorized branch), but the
+  report must retain the worker's own `turn.failed` marker and actual exit —
+  carrier-finished checks are never presented as the implementer's successful
+  completion, and an orphaned gate with no observable exit is rerun under
+  supervision, never inferred.
 
 When quoting logs upward, strip credential-bearing lines first — Android build
 logs embed the keystore password inside the apksigner command.
@@ -52,9 +61,16 @@ Delegation is a convenience, not a dependency. Failure shapes that send you back
 to implementing directly (or to fixing the rail first):
 
 - **Billing or credit exhaustion on the provider**: the child fails instantly
-  with a `429` / limit-exhausted error and zero tokens produced. The provider
-  account behind the subagent model is out of quota for the window, not the task.
-  Retry once if the model is configurable; otherwise implement in-session.
+  with a `429` / limit-exhausted error and zero tokens produced. First
+  attribute WHICH upstream account served the request — a gateway can route a
+  long-context session onto a metered fallback account (subscription tiers
+  often exclude oversized context or encrypted reasoning) while a sibling
+  session on another route succeeds with the same credential, so one quota
+  wall is neither a dead rail nor a spent account. Diagnose read-only from
+  the gateway ledger (request → account/channel/stream terminal status), hand
+  the exact ledger/trace/channel ids to the rail's owner for a same-session
+  nonpaid recovery, and only retry-with-changes or implement in-session when
+  the account itself is genuinely exhausted.
 - **Hard route rejection (`400` model-not-supported and the like) on EVERY
   spawn, seconds after dispatch**: the configured delegation model route itself
   is broken, not the task. Do NOT keep re-dispatching with different prompts —
