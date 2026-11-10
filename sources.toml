@@ -107,3 +107,11 @@ checkout = "lost-things-forge"
 mode = "link"
 optional = true
 skills = ["ltf-art", "ltf-banks", "ltf-comedy", "ltf-feedback", "ltf-framework", "ltf-incubate", "ltf-items", "ltf-make-game", "ltf-setup"]
+
+[[source]]
+name = "product-engineering"
+repo = "git@github.com:AutomaticAI-io/product-engineering.git"
+checkout = "product-engineering"
+mode = "link"
+optional = true
+skills = ["product-engineering"]
