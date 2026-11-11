@@ -41,28 +41,28 @@ seems to, `px --help` is right: file the discrepancy with `px idea`.
 **Every board**
 
 ```bash
-px todo list                                                                             # what's in immediate scope (the unstarted lanes)
-px backlog list                                                                          # what's queued for later (the Backlog lane)
-px task list [--group GROUP] [--scope LABEL]                                             # every issue on the board, with its state
-px show <ref>                                                                            # print one ticket: lane, labels, people, description, checklists, sub-issues, comments
-px task get <ref>                                                                        # one ticket as data: on a legacy board what px show prints; managed: the Krebs snapshot
-px task create "<title>" [--state NAME] [--marker TEXT]                                  # create a ticket; no --state: Backlog (managed: Krebs create, lands in Backlog)
-px claim <ref>                                                                           # take a ticket: In Progress, assigned to you, labelled agent:working
-px release <ref> [-m MSG]                                                                # give it back: Todo, agent:working and your assignment removed
-px close <ref> [-m MSG]                                                                  # finish it: Done, agent:working removed (managed: Krebs complete)
-px cancel <ref> [-m MSG]                                                                 # drop it: Cancelled, agent:working removed
-px comment <ref> -m MSG                                                                  # leave a note on a ticket without moving it
-px idea "<text>"                                                                         # file an idea about px itself into px's own board (PX)
-px idea list                                                                             # read the idea box (PX's backlog)
-px idea flush                                                                            # deliver ideas still queued locally (~/.local/state/pilot/ideas)
-px schema export [-f FILE]                                                               # dump the board's schema as JSON
-px schema import [-f FILE]                                                               # apply a schema (no -f: your configured default); managed boards: --dry-run only
-px identity verify --employee ID --key-ref op://... --user-id UUID [--board UUID|IDENT]  # prove a key is exactly that employee's native Plane user and a member of the board; secret-free result (Plane boards)
-px board list                                                                            # boards in the workspace
-px epic list [--include-inactive]                                                        # the live epics on this board, with their epic:<slug> handle
-px epic show <ref>                                                                       # an epic and its members on every board, each valid, inactive or unresolvable
-px link list <ref>                                                                       # every relation a ticket takes part in, from either end, epic memberships marked
-px whoami                                                                                # show the resolved binding, the board's provider and mode
+px todo list                                                                                               # what's in immediate scope (the unstarted lanes)
+px backlog list                                                                                            # what's queued for later (the Backlog lane)
+px task list [--group GROUP] [--scope LABEL]                                                               # every issue on the board, with its state
+px show <ref>                                                                                              # print one ticket: lane, labels, people, description, checklists, sub-issues, comments
+px task get <ref>                                                                                          # one ticket as data: on a legacy board what px show prints; managed: the Krebs snapshot
+px task create "<title>" [--state NAME] [--marker TEXT] [--idempotency-key KEY [--idempotency-source NS]]  # create a ticket; no --state: Backlog (managed: Krebs create, lands in Backlog)
+px claim <ref>                                                                                             # take a ticket: In Progress, assigned to you, labelled agent:working
+px release <ref> [-m MSG]                                                                                  # give it back: Todo, agent:working and your assignment removed
+px close <ref> [-m MSG]                                                                                    # finish it: Done, agent:working removed (managed: Krebs complete)
+px cancel <ref> [-m MSG]                                                                                   # drop it: Cancelled, agent:working removed
+px comment <ref> -m MSG                                                                                    # leave a note on a ticket without moving it
+px idea "<text>"                                                                                           # file an idea about px itself into px's own board (PX)
+px idea list                                                                                               # read the idea box (PX's backlog)
+px idea flush                                                                                              # deliver ideas still queued locally (~/.local/state/pilot/ideas)
+px schema export [-f FILE]                                                                                 # dump the board's schema as JSON
+px schema import [-f FILE]                                                                                 # apply a schema (no -f: your configured default); managed boards: --dry-run only
+px identity verify --employee ID --key-ref op://... --user-id UUID [--board UUID|IDENT]                    # prove a key is exactly that employee's native Plane user and a member of the board; secret-free result (Plane boards)
+px board list                                                                                              # boards in the workspace
+px epic list [--include-inactive]                                                                          # the live epics on this board, with their epic:<slug> handle
+px epic show <ref>                                                                                         # an epic and its members on every board, each valid, inactive or unresolvable
+px link list <ref>                                                                                         # every relation a ticket takes part in, from either end, epic memberships marked
+px whoami                                                                                                  # show the resolved binding, the board's provider and mode
 ```
 
 On a Krebs-managed board the verbs above take the Krebs flags and an -f payload instead of -m, --state, --dry-run, -d, -l, --parent and --priority; px <command> --help there lists them.
@@ -81,6 +81,7 @@ px harvest schema [--list | --activate FILE]       # open the active harvest sch
 px identity comment <ref> -m MSG --idempotency-key KEY --employee ID --key-ref op://... --user-id UUID  # verify, then post one marked comment as that employee; reconciles by marker before any retry (Plane boards)
 px todo create "<title>"                                                                                # add to immediate scope (Todo)
 px backlog create "<title>"                                                                             # add to the backlog
+px task dedupe [--idempotency-key KEY] [--idempotency-source NS] [--dry-run]                            # resolve an idempotency key (or sweep a namespace) without creating: print the committed ticket and retire the duplicates a race left
 px move <ref> <state> [-m MSG]                                                                          # set a ticket's state by name; nothing else changes
 px epic create "<title>"                                                                                # create an epic on this board: a ticket labelled epic:<slug>, refused when a live epic has the slug
 px epic add <epic> <ref>...                                                                             # make tickets on any board members of an epic (one relation each, read back; a re-run is safe)
