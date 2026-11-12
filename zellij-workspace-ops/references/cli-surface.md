@@ -104,6 +104,12 @@ zellij action focus-pane-id terminal_3
 zellij action write-chars / paste / dump-screen
 ```
 
+Typing into a Workspace pane on the operator's behalf while he is away (Crank, a Hermes PM)
+goes through `~/.local/bin/zcrank-send`, never raw `write-chars`/`paste`: it tags the text
+`[crank]` so the pane agent knows it is not the operator, and checks the box with
+`dump-screen --ansi` (a plain dump cannot tell a dim Claude Code suggestion from typed text).
+The hook-hub `crank-keys-guard` denies raw typing from Hermes tool calls.
+
 `set-pane-color` is the cheapest loud visual available with zero plugin work: a short
 background hue cycle on the offending pane is impossible to miss. It defaults to
 `$ZELLIJ_PANE_ID`, so a hook can colour its own pane with no lookup.
