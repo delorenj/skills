@@ -31,7 +31,13 @@ Streak and wall-clock are independent: streak counts consecutive beats in the `w
 
 ## Mechanics
 
-1. Scan: `/home/delorenj/.hermes/profiles/33god-pm/scripts/zcrank-scan.sh` (wraps `~/.local/bin/zcrank.py`; emits tab|pane|state|stale|streak|flags + full 200-line response tails — READ THEM ALL, that context is the operator's eyes).
+1. Scan: in a scheduled beat the gate already scanned. Its work list is the monitor output and
+   every listed pane's tail is in `~/.local/state/zcrank/gate-tails.md`, which the job's brief
+   (`crank-beat-brief.sh`) injects together with the beat contract
+   (`~/.agents/tools/jev-clairic/hermes/crank-beat-prompt.txt`). Never rerun
+   `zcrank-scan.sh` inside a beat: it mutates the stale counters and re-reading 200-line tails
+   is what pushed beats to ~1M tokens (interval-driver skill). Run it by hand only for a
+   deliberate manual beat.
 2. Verify waits before trusting them — two failure classes seen repeatedly:
    - **Wedged turn**: viewport hash frozen + ZERO CPU-tick growth (sample `/proc/<pid>/stat` fields 14+15 twice ~12s apart) + no writes under `~/.local/share/opencode/storage` (or `~/.claude`) for the turn window. A "working" spinner with 0 CPU and 0 bytes is DEAD.
    - **Phantom workflow wait**: pane says "Waiting for 1 dynamic workflow to finish" but the background chain/processes are alive and advancing (check chain logs, governor scripts) — the pane wait is cosmetic; do not touch.
