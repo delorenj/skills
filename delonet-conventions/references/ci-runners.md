@@ -42,6 +42,7 @@ Check visibility first: `gh repo view <owner/repo> --json visibility`.
 | delonet-dres-r1 | repo `delorenj/dresscode` (private) | big-chungus, `~/actions-runner/dres1` | `self-hosted, Linux, X64, delonet` | `actions.runner.delorenj-dresscode.delonet-dres-r1.service` |
 | delonet-pgph-r1 | repo `IntelliForia/phonograph` (private, org repo with no org runners) | big-chungus, `~/actions-runner/pgph1` (`.path` stripped of the HeyMa mise entries and fnm shims it captured at install) | `self-hosted, Linux, X64, delonet` | `actions.runner.IntelliForia-phonograph.delonet-pgph-r1.service` |
 | big-chungus-earshot | repo `delorenj/earshot` | big-chungus, `~/actions-runner/earshot1` (started through `runsvc-op.sh`) | `self-hosted, Linux, X64, earshot, delonet` | `actions.runner.delorenj-earshot.big-chungus-earshot.service` |
+| big-chungus-shortwave | repo `delorenj/shortwave` (private) | big-chungus, `~/actions-runner/shortwave1` (started through `runsvc-op.sh` like earshot1: `op.conf` drop-in, `.env`/`.path` copied from earshot1) | `self-hosted, Linux, X64, shortwave, delonet` | `actions.runner.delorenj-shortwave.big-chungus-shortwave.service` |
 | big-chungus-gruvato, big-chungus (pile-of-dumb-things) | repos `delorenj/gruvato`, `delorenj/pile-of-dumb-things` | big-chungus, `~/actions-runner/gruvato1` (others not inventoried here) | see `gh api repos/<repo>/actions/runners` | `actions.runner.delorenj-gruvato.big-chungus-gruvato.service` |
 | (none) | macOS | -- | -- | planned; iOS builds wait on it |
 
