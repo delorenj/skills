@@ -20,7 +20,8 @@ The fix is to make the driver hold the context, not the agent's turn:
 | **Roadmap** | job `script` (brief): stdout injected every run; the agent's own terse state file + the pass contract | the agent's cached context; no re-orienting |
 | **Lazy load** | a compact reader (`scripts/px-brief.mjs`) for anything not in the roadmap | 1k tokens per ticket instead of 12k |
 | **Lean context** | per-job `enabled_toolsets` allowlist + `no_mcp`, no preloaded skills | every LLM call resends tool schemas and skills |
-| **Finish** | agent rewrites its roadmap file, writes a short pass note | next wake starts warm |
+| **Apply** | agent writes ONE plan file (JSON writes + new roadmap); `scripts/px-apply.py` executes it | the agent decides, the driver acts: lease, tag, verbs, cap, no repeats are code, not prompt |
+| **Finish** | the applier writes the roadmap; the agent returns a short pass note | next wake starts warm |
 
 ## Where the tokens go (measured, Hermes 2026-11-12)
 
@@ -48,13 +49,23 @@ The fix is to make the driver hold the context, not the agent's turn:
    session hooks, tests and "session evidence"/heartbeat comments; quiet diff = no write; finish by
    rewriting the roadmap (<40 lines) and a pass note (<20 lines).
    The job's own prompt is one line: "Follow the pass contract in the brief above."
+   Fix the pass to **three tool calls**: an optional `px-brief.mjs` read, one `write_file` of a plan
+   JSON, one terminal call to the applier. Give the plan shape in the contract.
+   **Applier**: a `--apply` mode in your pass script that execs `scripts/px-apply.py PLAN --cwd
+   <repo> --tag "[role]" --ops comment,move,... --max N [--lease LOCK --owner O] --roadmap PATH`.
+   It archives the plan first (never applied twice, and the next `write_file` is a new file), takes
+   and always releases the lease, adds the tag, refuses other verbs/lanes/bad refs, skips a comment
+   already posted, writes the roadmap and prints one line per write (the agent's read-back).
+   Example: `~/code/tolt/agents/hermes/pm/em-pass.py --apply`.
 5. **Lean the job** (does not touch schedule, scheduler pin, monitor or prompt):
    ```bash
    ~/.hermes/hermes-agent/.venv/bin/python ~/.agents/skills/interval-driver/scripts/lean-job.py \
      --profile <profile> --job <hex id> --brief <brief.sh> --max-iterations 10 --dry-run
    ```
    then without `--dry-run`. Adds `no_mcp` (a per-job toolset list otherwise merges every enabled
-   MCP server back in), clears skills, sets the brief, caps iterations.
+   MCP server back in), clears skills, sets the brief, caps iterations. Then
+   `hermes -p <profile> cron edit <id> --reasoning-effort medium --no-continuity`: profiles default
+   to xhigh (50k reasoning tokens on one EM pass), and the roadmap replaces continuity.
 6. **Prove**: `candybar run <name> --wait` twice. First: a real pass, read `TOKENS` in
    `candybar history <name>` and the pass note. Second (nothing changed): `success ... tokens 0`.
    Check a skip by hand with `printf '%s' "$(snapshot)" | sha256sum` against
@@ -72,6 +83,18 @@ The fix is to make the driver hold the context, not the agent's turn:
   is not a warm session. The roadmap file is the durable context.
 - A warm resumed session (`hermes chat --continue <name> --create-if-missing`) remembers, but it
   resends the whole transcript every call and grows all day; prefer fresh + roadmap.
+- **Cron blocks heredocs** ("shell execution via heredoc" needs an approver) and `write_file`
+  **refuses to overwrite a file the session hasn't read in full**. So an agent can't rewrite its
+  roadmap in place cheaply: the plan file + applier writes it instead.
+- Prompt rules a model can drop will be dropped. Seen on one EM pass: took the board-driver lease
+  and never released it, listed the board four ways, ran `px --help` twice, re-posted releases its
+  stale roadmap still listed as owed. Move every such rule into the applier.
+- **The snapshot outranks the roadmap.** Say so in the contract; the roadmap lists only what is
+  still open, never what a pass did, or the next pass repeats it.
+- **Monitor only what this role acts on.** The EM first watched `agent:working`; live workers flip
+  it all day and woke the EM for nothing. It now watches `stale-claim` (working and idle 48h).
+- `px release` lands the ticket in **Todo**, where dispatch picks it up. Parking is release +
+  move to Backlog (the applier's `release` takes `"lane": "Backlog"`).
 
 ## Questions that lead here (mental models)
 
@@ -99,6 +122,8 @@ If you are asking one of these, the answer is this skill.
   are the driver, and the agent is only the judgement in the middle.
 - **"Should this be a long-running daemon agent, a crank beat or an hourly pass?"** If its job
   is to look at what changed and prod it, it's an interval pass. Use this recipe.
+- **"The agent keeps breaking a rule in its contract (lease, tag, no repeats)."** Stop asking.
+  The agent decides and writes a plan; the driver acts (`px-apply.py`). A rule in code holds.
 
 ## PM/EM pair on two clocks (TOLT, 2026-11-12)
 
@@ -108,7 +133,7 @@ Two interval passes split decide from do, so neither one tunnels:
 |---|---|---|
 | Profile / job | `tolt-launch-director` / `76ebcd4d652f` | `tolt-pm` / `334a9363d4d1` |
 | Candybar | `tolt-launch-director-pass`, `30 8-22 * * *` | `tolt-em-pass`, `0 8-22 * * *` |
-| Monitor | open tickets' lanes + date line | lane, `ld-waiting:<n>` (LD comments newer than the last `[em]` one), `agent:working` |
+| Monitor | open tickets' lanes + date line | lane, `ld-waiting:<n>` (LD comments newer than the last `[em]` one), `stale-claim` |
 | Writes | `[launch-director]` comments only: rank, focus flag, QA verdict, path-label rec, date ask, one launch-gap ticket | `[em]` comments, lane moves, `px release`, close on an ACCEPTED verdict, under the board-driver lease |
 | Roadmap | `agents/hermes/launch-director/runtime/roadmap.md` | `agents/hermes/pm/runtime/em-roadmap.md` |
 
@@ -119,7 +144,7 @@ Two interval passes split decide from do, so neither one tunnels:
 - The EM never dispatches workers in the pass. It orders and unblocks Todo, and workers pull from
   there. The LD never moves lanes. Keep that split: the role that ranks is never the role that moves.
 - Source: `~/code/tolt/agents/hermes/{launch-director,pm}/` (`launch-brief.py`,
-  `em-pass.py --monitor|--brief`, `*-pass.prompt.md`) and `~/code/tolt/.candybars/`.
+  `em-pass.py --monitor|--brief|--apply`, `*-pass.prompt.md`) and `~/code/tolt/.candybars/`.
   Flume role templates: `~/code/33GOD/flume/roles/{paired-launch-director,em}.md`.
 
 ## Measured
@@ -133,5 +158,15 @@ TOLT Launch Director, same board, 2026-11-12:
 | Lean toolsets | 362,378 | `terminal,file,no_mcp`; still re-reading |
 | Roadmap + diff + px-brief | 72,938 | interval-driver recipe, `max_iterations 8` |
 | Unchanged board | 0 | monitor hash matched; the agent never started |
+
+TOLT EM (tolt-pm), same day, each row one fix:
+
+| Pass | Tokens | What changed |
+|---|---|---|
+| First pass, prompt-only writes | 480,789 | `px --help` x2, blocked heredoc, read-back, xhigh reasoning; 8 writes (backlog catch-up) |
+| Exact px forms, medium reasoning | 194,627 | still a roadmap read+rewrite and a `gh` detour |
+| Plan file + `--apply` | 122,550 | 2 tool calls, 3 writes |
+| Plan file + `--apply`, small diff | 38,474 | 2 tool calls, 1 write |
+| Unchanged board | 0 | 17.9s, the agent never started |
 
 Gruvato's Launch Director and the 33GOD crank beat measured the same ~1M naive baseline.
