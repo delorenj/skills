@@ -1,6 +1,6 @@
 ---
 name: interval-driver
-description: Run an LLM agent on an interval (hourly groomer, Launch Director, crank beat, any "poke and prod" pass) for tens of thousands of tokens instead of ~1M. Use when creating, auditing or slimming a Hermes job that Candybar fires on a schedule, when a scheduled agent pass costs too much, or when building a new interval-triggered groomer for a project board.
+description: Run an LLM agent on an interval (hourly groomer, Launch Director, crank beat, any "poke and prod" pass) for tens of thousands of tokens instead of ~1M. Use when creating, auditing or slimming a Hermes job that Candybar fires on a schedule, when a scheduled agent pass costs too much, or when building a new interval-triggered groomer for a project board. Also use when the question is "why does this pass cost so much", "how do I keep a PM from tunnelling", "how does a recurring agent remember between runs", or "how do a PM and an EM hand off on a schedule". This is the house pattern for every recurring agent pass on every project.
 ---
 
 # Interval driver: cheap scheduled agent passes
@@ -72,3 +72,66 @@ The fix is to make the driver hold the context, not the agent's turn:
   is not a warm session. The roadmap file is the durable context.
 - A warm resumed session (`hermes chat --continue <name> --create-if-missing`) remembers, but it
   resends the whole transcript every call and grows all day; prefer fresh + roadmap.
+
+## Questions that lead here (mental models)
+
+If you are asking one of these, the answer is this skill.
+
+- **"Why did one scheduled pass cost a million tokens?"** The pass cost is LLM calls times the
+  context at each call. A pass that reads the board, loads skills and runs hooks makes many calls
+  over a growing context. Shrink both: one or two calls over a small brief.
+- **"How does a recurring agent remember what it knew last hour?"** It doesn't, and its session
+  shouldn't. A roadmap file that it rewrites at the end of each pass, injected by the brief at the
+  start of the next one, is its memory. `--continuity` is an 8k-clipped final answer, not memory.
+  A warm resumed session resends the whole day every call.
+- **"How do I stop it running when nothing happened?"** A monitor script with a stable snapshot.
+  The hash is unchanged, so the agent never starts and the run costs 0 tokens. Anything that ages
+  on its own (timestamps, raw counts) belongs in the brief, not the snapshot.
+- **"What should the agent look at this pass?"** The monitor diff. It's the work list. The
+  agent never lists the board itself.
+- **"It needs a detail the roadmap doesn't have."** It lazy-loads that one thing with a compact
+  reader (`px-brief.mjs` for Plane tickets), by ref, in one call. It never uses a full JSON dump.
+- **"How do I keep a PM from tunnelling on one ticket for hours?"** Don't give it hours. Give it
+  a clock, a delta and a budget of about 4 tool calls. Pair it with a Launch Director pass that
+  only ranks and flags (next section). Tunnel vision is what an unbounded turn does.
+- **"Where do the clock and the agent meet?"** Candybar fires a Hermes job pinned
+  `--scheduler external`. That's one clock (`candybar` skill). The job's `script`/`monitor_script`
+  are the driver, and the agent is only the judgement in the middle.
+- **"Should this be a long-running daemon agent, a crank beat or an hourly pass?"** If its job
+  is to look at what changed and prod it, it's an interval pass. Use this recipe.
+
+## PM/EM pair on two clocks (TOLT, 2026-11-12)
+
+Two interval passes split decide from do, so neither one tunnels:
+
+| | Launch Director (decides) | EM (applies) |
+|---|---|---|
+| Profile / job | `tolt-launch-director` / `76ebcd4d652f` | `tolt-pm` / `334a9363d4d1` |
+| Candybar | `tolt-launch-director-pass`, `30 8-22 * * *` | `tolt-em-pass`, `0 8-22 * * *` |
+| Monitor | open tickets' lanes + date line | lane, `ld-waiting:<n>` (LD comments newer than the last `[em]` one), `agent:working` |
+| Writes | `[launch-director]` comments only: rank, focus flag, QA verdict, path-label rec, date ask, one launch-gap ticket | `[em]` comments, lane moves, `px release`, close on an ACCEPTED verdict, under the board-driver lease |
+| Roadmap | `agents/hermes/launch-director/runtime/roadmap.md` | `agents/hermes/pm/runtime/em-roadmap.md` |
+
+- The comment tag is the handshake. The EM's monitor counts LD comments newer than its last
+  `[em]` comment, so an LD decision wakes the EM within 30 minutes, and the EM answering clears it.
+- Each side's writes wake the other once, and its own once (the "own echo"). The contract tells
+  the agent to answer `quiet: own echo` with no tool calls when the diff is only its own writes.
+- The EM never dispatches workers in the pass. It orders and unblocks Todo, and workers pull from
+  there. The LD never moves lanes. Keep that split: the role that ranks is never the role that moves.
+- Source: `~/code/tolt/agents/hermes/{launch-director,pm}/` (`launch-brief.py`,
+  `em-pass.py --monitor|--brief`, `*-pass.prompt.md`) and `~/code/tolt/.candybars/`.
+  Flume role templates: `~/code/33GOD/flume/roles/{paired-launch-director,em}.md`.
+
+## Measured
+
+TOLT Launch Director, same board, 2026-11-12:
+
+| Pass | Tokens | What changed |
+|---|---|---|
+| Naive first pass | 1,318,444 | read every ticket with full comment HTML |
+| Contract + flags | 436,727 | still 12 calls, memory/hindsight upkeep, `px show --json` |
+| Lean toolsets | 362,378 | `terminal,file,no_mcp`; still re-reading |
+| Roadmap + diff + px-brief | 72,938 | interval-driver recipe, `max_iterations 8` |
+| Unchanged board | 0 | monitor hash matched; the agent never started |
+
+Gruvato's Launch Director and the 33GOD crank beat measured the same ~1M naive baseline.
