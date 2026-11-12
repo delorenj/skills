@@ -5,7 +5,7 @@ A report that only exists in ``_bmad-output`` is not delivered; it is filed.
 This module fans one published generation out to four targets:
 
     vault     the Obsidian vault, as a dated note with frontmatter
-    notebook  open-notebook at notebooklm.delo.sh, as a note in a dev journal
+    notebook  an open-notebook instance, as a note in a dev journal
     email     the full report, rendered, to the operator
     slack     a digest -- executive brief plus anything degraded -- to a channel
 
@@ -26,18 +26,24 @@ import json
 import os
 import subprocess
 import tempfile
+import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from hostsettings import secret, setting  # noqa: E402
+from reportctl_contracts import ConfigError  # noqa: E402
+
 RESEND_ENDPOINT = "https://api.resend.com/emails"
 #: Cloudflare fronts api.resend.com and rejects urllib's default
 #: "Python-urllib/3.x" agent with a 403 (error 1010) before the request ever
 #: reaches Resend. An explicit agent is required, not cosmetic.
-USER_AGENT = "delonet-daily-report/2 (+https://delo.sh)"
-RESEND_OP_REF = "op://DeLoSecrets/wulyiisb24eht3wknd6ynf2nyy/credential"
+USER_AGENT = "delonet-daily-report/2"
+DEFAULT_DIGEST_FOOTER = "Full report: {date}"
 NOTEBOOK_CONTAINER = "open_notebook_core"
 NOTEBOOK_PORT = 5055
 HTTP_TIMEOUT = 30
@@ -93,24 +99,27 @@ def _get_json(url: str) -> Any:
         return json.loads(resp.read().decode("utf-8", errors="replace"))
 
 
-def resend_api_key() -> str | None:
-    """Environment first, then the vault. Never a literal in config.
+def resend_api_key() -> tuple[str | None, str]:
+    """(key, why not). Environment first, then the host's reference. Never a literal in config.
 
-    A cron run does not inherit the interactive shell, so ``RESEND_API_KEY``
-    is usually absent there and the ``op`` read is the path that actually
-    fires. Both are allowed; a key written into report.json is not.
+    A scheduled run does not inherit the interactive shell, so ``RESEND_API_KEY`` is
+    usually absent there and the reference is the path that actually fires:
+    ``RESEND_API_KEY_REF`` (environment or ~/.config/33god/host.env) names an
+    ``op://`` or ``env:`` reference, resolved by ``SECRET_RESOLVER`` -- 1Password
+    where the host has it, the 0600 interim store where it does not. Both are
+    allowed; a key written into report.json is not. The second element says what
+    was missing and never carries a value.
     """
-    key = os.environ.get("RESEND_API_KEY", "").strip()
+    key = (os.environ.get("RESEND_API_KEY") or "").strip()
     if key:
-        return key
+        return key, ""
+    ref = setting("RESEND_API_KEY_REF")
+    if not ref:
+        return None, "RESEND_API_KEY and RESEND_API_KEY_REF are both unset"
     try:
-        out = subprocess.run(
-            ["op", "read", RESEND_OP_REF],
-            capture_output=True, text=True, timeout=30,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return out.stdout.strip() or None
+        return secret(ref), ""
+    except ConfigError as exc:
+        return None, str(exc)
 
 
 def notebook_base_url(configured: str | None = None) -> str | None:
@@ -230,7 +239,8 @@ def digest_lines(report: dict[str, Any], status: str) -> list[str]:
         if len(warnings) > MAX_WARNINGS:
             lines.append(f"  … and {len(warnings) - MAX_WARNINGS} more, in the full report")
 
-    lines += ["", f"Full report: vault Daily Reports/{date}/dev-journal.md · notebooklm.delo.sh"]
+    footer = setting("DDR_DIGEST_FOOTER", DEFAULT_DIGEST_FOOTER) or DEFAULT_DIGEST_FOOTER
+    lines += ["", footer.replace("{date}", str(date))]
     return lines
 
 
@@ -319,7 +329,10 @@ def deliver_vault(cfg: dict[str, Any], markdown: str, report: dict[str, Any],
 def deliver_s3(cfg: dict[str, Any], date: str, markdown: str, report: dict[str, Any],
                status: str, run_id: str, dry_run: bool) -> Delivery:
     d = Delivery("s3")
-    target = cfg.get("target", "delo/daily-reports").rstrip("/")
+    if not cfg.get("target"):
+        d.detail = "no target configured (distribution.s3.target)"
+        return d
+    target = cfg["target"].rstrip("/")
     target_prefix = f"{target}/{date}"
 
     if dry_run:
@@ -477,12 +490,15 @@ def deliver_mail(target: str, cfg: dict[str, Any], markdown: str, report: dict[s
                     f"({len(text)} bytes)")
         return d
 
-    api_key = resend_api_key()
-    if not api_key:
-        d.detail = "no Resend API key (RESEND_API_KEY unset and `op read` unavailable)"
+    sender = cfg.get("from") or setting("DDR_MAIL_FROM")
+    if not sender:
+        d.detail = f"no sender configured (distribution.{target}.from or DDR_MAIL_FROM)"
         return d
-    ok, detail = _send_resend(api_key, cfg.get("from", "dev-journal@delo.sh"),
-                              recipients, subject, html=html, text=text)
+    api_key, missing = resend_api_key()
+    if not api_key:
+        d.detail = f"no Resend API key ({missing})"
+        return d
+    ok, detail = _send_resend(api_key, sender, recipients, subject, html=html, text=text)
     d.ok, d.detail = ok, detail
     d.extra["to"] = recipients
     return d

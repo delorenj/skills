@@ -80,6 +80,7 @@ from reportctl_archive import (  # noqa: E402
     verify_generation,
     verify_published,
 )
+from hostsettings import setting  # noqa: E402
 from reportctl_config import load_json  # noqa: E402
 from reportctl_contracts import (  # noqa: E402
     ConfigError,
@@ -104,10 +105,6 @@ EXIT_UNMET = 3
 LEAD_SECTION_ID = "summary"
 REPORT_TITLE = "Daily Developer Report"
 MAX_REASON_CHARS = 500
-
-#: The git-tracked mirror. Only the current generation's report.md and
-#: report.json are copied; generation history stays in the archive.
-DEFAULT_MIRROR_DIR = Path("/home/delorenj/code/33GOD/_bmad-output/daily-journals")
 
 DAPR_DEFAULT_PORT = "3504"
 DAPR_PUBSUB = "bloodbank-pubsub"
@@ -154,12 +151,25 @@ def clip(value: Any, limit: int = MAX_REASON_CHARS) -> str:
 
 
 def mirror_dir() -> Path | None:
+    """The git-tracked mirror: only the current generation's report.md and report.json
+    are copied there; generation history stays in the archive.
+
+    Where it lives is the host's business, so it has no default: ``DDR_MIRROR_DIR`` in
+    the environment or ``~/.config/33god/host.env``. Unset, or one of disabled/none/off/0,
+    means this host keeps no mirror. An environment value, even ``disabled``, beats the file.
+    """
     override = os.environ.get("DDR_MIRROR_DIR")
-    if override is not None:
-        if override.lower() in ("disabled", "none", "off", "0", ""):
-            return None
-        return Path(override).expanduser()
-    return DEFAULT_MIRROR_DIR
+    if override is None:
+        override = setting("DDR_MIRROR_DIR")
+    if override is None or override.strip().lower() in ("disabled", "none", "off", "0", ""):
+        return None
+    return Path(override).expanduser()
+
+
+def mirror_target_text(date: str) -> str | None:
+    """The mirror directory for ``date`` as text, or None on a host with no mirror."""
+    base = mirror_dir()
+    return str(base / date) if base is not None else None
 
 
 # --------------------------------------------------------------------------- #
@@ -1076,7 +1086,7 @@ def run_report(
         if not verified["coherent"]:
             outcome["status"] = "failed"
             outcome["mirror"] = {
-                "attempted": False, "ok": False, "dir": str(mirror_dir() / date),
+                "attempted": False, "ok": False, "dir": mirror_target_text(date),
                 "generation": None, "reason": "generation_unverified",
                 "error": "not mirrored: the published generation did not verify",
             }
@@ -1100,7 +1110,7 @@ def run_report(
         mirrored = (
             mirror_generation(date, verified)
             if mirror
-            else {"attempted": False, "ok": False, "dir": str(mirror_dir() / date),
+            else {"attempted": False, "ok": False, "dir": mirror_target_text(date),
                   "generation": None, "reason": "mirror_disabled",
                   "error": "mirror skipped by request"}
         )

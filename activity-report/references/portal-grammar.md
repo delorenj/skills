@@ -93,8 +93,10 @@ server withholds internal rows from the client, the UI does not, so the flag is
 the whole boundary.
 
 Access is the Cloudflare global key over the D1 REST query endpoint
-(`X-Auth-Email` + `X-Auth-Key`, resolved from `op://DeLoSecrets/Cloudflare/*`
-at call time, never on disk). Both scoped tokens fail (one is IP-locked, the
+(`X-Auth-Email` + `X-Auth-Key`, resolved at call time from the host's
+`ACTIVITY_REPORT_PORTAL_CF_EMAIL_REF` / `…_CF_KEY_REF` references, never on disk; the account
+and database ids are `ACTIVITY_REPORT_PORTAL_CF_ACCOUNT` / `…_D1_DATABASE`, all in host.env. A host
+that sets none has no portal and `portal` says so). Both scoped tokens fail (one is IP-locked, the
 other has no D1 scope), and Cloudflare refuses urllib's default `User-Agent`.
 
 `activity-report portal EVENT --dry-run` builds the row, prints it (body

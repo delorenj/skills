@@ -325,12 +325,32 @@ def validate_project_roots(roots: Any) -> list[str]:
     return roots
 
 
+def expand_home(config: dict[str, Any]) -> None:
+    """Resolve a leading ``~`` in the config's path keys, in place.
+
+    A config that must work on more than one host cannot spell ``/home/<user>``: the
+    state dirs and project roots are written ``~/...`` and become absolute here, once,
+    before validation, so everything downstream still sees absolute paths. An absolute
+    path is untouched, which keeps an existing config byte-for-byte meaningful.
+    """
+    for key in ("artifact_dir", "archive_dir"):
+        if nonempty(config.get(key)) and config[key].startswith("~"):
+            config[key] = str(Path(config[key]).expanduser())
+    roots = config.get("project_roots")
+    if isinstance(roots, list):
+        config["project_roots"] = [
+            str(Path(root).expanduser()) if nonempty(root) and root.startswith("~") else root
+            for root in roots
+        ]
+
+
 def validate_config(config: Any) -> dict[str, Any]:
     if not isinstance(config, dict):
         raise ConfigError("config must be a JSON object")
     legacy = v1_diagnosis(config)
     if legacy:
         raise ConfigError(legacy)
+    expand_home(config)
     require_keys(config, CONFIG_KEYS, "config")
     # `distribution` is optional: a config without it still produces reports,
     # they just stay on disk. Requiring it would break every config written

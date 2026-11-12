@@ -7,7 +7,17 @@ the write is followed by a read-back that asserts the flag.
 
 Access is the Cloudflare GLOBAL key over the REST query endpoint (both scoped
 tokens fail: one is IP-locked, the other has no D1 scope). The email and the
-key are read from 1Password at call time and never written anywhere.
+key are resolved from op:// references at call time (SECRET_RESOLVER) and never
+written anywhere. The account, the database and both references belong to the
+HOST, not this file: they come from the environment or ~/.config/33god/host.env,
+
+  ACTIVITY_REPORT_PORTAL_CF_ACCOUNT      Cloudflare account id
+  ACTIVITY_REPORT_PORTAL_D1_DATABASE     the portal's D1 database id
+  ACTIVITY_REPORT_PORTAL_CF_EMAIL_REF    op:// ref of the account email
+  ACTIVITY_REPORT_PORTAL_CF_KEY_REF      op:// ref of the global API key
+
+and a host that declares none of them has no portal (a ConfigError, only reached
+when a project's config names one).
 
 `--dry-run` builds and prints the row and runs one read-only SELECT to prove
 the access path. `portal: null` in the project config means this project has
@@ -16,7 +26,6 @@ no portal: print so and exit 0.
 from __future__ import annotations
 
 import json
-import subprocess
 import urllib.error
 import urllib.request
 import uuid
@@ -26,14 +35,16 @@ from .common import (
     AUDIENCES, EXIT_OK, AcceptanceError, ConfigError, SourceUnavailable, parse_iso, read_json,
     to_iso_z, utc_now,
 )
+from .hostenv import HostEnvError, SecretError, host_value, resolve_secret
 from .contract import UUID_RE
 
 ADAPTER = "automatic-ai"
-ACCOUNT = "cf8c21fd65a70d8a395ca0c5d476da41"
-DATABASE = "b3d5939c-35e5-497b-bfe0-00a39e066eaf"
-ENDPOINT = f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT}/d1/database/{DATABASE}/query"
-EMAIL_REF = "op://DeLoSecrets/Cloudflare/username"
-KEY_REF = "op://DeLoSecrets/Cloudflare/globalAPIToken"
+HOST_KEYS = {
+    "account": "ACTIVITY_REPORT_PORTAL_CF_ACCOUNT",
+    "database": "ACTIVITY_REPORT_PORTAL_D1_DATABASE",
+    "email_ref": "ACTIVITY_REPORT_PORTAL_CF_EMAIL_REF",
+    "key_ref": "ACTIVITY_REPORT_PORTAL_CF_KEY_REF",
+}
 # Cloudflare answers 403 (error 1010) to urllib's default agent on some paths.
 USER_AGENT = f"activity-report/{__version__}"
 # Same namespace as the daily-update publisher, so a re-run of a window
@@ -59,29 +70,41 @@ ON CONFLICT(id) DO UPDATE SET
 READ_SQL = "SELECT id, visible_to_client, length(body) AS n, title FROM portal_project_updates WHERE id = ?1"
 
 
-def op_read(ref: str) -> str:
+def host_settings() -> dict:
+    """This host's portal coordinates; ConfigError names every key that is unset."""
     try:
-        proc = subprocess.run(["op", "read", ref], capture_output=True, text=True, timeout=60)
-    except OSError as exc:
-        raise ConfigError(f"1Password CLI unavailable ({exc}); cannot resolve {ref}") from exc
-    except subprocess.TimeoutExpired as exc:
-        raise ConfigError(f"1Password read timed out for {ref}") from exc
-    if proc.returncode != 0:
-        raise ConfigError(f"1Password read failed for {ref}: {proc.stderr.strip()[:200]}")
-    value = proc.stdout.strip()
-    if not value:
-        raise ConfigError(f"1Password returned an empty value for {ref}")
-    return value
+        values = {name: host_value(key) for name, key in HOST_KEYS.items()}
+    except HostEnvError as exc:
+        raise ConfigError(str(exc)) from exc
+    missing = [HOST_KEYS[name] for name, value in values.items() if not value]
+    if missing:
+        raise ConfigError("this host has no portal: set " + ", ".join(missing)
+                          + " in the environment or the host.env overlay")
+    return values
+
+
+def endpoint(settings: dict) -> str:
+    return (f"https://api.cloudflare.com/client/v4/accounts/{settings['account']}"
+            f"/d1/database/{settings['database']}/query")
+
+
+def read_secret(ref: str) -> str:
+    """The value behind an op:// ref (SECRET_RESOLVER: op, then the interim store)."""
+    try:
+        return resolve_secret(ref, timeout=60)
+    except (SecretError, HostEnvError) as exc:
+        raise ConfigError(str(exc)) from exc
 
 
 def d1_query(sql: str, params: list) -> list[dict]:
     """POST one statement; return its rows. Credentials are resolved here, per call."""
+    settings = host_settings()
     body = json.dumps({"sql": sql, "params": params}).encode("utf-8")
     req = urllib.request.Request(
-        ENDPOINT, data=body, method="POST",
+        endpoint(settings), data=body, method="POST",
         headers={
-            "X-Auth-Email": op_read(EMAIL_REF),
-            "X-Auth-Key": op_read(KEY_REF),
+            "X-Auth-Email": read_secret(settings["email_ref"]),
+            "X-Auth-Key": read_secret(settings["key_ref"]),
             "Content-Type": "application/json",
             "User-Agent": USER_AGENT,
         })

@@ -15,6 +15,13 @@ from ar.common import AcceptanceError, ConfigError  # noqa: E402
 
 FX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "publish")
 PROJECT_ID = "9f1c1d4e-0a1b-4c2d-8e3f-000000000002"
+HOST_ENV = {
+    "ACTIVITY_REPORT_PORTAL_CF_ACCOUNT": "acct-test",
+    "ACTIVITY_REPORT_PORTAL_D1_DATABASE": "db-test",
+    "ACTIVITY_REPORT_PORTAL_CF_EMAIL_REF": "op://Vault/Cloudflare/username",
+    "ACTIVITY_REPORT_PORTAL_CF_KEY_REF": "op://Vault/Cloudflare/globalAPIToken",
+    "HOST_ENV_FILE": "/nonexistent/host.env",
+}
 
 
 def load(name):
@@ -150,11 +157,12 @@ class D1(unittest.TestCase):
             captured["headers"] = {k.lower(): v for k, v in req.header_items()}
             captured["body"] = json.loads(req.data.decode())
             return Resp(json.dumps({"success": True, "result": [{"results": [{"id": "x"}]}]}).encode())
-        with mock.patch.object(portal, "op_read", side_effect=lambda ref: "secret-for-" + ref.rsplit("/", 1)[1]), \
+        with mock.patch.dict(os.environ, HOST_ENV), \
+                mock.patch.object(portal, "read_secret", side_effect=lambda ref: "secret-for-" + ref.rsplit("/", 1)[1]), \
                 mock.patch("urllib.request.urlopen", side_effect=fake_urlopen):
             rows = portal.d1_query("SELECT 1 WHERE ?1", ["a"])
         self.assertEqual(rows, [{"id": "x"}])
-        self.assertEqual(captured["url"], portal.ENDPOINT)
+        self.assertEqual(captured["url"], "https://api.cloudflare.com/client/v4/accounts/acct-test/d1/database/db-test/query")
         self.assertEqual(captured["headers"]["x-auth-email"], "secret-for-username")
         self.assertEqual(captured["headers"]["x-auth-key"], "secret-for-globalAPIToken")
         self.assertTrue(captured["headers"]["user-agent"].startswith("activity-report/"))
@@ -167,22 +175,36 @@ class D1(unittest.TestCase):
 
             def __exit__(self, *a):
                 return False
-        with mock.patch.object(portal, "op_read", return_value="x"), \
+        with mock.patch.dict(os.environ, HOST_ENV), \
+                mock.patch.object(portal, "read_secret", return_value="x"), \
                 mock.patch("urllib.request.urlopen", return_value=Resp(json.dumps({"success": False, "errors": [{"code": 7}]}).encode())):
             with self.assertRaises(ConfigError):
                 portal.d1_query("SELECT 1", [])
 
-    def test_op_read_failure(self):
+    def test_read_secret_failure_is_a_config_error(self):
         proc = types.SimpleNamespace(returncode=1, stdout="", stderr="no item")
-        with mock.patch("subprocess.run", return_value=proc):
-            with self.assertRaises(ConfigError):
-                portal.op_read("op://DeLoSecrets/x/y")
+        with mock.patch.dict(os.environ, {"SECRET_RESOLVER": "op", "HOST_ENV_FILE": "/nonexistent/host.env"}), \
+                mock.patch("shutil.which", return_value="/bin/op"), \
+                mock.patch("subprocess.run", return_value=proc):
+            with self.assertRaises(ConfigError) as ctx:
+                portal.read_secret("op://Vault/x/y")
+        self.assertIn("op://Vault/x/y", str(ctx.exception))
 
-    def test_no_secret_literals_in_module(self):
+    def test_a_host_without_a_portal_says_which_keys_are_unset(self):
+        with mock.patch.dict(os.environ, {"HOST_ENV_FILE": "/nonexistent/host.env"}):
+            for key in portal.HOST_KEYS.values():
+                os.environ.pop(key, None)
+            with self.assertRaises(ConfigError) as ctx:
+                portal.d1_query("SELECT 1", [])
+        for key in portal.HOST_KEYS.values():
+            self.assertIn(key, str(ctx.exception))
+
+    def test_no_host_owned_literals_in_module(self):
         with open(portal.__file__, encoding="utf-8") as fh:
             source = fh.read()
-        self.assertIn("op://DeLoSecrets/Cloudflare/globalAPIToken", source)
-        self.assertNotIn("X-Auth-Key\": \"", source.replace("op_read", ""))
+        for literal in ("cf8c21fd65a70d8a395ca0c5d476da41", "b3d5939c-35e5-497b-bfe0-00a39e066eaf", "DeLoSecrets"):
+            self.assertNotIn(literal, source)
+        self.assertNotIn("X-Auth-Key\": \"", source.replace("read_secret", ""))
 
 
 if __name__ == "__main__":

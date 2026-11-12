@@ -461,7 +461,9 @@ class SchemaTests(unittest.TestCase):
              ("pr-maintenance", False), ("report-delivery", True)],
             [(section["id"], section["required"]) for section in example["sections"]],
         )
-        self.assertTrue(all(Path(root).is_absolute() for root in example["project_roots"]))
+        # host-neutral: ~-relative, resolved per host by load_config
+        self.assertTrue(all(root.startswith("~/") for root in example["project_roots"]))
+        self.assertTrue(example["artifact_dir"].startswith("~/") and example["archive_dir"].startswith("~/"))
 
 
 class LegacyArtifactTests(unittest.TestCase):

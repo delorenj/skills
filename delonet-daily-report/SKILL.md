@@ -142,6 +142,16 @@ reportctl --config PATH verify  --date D [--require-complete]
 reportctl --config PATH archive --report R.json --markdown R.md [--manifest M.json]
 ```
 
+`reportctl` needs Python 3.11 or newer (it exits 2 with the version it found otherwise); on a
+host whose `/usr/bin/python3` is older, put a newer `python3` first on the PATH of whatever runs it.
+
+The unattended entrypoint is `scripts/nightly.sh [nightly|ensure] [--date D]`: verify yesterday's
+report (yesterday in the **config's** timezone, computed in Python, so it runs on BSD/macOS `date`),
+generate it when missing, then distribute. It prints `Dev Journal <date>: run=N distribute=N` and
+its exit status is derived from `reportctl verify` reading the published artifact back. A Candybar
+manifest runs it directly; big-chungus's `infra/scripts/dev-journal-*-nightly.sh` are shims that
+exec it. It forces `DDR_MIRROR_DIR=disabled`: a scheduled run must not write a git-tracked mirror.
+
 `run` is the whole pipeline: collect, manifest, narrate, publish, mirror, emit.
 `--section` limits **collection only** — every enabled section is still
 enumerated in the manifest, so one left uncollected is reported `missing`
@@ -184,8 +194,9 @@ verdict goes to **stderr** plus `metrics.delivery_health` on stdout.
 3. **Narrate** — one LLM call (see below), or the deterministic render.
 4. **Publish** — `archive_report` stages a generation, fsyncs, renames, then
    swaps `current.json`; the publish is then re-read and verified. The report
-   pair is mirrored to `~/code/33GOD/_bmad-output/daily-journals/<date>/`
-   (override with `DDR_MIRROR_DIR`), and one Bloodbank event is emitted.
+   pair is mirrored to `<DDR_MIRROR_DIR>/<date>/` when the host names a mirror
+   directory (environment or `~/.config/33god/host.env`; none by default, and
+   `disabled` turns it off), and one Bloodbank event is emitted.
 
 ## The narrator
 
@@ -274,11 +285,32 @@ They move independently. Read the JSON Schemas in `assets/contracts/` as normati
 ## Setup
 
 1. Copy `assets/example-config.v2.json` outside the skill (canonically
-   `~/.config/delonet-daily-report/report.json`) and adjust `project_roots` and
-   section `options`.
-2. `scripts/reportctl --config PATH validate`.
-3. `scripts/reportctl --config PATH run --date YYYY-MM-DD`.
-4. `scripts/reportctl --config PATH verify --date YYYY-MM-DD` — this is the gate.
+   `~/.config/delonet-daily-report/report.json`) and adjust `project_roots`, the
+   distribution targets and section `options`. Paths in the config may start with `~/`.
+2. Give the host its own values (table below) in the environment or
+   `~/.config/33god/host.env`. Nothing in this skill names a mail sender, a key, a vault
+   or a mirror directory: a host that sets none of them delivers nothing and says why.
+3. `scripts/reportctl --config PATH validate`.
+4. `scripts/reportctl --config PATH run --date YYYY-MM-DD`.
+5. `scripts/reportctl --config PATH verify --date YYYY-MM-DD` — this is the gate.
+
+### Host-owned values
+
+Read by `scripts/hostenv.py` (environment first, then `~/.config/33god/host.env`, a dotenv file
+that is parsed and never sourced; an empty value counts as unset). Names, ids and `op://`
+references only, never a secret value.
+
+| key | what it is |
+|---|---|
+| `DDR_CONFIG` | the report.json `nightly.sh` runs against (default `~/.config/delonet-daily-report/report.json`) |
+| `DDR_MIRROR_DIR` | where `run` mirrors the report pair; unset or `disabled` = no mirror |
+| `DDR_MAIL_FROM` | the sender, used when the config's email target has no `from` |
+| `DDR_DIGEST_FOOTER` | the digest's last line; `{date}` is substituted (default `Full report: {date}`) |
+| `RESEND_API_KEY_REF` | `op://…` or `env:NAME` for the Resend key (`RESEND_API_KEY` in the environment wins) |
+| `SECRET_RESOLVER` | `op` (a host with a 1Password service account), `interim` (the 0600 store + `env-op-resolve`, for a host that must hold no vault token) or `auto` (op if installed, then interim) |
+
+An unresolved reference is an error that names the reference, never a value. A peer host's
+recipe (macOS, Candybar, interim store) is in `references/peer-host.md`.
 
 This package never writes `~/.config` or `~/.hermes` itself. Operators choose
 paths and apply changes explicitly.
@@ -287,6 +319,7 @@ paths and apply changes explicitly.
 
 ```text
 ├─ Components, paths, filesystem contract → references/architecture.md
+├─ Running on a host that is not big-chungus (macOS, BSD userland) → references/peer-host.md
 ├─ Compose, validate, and publish a report → references/report-composition.md
 └─ A report that lied, went stale, or vanished → references/safety-gotchas.md
 ```

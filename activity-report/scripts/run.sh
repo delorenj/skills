@@ -73,29 +73,29 @@ if [ -n "${ACTIVITY_REPORT_DRY:-}" ]; then dry_run=1; fi
 
 # cron and systemd start with almost no PATH, and mise shims are how every
 # other tool in this repo is reached.
-export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
 # A stale key in the environment does not expire -- it authenticates as the
 # wrong account, which is worse. Same rule as every other script here.
 unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
 
-# The compose stage spends Jarad's personal Claude subscription, reached the way
-# every agent on this machine reaches a model: through the AutomaticAI gateway.
-# There is no claude.ai login to fall back on. Until 2026-10-07 this script
-# cleared the gateway variables so an OAuth login would be "the only candidate",
-# and with no login left a compose dies "Not logged in".
+# The compose stage reaches a model the way every agent on a 33GOD host does:
+# through that host's AutomaticAI gateway. There is no claude.ai login to fall back
+# on. Which gateway, which route and which token belong to the HOST, so none of them
+# is in this file: they come from the environment or ~/.config/33god/host.env
+# (`activity-report host-config` reads them; hostenv.py is the one parser):
 #
-# The token is this job's own (gateway consumer activity-report-compose, scoped
-# to the default route), read from 1Password into this process once per run and
-# never written anywhere. ANTHROPIC_API_KEY is cleared because the interactive
-# shell holds a Kimi key in it (Kimi Code reuses Anthropic's variable names), and
-# an API key or OAuth token would outrank the gateway token. Every model slot is
-# pinned to one route, so no helper lands on another account; left alone, the
-# CLI takes its model from ~/.claude/settings.json. A project's compose.model
-# replaces the route, and the token's scope must include it.
-gateway_url="https://api.automaticai.io"
-gateway_default_route="automaticai/personal/claude-opus-5.5"
-gateway_token_ref="op://DeLoSecrets/yeurk5dpqkaarspvsn3cjtmkki/activity-report-compose"
+#   ACTIVITY_REPORT_GATEWAY_URL        the gateway base URL
+#   ACTIVITY_REPORT_GATEWAY_ROUTE      the default route (a project's compose.model replaces it)
+#   ACTIVITY_REPORT_GATEWAY_TOKEN_REF  op://... or env:NAME for this job's own token
+#   SECRET_RESOLVER                    auto (default) | op | interim -- how the ref resolves
+#
+# The token is read once per run into this process and never written anywhere.
+# ANTHROPIC_API_KEY is cleared because an interactive shell may hold another vendor's
+# key in it (Kimi Code reuses Anthropic's variable names), and an API key or OAuth
+# token would outrank the gateway token. Every model slot is pinned to one route, so
+# no helper lands on another account; left alone, the CLI takes its model from
+# ~/.claude/settings.json. The token's scope must include the route.
 unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CODE_OAUTH_TOKEN
 
 trap 'log "run.sh: unexpected error at line $LINENO (exit $?)"' ERR
@@ -136,6 +136,26 @@ put("portal_configured", bool(c.get("portal")))
 put("retain", (c.get("hindsight") or {}).get("retain", True))
 ' <<<"$config_json")"
 
+# This host's gateway. Fail before any collect when the host has not declared one.
+if ! host_json="$("$cli" host-config --json)"; then
+  log "FATAL: could not read the host overlay (activity-report host-config)"
+  exit 2
+fi
+eval "$(python3 -c '
+import json, shlex, sys
+h = json.load(sys.stdin)
+for name in ("gateway_url", "gateway_route", "gateway_token_ref", "host_env"):
+    print(f"{name}={shlex.quote(str(h.get(name) or str()))}")
+' <<<"$host_json")"
+missing=""
+[ -n "$gateway_url" ] || missing="$missing ACTIVITY_REPORT_GATEWAY_URL"
+[ -n "$gateway_route" ] || [ -n "$model" ] || missing="$missing ACTIVITY_REPORT_GATEWAY_ROUTE"
+[ -n "$gateway_token_ref" ] || missing="$missing ACTIVITY_REPORT_GATEWAY_TOKEN_REF"
+if [ -n "$missing" ]; then
+  log "FATAL: this host has no compose gateway; set${missing} in the environment or $host_env"
+  exit 2
+fi
+
 if [ ${#audiences[@]} -eq 0 ]; then read -r -a audiences <<<"$config_audiences"; fi
 for a in "${audiences[@]}"; do
   case "$a" in
@@ -147,10 +167,16 @@ done
 run_id="$(python3 -c 'import uuid; print(uuid.uuid4())')"
 # Provisional label: the window end in the project zone. Collect decides the
 # real window; its digest carries the label the run's files are named by.
-if [ -n "$until_" ]; then
-  label="$(TZ="$tz" date -d "$until_" +%Y-%m-%dT%H%M)"
-else
-  label="$(TZ="$tz" date +%Y-%m-%dT%H%M)"
+# Computed in Python, with the same parser collect uses for --until: BSD date has
+# no `-d`, and a label this script and the digest disagree on renames the run's files.
+if ! label="$(python3 -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+from ar.common import label_for, parse_iso, utc_now
+print(label_for(parse_iso(sys.argv[3]) if sys.argv[3] else utc_now(), sys.argv[2]))
+' "$script_dir" "$tz" "$until_")" || [ -z "$label" ]; then
+  log "FATAL: cannot derive the run label (timezone '$tz', --until '$until_')"
+  exit 2
 fi
 
 work="$repo_path/$runtime_dir/$slug"
@@ -161,15 +187,29 @@ mkdir -p "$work" "$log_dir"
 # the timer's regular run for the same window.
 lock="$work/.lock"
 exec 9>"$lock"
-if ! flock -n 9; then
+# macOS ships no flock(1), so the lock is taken with flock(2) from Python on the
+# inherited fd 9 -- the same advisory lock on every host. It belongs to the open
+# file description behind fd 9, so it outlives the helper and ends with this shell.
+lock_rc=0
+python3 -c '
+import fcntl, sys
+try:
+    fcntl.flock(9, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except OSError:
+    sys.exit(1)
+' || lock_rc=$?
+if [ "$lock_rc" -eq 1 ]; then
   log "another activity-report run holds $lock; exit 5"
   exit 5
+elif [ "$lock_rc" -ne 0 ]; then
+  log "FATAL: could not take the lock $lock (helper exited $lock_rc)"
+  exit 2
 fi
 
 # Read once, before any audience spends a collect on a compose that cannot
 # start. Not exported: only the compose subshell puts it in the environment.
-route="${model:-$gateway_default_route}"
-if ! gateway_token="$(op read "$gateway_token_ref")" || [ -z "$gateway_token" ]; then
+route="${model:-$gateway_route}"
+if ! gateway_token="$("$cli" secret read --ref "$gateway_token_ref")" || [ -z "$gateway_token" ]; then
   log "FATAL: could not read the gateway token $gateway_token_ref; cannot compose"
   exit 2
 fi
@@ -185,6 +225,17 @@ step() {
   if [ "$rc" -ne 0 ]; then log "FAILED: $name exited $rc"; fi
   return "$rc"
 }
+
+# GNU `timeout` on Linux, `gtimeout` under Homebrew coreutils, and neither on a stock
+# macOS or a launchd PATH: ar-timeout.py keeps the same contract (exit 124, SIGKILL after
+# the grace period) so a hung compose is bounded everywhere.
+if command -v timeout >/dev/null 2>&1; then
+  timeout_cmd=(timeout)
+elif command -v gtimeout >/dev/null 2>&1; then
+  timeout_cmd=(gtimeout)
+else
+  timeout_cmd=(python3 "$script_dir/ar-timeout.py")
+fi
 
 internal_raw=""
 
@@ -237,7 +288,7 @@ put("previous_title", prev.get("title") or "none")
   local raw="$base.raw.txt" md="$base.md" html="$base.html" event="$base.event.json"
   local compose_json="$base.compose.json" emit_json="$base.emit.json"
   local lint_json="$work/$eff_label-external.lint.json"
-  log "digest: $digest ($(wc -c <"$digest") bytes), window $window_start to $window_end"
+  log "digest: $digest ($(wc -c <"$digest" | tr -d ' ') bytes), window $window_start to $window_end"
 
   # -- 2. compose --------------------------------------------------------------
   local claude_bin="$HOME/.local/bin/claude"
@@ -278,7 +329,7 @@ sys.stdout.write(text)
     export ANTHROPIC_DEFAULT_HAIKU_MODEL="$route"
     export CLAUDE_CODE_SUBAGENT_MODEL="$route"
     export CLAUDE_CODE_EFFORT_LEVEL=xhigh
-    timeout --kill-after=60s "${timeout_minutes}m" "$claude_bin" --print --output-format json \
+    "${timeout_cmd[@]}" --kill-after=60s "${timeout_minutes}m" "$claude_bin" --print --output-format json \
       --model "$route" \
       --allowed-tools "$tools" \
       --append-system-prompt "You are the unattended activity-report job for $name. Nobody is watching. Finish the whole task without asking questions." \

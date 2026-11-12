@@ -17,7 +17,6 @@ import html
 import json
 import os
 import re
-import subprocess
 import time
 import urllib.error
 import urllib.parse
@@ -26,13 +25,9 @@ import urllib.request
 from . import __version__
 from .common import ConfigError, cache_dir, read_json, to_iso_z, utc_now, write_json
 from .config import load_project
+from .hostenv import HostEnvError, SecretError, host_value, resolve_secret
 
-PLANE_BASE_URL = os.environ.get("PLANE_BASE_URL", "https://plane.delo.sh")
-USER_AGENT = f"activity-report/{__version__} (+https://delo.sh)"
-BUILTIN_KEY_REFS = {
-    "automaticai": "op://DeLoSecrets/Plane/AutomaticAI API Token",
-    "33god": "op://DeLoSecrets/Plane33God/api_key",
-}
+USER_AGENT = f"activity-report/{__version__}"
 LABEL_SPECS = {
     "external": {"color": "#0e7c86", "description": "Surface in client-facing updates: progress and wins only"},
     "internal": {"color": "#586a7a", "description": "Never surface to the client"},
@@ -55,15 +50,33 @@ class BoardUnavailable(Exception):
         self.status = status
 
 
-# -- key resolution -------------------------------------------------------------
+# -- host settings and key resolution --------------------------------------------
 
-def _op_read(ref: str) -> str | None:
+def plane_base_url() -> str | None:
+    """This host's Plane, from PLANE_BASE_URL (environment or ~/.config/33god/host.env); None if unset."""
     try:
-        proc = subprocess.run(["op", "read", ref], capture_output=True, text=True, timeout=30, check=False)
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        value = host_value("PLANE_BASE_URL")
+    except HostEnvError:
         return None
-    value = proc.stdout.strip()
-    return value if proc.returncode == 0 and value else None
+    return value.rstrip("/") if value else None
+
+
+def _workspace_ref(workspace: str | None) -> str | None:
+    """The op:// ref this host declares for a workspace's key: ACTIVITY_REPORT_PLANE_KEY_REF_<WORKSPACE>."""
+    if not workspace:
+        return None
+    try:
+        return host_value("ACTIVITY_REPORT_PLANE_KEY_REF_" + re.sub(r"[^A-Za-z0-9]+", "_", workspace).upper())
+    except HostEnvError:
+        return None
+
+
+def _read_ref(ref: str) -> str | None:
+    """The secret behind an op:// ref through SECRET_RESOLVER (op, then the interim store); None on failure."""
+    try:
+        return resolve_secret(ref, timeout=30)
+    except (SecretError, HostEnvError):
+        return None
 
 
 def resolve_api_key(project) -> tuple[str | None, str, list[str]]:
@@ -74,10 +87,10 @@ def resolve_api_key(project) -> tuple[str | None, str, list[str]]:
     if ref:
         ref = str(ref)
         if ref.startswith("op://"):
-            value = _op_read(ref)
+            value = _read_ref(ref)
             if value:
                 return value, f"board.api_key_ref {ref}", tried
-            tried.append(f"board.api_key_ref {ref} (op read failed)")
+            tried.append(f"board.api_key_ref {ref} (could not resolve)")
         elif ref.startswith("env:"):
             name = ref[len("env:"):]
             value = os.environ.get(name)
@@ -94,14 +107,14 @@ def resolve_api_key(project) -> tuple[str | None, str, list[str]]:
         if value:
             return value, f"env {name}", tried
         tried.append(f"env {name} (unset)")
-    builtin = BUILTIN_KEY_REFS.get((project.workspace or "").lower())
-    if builtin:
-        value = _op_read(builtin)
+    host_ref = _workspace_ref(project.workspace)
+    if host_ref:
+        value = _read_ref(host_ref)
         if value:
-            return value, f"builtin ref for workspace {project.workspace}", tried
-        tried.append(f"builtin ref {builtin} (op read failed)")
+            return value, f"host ref for workspace {project.workspace}", tried
+        tried.append(f"host ref {host_ref} (could not resolve)")
     else:
-        tried.append(f"no builtin ref for workspace {project.workspace!r}")
+        tried.append(f"no host ref for workspace {project.workspace!r}")
     return None, "none", tried
 
 
@@ -115,7 +128,7 @@ def _explain(status: int) -> str:
 
 
 class PlaneApi:
-    def __init__(self, workspace: str, board_id: str, api_key: str, base_url: str = PLANE_BASE_URL,
+    def __init__(self, workspace: str, board_id: str, api_key: str, base_url: str,
                  timeout: int = TIMEOUT_SECONDS):
         self.workspace = workspace
         self.board_id = board_id
@@ -274,9 +287,10 @@ def _state_name(value, state_by_id: dict) -> str | None:
 
 
 def _ticket_url(project, ticket_id: str | None) -> str | None:
-    if not (ticket_id and project.workspace and project.board_id):
+    base_url = plane_base_url()
+    if not (ticket_id and project.workspace and project.board_id and base_url):
         return None
-    return f"{PLANE_BASE_URL}/{project.workspace}/projects/{project.board_id}/issues/{ticket_id}"
+    return f"{base_url}/{project.workspace}/projects/{project.board_id}/issues/{ticket_id}"
 
 
 def enrich(project, ticket_events: list[dict], window, audience: str) -> tuple[dict, dict | None]:
@@ -305,11 +319,15 @@ def enrich(project, ticket_events: list[dict], window, audience: str) -> tuple[d
     label_by_id: dict = {}
     state_by_id: dict = {}
     key, _source, tried = resolve_api_key(project)
+    base_url = plane_base_url()
     if key is None:
         block["status"] = "unavailable"
         caveats.append("Plane API key not found: " + "; ".join(tried))
+    elif base_url is None:
+        block["status"] = "unavailable"
+        caveats.append("Plane base URL not set: PLANE_BASE_URL in the environment or the host.env overlay")
     else:
-        api = PlaneApi(project.workspace, project.board_id, key)
+        api = PlaneApi(project.workspace, project.board_id, key, base_url)
         try:
             labels, note_l = _cached(project, "labels", api.labels)
             states, note_s = _cached(project, "states", api.states)
@@ -422,7 +440,10 @@ def ensure_labels(project, confirm: bool) -> dict:
     key, source, tried = resolve_api_key(project)
     if key is None:
         raise ConfigError("Plane API key not found: " + "; ".join(tried))
-    api = PlaneApi(project.workspace, project.board_id, key)
+    base_url = plane_base_url()
+    if base_url is None:
+        raise ConfigError("Plane base URL not set: PLANE_BASE_URL in the environment or the host.env overlay")
+    api = PlaneApi(project.workspace, project.board_id, key, base_url)
     try:
         existing = api.labels()
     except BoardUnavailable as exc:

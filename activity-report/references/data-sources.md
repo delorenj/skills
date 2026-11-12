@@ -117,14 +117,18 @@ Also:
 
 ## Board (Plane)
 
-`ar/board.py`, `https://plane.delo.sh/api/v1/workspaces/<ws>/projects/<board>/…` with
+`ar/board.py`, `<PLANE_BASE_URL>/api/v1/workspaces/<ws>/projects/<board>/…` with
 `X-API-Key` and a mandatory `User-Agent` (Cloudflare answers 403 to urllib's default).
-Lists page with `per_page=100` and `next_cursor`.
+Lists page with `per_page=100` and `next_cursor`. `PLANE_BASE_URL` is host-owned (environment, then
+`~/.config/33god/host.env`); a host without one has no board, and the digest says
+`board: unavailable` rather than guessing a server.
 
 - **Key chain**, read at call time and never written anywhere:
-  `board.api_key_ref` (`op://…` via `op read`, or `env:NAME`) → `$PLANE_API_KEY` →
-  `$PLANE_<WORKSPACE>_API_KEY` → a builtin per-workspace `op://` reference
-  (`automaticai`, `33god`). A literal key in config is refused.
+  `board.api_key_ref` (`op://…` or `env:NAME`) → `$PLANE_API_KEY` →
+  `$PLANE_<WORKSPACE>_API_KEY` → the host's per-workspace reference
+  `ACTIVITY_REPORT_PLANE_KEY_REF_<WORKSPACE>` (host.env; `<WORKSPACE>` upper-cased, e.g.
+  `…_AUTOMATICAI`). References resolve through `SECRET_RESOLVER` (SKILL.md, "Per-host setup"). A literal key in
+  config is refused.
 - Labels and states are cached for 24 h at
   `$XDG_CACHE_HOME/activity-report/plane/<workspace>/<board>/{labels,states}.json`
   (names and ids only). A stale cache stands in when the list fails, with a caveat.

@@ -19,8 +19,9 @@ SCRIPTS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SKILL = os.path.dirname(SCRIPTS)
 FX = os.path.join(SCRIPTS, "tests", "fixtures", "publish")
 GRANT = "Read,Write,Edit,Glob,Grep,Skill,Bash(activity-report lint:*),Bash(git log:*),Bash(git show:*),Bash(git diff:*)"
-ROUTE = "automaticai/personal/claude-opus-5.5"
-TOKEN_REF = "op://DeLoSecrets/yeurk5dpqkaarspvsn3cjtmkki/activity-report-compose"
+GATEWAY = "https://gateway.example.test"
+ROUTE = "example/test/model-1"
+TOKEN_REF = "op://Vault/gateway-item/compose-token"
 FAKE_TOKEN = "sk-fake-gateway-token"
 MODEL_SLOTS = ("ANTHROPIC_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL",
                "ANTHROPIC_DEFAULT_HAIKU_MODEL", "CLAUDE_CODE_SUBAGENT_MODEL")
@@ -31,6 +32,9 @@ FAKE_CLI = textwrap.dedent("""\
     #!/usr/bin/env python3
     import json, os, shutil, sys
     argv = sys.argv[1:]
+    if argv and argv[0] in ("host-config", "secret"):
+        # the real parser and the real resolver chain; only `op` underneath is a fake
+        os.execv(sys.executable, [sys.executable, os.environ["FAKE_REAL_CLI"]] + argv)
     with open(os.environ["FAKE_LOG"], "a") as fh:
         fh.write(json.dumps(argv) + "\\n")
     fx, repo = os.environ["FAKE_FIXTURES"], os.environ["FAKE_REPO"]
@@ -138,7 +142,10 @@ class Harness:
                     if not k.startswith("FAKE_") and k != "ACTIVITY_REPORT_DRY" and k not in AUTH_ENV}
         full_env.update({"HOME": self.home, "XDG_STATE_HOME": self.state, "FAKE_LOG": self.log, "FAKE_FIXTURES": FX,
                          "FAKE_REPO": self.repo, "FAKE_PORTAL": "1", "FAKE_OP_LOG": self.op_log,
-                         "FAKE_OP_TOKEN": FAKE_TOKEN, "FAKE_ENV_LOG": self.env_log, "FAKE_AUTH_ENV": json.dumps(AUTH_ENV)})
+                         "FAKE_OP_TOKEN": FAKE_TOKEN, "FAKE_ENV_LOG": self.env_log, "FAKE_AUTH_ENV": json.dumps(AUTH_ENV),
+                         "FAKE_REAL_CLI": os.path.join(SCRIPTS, "activity-report"), "HOST_ENV_FILE": os.path.join(self.tmp, "no-host.env"),
+                         "ACTIVITY_REPORT_GATEWAY_URL": GATEWAY, "ACTIVITY_REPORT_GATEWAY_ROUTE": ROUTE,
+                         "ACTIVITY_REPORT_GATEWAY_TOKEN_REF": TOKEN_REF})
         full_env.update(env or {})
         return subprocess.run(["bash", os.path.join(self.skill, "scripts", "run.sh"), *args], env=full_env,
                               capture_output=True, text=True, timeout=120)
@@ -337,7 +344,7 @@ class RunSh(unittest.TestCase):
         envs = self.h.claude_envs()
         self.assertEqual(len(envs), 2)
         for env in envs:
-            self.assertEqual(env["ANTHROPIC_BASE_URL"], "https://api.automaticai.io")
+            self.assertEqual(env["ANTHROPIC_BASE_URL"], GATEWAY)
             self.assertEqual(env["ANTHROPIC_AUTH_TOKEN"], FAKE_TOKEN)
             for slot in MODEL_SLOTS:
                 self.assertEqual(env[slot], ROUTE, slot)
@@ -350,6 +357,94 @@ class RunSh(unittest.TestCase):
         self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
         self.assertEqual(self.h.stages(), ["resolve"])
         self.assertIn(f"FATAL: could not read the gateway token {TOKEN_REF}", proc.stdout)
+
+    # -- host overlay and portability ------------------------------------------------
+
+    def test_a_host_without_a_gateway_fails_before_collect_naming_the_keys(self):
+        proc = self.h.run("--project", "smoketest-project",
+                          env={"ACTIVITY_REPORT_GATEWAY_URL": "", "ACTIVITY_REPORT_GATEWAY_ROUTE": "",
+                               "ACTIVITY_REPORT_GATEWAY_TOKEN_REF": ""})
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertEqual(self.h.stages(), ["resolve"])
+        for key in ("ACTIVITY_REPORT_GATEWAY_URL", "ACTIVITY_REPORT_GATEWAY_ROUTE", "ACTIVITY_REPORT_GATEWAY_TOKEN_REF"):
+            self.assertIn(key, proc.stdout)
+        self.assertEqual(self.h.op_calls(), [])
+
+    def test_a_project_model_stands_in_for_an_unset_host_route(self):
+        proc = self.h.run("--project", "smoketest-project", "--audience", "internal",
+                          env={"ACTIVITY_REPORT_GATEWAY_ROUTE": "", "FAKE_CONFIG_MODEL": "proj/model-2"})
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        claude = [c for c in self.h.calls() if c[0] == "claude"][0]
+        self.assertEqual(claude[claude.index("--model") + 1], "proj/model-2")
+
+    def test_host_env_file_supplies_the_gateway(self):
+        host_env = os.path.join(self.h.tmp, "host.env")
+        with open(host_env, "w", encoding="utf-8") as fh:
+            fh.write(f'ACTIVITY_REPORT_GATEWAY_URL="https://from-file.example.test"\n'
+                     f"ACTIVITY_REPORT_GATEWAY_ROUTE=file/route\n"
+                     f"ACTIVITY_REPORT_GATEWAY_TOKEN_REF=op://V/file-item/tok  # a comment\n")
+        proc = self.h.run("--project", "smoketest-project", "--audience", "internal",
+                          env={"HOST_ENV_FILE": host_env, "ACTIVITY_REPORT_GATEWAY_URL": "", "ACTIVITY_REPORT_GATEWAY_ROUTE": "",
+                               "ACTIVITY_REPORT_GATEWAY_TOKEN_REF": ""})
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(self.h.op_calls(), [["read", "op://V/file-item/tok"]])
+        (env,) = self.h.claude_envs()
+        self.assertEqual(env["ANTHROPIC_BASE_URL"], "https://from-file.example.test")
+        self.assertEqual(env["ANTHROPIC_MODEL"], "file/route")
+
+    def _bsd_userland(self):
+        """Stand-ins for what macOS lacks or spells differently, first on run.sh's PATH:
+        a date that refuses GNU -d, and a flock that would fail the run if it were ever called."""
+        bin_dir = os.path.join(self.h.home, ".local", "bin")
+        date_log = os.path.join(self.h.tmp, "date.log")
+        with open(os.path.join(bin_dir, "date"), "w", encoding="utf-8") as fh:
+            fh.write('#!/bin/bash\necho "$*" >> "%s"\n'
+                     'for a in "$@"; do case "$a" in -d|--date|--date=*|-I|-R|-r) echo "date: illegal option -- $a" >&2; exit 1;; esac; done\n'
+                     'exec /bin/date "$@"\n' % date_log)
+        with open(os.path.join(bin_dir, "flock"), "w", encoding="utf-8") as fh:
+            fh.write('#!/bin/bash\necho "flock must not be called" >&2\nexit 99\n')
+        for name in ("date", "flock"):
+            os.chmod(os.path.join(bin_dir, name), 0o755)
+        return date_log
+
+    def test_runs_on_a_bsd_userland_without_date_d_or_flock(self):
+        date_log = self._bsd_userland()
+        for extra in ([], ["--until", "2026-09-03T07:00:00Z"]):
+            proc = self.h.run("--project", "smoketest-project", "--audience", "internal", *extra)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertNotIn("illegal option", proc.stdout + proc.stderr)
+        with open(date_log, encoding="utf-8") as fh:
+            for line in fh:
+                self.assertNotRegex(line, r"(^|\s)(-d|--date)", line)
+
+    def test_label_follows_until_in_the_project_zone(self):
+        # 07:00Z on 2026-09-03 is 03:00 in New York (EDT), the label's wall clock.
+        proc = self.h.run("--project", "smoketest-project", "--audience", "internal", "--until", "2026-09-03T07:00:00Z",
+                          env={"TZ": "Asia/Tokyo"})
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("label 2026-09-03T0300", proc.stdout)
+        self.assertTrue(os.path.exists(os.path.join(self.h.work, "2026-09-03T0300-internal.digest.json")))
+
+    def test_a_bad_until_is_a_config_error_not_a_crash(self):
+        proc = self.h.run("--project", "smoketest-project", "--audience", "internal", "--until", "not-a-time")
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertIn("cannot derive the run label", proc.stdout)
+        self.assertEqual(self.h.stages(), ["resolve"])
+
+    def test_the_bundled_timeout_stands_in_when_the_host_has_none(self):
+        # Force the branch a stock macOS takes: no `timeout`, no `gtimeout`.
+        script = os.path.join(self.h.skill, "scripts", "run.sh")
+        with open(script, encoding="utf-8") as fh:
+            body = fh.read()
+        self.assertIn("if command -v timeout >/dev/null 2>&1; then", body)
+        body = body.replace("if command -v timeout >/dev/null 2>&1; then", "if false; then", 1)
+        body = body.replace("elif command -v gtimeout >/dev/null 2>&1; then", "elif false; then", 1)
+        with open(script, "w", encoding="utf-8") as fh:
+            fh.write(body)
+        shutil.copy(os.path.join(SCRIPTS, "ar-timeout.py"), os.path.join(self.h.skill, "scripts", "ar-timeout.py"))
+        proc = self.h.run("--project", "smoketest-project", "--audience", "internal")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual([c[0] for c in self.h.calls()].count("claude"), 1)
 
 
 if __name__ == "__main__":

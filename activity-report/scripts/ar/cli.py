@@ -51,6 +51,16 @@ def build_parser() -> argparse.ArgumentParser:
     _common(p)
     p.set_defaults(func=_dispatch("config", "resolve_cmd"))
 
+    p = sub.add_parser("host-config", help="print this host's compose gateway (env, then ~/.config/33god/host.env)")
+    p.add_argument("--json", action="store_true", help="machine-readable output")
+    p.set_defaults(func=_dispatch("host", "host_config_cmd"))
+
+    p = sub.add_parser("secret", help="resolve an op:// reference through SECRET_RESOLVER (op, then the interim store)")
+    secret_sub = p.add_subparsers(dest="secret_command", required=True, metavar="ACTION")
+    sp = secret_sub.add_parser("read", help="print the value behind --ref on stdout; errors name the ref, never a value")
+    sp.add_argument("--ref", required=True, help="op://Vault/Item/Field or env:NAME")
+    sp.set_defaults(func=_dispatch("host", "secret_read_cmd"))
+
     p = sub.add_parser("window", help="resolve the reporting window for one audience")
     _common(p); _audience(p)
     p.add_argument("--since", help="explicit window start (ISO-8601)")

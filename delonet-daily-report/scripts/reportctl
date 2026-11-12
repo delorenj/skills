@@ -13,9 +13,21 @@ Nothing here ever prints a status it did not derive from a file it read.
 
 from __future__ import annotations
 
+import sys
+
+if sys.version_info < (3, 11):
+    # datetime.UTC and tomllib-era typing are used throughout; fail with a sentence,
+    # not an AttributeError, when PATH hands this script an older python3
+    # (stock macOS ships 3.9 at /usr/bin/python3).
+    sys.stderr.write(
+        "reportctl: needs Python 3.11 or newer, but python3 here is "
+        f"{sys.version_info[0]}.{sys.version_info[1]} ({sys.executable}). "
+        "Put a newer python3 first on PATH.\n"
+    )
+    raise SystemExit(2)
+
 import json
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 

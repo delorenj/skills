@@ -109,7 +109,8 @@ class FakePlane:
 class BoardCase(unittest.TestCase):
     def setUp(self):
         self.cache = tempfile.mkdtemp(prefix="ar-board-")
-        self.env = mock.patch.dict(os.environ, {"XDG_CACHE_HOME": self.cache})
+        self.env = mock.patch.dict(os.environ, {"XDG_CACHE_HOME": self.cache, "PLANE_BASE_URL": "https://plane.example.test",
+                                                 "HOST_ENV_FILE": "/nonexistent/host.env"})
         self.env.start()
         self.key = mock.patch.object(board, "resolve_api_key", return_value=("test-key-value", "env PLANE_API_KEY", []))
         self.key.start()
@@ -150,7 +151,7 @@ class EnrichTests(BoardCase):
         self.assertEqual((t251["title"], t251["labels"], t251["exposure"], t251["surface"]),
                          ("Client-facing win", ["xp:external"], "external", None))
         self.assertEqual(t251["description_excerpt"], "Hello & world")
-        self.assertEqual(t251["url"], f"https://plane.delo.sh/automaticai/projects/{BOARD_ID}/issues/{ID_251}")
+        self.assertEqual(t251["url"], f"https://plane.example.test/automaticai/projects/{BOARD_ID}/issues/{ID_251}")
         self.assertEqual((t251["from_state"], t251["to_state"], t251["event_kinds"]), (None, "Todo", ["created"]))
         self.assertEqual((t169["from_state"], t169["to_state"], t169["exposure"]), ("Todo", "In Progress", "unlabeled"))
         self.assertEqual(t169["event_kinds"], ["updated"])
@@ -339,14 +340,16 @@ class EnsureLabelsTests(BoardCase):
 
 
 class KeyResolutionTests(unittest.TestCase):
-    """`_op_read` is always patched here: a real `op read` would print a live key into a failure message."""
+    """`_read_ref` is always patched here: a real `op read` would print a live key into a failure message."""
 
     def setUp(self):
         self.env = mock.patch.dict(os.environ, {}, clear=False)
         self.env.start()
         for name in ("PLANE_API_KEY", "PLANE_AUTOMATICAI_API_KEY", "MY_PLANE_KEY"):
             os.environ.pop(name, None)
-        self.op = mock.patch.object(board, "_op_read", return_value=None)
+        os.environ["HOST_ENV_FILE"] = "/nonexistent/host.env"
+        os.environ["ACTIVITY_REPORT_PLANE_KEY_REF_AUTOMATICAI"] = "op://Vault/Plane/Token"
+        self.op = mock.patch.object(board, "_read_ref", return_value=None)
         self.op.start()
 
     def tearDown(self):
@@ -354,15 +357,15 @@ class KeyResolutionTests(unittest.TestCase):
         self.env.stop()
 
     def test_chain(self):
-        with mock.patch.object(board, "_op_read", return_value=None):
+        with mock.patch.object(board, "_read_ref", return_value=None):
             key, source, tried = board.resolve_api_key(project())
         self.assertEqual((key, source), (None, "none"))
         self.assertEqual(tried[:2], ["env PLANE_API_KEY (unset)", "env PLANE_AUTOMATICAI_API_KEY (unset)"])
-        self.assertIn("builtin ref op://DeLoSecrets/Plane/AutomaticAI API Token (op read failed)", tried)
+        self.assertIn("host ref op://Vault/Plane/Token (could not resolve)", tried)
 
-        with mock.patch.object(board, "_op_read", return_value="from-op") as op:
-            self.assertEqual(board.resolve_api_key(project())[:2], ("from-op", "builtin ref for workspace automaticai"))
-            op.assert_called_once_with("op://DeLoSecrets/Plane/AutomaticAI API Token")
+        with mock.patch.object(board, "_read_ref", return_value="from-op") as op:
+            self.assertEqual(board.resolve_api_key(project())[:2], ("from-op", "host ref for workspace automaticai"))
+            op.assert_called_once_with("op://Vault/Plane/Token")
 
         os.environ["PLANE_AUTOMATICAI_API_KEY"] = "ws-key"
         self.assertEqual(board.resolve_api_key(project())[:2], ("ws-key", "env PLANE_AUTOMATICAI_API_KEY"))
@@ -372,7 +375,7 @@ class KeyResolutionTests(unittest.TestCase):
         os.environ["MY_PLANE_KEY"] = "named"
         self.assertEqual(board.resolve_api_key(project(config={"board": {"api_key_ref": "env:MY_PLANE_KEY"}}))[:2],
                          ("named", "env MY_PLANE_KEY"))
-        with mock.patch.object(board, "_op_read", return_value="cfg-op") as op:
+        with mock.patch.object(board, "_read_ref", return_value="cfg-op") as op:
             key, source, _ = board.resolve_api_key(project(config={"board": {"api_key_ref": "op://Vault/Item/field"}}))
             self.assertEqual((key, source), ("cfg-op", "board.api_key_ref op://Vault/Item/field"))
             op.assert_called_once_with("op://Vault/Item/field")
@@ -398,6 +401,34 @@ class FakeResponse:
         return self.raw
 
 
+class HostSettingsTests(unittest.TestCase):
+    def test_no_host_values_means_unavailable_not_a_crash(self):
+        with mock.patch.dict(os.environ, {"HOST_ENV_FILE": "/nonexistent/host.env"}):
+            os.environ.pop("PLANE_BASE_URL", None)
+            self.assertIsNone(board.plane_base_url())
+            self.assertIsNone(board._ticket_url(project(), "x"))
+            with mock.patch.object(board, "resolve_api_key", return_value=("k", "env", [])):
+                block, _lint = board.enrich(project(), records(), window(), "internal")
+        self.assertEqual(block["status"], "unavailable")
+
+    def test_host_env_file_supplies_the_base_url(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "host.env")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write('PLANE_BASE_URL="https://plane.host.test/"\n')
+            with mock.patch.dict(os.environ, {"HOST_ENV_FILE": path}):
+                os.environ.pop("PLANE_BASE_URL", None)
+                self.assertEqual(board.plane_base_url(), "https://plane.host.test")
+                os.environ["PLANE_BASE_URL"] = "https://env.wins.test"
+                self.assertEqual(board.plane_base_url(), "https://env.wins.test")
+
+    def test_no_host_owned_literals_in_module(self):
+        with open(board.__file__, encoding="utf-8") as fh:
+            source = fh.read()
+        for literal in ("plane.delo.sh", "delo.sh", "DeLoSecrets"):
+            self.assertNotIn(literal, source)
+
+
 class PlaneApiTests(unittest.TestCase):
     def test_headers_and_url(self):
         captured = {}
@@ -406,11 +437,11 @@ class PlaneApiTests(unittest.TestCase):
             captured["req"] = req
             return FakeResponse(b'{"results": [{"id": "x", "name": "y"}], "next_page_results": false}')
 
-        api = board.PlaneApi("automaticai", BOARD_ID, "secret-key")
+        api = board.PlaneApi("automaticai", BOARD_ID, "secret-key", "https://plane.example.test")
         with mock.patch.object(board.urllib.request, "urlopen", fake_urlopen):
             self.assertEqual(api.labels(), [{"id": "x", "name": "y"}])
         req = captured["req"]
-        self.assertEqual(req.full_url, f"https://plane.delo.sh/api/v1/workspaces/automaticai/projects/{BOARD_ID}/labels/?per_page=100")
+        self.assertEqual(req.full_url, f"https://plane.example.test/api/v1/workspaces/automaticai/projects/{BOARD_ID}/labels/?per_page=100")
         self.assertEqual(req.get_header("X-api-key"), "secret-key")
         self.assertEqual(req.get_header("User-agent"), board.USER_AGENT)
         self.assertTrue(board.USER_AGENT.startswith("activity-report/"))
@@ -425,7 +456,7 @@ class PlaneApiTests(unittest.TestCase):
             return FakeResponse(next(pages))
 
         with mock.patch.object(board.urllib.request, "urlopen", fake_urlopen):
-            self.assertEqual([x["id"] for x in board.PlaneApi("automaticai", BOARD_ID, "k").states()], ["1", "2"])
+            self.assertEqual([x["id"] for x in board.PlaneApi("automaticai", BOARD_ID, "k", "https://plane.example.test").states()], ["1", "2"])
         self.assertIn("cursor=100%3A1%3A0", urls[1])
 
     def test_http_errors_become_board_unavailable(self):
@@ -434,7 +465,7 @@ class PlaneApiTests(unittest.TestCase):
 
         with mock.patch.object(board.urllib.request, "urlopen", fake_urlopen):
             with self.assertRaises(board.BoardUnavailable) as ctx:
-                board.PlaneApi("automaticai", BOARD_ID, "k").issue("abc")
+                board.PlaneApi("automaticai", BOARD_ID, "k", "https://plane.example.test").issue("abc")
         self.assertEqual(ctx.exception.status, 403)
         self.assertIn("User-Agent", str(ctx.exception))
 

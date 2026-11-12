@@ -1,8 +1,8 @@
 {
   "version": 2,
   "timezone": "America/New_York",
-  "artifact_dir": "/home/delorenj/.local/state/delonet-daily-report/artifacts",
-  "archive_dir": "/home/delorenj/.local/state/delonet-daily-report/archive",
+  "artifact_dir": "~/.local/state/delonet-daily-report/artifacts",
+  "archive_dir": "~/.local/state/delonet-daily-report/archive",
   "max_age_hours": 24,
   "core_sections": [
     {
@@ -33,15 +33,8 @@
     "reasoning": "high"
   },
   "project_roots": [
-    "/home/delorenj/code/33GOD",
-    "/home/delorenj/code/james-brennan",
-    "/home/delorenj/code/intelliforia",
-    "/home/delorenj/code/delonet-company",
-    "/home/delorenj/code/PoopToTheMoon",
-    "/home/delorenj/code/33GOD/pjangler",
-    "/home/delorenj/code/33GOD/bloodbank",
-    "/home/delorenj/code/33GOD/candystore",
-    "/home/delorenj/code/33GOD/holocene"
+    "~/code/your-main-project",
+    "~/code/another-project"
   ],
   "sections": [
     {
@@ -62,10 +55,10 @@
       "title": "Hermes Fleet Health",
       "collector": "fleet_health",
       "required": false,
-      "enabled": true,
+      "enabled": false,
       "max_age_hours": 24,
       "options": {
-        "hermes_home": "/home/delorenj/.hermes",
+        "hermes_home": "~/.hermes",
         "unit_prefix": "hermes-",
         "host_gateway_unit": "hermes-gateway.service"
       }
@@ -75,10 +68,10 @@
       "title": "Nightly PR Maintenance",
       "collector": "pr_maintenance",
       "required": false,
-      "enabled": true,
+      "enabled": false,
       "max_age_hours": 24,
       "options": {
-        "state_dir": "/home/delorenj/.local/state/pr-crusher",
+        "state_dir": "~/.local/state/pr-crusher",
         "max_tick_runs": 5
       }
     },
@@ -98,7 +91,7 @@
   "distribution": {
     "vault": {
       "enabled": false,
-      "path": "/path/to/vault/Journal/Dev-Reports",
+      "path": "~/path/to/vault/Journal/Dev-Reports",
       "git_commit": true
     },
     "notebook": {
@@ -111,7 +104,7 @@
       "to": [
         "you@example.com"
       ],
-      "from": "dev-journal@delo.sh",
+      "from": "dev-journal@example.com",
       "mode": "full",
       "subject_template": "Dev Journal \u2014 {date} [{status}]"
     },
@@ -120,7 +113,7 @@
       "to": [
         "channel-xxxx@example.slack.com"
       ],
-      "from": "dev-journal@delo.sh",
+      "from": "dev-journal@example.com",
       "mode": "digest",
       "subject_template": "Dev Journal \u2014 {date} [{status}]"
     }

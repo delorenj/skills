@@ -126,6 +126,28 @@ how each block renders: `references/portal-grammar.md`.
 - Verify independently of what the emitter or the agent believes. Success is
   the event in the projection and the row with the intended visibility.
 
+## Per-host setup (before any project)
+
+The compose stage calls a model through a gateway, and which gateway is the **host's** business:
+nothing in this skill names one. `run.sh` reads three values from the environment, then
+`~/.config/33god/host.env` (a dotenv file, parsed and never sourced, names and `op://` references
+only), and stops with one `FATAL` line naming whatever is missing:
+
+| key | what it is |
+|---|---|
+| `ACTIVITY_REPORT_GATEWAY_URL` | the Anthropic-compatible base URL the headless `claude` is pointed at |
+| `ACTIVITY_REPORT_GATEWAY_ROUTE` | the model route (a project's `model` setting overrides it) |
+| `ACTIVITY_REPORT_GATEWAY_TOKEN_REF` | `op://…` or `env:NAME` for the consumer token |
+| `SECRET_RESOLVER` | `op`, `interim` (the 0600 store + `env-op-resolve`, for a host that holds no vault token) or `auto` |
+| `PLANE_BASE_URL`, `ACTIVITY_REPORT_PLANE_KEY_REF_<WORKSPACE>` | the board (optional; absent = no board section) |
+| `ACTIVITY_REPORT_PORTAL_CF_ACCOUNT`, `…_D1_DATABASE`, `…_CF_EMAIL_REF`, `…_CF_KEY_REF` | the client portal (optional) |
+
+`activity-report host-config [--json]` prints what this host resolved (never a secret), and
+`activity-report secret read --ref REF` is the one resolver `run.sh` uses (exit 2, naming the ref, when it
+does not resolve). `run.sh` is portable to macOS: no `date -d`, `flock` or `timeout` is assumed (the
+label is computed in Python, the lock is a Python `fcntl.flock` on an inherited fd, and a
+`timeout`/`gtimeout`-less host uses `scripts/ar-timeout.py`), and it runs on bash 3.2.
+
 ## Per-project setup
 
 1. Add an `activity_report` block to the repo's `.project.json`. Every key and

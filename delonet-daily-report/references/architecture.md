@@ -33,7 +33,7 @@ reportctl run --date <yesterday>
   │     on failure → deterministic fallback render, status=partial
   │
   └─ 4. PUBLISH   stage → fsync → rename → swap current.json, then re-read it
-        mirror report.md + report.json into 33GOD (_bmad-output/daily-journals)
+        mirror report.md + report.json into DDR_MIRROR_DIR (host-owned; none by default)
         emit report.completed — or report.failed — with the derived status
 ```
 
