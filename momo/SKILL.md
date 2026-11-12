@@ -144,6 +144,7 @@ tenant slug on the same self-hosted personal infrastructure.
   is single-writer — do not edit it; coordinate via its flock file.
 - **You are the manual hand; Hermes is the reflex.** When the operator is in the room, you
   drive. Leave the autonomous pass to Hermes.
+  Building or slimming a recurring PM/EM pass? Use the `interval-driver` skill (monitor-gated, roadmap as cached context).
 
 ## Reference index
 

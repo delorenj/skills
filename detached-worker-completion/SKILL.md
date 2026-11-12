@@ -130,3 +130,5 @@ is simpler — use that instead.
   2026-10-02 incident walkthroughs (HOLOC-9, HOLOC-10).
 - `templates/watcher-config.json` — the proven watcher configuration shape,
   parameterized.
+
+Related: is the one-shot runner a scheduled Hermes pass? See `interval-driver` for the clock, gate and roadmap pattern that keeps it cheap.

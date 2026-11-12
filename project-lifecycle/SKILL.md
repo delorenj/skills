@@ -258,3 +258,5 @@ Plane writes are normalized through the signed n8n ingress at
 `repo.board.*` facts. Never emit one yourself, before or after CRUD. Explicit PM judgments remain separate decisions. Use
 `bloodbank-integration` and its event-journey reference for transport diagnosis.
 Do not claim automatic hooks exist without checking the installed configuration.
+
+Related: running a recurring board-grooming pass over these tickets? See `interval-driver` (monitor diff as the work list, compact ticket reader, 0 tokens when nothing changed).

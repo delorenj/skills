@@ -34,6 +34,8 @@ install durable recurring system work.
 | n8n workflow | `n8n` | Webhook-triggered, active, responds on finish, zero Schedule Triggers |
 | Faster than once a minute | none | Not schedulable. Use an event-driven worker, or loop inside one invocation, or ask the user for an exact exception record |
 
+Scheduling an LLM agent pass (groomer, PM, director)? Build it as an interval driver (`interval-driver` skill) so an unchanged board costs 0 tokens.
+
 ## Install a new job (no native clock exists)
 
 Run from `~/code/33GOD/candybar`. API default `http://127.0.0.1:8700`; off-box

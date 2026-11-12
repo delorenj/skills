@@ -216,6 +216,8 @@ exception register is `~/code/33GOD/candybar/deploy/scheduling-policy.json`. Rul
 and audit: flume's `docs/scheduling-policy.md` and
 `flume refresh-scheduling-policy --json`.
 
+Wiring a Hermes job to run an LLM pass on that clock? Build it as an interval driver (`interval-driver` skill): monitor-script gate, roadmap brief, lean toolsets. Unchanged board = 0 tokens.
+
 Bloodbank command ingress is the **fleet lane of the host gateway**:
 `hermes-gateway.service` runs the Bloodbank adapter
 (`bloodbank/services/hermes-gateway`, durable consumer `bloodbank-hermes-gateway`),
