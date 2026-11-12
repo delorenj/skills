@@ -94,6 +94,8 @@ The fix is to make the driver hold the context, not the agent's turn:
   still open, never what a pass did, or the next pass repeats it.
 - **Monitor only what this role acts on.** The EM first watched `agent:working`; live workers flip
   it all day and woke the EM for nothing. It now watches `stale-claim` (working and idle 48h).
+- Say in the contract that `write_file` takes `path` plus `content` **as a JSON string**. Shown an
+  inline JSON plan, the TOLT LD passed `content` as an object with no `path`, five times.
 - `px release` lands the ticket in **Todo**, where dispatch picks it up. Parking is release +
   move to Backlog (the applier's `release` takes `"lane": "Backlog"`).
 
@@ -170,4 +172,7 @@ TOLT EM (tolt-pm), same day, each row one fix:
 | Plan file + `--apply`, small diff | 38,474 | 2 tool calls, 1 write |
 | Unchanged board | 0 | 17.9s, the agent never started |
 
-Gruvato's Launch Director and the 33GOD crank beat measured the same ~1M naive baseline.
+Gruvato's Launch Director, 2026-11-12: 1.07M naive, 441k lean (still hitting the cap with no
+roadmap), 108,077 with plan + applier at medium effort (the pass rebuilt its roadmap; 0 board
+writes). TOLT LD's first plan + applier pass: 138,329, five of its eight calls failed `write_file`
+calls (pitfall above). The 33GOD crank beat measured the same ~1M naive baseline.
