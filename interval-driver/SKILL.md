@@ -66,7 +66,12 @@ The fix is to make the driver hold the context, not the agent's turn:
    then without `--dry-run`. Adds `no_mcp` (a per-job toolset list otherwise merges every enabled
    MCP server back in), clears skills, sets the brief, caps iterations. Then
    `hermes -p <profile> cron edit <id> --reasoning-effort medium --no-continuity`: profiles default
-   to xhigh (50k reasoning tokens on one EM pass), and the roadmap replaces continuity.
+   to xhigh (50k reasoning tokens on one EM pass), and the roadmap replaces continuity. Use `low`
+   when the pass only applies decisions (the EM). Reasoning is replayed into every later call of
+   the pass: one 17k-token first-call reasoning made the TOLT EM's 4 calls cost 133k.
+   Clear the job's workdir (`--workdir ""`) and use absolute paths in the contract: with a
+   workdir, Hermes injects that repo's AGENTS.md/CLAUDE.md into every call (TOLT: +4k tokens
+   per call, 11.8k -> 7.8k base).
 6. **Prove**: `candybar run <name> --wait` twice. First: a real pass, read `TOKENS` in
    `candybar history <name>` and the pass note. Second (nothing changed): `success ... tokens 0`.
    Check a skip by hand with `printf '%s' "$(snapshot)" | sha256sum` against
@@ -170,6 +175,7 @@ TOLT EM (tolt-pm), same day, each row one fix:
 | Exact px forms, medium reasoning | 194,627 | still a roadmap read+rewrite and a `gh` detour |
 | Plan file + `--apply` | 122,550 | 2 tool calls, 3 writes |
 | Plan file + `--apply`, small diff | 38,474 | 2 tool calls, 1 write |
+| + no workdir, reasoning `low` | 67,324 | 5 calls at ~13k each (was ~33k at medium with workdir) |
 | Unchanged board | 0 | 17.9s, the agent never started |
 
 Gruvato's Launch Director, 2026-11-12: 1.07M naive, 441k lean (still hitting the cap with no
