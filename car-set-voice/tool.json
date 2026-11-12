@@ -2,7 +2,7 @@
  "type": "function",
  "function": {
   "name": "car_set_voice",
-  "description": "Change the voice the car desk speaks this tile's replies in (car only, persisted). Voices: brule, carlin (George Carlin), damian, david, dumply, marge (Marge Simpson), morgan (Morgan Freeman), morty, peter (Peter Griffin), rick (Rick Sanchez), walken (Christopher Walken), walken2 ('walken two'). 'default' goes back to the default voice.",
+  "description": "Change this tile's deliberate car-only reply voice override (persisted; available choices come from Vox). 'default' removes the override and restores the responding agent's assigned Hermes profile voice. A named Rick request explicitly selects Rick; it is not a reset. Does not change the profile or Telegram voice.",
   "parameters": {
    "type": "object",
    "properties": {

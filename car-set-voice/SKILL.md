@@ -17,7 +17,7 @@ metadata:
 Sets the voice the Holocene car desk (the voice-memo watcher, `services/inbox-watcher` in the holocene repo, HOLOC-23)
 speaks one tile's replies in. One tile is one agent (`holocene-pm`, `flume-pm`, ...). The setting is per agent, survives
 restarts, and applies from the next reply, with no restart. It is car only: the agent's Telegram / Hermes TTS voice
-(`tts.voice` in its profile delta) is not touched.
+(`tts.voice` in its rendered profile configuration) is not touched.
 
 ## Who calls it
 
@@ -35,7 +35,7 @@ restarts, and applies from the next reply, with no restart. It is car only: the 
 scripts/set_voice.py --json --agent holocene-pm --voice walken      # by name
 scripts/set_voice.py --json --agent holocene-pm --voice "walken two" # walken2
 scripts/set_voice.py --json --agent holocene-pm --voice "Morgan Freeman"
-scripts/set_voice.py --json --agent holocene-pm --voice default     # back to MEMO_VOX_VOICE (rick)
+scripts/set_voice.py --json --agent holocene-pm --voice default     # remove override; inherit the assigned profile voice
 scripts/set_voice.py --json --list                                  # the valid voices
 ```
 
@@ -58,7 +58,12 @@ name with its digits spoken (`walken two`) all resolve. Anything else is refused
 
 ## What the watcher does with it
 
-It locks the voice per reply at the first render (chunks and retries never switch), and if vox ever answers "voice not
-found" for it, falls back to the default voice at once (no 30-minute TTS retry) and reports `voice` (used) and
+Without a deliberate car override, it reads the responding agent's rendered Hermes profile (`tts.voice`, then
+`tts.vox.voice`). `default`/`--clear` removes the override and restores that inheritance. A named Rick request is an
+explicit override, not a reset. Browser/non-car memos ignore car overrides but still inherit the responding profile.
+It locks the voice per reply stamp (chunks and retries never switch). Missing assignments or unavailable voices use
+the observable emergency `MEMO_VOX_VOICE`/Rick fallback before rendering (no 30-minute TTS retry); a voice disappearing
+after a chunk renders fails without mixing voices. It reports `voice` (used) and
 `voice_requested` on the `voiced` / `replied` facts. `mise run memo:converse status` and the heartbeat show each tile's
-voice.
+voice and provenance (inherited, car override or emergency fallback). The script delegates to the same watcher CLI
+writer as the builtin tool; it does not maintain assignments or modify Hermes profiles.
