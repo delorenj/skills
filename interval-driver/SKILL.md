@@ -176,3 +176,25 @@ Gruvato's Launch Director, 2026-11-12: 1.07M naive, 441k lean (still hitting the
 roadmap), 108,077 with plan + applier at medium effort (the pass rebuilt its roadmap; 0 board
 writes). TOLT LD's first plan + applier pass: 138,329, five of its eight calls failed `write_file`
 calls (pitfall above). The 33GOD crank beat measured the same ~1M naive baseline.
+
+## Crank beat (33GOD, 2026-11-12)
+
+The crank beat is the same driver over zellij panes instead of a board: one interval pass that
+prods stalled agents forward. Every 5 minutes Candybar fires `crank-beat` → Hermes `33god-pm` job
+`777c511a009c`.
+
+| Part | Crank form |
+|---|---|
+| Gate | `zcrank-gate` prints `tab\|pane\|class` per pane that needs attention (poke, interrogateN, longN, burnN) plus local watchdog keys; unchanged = 0 tokens |
+| Brief | `~/.agents/tools/jev-clairic/hermes/crank-beat-brief.sh`: the beat contract (`crank-beat-prompt.txt`) + `~/.local/state/zcrank/gate-tails.md`, the tail of every listed pane the gate already captured |
+| Lazy load | `zellij action dump-screen` of one pane, `tail -40`, only when its tail in the brief is not enough |
+| Lean | `enabled_toolsets: [terminal, no_mcp]`, no skills; 12-call cap, plan for 6, one call per pane |
+| Writes | `zcrank-send` (tagged `[crank]`, screen-checked) and batched `zcrankctl log` rows: the tools already enforce tag, shell/draft refusal and logging, so no plan file is needed |
+
+- The beat must never rerun `zcrank-scan.sh`: it mutates the stale counters, and re-reading
+  200-line tails per pane is what made naive beats cost 600k-1.1M.
+- Own echo: a send flips a pane from waiting to working, which changes the gate output, so the
+  next beat wakes on a real change. `zcrankctl log` rows are not in the gate output and do not
+  wake it.
+- Measured: naive beats 600k-1.1M (12 beats burned the 10M/24h job cap by mid-morning); first lean
+  beat 167,276 tokens in 3m27s, 6 calls, two verified sends, two operator asks. Unchanged gate: 0.
