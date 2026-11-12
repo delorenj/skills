@@ -17,7 +17,10 @@ Plan file (JSON):
      {"op": "close",   "ref": "TOLT-12", "text": "..."},
      {"op": "create",  "title": "...", "labels": ["path:launch"], "priority": "high",
                        "description": "...", "key": "TOLT-LD:slug"}],
-   "roadmap": "# full roadmap text (optional; omit on a quiet pass)"}
+   "roadmap": "# full roadmap text (optional; omit on a quiet pass)",
+   "note": "optional one-line pass note, kept in the per-pass history"}
+
+The plan is archived as PLAN.applied.json (latest) and passes/<UTC stamp>.json (history).
 
 Usage:
   px-apply.py PLAN --cwd REPO --tag "[em]" --ops comment,move,release,close --max 8 \
@@ -78,6 +81,12 @@ def main() -> int:
         return 1
     archive = plan_path.with_suffix(".applied.json")
     plan_path.replace(archive)  # never applied twice, and next pass's write_file sees a new file
+    # Per-pass history: <plan dir>/passes/<UTC stamp>.json keeps every plan (with its optional
+    # "note") so no role needs a wrapper to copy the fixed .applied.json name.
+    from datetime import datetime, timezone
+    history = plan_path.parent / "passes" / f"{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.json"
+    history.parent.mkdir(exist_ok=True)
+    history.write_text(archive.read_text())
 
     allowed = set(a.ops.split(","))
     writes = plan.get("writes") or []
@@ -136,7 +145,9 @@ def main() -> int:
     if a.roadmap and (plan.get("roadmap") or "").strip():
         Path(a.roadmap).write_text(plan["roadmap"].rstrip() + "\n")
         print(f"roadmap written: {a.roadmap}")
-    print(f"done; plan archived at {archive}")
+    if plan.get("note"):
+        print(f"note: {str(plan['note'])[:300]}")
+    print(f"done; plan archived at {archive} and {history}")
     return 0
 
 

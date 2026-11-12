@@ -53,7 +53,8 @@ The fix is to make the driver hold the context, not the agent's turn:
    JSON, one terminal call to the applier. Give the plan shape in the contract.
    **Applier**: a `--apply` mode in your pass script that execs `scripts/px-apply.py PLAN --cwd
    <repo> --tag "[role]" --ops comment,move,... --max N [--lease LOCK --owner O] --roadmap PATH`.
-   It archives the plan first (never applied twice, and the next `write_file` is a new file), takes
+   It archives the plan first (`PLAN.applied.json` plus `passes/<UTC stamp>.json` history; never
+   applied twice, and the next `write_file` is a new file; an optional `"note"` rides along), takes
    and always releases the lease, adds the tag, refuses other verbs/lanes/bad refs, skips a comment
    already posted, writes the roadmap and prints one line per write (the agent's read-back).
    Example: `~/code/tolt/agents/hermes/pm/em-pass.py --apply`.
