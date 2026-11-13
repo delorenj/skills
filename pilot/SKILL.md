@@ -70,9 +70,10 @@ On a Krebs-managed board the verbs above take the Krebs flags and an -f payload 
 **Documents (no board binding; runs from anywhere)**
 
 ```bash
-px harvest <document.md> [-o FILE]                 # pull the action items a markdown document states or clearly implies into a provider-agnostic artifact, as standalone sentences with their evidence, grouped by project
-px harvest publish <actionitems.json> [--dry-run]  # file a harvest's board groups as tickets on each project's own board; idempotent; held items only with --include-held, the general group only with --general-to
-px harvest schema [--list | --activate FILE]       # open the active harvest schema in $EDITOR (backed up before it is overwritten, never deleted); --list shows every schema, * marks the active one
+px harvest <document.md> [-o FILE]                        # pull the action items a markdown document states or clearly implies into a provider-agnostic artifact, as standalone sentences with their evidence, grouped by project
+px harvest publish <actionitems.json> [--dry-run]         # file a harvest's board groups as tickets on each project's own board; idempotent; held items only with --include-held, the general group only with --general-to
+px harvest review <actionitems.json> [--port N] [--open]  # review a harvest in the browser: accept, reject, move or retitle each item (or a whole project), rescue what it missed, and file feedback on the harvest as one PX ticket (feedback:harvest); Done prints the publish command
+px harvest schema [--list | --activate FILE]              # open the active harvest schema in $EDITOR (backed up before it is overwritten, never deleted); --list shows every schema, * marks the active one
 ```
 
 **Legacy boards only (no Krebs execution block: every board today)**
