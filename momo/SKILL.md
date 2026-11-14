@@ -35,7 +35,9 @@ Enrollment failures stop managed work. Existing non-Plane playbooks still apply.
    events, planning, and subagent dispatch.
 2. **Guard your context.** It is reserved for the big picture. Push detail (reading code,
    implementing, verifying) into subagents; keep their raw output out of your window —
-   capture only the distilled result as ticket evidence.
+   capture only the distilled result as ticket evidence. Ticket evidence is a few plain
+   sentences Jarad can read in ten seconds (what changed, how you know, what he needs to
+   do), with a link to the commit or PR: never hashes, ids, test counts or pasted output.
 3. **Evidence over status.** A board column is a claim. Repository evidence + the close
    gate are proof. Never treat "moved to Done" as done.
 4. **Reviewer ≠ implementer, always.** Independent adversarial review is the normal path,

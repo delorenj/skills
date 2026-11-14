@@ -34,8 +34,18 @@ for board surveys when full descriptions would swamp the result. A rejected
 
 Read existing issues to avoid duplicates. Write the requested outcome, acceptance
 criteria, relevant dependencies, and actual priority. Preserve unrelated fields.
+
+**Write for Jarad, not for a log.** Descriptions and comments are short plain English: what it is
+about, what changed, what he needs to do (or "nothing for you to do"). A grooming note is one or two
+sentences on what you improved, not an inventory of every field you left alone. No hashes, UUIDs,
+commit SHAs, session ids, test counts or pasted output; link the commit or PR instead. Close a
+ticket whose problem is gone rather than leaving it open as a blocker.
 Prefer `px` (see `pilot`): `px task create`, `px move <ref> <state>` on legacy
-boards (refs like `33GOD-68` work), `px claim` / `px close`. A Plane `PATCH` with
+boards (refs like `33GOD-68` work), `px claim` / `px close`. On legacy boards
+`px` has no label-add, label-remove, or description-edit verbs — those go
+through the local plane-mcp stdio route (see `references/plane-mcp-fallback.md`).
+Pass multi-line messages to `px comment` via a file or heredoc, not inline
+quotes: shell metacharacters in backticks or `$()` break the command. A Plane `PATCH` with
 `labels` replaces the whole list and there is no per-label endpoint, so re-read
 and change one label at a time (px 0.2.2 and the Plane MCP `manage_label` do);
 never touch the pipeline-owned `agent:working`. Verify the provider's returned
@@ -45,7 +55,18 @@ byte-for-byte formatting. If verification fails after a write, inspect the
 bound read and activity before retrying. A failed local assertion does not mean
 the provider rejected the mutation.
 
-For grooming, make `lifecycle:triaged` the final ticket mutation, then read back.
+For grooming, make `lifecycle:triaged` the final ticket mutation, then read back. On legacy boards (Plane), `px` has no label-add or description-edit verbs — use the local plane-mcp stdio route (see `references/plane-mcp-fallback.md`) for `lifecycle:triaged` and any label or description change. If that route fails, report the marker as incomplete and do not claim the pass finished.
+
+### MCP response signal details (from recent experience)
+
+- `res.is_error` is the correct Pydantic attribute — `res.isError` raises `AttributeError`.
+  The `CallToolResult` model uses `is_error` (snake_case). Always check `res.is_error` first
+  before accessing `.content` or `.text`.
+- Label list returns a paginated `results` object, not a bare array. Unwrap with
+  `labels_obj.get("results", labels_obj)` before iterating or resolving names to UUIDs.
+- `description_text` can come back empty/None even when a `description_html` update
+  landed. Verify the write by reading `description_html` back (length and structure);
+  never trust `description_text` alone as proof of a successful write.
 If a previously retrieved item starts returning 404 or disappears from the bound
 board list, inspect its bound activity and comments once before any write. A
 `deleted` activity is a stop condition: do not comment, classify, recreate, or
@@ -255,7 +276,9 @@ mutations; do not rewrite the description or replay a mixed mutation batch.
 
 Plane writes are normalized through the signed n8n ingress at
 `https://n8n.delo.sh/webhook/plane`, the only producer of `repo.task.*` /
-`repo.board.*` facts. Never emit one yourself, before or after CRUD. Explicit PM judgments remain separate decisions. Use
+`repo.board.*` facts. Never emit one yourself, before or after CRUD. Explicit PM judgments remain separate decisions. Emit them with `bb-emit`
+(`bloodbank.repo.decision.recorded`, etc.) — that is not a `repo.task.*` /
+`repo.board.*` fact and does not violate the ingress boundary. Use
 `bloodbank-integration` and its event-journey reference for transport diagnosis.
 Do not claim automatic hooks exist without checking the installed configuration.
 
