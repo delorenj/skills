@@ -79,6 +79,10 @@ px harvest schema [--list | --activate FILE]              # open the active harv
 **Legacy boards only (no Krebs execution block: every board today)**
 
 ```bash
+px attention <ref> -m QUESTION                                                                          # park a ticket on a person: lifecycle:needs-input plus your question as a comment; the lane does not change
+px review <ref> -m EVIDENCE                                                                             # hand work back for a verdict: lifecycle:review plus the evidence comment; valid only in In Progress
+px label add <ref> <label> [--dry-run]                                                                  # add one label to a ticket (a delta on a fresh read, never the whole list)
+px label remove <ref> <label> [--dry-run]                                                               # remove one label from a ticket (a delta on a fresh read); a label that is not on it is a no-op
 px identity comment <ref> -m MSG --idempotency-key KEY --employee ID --key-ref op://... --user-id UUID  # verify, then post one marked comment as that employee; reconciles by marker before any retry (Plane boards)
 px todo create "<title>"                                                                                # add to immediate scope (Todo)
 px backlog create "<title>"                                                                             # add to the backlog
@@ -94,11 +98,11 @@ px board delete --force                                                         
 **Krebs-managed boards only (execution.mode managed|shadow; needs --actor)**
 
 ```bash
-px task handoff|complete|attention|resume|takeover|status <ref>  # worker lifecycle through Krebs (claim, release, cancel, comment: the top-level verbs)
-px task update|review <ref>                                      # field updates and review evidence through Krebs
-px task start|heartbeat|finish <ref>                             # supervised run steps (also as px run <op>)
-px task plan|reevaluate|override|reconcile|planner [<ref>]       # PM and operator operations
-px run <op> <ref>                                                # any Krebs operation from inside a supervised run: start, heartbeat, finish, planner (success never means Done)
+px task handoff|complete|resume|takeover|status <ref>  # worker lifecycle through Krebs (claim, release, cancel, comment: the top-level verbs)
+px task update <ref>                                   # field updates through Krebs
+px task start|heartbeat|finish <ref>                   # supervised run steps (also as px run <op>)
+px task plan|override|reconcile|planner [<ref>]        # PM and operator operations
+px run <op> <ref>                                      # any Krebs operation from inside a supervised run: start, heartbeat, finish, planner (success never means Done)
 ```
 <!-- /px:surface -->
 
@@ -129,7 +133,7 @@ Every board is legacy today: Krebs is installed but no board is enrolled.
 
 A command that does not run on the current board fails with a message that
 names the legacy equivalent or says there is none, e.g. `px task handoff` on a
-legacy board points at `px move <ref> <next lane> -m MSG`.
+legacy board points at `px review <ref> -m EVIDENCE`.
 
 ## Trello boards
 
@@ -173,7 +177,10 @@ On a legacy board (every board today):
 px show PX-3                          # read it first: lane, labels, description, checklists, sub-issues, comments
 px claim PX-3                         # In Progress, assigned to the key's user, agent:working
 px comment PX-3 -m "found the cause"  # a note, no move
-px move PX-3 "E2E Testing & QA" -m "ready for QA"   # any other lane, strictly by name
+px review PX-3 -m "evidence: tests, PR, build"     # hand back: +lifecycle:review (In Progress only)
+px attention PX-3 -m "which API key?"              # hold on a person: +lifecycle:needs-input, lane unchanged
+px label add|remove PX-3 lifecycle:blocked         # one lifecycle label delta (never agent:working)
+px move PX-3 Backlog -m "parked"                   # any stock lane, strictly by name
 px close PX-3 -m "what you did"       # Done, agent:working removed
 px release PX-3 -m "blocked on X"     # back to Todo, marker and your assignment removed
 px cancel PX-3 -m "superseded by PX-9"              # Cancelled, marker removed
