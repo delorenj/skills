@@ -55,7 +55,8 @@ The fix is to make the driver hold the context, not the agent's turn:
    <repo> --tag "[role]" --ops comment,move,... --max N [--lease LOCK --owner O] --roadmap PATH`.
    It archives the plan first (`PLAN.applied.json` plus `passes/<UTC stamp>.json` history; never
    applied twice, and the next `write_file` is a new file; an optional `"note"` rides along), takes
-   and always releases the lease, adds the tag, refuses other verbs/lanes/bad refs, skips a comment
+   and always releases the lease (`scripts/board-lease.py`, shipped beside the applier; the applier
+   exits 2 if it is missing), adds the tag, refuses other verbs/lanes/bad refs, skips a comment
    already posted, writes the roadmap and prints one line per write (the agent's read-back).
    Example: `~/code/tolt/agents/hermes/pm/em-pass.py --apply`.
 5. **Lean the job** (does not touch schedule, scheduler pin, monitor or prompt):

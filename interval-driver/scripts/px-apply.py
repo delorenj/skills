@@ -36,7 +36,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-LOCK = Path.home() / "code/33GOD/momo/skill/scripts/momo-wip-lock.py"
+LOCK = Path(__file__).resolve().parent / "board-lease.py"  # the board-driver lease, shipped beside this script
 REF = re.compile(r"^[A-Z][A-Z0-9]+-\d+$")
 LANES = {"Backlog", "Todo", "In Progress"}
 
@@ -72,6 +72,12 @@ def main() -> int:
     ap.add_argument("--owner", default="interval-pass")
     ap.add_argument("--roadmap")
     a = ap.parse_args()
+
+    if a.lease and not LOCK.is_file():
+        # Fail loud before touching the plan: a missing lease script must never degrade into
+        # "lease held, writes dropped" (the plan stays unarchived so the pass can be re-run).
+        print(f"ERROR: lease script missing: {LOCK}. Nothing written.", file=sys.stderr)
+        return 2
 
     plan_path = Path(a.plan)
     try:
